@@ -31,12 +31,21 @@ class User(AbstractUser):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     username = None
     email = models.EmailField("email", unique=True)
-    name = models.CharField(max_length=255, blank=True)
+    middle_name = models.CharField(max_length=150, blank=True)
+    phone = models.CharField(max_length=50, blank=True)
     role = models.CharField(max_length=20, choices=Role.choices, default=Role.OFFICER)
     region = models.CharField(max_length=255, blank=True)
     device_id = models.CharField(max_length=255, blank=True)
+    must_change_password = models.BooleanField(default=False)
 
     USERNAME_FIELD = "email"
+
+    @property
+    def display_name(self):
+        """First, middle, last name combined."""
+        parts = [p for p in (self.first_name, self.middle_name, self.last_name) if p]
+        return " ".join(parts) if parts else ""
+
     REQUIRED_FIELDS = []
 
     objects = UserManager()

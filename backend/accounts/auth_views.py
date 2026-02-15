@@ -11,6 +11,7 @@ class EmailTokenObtainPairSerializer(TokenObtainPairSerializer):
         token = super().get_token(user)
         token["email"] = user.email
         token["role"] = user.role
+        token["must_change_password"] = getattr(user, "must_change_password", False)
         return token
 
 

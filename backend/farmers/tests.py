@@ -22,7 +22,7 @@ class FarmersAPITests(TestCase):
             email="super@test.com", password="super123", role=User.Role.SUPERVISOR, region="North"
         )
         self.farmer_assigned = Farmer.objects.create(
-            name="My Farmer",
+            first_name="My", last_name="Farmer",
             phone="+255111",
             latitude=-6.0,
             longitude=39.0,
@@ -32,14 +32,14 @@ class FarmersAPITests(TestCase):
             email="other@test.com", password="other123", role=User.Role.OFFICER, region="South"
         )
         self.farmer_other = Farmer.objects.create(
-            name="Other Farmer",
+            first_name="Other", last_name="Farmer",
             phone="+255222",
             latitude=-6.01,
             longitude=39.01,
             assigned_officer=self.other_officer,
         )
         self.farmer_unassigned = Farmer.objects.create(
-            name="Unassigned",
+            first_name="Unassigned", last_name="Farmer",
             phone="+255333",
             latitude=-6.02,
             longitude=39.02,
@@ -64,7 +64,7 @@ class FarmersAPITests(TestCase):
         r = self.client.get("/api/farmers/")
         self.assertEqual(r.status_code, status.HTTP_200_OK)
         self.assertEqual(len(r.json()), 1)
-        self.assertEqual(r.json()[0]["name"], "My Farmer")
+        self.assertEqual(r.json()[0]["display_name"], "My Farmer")
 
     def test_supervisor_sees_farmers_in_region(self):
         token = self._login("super@test.com", "super123")
@@ -73,4 +73,4 @@ class FarmersAPITests(TestCase):
         self.assertEqual(r.status_code, status.HTTP_200_OK)
         # North region: officer is North, other_officer is South -> only farmer_assigned
         self.assertEqual(len(r.json()), 1)
-        self.assertEqual(r.json()[0]["name"], "My Farmer")
+        self.assertEqual(r.json()[0]["display_name"], "My Farmer")

@@ -65,7 +65,7 @@ class VisitAPITests(TestCase):
             email="super@test.com", password="super123", role=User.Role.SUPERVISOR, region="North"
         )
         self.farmer = Farmer.objects.create(
-            name="Test Farmer",
+            first_name="Test", last_name="Farmer",
             phone="+255111",
             latitude=-6.0,
             longitude=39.0,
@@ -75,7 +75,7 @@ class VisitAPITests(TestCase):
             email="other@test.com", password="other123", role=User.Role.OFFICER, region="South"
         )
         self.farmer_other = Farmer.objects.create(
-            name="Other Farmer",
+            first_name="Other", last_name="Farmer",
             phone="+255222",
             latitude=-6.01,
             longitude=39.01,

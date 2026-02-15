@@ -42,6 +42,11 @@ class VisitListCreateView(generics.ListCreateAPIView):
         return qs.filter(officer=user)
 
     def list(self, request, *args, **kwargs):
+        if request.user.role == "officer":
+            return Response(
+                {"detail": "Only admins and supervisors can list visits. Officers see their scheduled visits via Schedules."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
         queryset = self.filter_queryset(self.get_queryset())
         officer_id = request.query_params.get("officer")
         if officer_id:
@@ -94,5 +99,20 @@ class VisitListCreateView(generics.ListCreateAPIView):
             distance_from_farmer=distance,
             verification_status=Visit.VerificationStatus.VERIFIED,
         )
+        from django.contrib.auth import get_user_model
+        from notifications.services import notify_user
+        User = get_user_model()
+        supervisors_same_region = User.objects.filter(
+            role=User.Role.SUPERVISOR,
+            region=user.region,
+        ).exclude(pk=user.pk)
+        admins = User.objects.filter(role=User.Role.ADMIN)
+        for recipient in list(supervisors_same_region) + list(admins):
+            notify_user(
+                recipient,
+                title="New visit recorded",
+                message=f"{user.email} recorded a visit to {farmer.name}.",
+                channels=["in_app", "email", "sms"],
+            )
         out_serializer = VisitSerializer(visit)
         return Response(out_serializer.data, status=status.HTTP_201_CREATED)

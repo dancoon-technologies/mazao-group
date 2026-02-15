@@ -34,6 +34,8 @@ INSTALLED_APPS = [
     "accounts",
     "farmers",
     "visits",
+    "schedules",
+    "notifications",
 ]
 
 MIDDLEWARE = [
@@ -129,3 +131,27 @@ CORS_ALLOWED_ORIGINS = config("CORS_ALLOWED_ORIGINS", default="http://localhost:
 # Visit photo: max 5MB
 VISIT_PHOTO_MAX_SIZE_MB = 5
 VISIT_PHOTO_ALLOWED_EXTENSIONS = ("image/jpeg", "image/png", "image/jpg")
+
+# Email (staff credentials): console when DEBUG, else SMTP (override with EMAIL_BACKEND if needed)
+if DEBUG:
+    EMAIL_BACKEND = config(
+        "EMAIL_BACKEND",
+        default="django.core.mail.backends.console.EmailBackend",
+    )
+else:
+    EMAIL_BACKEND = config(
+        "EMAIL_BACKEND",
+        default="django.core.mail.backends.smtp.EmailBackend",
+    )
+DEFAULT_FROM_EMAIL = config("DEFAULT_FROM_EMAIL", default="noreply@mazao.local")
+FRONTEND_LOGIN_URL = config("FRONTEND_LOGIN_URL", default="http://localhost:3000/login")
+
+# Notifications: SMS backend (console = log only; twilio = notifications.sms_backends.TwilioSMSBackend)
+NOTIFICATION_SMS_BACKEND = config(
+    "NOTIFICATION_SMS_BACKEND",
+    default="notifications.sms_backends.ConsoleSMSBackend",
+)
+# Twilio (optional): TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_FROM_NUMBER
+TWILIO_ACCOUNT_SID = config("TWILIO_ACCOUNT_SID", default="")
+TWILIO_AUTH_TOKEN = config("TWILIO_AUTH_TOKEN", default="")
+TWILIO_FROM_NUMBER = config("TWILIO_FROM_NUMBER", default="")
