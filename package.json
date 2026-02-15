@@ -1,0 +1,8 @@
+{
+	"dependencies": {
+		"@mantine/core": "^8.3.14",
+		"@mantine/hooks": "^8.3.14",
+		"@mantine/charts": "^8.3.14",
+		"recharts": "^3.7.0"
+	}
+}
