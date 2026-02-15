@@ -1,50 +1,40 @@
-# Welcome to your Expo app 👋
+# Mazao Mobile (Extension Officers)
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+React Native (Expo) app for extension officers to record farmer visits with photo proof and location.
 
-## Get started
+## Features
 
-1. Install dependencies
+- **Login** with email and password (same backend as web).
+- **Second authentication**: Unlock the app with fingerprint or Face ID. Required when opening the app or returning from background.
+- **Home**: View today’s schedules and assigned farmers.
+- **Record visit**: Select farmer → take photo with camera → submit with GPS location as proof. Backend verifies distance to farmer (< 100 m).
 
+## Setup
+
+1. **Backend**: Run the Django API (see repo root). Ensure it is reachable from your device/emulator.
+
+2. **API URL**: Set the backend URL for the app.
+   - Create `.env` in `mobile/` with:
+     ```env
+     EXPO_PUBLIC_API_URL=http://YOUR_IP:8000/api
+     ```
+   - On device: use your machine’s LAN IP (e.g. `http://192.168.1.10:8000/api`), not `localhost`.
+   - For Android emulator, use `http://10.0.2.2:8000/api`.
+
+3. **CORS**: If the app hits the API from a different origin, ensure Django `CORS_ALLOWED_ORIGINS` includes your Expo dev URL or use a tunnel.
+
+4. **Install and run**:
    ```bash
-   npm install
+   cd mobile
+   pnpm install
+   pnpm start
    ```
+   Then scan QR with Expo Go (Android/iOS) or run `pnpm android` / `pnpm ios`.
 
-2. Start the app
+## Permissions
 
-   ```bash
-   npx expo start
-   ```
+- **Camera**: To take proof-of-visit photos.
+- **Location**: To send GPS with the visit (required by backend).
+- **Biometrics**: To unlock the app (fingerprint / Face ID).
 
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
-
-```bash
-npm run reset-project
-```
-
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
-
-## Learn more
-
-To learn more about developing your project with Expo, look at the following resources:
-
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
-
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+These are requested at runtime when needed.

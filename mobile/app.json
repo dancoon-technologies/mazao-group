@@ -8,9 +8,7 @@
     "scheme": "mobile",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
-    "ios": {
-      "supportsTablet": true
-    },
+    "ios": { "supportsTablet": true },
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
@@ -21,28 +19,14 @@
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false
     },
-    "web": {
-      "output": "static",
-      "favicon": "./assets/images/favicon.png"
-    },
+    "web": { "output": "static", "favicon": "./assets/images/favicon.png" },
     "plugins": [
       "expo-router",
-      [
-        "expo-splash-screen",
-        {
-          "image": "./assets/images/splash-icon.png",
-          "imageWidth": 200,
-          "resizeMode": "contain",
-          "backgroundColor": "#ffffff",
-          "dark": {
-            "backgroundColor": "#000000"
-          }
-        }
-      ]
+      ["expo-splash-screen", { "image": "./assets/images/splash-icon.png", "imageWidth": 200, "resizeMode": "contain", "backgroundColor": "#ffffff", "dark": { "backgroundColor": "#000000" } }],
+      ["expo-camera", { "cameraPermission": "Allow Mazao to take photos as proof of farmer visits." }],
+      ["expo-location", { "locationWhenInUsePermission": "Allow Mazao to use your location to verify visit location." }],
+      ["expo-local-authentication", { "faceIDPermission": "Use Face ID or fingerprint to unlock the app." }]
     ],
-    "experiments": {
-      "typedRoutes": true,
-      "reactCompiler": true
-    }
+    "experiments": { "typedRoutes": true, "reactCompiler": true }
   }
 }
