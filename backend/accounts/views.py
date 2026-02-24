@@ -1,10 +1,30 @@
 from rest_framework import generics, status
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny
+from rest_framework.views import APIView
 
 from .models import User
-from .serializers import UserSerializer, StaffCreateSerializer
+from .serializers import UserSerializer, StaffCreateSerializer, StaffPatchSerializer
 from .services import resend_staff_credentials
+
+
+class OptionsListView(APIView):
+    """GET: Option sets for forms (departments, staff_roles). Single source of truth from backend."""
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        departments = [
+            {"value": choice[0], "label": choice[1]}
+            for choice in User.Department.choices
+        ]
+        staff_roles = [
+            {"value": User.Role.SUPERVISOR, "label": dict(User.Role.choices)[User.Role.SUPERVISOR]},
+            {"value": User.Role.OFFICER, "label": dict(User.Role.choices)[User.Role.OFFICER]},
+        ]
+        return Response({
+            "departments": departments,
+            "staff_roles": staff_roles,
+        })
 
 
 class OfficersListView(generics.ListAPIView):
@@ -16,9 +36,16 @@ class OfficersListView(generics.ListAPIView):
         user = self.request.user
         if user.role not in ("admin", "supervisor"):
             return User.objects.none()
-        qs = User.objects.filter(role=User.Role.OFFICER).order_by("email")
+        qs = (
+            User.objects.filter(role=User.Role.OFFICER)
+            .select_related("region_id", "county_id", "sub_county_id")
+            .order_by("email")
+        )
         if user.role == "supervisor":
-            qs = qs.filter(region=user.region)
+            if getattr(user, "department", None):
+                qs = qs.filter(department=user.department)
+            elif getattr(user, "region_id_id", None):
+                qs = qs.filter(region_id_id=user.region_id_id)
         return qs
 
 
@@ -38,7 +65,7 @@ class StaffListCreateView(generics.ListCreateAPIView):
             return User.objects.none()
         return User.objects.filter(
             role__in=(User.Role.SUPERVISOR, User.Role.OFFICER)
-        ).order_by("role", "email")
+        ).select_related("region_id", "county_id", "sub_county_id").order_by("role", "email")
 
     def list(self, request, *args, **kwargs):
         if request.user.role != "admin":
@@ -59,6 +86,36 @@ class StaffListCreateView(generics.ListCreateAPIView):
         user = serializer.save()
         out = UserSerializer(user)
         return Response(out.data, status=status.HTTP_201_CREATED)
+
+
+class StaffUpdateView(generics.GenericAPIView):
+    """PATCH staff by id. Admin only. Allow is_active, department, location IDs (deactivate / assign-reassign)."""
+    permission_classes = [IsAuthenticated]
+    serializer_class = StaffPatchSerializer
+
+    def patch(self, request, pk):
+        if request.user.role != "admin":
+            return Response(
+                {"detail": "Only admins can update staff."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        try:
+            user = User.objects.select_related("region_id", "county_id", "sub_county_id").get(pk=pk)
+        except User.DoesNotExist:
+            return Response(
+                {"detail": "Staff member not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        if user.role not in (User.Role.SUPERVISOR, User.Role.OFFICER):
+            return Response(
+                {"detail": "User is not staff (supervisor or officer)."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        serializer = StaffPatchSerializer(user, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        user.refresh_from_db()
+        return Response(UserSerializer(user).data)
 
 
 class ChangePasswordView(generics.GenericAPIView):

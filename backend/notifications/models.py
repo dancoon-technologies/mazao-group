@@ -16,11 +16,15 @@ class Notification(models.Model):
     message = models.TextField()
     created_at = models.DateTimeField(auto_now_add=True)
     read_at = models.DateTimeField(null=True, blank=True)
+    archived_at = models.DateTimeField(null=True, blank=True)
     email_sent_at = models.DateTimeField(null=True, blank=True)
     sms_sent_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["user", "archived_at"], name="notif_user_archived"),
+        ]
 
     def __str__(self):
         return f"{self.title} for {self.user_id}"

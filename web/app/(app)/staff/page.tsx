@@ -5,8 +5,9 @@ import {
   Box,
   Button,
   Group,
-  NativeSelect,
+  Modal,
   Paper,
+  Select,
   Stack,
   Text,
   TextInput,
@@ -20,41 +21,60 @@ import { useAuth } from "@/contexts/AuthContext";
 import { DataTable, type DataTableColumn, PageLoading, PageError, PageHeader } from "@/components/ui";
 import { PAGE_BOX_MIN_WIDTH, ROLES } from "@/lib/constants";
 
-function roleLabel(role: string): string {
-  return role === ROLES.SUPERVISOR ? "Supervisor" : "Extension Officer";
+function buildStaffColumns(
+  departmentLabelMap: Record<string, string>,
+  roleLabelMap: Record<string, string>
+): DataTableColumn<StaffUser>[] {
+  return [
+    {
+      key: "email",
+      label: "Email",
+      render: (u) => (
+        <Text size="sm" fw={500}>
+          {u.email}
+        </Text>
+      ),
+    },
+    {
+      key: "display_name",
+      label: "Name",
+      render: (u) => <Text size="sm" c="dimmed">{u.display_name || "—"}</Text>,
+    },
+    {
+      key: "phone",
+      label: "Phone",
+      render: (u) => <Text size="sm" c="dimmed">{u.phone || "—"}</Text>,
+    },
+    {
+      key: "role",
+      label: "Role",
+      render: (u) => <Text size="sm">{roleLabelMap[u.role] ?? u.role}</Text>,
+    },
+    {
+      key: "department",
+      label: "Department",
+      render: (u) => (
+        <Text size="sm" c="dimmed">
+          {u.department ? (departmentLabelMap[u.department] ?? u.department) : "—"}
+        </Text>
+      ),
+    },
+    {
+      key: "region",
+      label: "Region",
+      render: (u) => <Text size="sm" c="dimmed">{u.region || "—"}</Text>,
+    },
+    {
+      key: "is_active",
+      label: "Status",
+      render: (u) => (
+        <Text size="sm" c={u.is_active !== false ? "green" : "red"}>
+          {u.is_active !== false ? "Active" : "Inactive"}
+        </Text>
+      ),
+    },
+  ];
 }
-
-const STAFF_COLUMNS: DataTableColumn<StaffUser>[] = [
-  {
-    key: "email",
-    label: "Email",
-    render: (u) => (
-      <Text size="sm" fw={500}>
-        {u.email}
-      </Text>
-    ),
-  },
-  {
-    key: "display_name",
-    label: "Name",
-    render: (u) => <Text size="sm" c="dimmed">{u.display_name || "—"}</Text>,
-  },
-  {
-    key: "phone",
-    label: "Phone",
-    render: (u) => <Text size="sm" c="dimmed">{u.phone || "—"}</Text>,
-  },
-  {
-    key: "role",
-    label: "Role",
-    render: (u) => <Text size="sm">{roleLabel(u.role)}</Text>,
-  },
-  {
-    key: "region",
-    label: "Region",
-    render: (u) => <Text size="sm" c="dimmed">{u.region || "—"}</Text>,
-  },
-];
 
 const INITIAL_STAFF_FORM = {
   email: "",
@@ -63,7 +83,10 @@ const INITIAL_STAFF_FORM = {
   middle_name: "",
   last_name: "",
   phone: "",
-  region: "",
+  department: "",
+  region_id: "",
+  county_id: "",
+  sub_county_id: "",
 };
 
 export default function StaffPage() {
@@ -74,13 +97,76 @@ export default function StaffPage() {
     () => (isAdmin ? api.getStaff() : Promise.resolve([])),
     [isAdmin]
   );
+  const { data: locationsData } = useAsyncData(
+    () => (isAdmin ? api.getLocations() : Promise.resolve({ regions: [], counties: [], sub_counties: [] })),
+    [isAdmin]
+  );
+  const { data: optionsData } = useAsyncData(
+    () => (isAdmin ? api.getOptions() : Promise.resolve({ departments: [], staff_roles: [] })),
+    [isAdmin]
+  );
+  const locations = locationsData ?? { regions: [], counties: [], sub_counties: [] };
+  const options = optionsData ?? { departments: [], staff_roles: [] };
+
+  const departmentLabelMap = useMemo(
+    () => Object.fromEntries(options.departments.map((d) => [d.value, d.label])),
+    [options.departments]
+  );
+  const roleLabelMap = useMemo(
+    () => Object.fromEntries(options.staff_roles.map((r) => [r.value, r.label])),
+    [options.staff_roles]
+  );
+  const departmentOptions = useMemo(
+    () => [{ value: "", label: "Select department" }, ...options.departments],
+    [options.departments]
+  );
+  const staffRoleOptions = useMemo(() => options.staff_roles, [options.staff_roles]);
+
   const [showForm, setShowForm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState("");
   const [resendMessage, setResendMessage] = useState("");
   const [resendError, setResendError] = useState("");
   const [resendingId, setResendingId] = useState<string | null>(null);
+  const [deactivatingId, setDeactivatingId] = useState<string | null>(null);
+  const [editingUser, setEditingUser] = useState<StaffUser | null>(null);
+  const [assignDepartment, setAssignDepartment] = useState("");
+  const [assignRegionId, setAssignRegionId] = useState("");
+  const [assignCountyId, setAssignCountyId] = useState("");
+  const [assignSubCountyId, setAssignSubCountyId] = useState("");
+  const [assignError, setAssignError] = useState("");
+  const [assigningId, setAssigningId] = useState<string | null>(null);
   const [form, updateField, resetForm] = useFormFields(INITIAL_STAFF_FORM);
+
+  const regionOptions = useMemo(
+    () => locations.regions.map((r) => ({ value: String(r.id), label: r.name })),
+    [locations.regions]
+  );
+  const countyOptions = useMemo(() => {
+    if (!form.region_id) return [];
+    return locations.counties
+      .filter((c) => c.region_id === Number(form.region_id))
+      .map((c) => ({ value: String(c.id), label: c.name }));
+  }, [locations.counties, form.region_id]);
+  const subCountyOptions = useMemo(() => {
+    if (!form.county_id) return [];
+    return locations.sub_counties
+      .filter((s) => s.county_id === Number(form.county_id))
+      .map((s) => ({ value: String(s.id), label: s.name }));
+  }, [locations.sub_counties, form.county_id]);
+
+  const assignCountyOptions = useMemo(() => {
+    if (!assignRegionId) return [];
+    return locations.counties
+      .filter((c) => c.region_id === Number(assignRegionId))
+      .map((c) => ({ value: String(c.id), label: c.name }));
+  }, [locations.counties, assignRegionId]);
+  const assignSubCountyOptions = useMemo(() => {
+    if (!assignCountyId) return [];
+    return locations.sub_counties
+      .filter((s) => s.county_id === Number(assignCountyId))
+      .map((s) => ({ value: String(s.id), label: s.name }));
+  }, [locations.sub_counties, assignCountyId]);
 
   const handleResend = useCallback(
     async (id: string) => {
@@ -100,26 +186,105 @@ export default function StaffPage() {
     [refetch]
   );
 
+  const handleDeactivate = useCallback(
+    async (u: StaffUser) => {
+      setResendError("");
+      setResendMessage("");
+      setDeactivatingId(u.id);
+      try {
+        await api.updateStaff(u.id, { is_active: !u.is_active });
+        setResendMessage(u.is_active ? "Staff deactivated. They can no longer sign in." : "Staff reactivated.");
+        refetch();
+      } catch (err) {
+        setResendError(err instanceof Error ? err.message : "Failed to update staff");
+      } finally {
+        setDeactivatingId(null);
+      }
+    },
+    [refetch]
+  );
+
+  const openAssignModal = useCallback((u: StaffUser) => {
+    setEditingUser(u);
+    setAssignDepartment(u.department ?? "");
+    setAssignRegionId(u.region_id != null ? String(u.region_id) : "");
+    setAssignCountyId(u.county_id != null ? String(u.county_id) : "");
+    setAssignSubCountyId(u.sub_county_id != null ? String(u.sub_county_id) : "");
+    setAssignError("");
+  }, []);
+
+  const handleAssignSubmit = useCallback(
+    async (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!editingUser) return;
+      setAssignError("");
+      setAssigningId(editingUser.id);
+      try {
+        await api.updateStaff(editingUser.id, {
+          department: assignDepartment.trim() || undefined,
+          region_id: assignRegionId ? Number(assignRegionId) : null,
+          county_id: assignCountyId ? Number(assignCountyId) : null,
+          sub_county_id: assignSubCountyId ? Number(assignSubCountyId) : null,
+        });
+        setEditingUser(null);
+        await refetch();
+        setResendMessage("Department and location updated.");
+      } catch (err) {
+        setAssignError(err instanceof Error ? err.message : "Failed to update assignment");
+      } finally {
+        setAssigningId(null);
+      }
+    },
+    [editingUser, assignDepartment, assignRegionId, assignCountyId, assignSubCountyId, refetch]
+  );
+
   const staffColumns = useMemo<DataTableColumn<StaffUser>[]>(
     () => [
-      ...STAFF_COLUMNS,
+      ...buildStaffColumns(departmentLabelMap, roleLabelMap),
       {
-        key: "resend",
+        key: "actions",
         label: "",
         render: (u) => (
-          <Button
-            size="xs"
-            variant="light"
-            color="green"
-            loading={resendingId === u.id}
-            onClick={() => handleResend(u.id)}
-          >
-            Resend email
-          </Button>
+          <Group gap="xs">
+            <Button
+              size="xs"
+              variant="light"
+              color="blue"
+              onClick={() => openAssignModal(u)}
+            >
+              Assign
+            </Button>
+            <Button
+              size="xs"
+              variant="light"
+              color="green"
+              loading={resendingId === u.id}
+              onClick={() => handleResend(u.id)}
+            >
+              Resend credentials
+            </Button>
+            <Button
+              size="xs"
+              variant="light"
+              color={u.is_active !== false ? "red" : "green"}
+              loading={deactivatingId === u.id}
+              onClick={() => handleDeactivate(u)}
+            >
+              {u.is_active !== false ? "Deactivate" : "Reactivate"}
+            </Button>
+          </Group>
         ),
       },
     ],
-    [handleResend, resendingId]
+    [
+      departmentLabelMap,
+      roleLabelMap,
+      openAssignModal,
+      handleResend,
+      handleDeactivate,
+      resendingId,
+      deactivatingId,
+    ]
   );
 
   const handleSubmit = useCallback(
@@ -131,7 +296,7 @@ export default function StaffPage() {
       const middle = (form.middle_name ?? "").trim();
       const last = (form.last_name ?? "").trim();
       const phone = (form.phone ?? "").trim();
-      const region = (form.region ?? "").trim();
+      const department = (form.department ?? "").trim();
       if (!email || !form.role) {
         setFormError("Email and role are required.");
         return;
@@ -145,7 +310,10 @@ export default function StaffPage() {
           middle_name: middle || undefined,
           last_name: last || undefined,
           phone: phone || undefined,
-          region: region || undefined,
+          department: department || undefined,
+          region_id: form.region_id ? Number(form.region_id) : null,
+          county_id: form.county_id ? Number(form.county_id) : null,
+          sub_county_id: form.sub_county_id ? Number(form.sub_county_id) : null,
         });
         resetForm();
         setShowForm(false);
@@ -210,18 +378,13 @@ export default function StaffPage() {
                 value={form.email}
                 onChange={(e) => updateField("email", e.target.value)}
               />
-              <NativeSelect
+              <Select
                 label="Role"
                 required
-                data={[
-                  { value: "", label: "Select role" },
-                  { value: ROLES.SUPERVISOR, label: "Supervisor" },
-                  { value: ROLES.OFFICER, label: "Extension Officer" },
-                ]}
-                value={form.role}
-                onChange={(e) =>
-                  updateField("role", e.target.value as typeof ROLES.SUPERVISOR | typeof ROLES.OFFICER)
-                }
+                placeholder="Select role"
+                data={staffRoleOptions}
+                value={form.role || null}
+                onChange={(v) => updateField("role", v ?? "")}
               />
               <TextInput
                 label="First name"
@@ -247,11 +410,46 @@ export default function StaffPage() {
                 value={form.phone}
                 onChange={(e) => updateField("phone", e.target.value)}
               />
-              <TextInput
+              <Select
+                label="Department"
+                placeholder="Select department"
+                data={departmentOptions}
+                value={form.department || null}
+                onChange={(v) => updateField("department", v ?? "")}
+              />
+              <Select
                 label="Region"
-                placeholder="e.g. North, South"
-                value={form.region}
-                onChange={(e) => updateField("region", e.target.value)}
+                placeholder="Search region…"
+                searchable
+                clearable
+                data={regionOptions}
+                value={form.region_id || null}
+                onChange={(v) => {
+                  updateField("region_id", v ?? "");
+                  updateField("county_id", "");
+                  updateField("sub_county_id", "");
+                }}
+              />
+              <Select
+                label="County"
+                placeholder="Search county…"
+                searchable
+                clearable
+                data={countyOptions}
+                value={form.county_id || null}
+                onChange={(v) => {
+                  updateField("county_id", v ?? "");
+                  updateField("sub_county_id", "");
+                }}
+              />
+              <Select
+                label="Sub-county"
+                placeholder="Search sub-county…"
+                searchable
+                clearable
+                data={subCountyOptions}
+                value={form.sub_county_id || null}
+                onChange={(v) => updateField("sub_county_id", v ?? "")}
               />
               <Group>
                 <Button type="submit" color="green" loading={submitting}>
@@ -280,6 +478,76 @@ export default function StaffPage() {
           {resendError}
         </Alert>
       )}
+
+      <Modal
+        opened={editingUser !== null}
+        onClose={() => setEditingUser(null)}
+        title="Assign department & location"
+      >
+        {editingUser && (
+          <form onSubmit={handleAssignSubmit}>
+            <Stack gap="md">
+              <Text size="sm" c="dimmed">
+                {editingUser.display_name || editingUser.email}
+              </Text>
+              {assignError && (
+                <Alert color="red" variant="light">
+                  {assignError}
+                </Alert>
+              )}
+              <Select
+                label="Department"
+                placeholder="Select department"
+                data={departmentOptions}
+                value={assignDepartment || null}
+                onChange={(v) => setAssignDepartment(v ?? "")}
+              />
+              <Select
+                label="Region"
+                placeholder="Search region…"
+                searchable
+                clearable
+                data={regionOptions}
+                value={assignRegionId || null}
+                onChange={(v) => {
+                  setAssignRegionId(v ?? "");
+                  setAssignCountyId("");
+                  setAssignSubCountyId("");
+                }}
+              />
+              <Select
+                label="County"
+                placeholder="Search county…"
+                searchable
+                clearable
+                data={assignCountyOptions}
+                value={assignCountyId || null}
+                onChange={(v) => {
+                  setAssignCountyId(v ?? "");
+                  setAssignSubCountyId("");
+                }}
+              />
+              <Select
+                label="Sub-county"
+                placeholder="Search sub-county…"
+                searchable
+                clearable
+                data={assignSubCountyOptions}
+                value={assignSubCountyId || null}
+                onChange={(v) => setAssignSubCountyId(v ?? "")}
+              />
+              <Group>
+                <Button type="submit" color="green" loading={assigningId === editingUser.id}>
+                  Save
+                </Button>
+                <Button type="button" variant="default" onClick={() => setEditingUser(null)}>
+                  Cancel
+                </Button>
+              </Group>
+            </Stack>
+          </form>
+        )}
+      </Modal>
 
       <DataTable
         data={staff}

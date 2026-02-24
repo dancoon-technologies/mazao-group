@@ -1,27 +1,54 @@
 "use client";
 
+import { DataTable, type DataTableColumn, PageError, PageHeader, PageLoading } from "@/components/ui";
+import { useAuth } from "@/contexts/AuthContext";
+import { useFormFields } from "@/hooks/useFormFields";
+import { api } from "@/lib/api";
+import { PAGE_BOX_MIN_WIDTH, ROLES_CAN_CREATE_SCHEDULES } from "@/lib/constants";
+import { formatDate, pluralize } from "@/lib/format";
+import type { Farmer, Schedule, StaffUser } from "@/lib/types";
 import {
   Alert,
+  Badge,
   Box,
   Button,
   Group,
-  NativeSelect,
   Paper,
+  Select,
   Stack,
   Text,
   Textarea,
-  TextInput,
 } from "@mantine/core";
-import { useCallback, useEffect, useState } from "react";
-import { useFormFields } from "@/hooks/useFormFields";
-import { api } from "@/lib/api";
-import type { Schedule, Farmer, StaffUser } from "@/lib/types";
-import { useAuth } from "@/contexts/AuthContext";
-import { formatDate, pluralize } from "@/lib/format";
-import { DataTable, type DataTableColumn, PageLoading, PageError, PageHeader } from "@/components/ui";
-import { PAGE_BOX_MIN_WIDTH, ROLES_CAN_CREATE_SCHEDULES } from "@/lib/constants";
+import { DateInput } from "@mantine/dates";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
-const scheduleColumns: DataTableColumn<Schedule>[] = [
+function scheduleStatusColor(status: string) {
+  switch (status) {
+    case "proposed":
+      return "yellow";
+    case "accepted":
+      return "green";
+    case "rejected":
+      return "red";
+    default:
+      return "gray";
+  }
+}
+
+function scheduleStatusLabel(status: string): string {
+  switch (status) {
+    case "proposed":
+      return "Pending";
+    case "accepted":
+      return "Accepted";
+    case "rejected":
+      return "Rejected";
+    default:
+      return status;
+  }
+}
+
+const scheduleColumnsBase: DataTableColumn<Schedule>[] = [
   {
     key: "scheduled_date",
     label: "Date",
@@ -46,6 +73,15 @@ const scheduleColumns: DataTableColumn<Schedule>[] = [
     ),
   },
   {
+    key: "status",
+    label: "Status",
+    render: (s) => (
+      <Badge color={scheduleStatusColor(s.status)} variant="light" size="sm">
+        {scheduleStatusLabel(s.status)}
+      </Badge>
+    ),
+  },
+  {
     key: "notes",
     label: "Notes",
     visibleFrom: "md",
@@ -67,6 +103,9 @@ const INITIAL_SCHEDULE_FORM = {
 export default function SchedulesPage() {
   const { role } = useAuth();
   const canCreate = role !== null && ROLES_CAN_CREATE_SCHEDULES.includes(role);
+  const canApprove = role === "admin" || role === "supervisor";
+  const isOfficer = role === "officer";
+  const isAdminOrSupervisor = role === "admin" || role === "supervisor";
 
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [officers, setOfficers] = useState<StaffUser[]>([]);
@@ -76,18 +115,73 @@ export default function SchedulesPage() {
   const [showForm, setShowForm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState("");
+  const [approvingId, setApprovingId] = useState<string | null>(null);
   const [form, updateField, resetForm] = useFormFields(INITIAL_SCHEDULE_FORM);
+
+  const handleApprove = useCallback(
+    async (scheduleId: string, action: "accept" | "reject") => {
+      setApprovingId(scheduleId);
+      try {
+        const updated = await api.approveSchedule(scheduleId, action);
+        setSchedules((prev) =>
+          prev.map((s) => (s.id === updated.id ? updated : s))
+        );
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to update schedule");
+      } finally {
+        setApprovingId(null);
+      }
+    },
+    []
+  );
+
+  const scheduleColumns = useMemo<DataTableColumn<Schedule>[]>(
+    () =>
+      canApprove
+        ? [
+          ...scheduleColumnsBase,
+          {
+            key: "approve",
+            label: "",
+            render: (s) =>
+              s.status === "proposed" ? (
+                <Group gap="xs">
+                  <Button
+                    size="xs"
+                    variant="light"
+                    color="green"
+                    loading={approvingId === s.id}
+                    onClick={() => handleApprove(s.id, "accept")}
+                  >
+                    Accept
+                  </Button>
+                  <Button
+                    size="xs"
+                    variant="light"
+                    color="red"
+                    loading={approvingId === s.id}
+                    onClick={() => handleApprove(s.id, "reject")}
+                  >
+                    Reject
+                  </Button>
+                </Group>
+              ) : null,
+          },
+        ]
+        : scheduleColumnsBase,
+    [canApprove, handleApprove, approvingId]
+  );
 
   const loadData = useCallback(async () => {
     const [scheds, offs, fms] = await Promise.all([
       api.getSchedules(),
-      canCreate ? api.getOfficers() : Promise.resolve([]),
+      isAdminOrSupervisor ? api.getOfficers() : Promise.resolve([]),
       canCreate ? api.getFarmers() : Promise.resolve([]),
     ]);
     setSchedules(scheds);
     setOfficers(offs);
     setFarmers(fms);
-  }, [canCreate]);
+  }, [canCreate, isAdminOrSupervisor]);
 
   useEffect(() => {
     let cancelled = false;
@@ -110,18 +204,33 @@ export default function SchedulesPage() {
     async (e: React.FormEvent) => {
       e.preventDefault();
       setFormError("");
-      if (!form.officer || !form.scheduled_date) {
-        setFormError("Officer and date are required.");
-        return;
+      if (isOfficer) {
+        if (!form.scheduled_date) {
+          setFormError("Date is required.");
+          return;
+        }
+      } else {
+        if (!form.officer || !form.scheduled_date) {
+          setFormError("Officer and date are required.");
+          return;
+        }
       }
       setSubmitting(true);
       try {
-        await api.createSchedule({
-          officer: form.officer,
-          farmer: form.farmer || null,
-          scheduled_date: form.scheduled_date,
-          notes: form.notes.trim() || undefined,
-        });
+        if (isOfficer) {
+          await api.createSchedule({
+            farmer: form.farmer || null,
+            scheduled_date: form.scheduled_date,
+            notes: form.notes.trim() || undefined,
+          });
+        } else {
+          await api.createSchedule({
+            officer: form.officer,
+            farmer: form.farmer || null,
+            scheduled_date: form.scheduled_date,
+            notes: form.notes.trim() || undefined,
+          });
+        }
         resetForm();
         setShowForm(false);
         await loadData();
@@ -133,7 +242,7 @@ export default function SchedulesPage() {
         setSubmitting(false);
       }
     },
-    [form, resetForm, loadData]
+    [form, resetForm, loadData, isOfficer]
   );
 
   if (loading) return <PageLoading message="Loading schedules…" />;
@@ -143,7 +252,7 @@ export default function SchedulesPage() {
     value: o.id,
     label: o.display_name
       ? `${o.display_name} (${o.email})`
-      : `${o.email}${o.region ? ` (${o.region})` : ""}`,
+      : `${o.email}${o.department ? ` — ${o.department}` : ""}${o.region ? ` (${o.region})` : ""}`,
   }));
   const farmerOptions = [
     { value: "", label: "— No specific farmer —" },
@@ -158,7 +267,7 @@ export default function SchedulesPage() {
         action={
           canCreate ? (
             <Button color="green" onClick={() => setShowForm(true)}>
-              New schedule
+              {isOfficer ? "Propose schedule" : "New schedule"}
             </Button>
           ) : undefined
         }
@@ -167,7 +276,12 @@ export default function SchedulesPage() {
       {canCreate && showForm && (
         <Paper mt="md" p="md" radius="md" shadow="sm" withBorder>
           <Text size="lg" fw={600} mb="md">
-            New schedule
+            {isOfficer ? "Propose visit schedule" : "New schedule"}
+          </Text>
+          <Text size="sm" c="dimmed" mb="md">
+            {isOfficer
+              ? "Your proposal will be sent to your supervisor for approval."
+              : "The officer will be notified. Schedule is created as accepted."}
           </Text>
           <form onSubmit={handleSubmit}>
             <Stack gap="md">
@@ -176,30 +290,36 @@ export default function SchedulesPage() {
                   {formError}
                 </Alert>
               )}
-              <NativeSelect
-                label="Extension officer"
-                required
-                data={[
-                  { value: "", label: "Select officer" },
-                  ...officerOptions,
-                ]}
-                value={form.officer}
-                onChange={(e) => updateField("officer", e.target.value)}
-              />
-              <NativeSelect
+              {isAdminOrSupervisor && (
+                <Select
+                  label="Extension officer"
+                  required
+                  placeholder="Select officer"
+                  data={officerOptions}
+                  value={form.officer || null}
+                  onChange={(v) => updateField("officer", v ?? "")}
+                />
+              )}
+              <Select
                 label="Farmer (optional)"
+                description={isOfficer ? "Optional: link this visit to one of your assigned farmers." : undefined}
+                placeholder="Select farmer"
+                searchable
+                clearable
                 data={farmerOptions}
-                value={form.farmer}
-                onChange={(e) => updateField("farmer", e.target.value)}
+                value={form.farmer || null}
+                onChange={(v) => updateField("farmer", v ?? "")}
               />
-              <TextInput
-                type="date"
+              <DateInput
                 label="Scheduled date"
-                required
-                value={form.scheduled_date}
-                onChange={(e) =>
-                  updateField("scheduled_date", e.target.value)
+                placeholder="Pick date"
+                value={form.scheduled_date || null}
+                onChange={(value) =>
+                  updateField("scheduled_date", value ?? "")
                 }
+                valueFormat="YYYY-MM-DD"
+                required
+                clearable
               />
               <Textarea
                 label="Notes"
@@ -209,7 +329,11 @@ export default function SchedulesPage() {
               />
               <Group>
                 <Button type="submit" color="green" loading={submitting}>
-                  {submitting ? "Saving…" : "Create schedule"}
+                  {submitting
+                    ? "Saving…"
+                    : isOfficer
+                      ? "Propose schedule"
+                      : "Create schedule"}
                 </Button>
                 <Button
                   type="button"

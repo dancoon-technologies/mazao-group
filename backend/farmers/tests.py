@@ -6,20 +6,23 @@ from rest_framework.test import APIClient
 from rest_framework import status
 
 from accounts.models import User
+from locations.models import Region
 from .models import Farmer
 
 
 class FarmersAPITests(TestCase):
     def setUp(self):
         self.client = APIClient()
+        region_north = Region.objects.create(name="North")
+        region_south = Region.objects.create(name="South")
         self.admin = User.objects.create_user(
             email="admin@test.com", password="admin123", role=User.Role.ADMIN
         )
         self.officer = User.objects.create_user(
-            email="officer@test.com", password="officer123", role=User.Role.OFFICER, region="North"
+            email="officer@test.com", password="officer123", role=User.Role.OFFICER, region_id=region_north
         )
         self.supervisor = User.objects.create_user(
-            email="super@test.com", password="super123", role=User.Role.SUPERVISOR, region="North"
+            email="super@test.com", password="super123", role=User.Role.SUPERVISOR, region_id=region_north
         )
         self.farmer_assigned = Farmer.objects.create(
             first_name="My", last_name="Farmer",
@@ -29,7 +32,7 @@ class FarmersAPITests(TestCase):
             assigned_officer=self.officer,
         )
         self.other_officer = User.objects.create_user(
-            email="other@test.com", password="other123", role=User.Role.OFFICER, region="South"
+            email="other@test.com", password="other123", role=User.Role.OFFICER, region_id=region_south
         )
         self.farmer_other = Farmer.objects.create(
             first_name="Other", last_name="Farmer",

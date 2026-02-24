@@ -5,17 +5,17 @@ from .models import User
 
 @admin.register(User)
 class UserAdmin(BaseUserAdmin):
-    list_display = ("email", "first_name", "middle_name", "last_name", "role", "region", "is_active")
-    list_filter = ("role", "is_active")
+    list_display = ("email", "first_name", "middle_name", "last_name", "role", "department", "get_region_display", "is_active")
+    list_filter = ("role", "department", "is_active")
     search_fields = ("email", "first_name", "last_name")
     ordering = ("email",)
     fieldsets = (
         (None, {"fields": ("email", "password")}),
-        ("Profile", {"fields": ("first_name", "middle_name", "last_name", "phone", "role", "region", "device_id", "must_change_password")}),
+        ("Profile", {"fields": ("first_name", "middle_name", "last_name", "phone", "role", "department", "region_id", "county_id", "sub_county_id", "device_id", "must_change_password")}),
         ("Permissions", {"fields": ("is_active", "is_staff", "is_superuser")}),
         ("Important dates", {"fields": ("last_login", "date_joined")}),
     )
     add_fieldsets = (
         (None, {"classes": ("wide",), "fields": ("email", "password1", "password2")}),
-        ("Profile", {"fields": ("first_name", "middle_name", "last_name", "phone", "role", "region")}),
+        ("Profile", {"fields": ("first_name", "middle_name", "last_name", "phone", "role", "department", "region_id", "county_id", "sub_county_id")}),
     )

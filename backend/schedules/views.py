@@ -20,47 +20,168 @@ class ScheduleListCreateView(generics.ListCreateAPIView):
     def get_queryset(self):
         user = self.request.user
         qs = Schedule.objects.select_related(
-            "created_by", "officer", "farmer"
+            "created_by", "officer", "farmer", "approved_by"
         ).order_by("-scheduled_date", "-created_at")
         if user.role == "admin":
             return qs
         if user.role == "supervisor":
-            return qs.filter(
-                Q(created_by=user) | Q(officer__region=user.region)
-            )
+            if getattr(user, "department", None):
+                return qs.filter(officer__department=user.department)
+            if getattr(user, "region_id_id", None):
+                return qs.filter(Q(created_by=user) | Q(officer__region_id_id=user.region_id_id))
         return qs.filter(officer=user)
 
     def create(self, request, *args, **kwargs):
-        if request.user.role not in ("admin", "supervisor"):
-            return Response(
-                {"detail": "Only supervisors and admins can create schedules."},
-                status=status.HTTP_403_FORBIDDEN,
-            )
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
-        officer = data["officer"]
-        if request.user.role == "supervisor" and officer.region != request.user.region:
-            return Response(
-                {"officer": ["You can only schedule officers in your region."]},
-                status=status.HTTP_400_BAD_REQUEST,
+        user = request.user
+
+        if user.role in ("admin", "supervisor"):
+            officer = data.get("officer")
+            if not officer:
+                return Response(
+                    {"officer": ["Required when creating schedule as admin/supervisor."]},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            if user.role == "supervisor":
+                if getattr(user, "department", None):
+                    if officer.department != user.department:
+                        return Response(
+                            {"officer": ["You can only schedule officers in your department."]},
+                            status=status.HTTP_400_BAD_REQUEST,
+                        )
+                elif not user.same_region_as(officer):
+                    return Response(
+                        {"officer": ["You can only schedule officers in your region."]},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+            schedule = Schedule.objects.create(
+                created_by=user,
+                officer=officer,
+                farmer=data.get("farmer"),
+                scheduled_date=data["scheduled_date"],
+                notes=data.get("notes", ""),
+                status=Schedule.Status.ACCEPTED,
+                approved_by=user,
             )
-        schedule = Schedule.objects.create(
-            created_by=request.user,
-            officer=officer,
-            farmer=data.get("farmer"),
-            scheduled_date=data["scheduled_date"],
-            notes=data.get("notes", ""),
-        )
-        from notifications.services import notify_user
-        from django.utils.formats import date_format
-        farmer_name = schedule.farmer.name if schedule.farmer else "No specific farmer"
-        date_str = date_format(schedule.scheduled_date, use_l10n=True)
-        notify_user(
-            officer,
-            title="New visit scheduled",
-            message=f"You have a visit scheduled on {date_str}. Farmer: {farmer_name}. Notes: {schedule.notes or 'None'}",
-            channels=["in_app", "email", "sms"],
-        )
+            from notifications.services import notify_user
+            from django.utils.formats import date_format
+            farmer_name = schedule.farmer.name if schedule.farmer else "No specific farmer"
+            date_str = date_format(schedule.scheduled_date, use_l10n=True)
+            notify_user(
+                officer,
+                title="New visit scheduled",
+                message=f"You have a visit scheduled on {date_str}. Farmer: {farmer_name}. Notes: {schedule.notes or 'None'}",
+                channels=["in_app", "email", "sms"],
+            )
+        else:
+            officer = data.get("officer")
+            if officer and officer != user:
+                return Response(
+                    {"officer": ["You can only propose schedules for yourself."]},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            schedule = Schedule.objects.create(
+                created_by=user,
+                officer=user,
+                farmer=data.get("farmer"),
+                scheduled_date=data["scheduled_date"],
+                notes=data.get("notes", ""),
+                status=Schedule.Status.PROPOSED,
+            )
+            from django.contrib.auth import get_user_model
+            from notifications.services import notify_user
+            from django.utils.formats import date_format
+            User = get_user_model()
+            if getattr(user, "region_id_id", None):
+                supervisors_same_region = User.objects.filter(
+                    role=User.Role.SUPERVISOR, region_id_id=user.region_id_id
+                ).exclude(pk=user.pk)
+            else:
+                supervisors_same_region = User.objects.none()
+            admins = User.objects.filter(role=User.Role.ADMIN)
+            farmer_name = schedule.farmer.name if schedule.farmer else "No specific farmer"
+            date_str = date_format(schedule.scheduled_date, use_l10n=True)
+            message = f"{user.email} proposed a visit on {date_str}. Farmer: {farmer_name}. Please approve or reject."
+            for recipient in list(supervisors_same_region) + list(admins):
+                notify_user(
+                    recipient,
+                    title="Schedule proposal for approval",
+                    message=message,
+                    channels=["in_app", "email", "sms"],
+                )
         out = ScheduleSerializer(schedule)
         return Response(out.data, status=status.HTTP_201_CREATED)
+
+
+class ScheduleApproveView(generics.GenericAPIView):
+    """POST with {"action": "accept" | "reject"}. Supervisor or admin only."""
+    permission_classes = [IsAuthenticated]
+    queryset = Schedule.objects.all()
+
+    def post(self, request, pk):
+        try:
+            schedule = Schedule.objects.select_related("officer", "farmer").get(pk=pk)
+        except Schedule.DoesNotExist:
+            return Response(
+                {"detail": "Schedule not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        user = request.user
+        if user.role not in ("admin", "supervisor"):
+            return Response(
+                {"detail": "Only supervisors and admins can approve or reject schedules."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        if user.role == "supervisor":
+            if getattr(user, "department", None):
+                if schedule.officer.department != user.department:
+                    return Response(
+                        {"detail": "Schedule is not in your department."},
+                        status=status.HTTP_403_FORBIDDEN,
+                    )
+            elif not user.same_region_as(schedule.officer):
+                return Response(
+                    {"detail": "Schedule is not in your region."},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+        if schedule.status != Schedule.Status.PROPOSED:
+            return Response(
+                {"detail": f"Schedule is already {schedule.get_status_display()}."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        action = (request.data.get("action") or "").strip().lower()
+        if action == "accept":
+            schedule.status = Schedule.Status.ACCEPTED
+            schedule.approved_by = user
+            schedule.save(update_fields=["status", "approved_by"])
+            from notifications.services import notify_user
+            from django.utils.formats import date_format
+            farmer_name = schedule.farmer.name if schedule.farmer else "No specific farmer"
+            date_str = date_format(schedule.scheduled_date, use_l10n=True)
+            notify_user(
+                schedule.officer,
+                title="Schedule accepted",
+                message=f"Your visit scheduled on {date_str} (Farmer: {farmer_name}) has been accepted.",
+                channels=["in_app", "email", "sms"],
+            )
+            return Response(ScheduleSerializer(schedule).data)
+        if action == "reject":
+            schedule.status = Schedule.Status.REJECTED
+            schedule.approved_by = user
+            schedule.save(update_fields=["status", "approved_by"])
+            from notifications.services import notify_user
+            from django.utils.formats import date_format
+            date_str = date_format(schedule.scheduled_date, use_l10n=True)
+            notify_user(
+                schedule.officer,
+                title="Schedule rejected",
+                message=f"Your visit scheduled on {date_str} has been rejected.",
+                channels=["in_app", "email", "sms"],
+            )
+            return Response(ScheduleSerializer(schedule).data)
+        return Response(
+            {"action": ["Must be 'accept' or 'reject'."]},
+            status=status.HTTP_400_BAD_REQUEST,
+        )

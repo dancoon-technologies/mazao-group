@@ -13,6 +13,7 @@ class ScheduleSerializer(serializers.ModelSerializer):
     farmer_display_name = serializers.CharField(
         source="farmer.name", read_only=True, allow_null=True
     )
+    approved_by = serializers.UUIDField(source="approved_by_id", read_only=True, allow_null=True)
 
     class Meta:
         model = Schedule
@@ -25,13 +26,18 @@ class ScheduleSerializer(serializers.ModelSerializer):
             "farmer_display_name",
             "scheduled_date",
             "notes",
+            "status",
+            "approved_by",
             "created_at",
         )
 
 
 class ScheduleCreateSerializer(serializers.ModelSerializer):
+    """Admin/supervisor: pass officer, farmer, date, notes. Officer: pass farmer, date, notes (officer=self)."""
     officer = serializers.PrimaryKeyRelatedField(
-        queryset=User.objects.filter(role=User.Role.OFFICER)
+        queryset=User.objects.filter(role=User.Role.OFFICER),
+        required=False,
+        allow_null=True,
     )
     farmer = serializers.PrimaryKeyRelatedField(
         queryset=Farmer.objects.all(), required=False, allow_null=True

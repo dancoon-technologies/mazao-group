@@ -1,7 +1,7 @@
 "use client";
 
-import { ActionIcon, Badge, Box, Menu, ScrollArea, Text } from "@mantine/core";
-import { IconBell, IconCheck } from "@tabler/icons-react";
+import { ActionIcon, Badge, Box, Group, Menu, ScrollArea, Text } from "@mantine/core";
+import { IconArchive, IconBell, IconCheck } from "@tabler/icons-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
@@ -15,9 +15,12 @@ export function NotificationBell() {
   const [unreadCount, setUnreadCount] = useState(0);
   const [opened, setOpened] = useState(false);
   const [markingAll, setMarkingAll] = useState(false);
+  const [archivingId, setArchivingId] = useState<string | null>(null);
   const prevUnreadRef = useRef<number>(0);
   const hasFetchedOnceRef = useRef(false);
   const mountedRef = useRef(true);
+  const notificationsRef = useRef<Notification[]>([]);
+  notificationsRef.current = notifications;
 
   const fetchNotifications = useCallback(async () => {
     if (!mountedRef.current) return;
@@ -69,6 +72,22 @@ export function NotificationBell() {
       setMarkingAll(false);
     }
   }, [unreadCount]);
+
+  const archive = useCallback(async (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    setArchivingId(id);
+    try {
+      await api.archiveNotification(id);
+      const removed = notificationsRef.current.find((n) => n.id === id);
+      setNotifications((prev) => prev.filter((n) => n.id !== id));
+      if (removed?.read_at == null) setUnreadCount((c) => Math.max(0, c - 1));
+    } catch {
+      toast.error("Failed to archive");
+    } finally {
+      setArchivingId(null);
+    }
+  }, []);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -142,17 +161,37 @@ export function NotificationBell() {
               <Menu.Item
                 key={n.id}
                 onClick={() => !n.read_at && markRead(n.id)}
-                style={{ whiteSpace: "normal" }}
+                bg={n.read_at ? undefined : "var(--mantine-color-green-0)"}
+                style={{
+                  whiteSpace: "normal",
+                  borderLeft: n.read_at
+                    ? undefined
+                    : "3px solid var(--mantine-color-green-6)",
+                }}
               >
-                <Text size="sm" fw={n.read_at ? 400 : 600}>
-                  {n.title}
-                </Text>
-                <Text size="xs" c="dimmed" lineClamp={2} mt={2}>
-                  {n.message}
-                </Text>
-                <Text size="xs" c="dimmed" mt={4}>
-                  {formatDateTime(n.created_at)}
-                </Text>
+                <Group wrap="nowrap" justify="space-between" align="flex-start" gap="xs">
+                  <Box style={{ flex: 1, minWidth: 0 }}>
+                    <Text size="sm" fw={n.read_at ? 400 : 600}>
+                      {n.title}
+                    </Text>
+                    <Text size="xs" c="dimmed" lineClamp={2} mt={2}>
+                      {n.message}
+                    </Text>
+                    <Text size="xs" c="dimmed" mt={4}>
+                      {formatDateTime(n.created_at)}
+                    </Text>
+                  </Box>
+                  <ActionIcon
+                    variant="subtle"
+                    color="gray"
+                    size="sm"
+                    aria-label="Archive"
+                    loading={archivingId === n.id}
+                    onClick={(e) => archive(n.id, e)}
+                  >
+                    <IconArchive size={14} />
+                  </ActionIcon>
+                </Group>
               </Menu.Item>
             ))
           )}

@@ -13,6 +13,9 @@ import L from "leaflet";
 const DEFAULT_CENTER: [number, number] = [-1.292066, 36.821946];
 const DEFAULT_ZOOM = 10;
 
+/** Map container height in pixels (single source of truth). */
+const MAP_HEIGHT = 520;
+
 // Single marker icon instance (Leaflet can misbehave if recreated every render)
 const defaultIcon = L.icon({
   iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
@@ -105,30 +108,30 @@ export function MapPicker({
   return (
     <div className={className}>
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-sm text-stone-600 dark:text-stone-400">
+        <p className="text-sm text-stone-600">
           Tap the map to set the farmer&apos;s location
         </p>
         <button
           type="button"
           onClick={handleUseLocation}
-          className="shrink-0 rounded-lg border border-stone-300 bg-stone-50 px-3 py-1.5 text-sm text-stone-700 hover:bg-stone-100 dark:border-stone-600 dark:bg-stone-700 dark:text-stone-200 dark:hover:bg-stone-600"
+          className="shrink-0 rounded-lg border border-stone-300 bg-stone-50 px-3 py-1.5 text-sm text-stone-700 hover:bg-stone-100"
         >
           Use my location
         </button>
       </div>
       {locationError && (
-        <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+        <p className="mt-1 text-sm text-red-600">
           {locationError}
         </p>
       )}
       <div
-        className="relative mt-2 w-full overflow-hidden rounded-lg border border-stone-200 dark:border-stone-600"
-        style={{ height: 256 }}
+        className="relative mt-2 w-full overflow-hidden rounded-lg border border-stone-200"
+        style={{ height: MAP_HEIGHT, minHeight: MAP_HEIGHT }}
       >
         {!mapReady && (
           <div
-            className="flex items-center justify-center text-stone-500 dark:text-stone-400"
-            style={{ height: 256 }}
+            className="flex items-center justify-center text-stone-500"
+            style={{ height: MAP_HEIGHT, minHeight: MAP_HEIGHT }}
           >
             Loading map…
           </div>
@@ -137,8 +140,8 @@ export function MapPicker({
           <MapContainer
             center={center}
             zoom={zoom}
-            className="[&_.leaflet-interactive]:cursor-crosshair"
-            style={{ height: 256, width: "100%", zIndex: 0 }}
+            className="[&_.leaflet-interactive]:cursor-crosshair h-full w-full"
+            style={{ height: MAP_HEIGHT, minHeight: MAP_HEIGHT, width: "100%", zIndex: 0 }}
             scrollWheelZoom
           >
             <MapLifecycle center={center} zoom={zoom} />

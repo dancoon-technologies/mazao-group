@@ -4,10 +4,40 @@ from .models import User
 
 class UserSerializer(serializers.ModelSerializer):
     display_name = serializers.ReadOnlyField()
+    region = serializers.SerializerMethodField()
 
     class Meta:
         model = User
-        fields = ("id", "email", "first_name", "middle_name", "last_name", "display_name", "phone", "role", "region")
+        fields = (
+            "id",
+            "email",
+            "first_name",
+            "middle_name",
+            "last_name",
+            "display_name",
+            "phone",
+            "role",
+            "department",
+            "region",
+            "region_id",
+            "county_id",
+            "sub_county_id",
+            "is_active",
+        )
+
+    def get_region(self, obj):
+        """Display string from region_id (location)."""
+        if obj.region_id_id and getattr(obj, "region_id", None):
+            return obj.region_id.name
+        return ""
+
+
+class StaffPatchSerializer(serializers.ModelSerializer):
+    """Admin can update is_active, department, location IDs (assign/reassign)."""
+
+    class Meta:
+        model = User
+        fields = ("is_active", "department", "region_id", "county_id", "sub_county_id")
 
 
 class StaffCreateSerializer(serializers.ModelSerializer):
@@ -15,7 +45,10 @@ class StaffCreateSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ("email", "role", "first_name", "middle_name", "last_name", "phone", "region")
+        fields = (
+            "email", "role", "first_name", "middle_name", "last_name", "phone",
+            "department", "region_id", "county_id", "sub_county_id",
+        )
 
     def validate_role(self, value):
         if value not in (User.Role.SUPERVISOR, User.Role.OFFICER):

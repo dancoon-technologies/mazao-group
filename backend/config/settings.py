@@ -36,6 +36,7 @@ INSTALLED_APPS = [
     "visits",
     "schedules",
     "notifications",
+    "locations",
 ]
 
 MIDDLEWARE = [
@@ -117,6 +118,8 @@ REST_FRAMEWORK = {
     "DEFAULT_PERMISSION_CLASSES": [
         "rest_framework.permissions.IsAuthenticated",
     ],
+    "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
+    "PAGE_SIZE": 50,
 }
 
 from datetime import timedelta
@@ -126,7 +129,8 @@ SIMPLE_JWT = {
 }
 
 # CORS
-CORS_ALLOWED_ORIGINS = config("CORS_ALLOWED_ORIGINS", default="http://localhost:3000").split(",")
+CORS_ALLOWED_ORIGINS = config("CORS_ALLOWED_ORIGINS", default="http://localhost:3000,http://192.168.0.103:3000").split(",")
+CORS_ALLOW_ALL_ORIGINS = True if DEBUG else False
 
 # Visit photo: max 5MB
 VISIT_PHOTO_MAX_SIZE_MB = 5

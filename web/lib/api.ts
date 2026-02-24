@@ -1,17 +1,25 @@
 import type {
   Farmer,
+  Farm,
   Visit,
   DashboardStats,
   UserRole,
   Schedule,
   StaffUser,
   Notification,
+  LocationsResponse,
+  OptionsResponse,
 } from "./types";
 import { parseApiError } from "./api-utils";
 
 const API_BASE = "";
 
 const defaultCredentials: RequestCredentials = "include";
+
+/** Support both DRF paginated ({ results: T[] }) and raw list responses. */
+function unwrapList<T>(data: { results?: T[] } | T[]): T[] {
+  return Array.isArray(data) ? data : (data.results ?? []);
+}
 
 async function authFetch(
   url: string,
@@ -57,7 +65,7 @@ export const api = {
   async getFarmers(): Promise<Farmer[]> {
     const res = await authFetch(`${API_BASE}/api/farmers`);
     if (!res.ok) throw new Error("Failed to fetch farmers");
-    return res.json();
+    return unwrapList(await res.json());
   },
 
   async createFarmer(data: {
@@ -88,6 +96,39 @@ export const api = {
     return res.json();
   },
 
+  async getFarms(farmerId?: string | null): Promise<Farm[]> {
+    const url = farmerId
+      ? `${API_BASE}/api/farms?farmer=${encodeURIComponent(farmerId)}`
+      : `${API_BASE}/api/farms`;
+    const res = await authFetch(url);
+    if (!res.ok) throw new Error("Failed to fetch farms");
+    return unwrapList(await res.json());
+  },
+
+  async createFarm(data: {
+    farmer_id: string;
+    county_id: string;
+    sub_county_id: string;
+    village: string;
+    latitude: number;
+    longitude: number;
+    plot_size?: string;
+    crop_type?: string;
+  }): Promise<Farm> {
+    const res = await authFetch(`${API_BASE}/api/farms`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(
+        parseApiError(err, "Failed to create farm", ["farmer_id", "county", "sub_county", "village", "latitude", "longitude"])
+      );
+    }
+    return res.json();
+  },
+
   async getVisits(params?: { officer?: string; date?: string }): Promise<Visit[]> {
     const search = new URLSearchParams();
     if (params?.officer) search.set("officer", params.officer);
@@ -96,7 +137,7 @@ export const api = {
     const url = qs ? `${API_BASE}/api/visits?${qs}` : `${API_BASE}/api/visits`;
     const res = await authFetch(url);
     if (!res.ok) throw new Error("Failed to fetch visits");
-    return res.json();
+    return unwrapList(await res.json());
   },
 
   async getDashboardStats(): Promise<DashboardStats> {
@@ -112,11 +153,11 @@ export const api = {
   async getSchedules(): Promise<Schedule[]> {
     const res = await authFetch(`${API_BASE}/api/schedules`);
     if (!res.ok) throw new Error("Failed to fetch schedules");
-    return res.json();
+    return unwrapList(await res.json());
   },
 
   async createSchedule(data: {
-    officer: string;
+    officer?: string;
     farmer?: string | null;
     scheduled_date: string;
     notes?: string;
@@ -129,7 +170,7 @@ export const api = {
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
       throw new Error(
-        parseApiError(err, "Failed to create schedule", ["officer"])
+        parseApiError(err, "Failed to create schedule", ["officer", "scheduled_date"])
       );
     }
     return res.json();
@@ -138,13 +179,27 @@ export const api = {
   async getOfficers(): Promise<StaffUser[]> {
     const res = await authFetch(`${API_BASE}/api/officers`);
     if (!res.ok) throw new Error("Failed to fetch officers");
+    return unwrapList(await res.json());
+  },
+
+  /** Kenya locations (regions, counties, sub_counties). Optimized: one fetch, cache on client. */
+  async getLocations(): Promise<LocationsResponse> {
+    const res = await authFetch(`${API_BASE}/api/locations`);
+    if (!res.ok) throw new Error("Failed to fetch locations");
+    return res.json();
+  },
+
+  /** Option sets for forms (departments, staff_roles). Single source of truth from backend. */
+  async getOptions(): Promise<OptionsResponse> {
+    const res = await authFetch(`${API_BASE}/api/options`);
+    if (!res.ok) throw new Error("Failed to fetch options");
     return res.json();
   },
 
   async getStaff(): Promise<StaffUser[]> {
     const res = await authFetch(`${API_BASE}/api/staff`);
     if (!res.ok) throw new Error("Failed to fetch staff");
-    return res.json();
+    return unwrapList(await res.json());
   },
 
   async registerStaff(data: {
@@ -154,7 +209,10 @@ export const api = {
     middle_name?: string;
     last_name?: string;
     phone?: string;
-    region?: string;
+    department?: string;
+    region_id?: number | null;
+    county_id?: number | null;
+    sub_county_id?: number | null;
   }): Promise<StaffUser> {
     const res = await authFetch(`${API_BASE}/api/staff`, {
       method: "POST",
@@ -170,10 +228,55 @@ export const api = {
     return res.json();
   },
 
+  async updateStaff(
+    staffId: string,
+    data: {
+      is_active?: boolean;
+      department?: string;
+      region_id?: number | null;
+      county_id?: number | null;
+      sub_county_id?: number | null;
+    }
+  ): Promise<StaffUser> {
+    const res = await authFetch(`${API_BASE}/api/staff/${staffId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(
+        parseApiError(err, "Failed to update staff", ["is_active", "department", "region_id"])
+      );
+    }
+    return res.json();
+  },
+
+  async approveSchedule(
+    scheduleId: string,
+    action: "accept" | "reject"
+  ): Promise<Schedule> {
+    const res = await authFetch(
+      `${API_BASE}/api/schedules/${scheduleId}/approve`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action }),
+      }
+    );
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(
+        parseApiError(err, "Failed to approve/reject schedule", ["action"])
+      );
+    }
+    return res.json();
+  },
+
   async getNotifications(): Promise<Notification[]> {
     const res = await authFetch(`${API_BASE}/api/notifications`);
     if (!res.ok) throw new Error("Failed to fetch notifications");
-    return res.json();
+    return unwrapList(await res.json());
   },
 
   async getNotificationUnreadCount(): Promise<{ unread_count: number }> {
@@ -196,6 +299,13 @@ export const api = {
     });
     if (!res.ok) throw new Error("Failed to mark all read");
     return res.json();
+  },
+
+  async archiveNotification(id: string): Promise<void> {
+    const res = await authFetch(`${API_BASE}/api/notifications/${id}/archive`, {
+      method: "POST",
+    });
+    if (!res.ok) throw new Error("Failed to archive notification");
   },
 
   async resendStaffCredentials(staffId: string): Promise<{ detail: string }> {

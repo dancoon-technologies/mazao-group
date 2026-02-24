@@ -11,13 +11,13 @@ const theme = createTheme({
 
 export function MantineWrapper({ children }: { children: React.ReactNode }) {
   return (
-    <MantineProvider theme={theme} defaultColorScheme="auto">
+    <MantineProvider theme={theme} defaultColorScheme="light" forceColorScheme="light">
       {children}
       <Toaster
         position="top-right"
         richColors
         closeButton
-        theme="system"
+        theme="light"
       />
     </MantineProvider>
   );

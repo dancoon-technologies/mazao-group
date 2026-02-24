@@ -10,6 +10,7 @@ export const ROUTES = {
   CHANGE_PASSWORD: "/change-password",
   DASHBOARD: "/dashboard",
   FARMERS: "/farmers",
+  FARMS: "/farms",
   VISITS: "/visits",
   SCHEDULES: "/schedules",
   STAFF: "/staff",
@@ -28,10 +29,11 @@ export const ROLES_CAN_ACCESS_DASHBOARD: readonly UserRole[] = [
   ROLES.SUPERVISOR,
 ];
 
-/** Roles that can create schedules */
+/** Roles that can create schedules (admin/supervisor: create for an officer; officer: propose for self) */
 export const ROLES_CAN_CREATE_SCHEDULES: readonly UserRole[] = [
   ROLES.ADMIN,
   ROLES.SUPERVISOR,
+  ROLES.OFFICER,
 ];
 
 /** Roles that can list visits (admins and supervisors only) */

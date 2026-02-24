@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useState } from 'react';
-import { View, StyleSheet, FlatList, RefreshControl } from 'react-native';
-import { List, Button, Text, FAB, ActivityIndicator, Card } from 'react-native-paper';
-import { useRouter } from 'expo-router';
 import { api, type Farmer, type Schedule } from '@/lib/api';
+import { router, useRouter } from 'expo-router';
+import { useCallback, useEffect, useState } from 'react';
+import { RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
+import { Avatar, Card, FAB, ProgressBar, Text } from 'react-native-paper';
 
 function formatDate(iso: string) {
   try {
@@ -14,8 +14,6 @@ function formatDate(iso: string) {
 }
 
 export default function HomeScreen() {
-  const router = useRouter();
-  const [farmers, setFarmers] = useState<Farmer[]>([]);
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -23,8 +21,7 @@ export default function HomeScreen() {
 
   const load = useCallback(async () => {
     try {
-      const [f, s] = await Promise.all([api.getFarmers(), api.getSchedules()]);
-      setFarmers(f);
+      const s = await api.getSchedules();
       setSchedules(s);
       setError('');
     } catch (e) {
@@ -44,115 +41,171 @@ export default function HomeScreen() {
     load();
   }, [load]);
 
-  const today = new Date().toISOString().slice(0, 10);
-  const todaySchedules = schedules.filter((s) => s.scheduled_date === today);
+  // Dashboard stats
+  const totalVisits = schedules.length;
+  const pendingSchedules = schedules.length;
+  const visitedFarmers = schedules.filter((s) => s.id !== null).length;
 
   if (loading) {
     return (
       <View style={styles.centered}>
-        <ActivityIndicator size="large" />
+        <FAB icon="loading" loading={true} />
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
-      {error ? (
-        <Card style={styles.card}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={{ padding: 16 }}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+    >
+      {/* Welcome Card */}
+      <WelcomeCard totalVisits={totalVisits} pendingSchedules={pendingSchedules} />
+
+      {/* Quick Actions */}
+      <QuickActions pendingSchedules={pendingSchedules} totalVisits={totalVisits} />
+
+      {/* Overview */}
+      <Overview totalVisits={totalVisits} visitedFarmers={visitedFarmers} pendingFarmers={pendingSchedules} />
+    </ScrollView>
+  );
+}
+
+const WelcomeCard = ({ totalVisits, pendingSchedules }: { totalVisits: number, pendingSchedules: number }) => {
+  return (<Card style={styles.welcomeCard}>
+    <Card.Content>
+      <View style={styles.welcomeHeader}>
+        <View>
+          <Text variant="titleMedium" >Welcome Back!</Text>
+          <Text variant="bodySmall" >
+            {new Date().toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+          </Text>
+        </View>
+        <Avatar.Icon size={40} icon="account" />
+      </View>
+      <View style={styles.statsRow}>
+        <Card style={styles.statCard}>
           <Card.Content>
-            <Text variant="bodyMedium" style={styles.error}>
-              {error}
-            </Text>
-            <Button onPress={load}>Retry</Button>
+            <Text variant="bodySmall">This Week</Text>
+            <Text variant="titleMedium" >{totalVisits}</Text>
+            <Text variant="bodySmall" >Visits</Text>
           </Card.Content>
         </Card>
-      ) : null}
+        <Card style={styles.statCard}>
+          <Card.Content>
+            <Text variant="bodySmall" >Pending</Text>
+            <Text variant="titleMedium" >{pendingSchedules}</Text>
+            <Text variant="bodySmall" >Schedules</Text>
+          </Card.Content>
+        </Card>
+      </View>
+    </Card.Content>
+  </Card>)
+}
 
-      <List.Section>
-        <List.Subheader>Today&apos;s schedules</List.Subheader>
-        {todaySchedules.length === 0 ? (
-          <List.Item title="No visits scheduled for today" />
-        ) : (
-          todaySchedules.map((s) => (
-            <List.Item
-              key={s.id}
-              title={s.farmer_display_name ?? 'No farmer assigned'}
-              description={formatDate(s.scheduled_date)}
-              right={() => (
-                <Button
-                  mode="contained-tonal"
-                  compact
-                  onPress={() =>
-                    router.push({
-                      pathname: '/(app)/record-visit',
-                      params: s.farmer ? { farmerId: s.farmer } : {},
-                    })
-                  }
-                  disabled={!s.farmer}>
-                  Record
-                </Button>
-              )}
-            />
-          ))
-        )}
-      </List.Section>
+const QuickActions = ({ pendingSchedules, totalVisits }: { pendingSchedules: number, totalVisits: number }) => {
+  return (
+    <>
+      <Text variant="titleMedium" style={{ marginTop: 24, marginBottom: 8 }}>Quick Actions</Text>
+      <View style={styles.quickActions}>
+        <Card style={styles.quickCard} onPress={() => router.push('/(app)/(tabs)/visits')}>
+          <Card.Content style={styles.quickCardContent}>
+            <Avatar.Icon icon="account-group" size={36} style={{ backgroundColor: '#e0f2f1' }} />
+            <View>
+              <Text variant="titleSmall">Schedule List</Text>
+              <Text variant="bodySmall">{pendingSchedules} schedules</Text>
+            </View>
+          </Card.Content>
+        </Card>
+        <Card style={styles.quickCard} onPress={() => router.push('/(app)/(tabs)/profile')}>
+          <Card.Content style={styles.quickCardContent}>
+            <Avatar.Icon icon="history" size={36} style={{ backgroundColor: '#e3f2fd' }} />
+            <View>
+              <Text variant="titleSmall">History</Text>
+              <Text variant="bodySmall">{totalVisits} visits</Text>
+            </View>
+          </Card.Content>
+        </Card>
+      </View>
+    </>
+  )
+}
 
-      <List.Section>
-        <List.Subheader>My assigned farmers</List.Subheader>
-        {farmers.length === 0 ? (
-          <List.Item title="No farmers assigned" />
-        ) : (
-          farmers.map((f) => (
-            <List.Item
-              key={f.id}
-              title={f.display_name}
-              description={f.crop_type || f.phone || '—'}
-              right={() => (
-                <Button
-                  mode="contained-tonal"
-                  compact
-                  onPress={() =>
-                    router.push({ pathname: '/(app)/record-visit', params: { farmerId: f.id } })
-                  }>
-                  Record visit
-                </Button>
-              )}
-            />
-          ))
-        )}
-      </List.Section>
-
-      <FAB
-        icon="camera"
-        style={styles.fab}
-        onPress={() => router.push('/(app)/record-visit')}
-        label="Record visit"
-      />
-    </View>
-  );
+const Overview = ({ totalVisits, visitedFarmers, pendingFarmers }: { totalVisits: number, visitedFarmers: number, pendingFarmers: number }) => {
+  const progress = pendingFarmers ? visitedFarmers / pendingFarmers : 0;
+  return (
+    <>
+      <Text variant="titleMedium" style={{ marginTop: 24, marginBottom: 8 }}>Overview</Text>
+      <Card style={styles.overviewCard}>
+        <Card.Content>
+          <Text variant="bodySmall">Total Visits</Text>
+          <Text variant="titleMedium">{totalVisits}</Text>
+          <Text variant="bodySmall" style={{ color: 'green' }}>↑</Text>
+        </Card.Content>
+      </Card>
+      <Card style={styles.overviewCard}>
+        <Card.Content>
+          <Text variant="bodySmall">Farmers Visited</Text>
+          <Text variant="titleMedium">{visitedFarmers} / {pendingFarmers}</Text>
+          <ProgressBar progress={progress} style={{ marginTop: 4 }} />
+        </Card.Content>
+      </Card>
+    </>
+  )
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingBottom: 80,
   },
   centered: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  card: {
-    margin: 16,
+  welcomeCard: {
+    backgroundColor: '#2e7d32', // TODO: Change to theme color
+    borderRadius: 12,
+    padding: 2,
   },
-  error: {
-    color: '#b00020',
+  welcomeHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: 8,
+  },
+  statsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  statCard: {
+    flex: 1,
+    marginRight: 20,
+    borderRadius: 12,
+  },
+  quickActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  quickCard: {
+    flex: 1,
+    marginRight: 8,
+    borderRadius: 8,
+  },
+  quickCardContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  overviewCard: {
+    marginTop: 8,
+    borderRadius: 8,
+    padding: 12,
   },
   fab: {
     position: 'absolute',
     right: 16,
     bottom: 24,
-    backgroundColor: '#2e7d32',
   },
 });

@@ -1,6 +1,6 @@
-import { useEffect } from 'react';
-import { Stack, useRouter } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
+import { Stack, useRouter } from 'expo-router';
+import { useEffect } from 'react';
 
 export default function AppLayout() {
   const router = useRouter();
@@ -19,7 +19,6 @@ export default function AppLayout() {
       <Stack.Screen name="index" />
       <Stack.Screen name="unlock" />
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-      <Stack.Screen name="record-visit" options={{ presentation: 'modal' }} />
     </Stack>
   );
 }
