@@ -32,7 +32,11 @@ export default function HistoryScreen() {
       setVisits(data);
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Failed to load';
-      if (msg.includes('403') || msg.toLowerCase().includes('forbidden')) {
+      const isForbidden =
+        msg.includes('403') ||
+        msg.toLowerCase().includes('forbidden') ||
+        msg.toLowerCase().includes('permission');
+      if (isForbidden) {
         setForbidden(true);
         setVisits([]);
       } else {
