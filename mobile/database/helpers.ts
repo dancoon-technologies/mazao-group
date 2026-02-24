@@ -26,7 +26,7 @@ export function normalizeServerVisit(record: Record<string, unknown>): Record<st
     notes: record.notes ?? null,
     activity_type: record.activity_type ?? null,
     verification_status: record.verification_status ?? null,
-    created_at: isoToTimestamp(record.created_at as string),
+    created_at: isoToTimestamp(record.created_at as string) ?? Date.now(),
     updated_at: isoToTimestamp(record.updated_at as string) ?? Date.now(),
     is_deleted: Boolean(record.is_deleted),
   }

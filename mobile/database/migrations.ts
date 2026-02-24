@@ -10,7 +10,7 @@ export default schemaMigrations({
           columns: [
             { name: 'photo_uri', type: 'string', isOptional: true },
             { name: 'verification_status', type: 'string', isOptional: true },
-            { name: 'created_at', type: 'number', isOptional: true },
+            { name: 'created_at', type: 'number', isOptional: false },
           ],
         }),
         addColumns({

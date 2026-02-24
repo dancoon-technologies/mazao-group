@@ -14,7 +14,7 @@ export default class Visit extends Model {
   @field('notes') notes!: string | null
   @field('activity_type') activity_type!: string | null
   @field('verification_status') verification_status!: string | null
-  @field('created_at') created_at!: number | null
+  @field('created_at') created_at!: number
   @field('updated_at') updated_at!: number
   @field('is_deleted') is_deleted!: boolean
 }

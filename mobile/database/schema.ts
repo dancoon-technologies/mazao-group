@@ -14,7 +14,7 @@ export const visitSchema = tableSchema({
     { name: 'notes', type: 'string', isOptional: true },
     { name: 'activity_type', type: 'string', isOptional: true },
     { name: 'verification_status', type: 'string', isOptional: true },
-    { name: 'created_at', type: 'number', isOptional: true },
+    { name: 'created_at', type: 'number', isOptional: false },
     { name: 'updated_at', type: 'number' },
     { name: 'is_deleted', type: 'boolean' },
   ],
