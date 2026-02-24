@@ -165,7 +165,7 @@ A farmer can have **more than one farm** (piece of farming land). Each farm has 
 
 - **Admin:** all visits.
 - **Supervisor:** visits in assigned department (or region if no department).
-- **Officer:** 403 on list; officers see visits via schedules / own records as needed.
+- **Officer:** only their own visits (list returns 200 with officer-scoped data).
 
 **Response (200):** Array of visit objects including `farm`, `activity_type`, and report fields (see create response).
 

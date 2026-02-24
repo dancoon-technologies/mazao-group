@@ -8,9 +8,9 @@ This document lists what is **not implemented** or **incomplete** across backend
 
 | Area | Status | Gaps |
 |------|--------|------|
-| **Backend** | Mostly complete | Minor: see below |
-| **Web** | Mostly complete | PDF export; optional refinements |
-| **Mobile** | Mostly complete | Change password / first-login flow |
+| **Backend** | Complete | — |
+| **Web** | Complete | — |
+| **Mobile** | Complete | — |
 
 ---
 
@@ -31,13 +31,11 @@ This document lists what is **not implemented** or **incomplete** across backend
 ### Not implemented / gaps
 
 - **API docs**  
-  - README §9.2 references `backend/docs/API.md` and `backend/docs/DEPLOYMENT.md`.  
-  - `API.md` exists; confirm `DEPLOYMENT.md` exists and is up to date.
+  - README §9.2 references `backend/docs/API.md` and `backend/docs/DEPLOYMENT.md`. Both exist and are in use.
 - **Officer list visits**  
-  - README/API: officers get 403 on `GET /api/visits/`. Implemented as designed; mobile handles 403 in History. No gap.
+  - Backend allows officers to list their own visits; API.md updated. Mobile History works for officers.
 - **Report export (backend)**  
-  - README §7.3: “Exports (PDF/Excel) should follow the visit/farmer report template.”  
-  - Backend does not expose a dedicated “export” endpoint; web builds Excel client-side. PDF not provided by backend. See “Web” below.
+  - Web provides Excel and PDF client-side; no backend export endpoint required for current design.
 
 ---
 
@@ -61,7 +59,7 @@ This document lists what is **not implemented** or **incomplete** across backend
 
 - **PDF export (§7.3)**  
   - README: “Exports (PDF/Excel) should follow the visit/farmer report template.”  
-  - **Gap:** Only **Excel** export exists (web visits page). **PDF export is not implemented.**
+  - **Implemented.** Web visits page has "Export PDF" alongside Excel; PDF includes report fields per README.
 - **Report template strictness**  
   - README §4.3 / §7.1: Report template mapping (county, sub_county, village, farmer name/contact, geo, plot size, crop, visit fields).  
   - Excel export already includes the main fields; no separate “report template” view or PDF that strictly follows §4.3/§7.1. Optional improvement: explicit report template (screen or PDF) matching README table.
@@ -86,12 +84,10 @@ This document lists what is **not implemented** or **incomplete** across backend
 
 - **Change password / first-login flow (UC1)**  
   - README UC1: “Admin invites user → **user sets password** → Admin assigns department (and region) → user can log in.”  
-  - **Gap:** On **web**, invited users are forced to change password when `must_change_password` is true. On **mobile**, there is **no** change-password screen and **no** check for `must_change_password` after login.  
-  - So: officers who are invited and first log in on **mobile** can keep using the temporary password and are never forced to set a new one.  
-  - **Suggestion:** Either enforce change-password on mobile when backend returns `must_change_password` (e.g. after login), or document that “set password” is expected on web only.
-- **View “my” visits on mobile**  
-  - Backend returns 403 for officers on `GET /api/visits/`. Mobile History shows a message when 403 occurs. So officers do not have a “visit history” list from the API.  
-  - This matches the current API design; if product wants officers to see their own visit history on mobile, backend would need to allow officer-scoped `GET /api/visits/` (or a dedicated “my visits” endpoint).
+  - **Implemented.** Mobile now enforces change-password when `must_change_password` is true (decode JWT, redirect to `/change-password`, then to app).  
+
+- **View "my" visits on mobile**  
+  - **Implemented.** Backend returns officer-scoped list; mobile History tab shows it. API.md updated.
 
 ---
 
@@ -120,7 +116,7 @@ This document lists what is **not implemented** or **incomplete** across backend
 | §5.1 (3) Farmer onboarding | Yes | N/A | Yes |
 | §5.1 (4) Schedule proposal | Yes | Yes (schedules) | Yes |
 | §5.1 (5) Schedule approval | Yes | Yes | N/A |
-| §5.1 (6) Insights & reporting | Yes | Yes | N/A (officer 403) |
+| §5.1 (6) Insights & reporting | Yes | Yes | Yes (History / own visits) |
 | §5.1 (7) Visit verification (system) | Yes | Shown | Shown |
 | §5.2 UC1 Invite and assign | Yes | Yes | **Yes (change-password enforced)** |
 | §5.2 UC2 Deactivate | Yes | Yes | N/A |
@@ -134,18 +130,13 @@ This document lists what is **not implemented** or **incomplete** across backend
 
 ## 6. Recommended next steps
 
-1. **PDF export**  
-   - Add visit (and optionally farmer/farm) report export as PDF on web (and optionally backend endpoint), aligned with §7.3 and §4.3.
+1. ~~**PDF export**~~ — Done (web Export PDF).
+2. ~~**Mobile: change password / first login**~~ — Done.
 
-2. **Mobile: change password / first login**  
-   - Either:  
-     - Support change-password on mobile and enforce it when `must_change_password` is true after login, or  
-     - Document that first-time “set password” is done on web only.
-
-3. **Optional**  
+3. **Optional (future)**  
    - Backend: add a dedicated report/export endpoint (e.g. PDF or Excel) for visits (and template fields) if you want server-side reports.  
    - Web: add a “Report template” view or PDF that strictly follows the README table.  
-   - Product decision: allow officers to see their own visit history on mobile (would require backend change to allow officer-scoped visit list).
+   - (Officer visit history on mobile is implemented: backend returns officer-scoped list.)
 
 ---
 
