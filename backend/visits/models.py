@@ -2,9 +2,10 @@ import uuid
 from django.db import models
 from django.conf import settings
 from farmers.models import Farmer, Farm
+from mobile_sync.models import MobileSyncModel
 
 
-class Visit(models.Model):
+class Visit(MobileSyncModel):
     class VerificationStatus(models.TextChoices):
         VERIFIED = "verified", "Verified"
         REJECTED = "rejected", "Rejected"

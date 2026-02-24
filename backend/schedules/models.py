@@ -2,9 +2,10 @@ import uuid
 from django.db import models
 from django.conf import settings
 from farmers.models import Farmer
+from mobile_sync.models import MobileSyncModel
 
 
-class Schedule(models.Model):
+class Schedule(MobileSyncModel):
     """Visit schedule: officer proposes, supervisor/admin accepts or rejects."""
 
     class Status(models.TextChoices):
