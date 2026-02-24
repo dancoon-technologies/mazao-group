@@ -36,10 +36,16 @@ class FarmerListCreateView(generics.ListCreateAPIView):
                 ).select_related("assigned_officer")
         return Farmer.objects.filter(assigned_officer=user).select_related("assigned_officer")
 
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+        out = FarmerSerializer(serializer.instance)
+        return Response(out.data, status=status.HTTP_201_CREATED)
+
     def perform_create(self, serializer):
         user = self.request.user
-        data = serializer.validated_data
-        assigned = data.get("assigned_officer")
+        assigned = serializer.validated_data.get("assigned_officer")
         if user.role == "officer" and not assigned:
             farmer = serializer.save(assigned_officer=user)
         else:

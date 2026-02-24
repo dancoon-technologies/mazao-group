@@ -84,6 +84,16 @@ export interface DashboardStats {
   active_officers: number;
 }
 
+// --- Helpers ---
+
+/** Normalize API list responses (array or paginated { results }) to always return an array. */
+function ensureArray<T>(data: T[] | { results?: T[] } | undefined | null): T[] {
+  if (Array.isArray(data)) return data;
+  if (data != null && typeof data === 'object' && Array.isArray((data as { results?: T[] }).results))
+    return (data as { results: T[] }).results;
+  return [];
+}
+
 // --- Token helpers ---
 
 const getAccessToken = () =>
@@ -188,7 +198,10 @@ export const api = {
 
   logout: clearTokens,
 
-  getFarmers: () => request<Farmer[]>('/farmers/'),
+  async getFarmers() {
+    const data = await request<Farmer[] | { results: Farmer[] }>('/farmers/');
+    return ensureArray(data);
+  },
 
   async createFarmer(body: {
     title?: string;
@@ -207,8 +220,12 @@ export const api = {
     });
   },
 
-  getFarms: (farmerId?: string) =>
-    request<Farm[]>(farmerId ? `/farms/?farmer=${farmerId}` : '/farms/'),
+  async getFarms(farmerId?: string) {
+    const data = await request<Farm[] | { results: Farm[] }>(
+      farmerId ? `/farms/?farmer=${farmerId}` : '/farms/'
+    );
+    return ensureArray(data);
+  },
 
   async createFarm(body: {
     farmer_id: string;
@@ -229,7 +246,10 @@ export const api = {
 
   getLocations: () => request<LocationData>('/locations/'),
 
-  getSchedules: () => request<Schedule[]>('/schedules/'),
+  async getSchedules() {
+    const data = await request<Schedule[] | { results: Schedule[] }>('/schedules/');
+    return ensureArray(data);
+  },
 
   async createSchedule(body: {
     farmer?: string | null;

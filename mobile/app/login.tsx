@@ -2,9 +2,15 @@ import { useState } from 'react';
 import { useRouter } from 'expo-router';
 import { StyleSheet, View, KeyboardAvoidingView, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { TextInput, Button, Text, HelperText } from 'react-native-paper';
+import {
+  Surface,
+  Text,
+  TextInput,
+  Button,
+  Snackbar,
+  ActivityIndicator,
+} from 'react-native-paper';
 import { useAuth } from '@/contexts/AuthContext';
-import { spacing } from '@/constants/theme';
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -13,11 +19,13 @@ export default function LoginScreen() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [snackbarVisible, setSnackbarVisible] = useState(false);
 
   async function handleLogin() {
     setError('');
     if (!email.trim() || !password) {
       setError('Email and password are required.');
+      setSnackbarVisible(true);
       return;
     }
     setLoading(true);
@@ -30,78 +38,93 @@ export default function LoginScreen() {
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Login failed');
+      setSnackbarVisible(true);
     } finally {
       setLoading(false);
     }
   }
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
+    <SafeAreaView style={styles.safe}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.container}
       >
-        <View style={styles.inner}>
-          <Text variant="headlineMedium" style={styles.title}>
-            Mazao
-          </Text>
+        <Surface style={styles.surface} elevation={0}>
+          <Text variant="headlineMedium">Mazao Field App</Text>
           <Text variant="bodyLarge" style={styles.subtitle}>
             Extension officer sign in
           </Text>
-        <TextInput
-          label="Email"
-          value={email}
-          onChangeText={setEmail}
-          keyboardType="email-address"
-          autoCapitalize="none"
-          autoComplete="email"
-          mode="outlined"
-          style={styles.input}
-        />
-        <TextInput
-          label="Password"
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry
-          autoComplete="password"
-          mode="outlined"
-          style={styles.input}
-        />
-        {error ? <HelperText type="error">{error}</HelperText> : null}
-        <Button mode="contained" onPress={handleLogin} loading={loading} style={styles.button}>
-          Sign in
-        </Button>
-        </View>
+
+          <View style={styles.spacer} />
+
+          <TextInput
+            label="Email"
+            value={email}
+            onChangeText={setEmail}
+            keyboardType="email-address"
+            autoCapitalize="none"
+            autoComplete="email"
+            mode="outlined"
+            style={styles.input}
+          />
+          <TextInput
+            label="Password"
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry
+            autoComplete="password"
+            mode="outlined"
+            style={styles.input}
+          />
+
+          {loading ? (
+            <ActivityIndicator size="small" style={styles.loader} />
+          ) : (
+            <Button
+              mode="contained"
+              onPress={handleLogin}
+              disabled={loading}
+              style={styles.button}
+              accessibilityLabel="Login"
+            >
+              Login
+            </Button>
+          )}
+
+          <Text variant="bodySmall" style={styles.footer}>
+            Contact your supervisor if you need access
+          </Text>
+        </Surface>
       </KeyboardAvoidingView>
+
+      <Snackbar
+        visible={snackbarVisible}
+        onDismiss={() => setSnackbarVisible(false)}
+        action={{ label: 'Dismiss', onPress: () => setSnackbarVisible(false) }}
+      >
+        {error}
+      </Snackbar>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   safe: { flex: 1 },
-  container: {
+  container: { flex: 1 },
+  surface: {
     flex: 1,
+    padding: 24,
     justifyContent: 'center',
-    padding: spacing.xl,
   },
-  inner: {
-    maxWidth: 400,
-    width: '100%',
-    alignSelf: 'center',
-  },
-  title: {
+  subtitle: { marginTop: 4, marginBottom: 24 },
+  spacer: { height: 40 },
+  input: { marginBottom: 16 },
+  loader: { marginTop: 24 },
+  button: { marginTop: 24 },
+  footer: {
     textAlign: 'center',
-    marginBottom: spacing.sm,
-  },
-  subtitle: {
-    textAlign: 'center',
-    marginBottom: spacing.xl,
-    opacity: 0.8,
-  },
-  input: {
-    marginBottom: spacing.md,
-  },
-  button: {
-    marginTop: spacing.lg,
+    marginTop: 32,
+    opacity: 0.7,
   },
 });

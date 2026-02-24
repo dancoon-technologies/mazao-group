@@ -1,28 +1,88 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { Tabs } from 'expo-router';
-import { colors, spacing } from '@/constants/theme';
+import { Tabs, useRouter } from 'expo-router';
+import { Pressable, Text, View } from 'react-native';
+import { colors, shadows, typography } from '@/constants/theme';
+
+const TAB_ICONS: Record<string, keyof typeof MaterialCommunityIcons.glyphMap> = {
+  index: 'home',
+  visits: 'format-list-bulleted',
+  record: 'plus-circle',
+  farmers: 'account-group',
+  profile: 'account',
+};
 
 export default function AppTabsLayout() {
+  const router = useRouter();
+
   return (
     <Tabs
-      screenOptions={({ route }) => ({
-        tabBarActiveTintColor: colors.primary,
-        tabBarInactiveTintColor: colors.onSurfaceVariant,
-        headerShown: true,
-        headerTitle: getHeaderTitle(route.name),
-        headerTitleStyle: {
-          fontSize: 20,
-          fontWeight: '600',
-        },
-        headerShadowVisible: false,
-        tabBarLabelStyle: { fontSize: 12, fontWeight: '500' },
-      })}>
+      screenOptions={({ route }) => {
+        const isRecord = route.name === 'record';
+        return {
+          tabBarActiveTintColor: colors.primary,
+          tabBarInactiveTintColor: colors.gray500,
+          headerShown: true,
+          headerTitle: getHeaderTitle(route.name),
+          headerTitleStyle: {
+            fontSize: typography.headingL.fontSize,
+            fontWeight: typography.headingL.fontWeight,
+          },
+          headerShadowVisible: false,
+          headerBackground: () => null,
+          tabBarLabelStyle: { fontSize: 12, fontWeight: '500' },
+          tabBarStyle: {
+            height: 88,
+            paddingTop: 8,
+            backgroundColor: colors.white,
+            borderTopColor: colors.gray200,
+          },
+          tabBarShowLabel: true,
+          tabBarButton: isRecord
+            ? (props) => {
+              const { ref: _ref, ...rest } = props as { ref?: unknown;[k: string]: unknown };
+              return (
+                <Pressable
+                  {...rest}
+                  onPress={() => router.push('/(app)/record-visit')}
+                  style={({ pressed }) => [
+                    {
+                      flex: 1,
+                      justifyContent: 'center',
+                      alignItems: 'center',
+                      marginTop: -24,
+                    },
+                    pressed && { opacity: 0.9 },
+                  ]}
+                >
+                  <View
+                    style={[
+                      {
+                        width: 64,
+                        height: 64,
+                        borderRadius: 24,
+                        backgroundColor: colors.primary,
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                      },
+                      shadows.fab,
+                    ]}
+                  >
+                    <MaterialCommunityIcons name="plus" size={28} color={colors.white} />
+                  </View>
+                  <Text style={{ marginTop: 4, fontSize: 12, color: colors.gray700 }}>Record</Text>
+                </Pressable>
+              );
+            }
+            : undefined,
+        };
+      }}
+    >
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Dashboard',
+          title: 'Home',
           tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons name="home" size={size} color={color} />
+            <MaterialCommunityIcons name={TAB_ICONS.index} size={size} color={color} />
           ),
         }}
       />
@@ -31,7 +91,23 @@ export default function AppTabsLayout() {
         options={{
           title: 'Visits',
           tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons name="clipboard-list" size={size} color={color} />
+            <MaterialCommunityIcons name={TAB_ICONS.visits} size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="record"
+        options={{
+          title: 'Record',
+          tabBarIcon: () => null,
+        }}
+      />
+      <Tabs.Screen
+        name="farmers"
+        options={{
+          title: 'Farmers',
+          tabBarIcon: ({ color, size }) => (
+            <MaterialCommunityIcons name={TAB_ICONS.farmers} size={size} color={color} />
           ),
         }}
       />
@@ -39,9 +115,7 @@ export default function AppTabsLayout() {
         name="history"
         options={{
           title: 'History',
-          tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons name="history" size={size} color={color} />
-          ),
+          href: null,
         }}
       />
       <Tabs.Screen
@@ -49,7 +123,7 @@ export default function AppTabsLayout() {
         options={{
           title: 'Profile',
           tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons name="account" size={size} color={color} />
+            <MaterialCommunityIcons name={TAB_ICONS.profile} size={size} color={color} />
           ),
         }}
       />
@@ -65,6 +139,10 @@ function getHeaderTitle(name: string) {
       return 'Profile';
     case 'visits':
       return 'Visits';
+    case 'record':
+      return 'Record visit';
+    case 'farmers':
+      return 'Farmers';
     case 'history':
       return 'History';
     default:

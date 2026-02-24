@@ -1,27 +1,16 @@
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { MD3LightTheme, PaperProvider } from 'react-native-paper';
+import { PaperProvider } from 'react-native-paper';
 import 'react-native-reanimated';
 
 import { AuthProvider } from '@/contexts/AuthContext';
-import { colors, radius } from '@/constants/theme';
-
-const theme = {
-  ...MD3LightTheme,
-  roundness: radius.md,
-  colors: {
-    ...MD3LightTheme.colors,
-    primary: colors.primary,
-    primaryContainer: colors.primaryContainer,
-    error: colors.error,
-  },
-};
+import { paperTheme } from '@/lib/paper-theme';
 
 export default function RootLayout() {
   return (
     <SafeAreaProvider>
-      <PaperProvider theme={theme}>
+      <PaperProvider theme={paperTheme}>
         <AuthProvider>
         <Stack screenOptions={{ headerShown: false }}>
           <Stack.Screen name="index" />

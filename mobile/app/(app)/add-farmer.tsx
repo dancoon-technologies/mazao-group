@@ -119,8 +119,14 @@ export default function AddFarmerScreen() {
         longitude: isNaN(farmerLonNum) ? 0 : farmerLonNum,
       });
 
+      const farmerId = farmer?.id;
+      if (!farmerId) {
+        setError('Server did not return the new farmer. Please try again.');
+        return;
+      }
+
       await api.createFarm({
-        farmer_id: farmer.id,
+        farmer_id: farmerId,
         region_id: regionId,
         county_id: countyId,
         sub_county_id: subCountyId,

@@ -4,7 +4,6 @@ import { tableSchema, appSchema } from '@nozbe/watermelondb'
 export const visitSchema = tableSchema({
   name: 'visits',
   columns: [
-    { name: 'id', type: 'string' },
     { name: 'officer', type: 'string' },
     { name: 'farmer', type: 'string' },
     { name: 'farm', type: 'string', isOptional: true },
@@ -23,7 +22,6 @@ export const visitSchema = tableSchema({
 export const scheduleSchema = tableSchema({
   name: 'schedules',
   columns: [
-    { name: 'id', type: 'string' },
     { name: 'officer', type: 'string' },
     { name: 'farmer', type: 'string', isOptional: true },
     { name: 'scheduled_date', type: 'number' },
@@ -39,7 +37,6 @@ export const scheduleSchema = tableSchema({
 export const syncQueueSchema = tableSchema({
   name: 'sync_queue',
   columns: [
-    { name: 'id', type: 'string' },
     { name: 'operation', type: 'string' }, // CREATE / UPDATE / DELETE
     { name: 'entity', type: 'string' }, // visit / schedule
     { name: 'payload', type: 'string' }, // JSON string

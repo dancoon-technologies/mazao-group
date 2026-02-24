@@ -1,35 +1,91 @@
 /**
- * Design tokens for Mazao mobile app.
- * Use these instead of hardcoded colors/spacing for consistency.
+ * Mazao Field Officer App — Design tokens (Figma-aligned).
+ * 4pt grid, Inter-compatible typography, spec colors.
  */
+
+// --- Spacing (4pt system: 4/8/12/16/20/24/32)
 export const spacing = {
   xs: 4,
   sm: 8,
   md: 12,
   lg: 16,
+  lg20: 20,
   xl: 24,
   xxl: 32,
 } as const;
 
+// --- Corner radius
 export const radius = {
-  sm: 8,
-  md: 12,
-  lg: 16,
+  sm: 4,
+  md: 6,
+  lg: 8,
   full: 9999,
 } as const;
 
+// --- Color system (spec)
 export const colors = {
-  primary: '#2e7d32',
-  primaryLight: '#a5d6a7',
-  primaryContainer: '#e8f5e9',
-  error: '#b00020',
-  errorContainer: '#ffdad6',
-  surfaceVariant: '#f3e5f5',
+  // Primary (Agriculture Green)
+  primary: '#1B8F3A',
+  primaryDark: '#15732E',
+  primaryLight: '#E6F4EA',
+  // Accent (Orange)
+  accent: '#F59E0B',
+  // Status
+  success: '#22C55E',
+  successLight: '#DCFCE7',
+  warning: '#F59E0B',
+  warningLight: '#FEF3C7',
+  error: '#EF4444',
+  errorLight: '#FEE2E2',
+  info: '#3B82F6',
+  // Neutrals
+  gray900: '#111827',
+  gray700: '#374151',
+  gray500: '#6B7280',
+  gray200: '#E5E7EB',
+  gray100: '#F3F4F6',
+  white: '#FFFFFF',
+  // Legacy / aliases for existing usage
+  primaryContainer: '#E6F4EA',
+  onSurfaceVariant: '#6B7280',
   outline: 'rgba(0,0,0,0.12)',
-  onSurfaceVariant: 'rgba(0,0,0,0.6)',
-  success: '#2e7d32',
-  warning: '#ed6c02',
+  surfaceVariant: '#F3F4F6',
 } as const;
 
-/** Minimum touch target size (accessibility) */
-export const minTouchTarget = 44;
+// --- Typography (Inter / system)
+export const typography = {
+  headingXL: { fontSize: 24, fontWeight: '700' as const, lineHeight: 32 },
+  headingL: { fontSize: 20, fontWeight: '600' as const, lineHeight: 28 },
+  headingM: { fontSize: 18, fontWeight: '600' as const, lineHeight: 24 },
+  bodyL: { fontSize: 16, fontWeight: '400' as const, lineHeight: 24 },
+  bodyM: { fontSize: 14, fontWeight: '400' as const, lineHeight: 20 },
+  caption: { fontSize: 12, fontWeight: '500' as const, lineHeight: 16 },
+  button: { fontSize: 16, fontWeight: '600' as const, lineHeight: 24 },
+} as const;
+
+// --- Shadows (Card: Y 4, Blur 12, 8% black)
+export const shadows = {
+  card: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 4,
+  },
+  fab: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+} as const;
+
+/** Min touch target (accessibility) */
+export const minTouchTarget = 48;
+
+/** Button height (spec) */
+export const buttonHeight = 52;
+
+/** Input height (spec) */
+export const inputHeight = 56;

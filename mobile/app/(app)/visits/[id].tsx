@@ -20,12 +20,9 @@ export default function RecordVisitScreen() {
   const cameraRef = useRef<CameraView>(null);
 
   useEffect(() => {
-    if (!params.id) {
-      api.getSchedules().then(setSchedules).catch(() => setSchedules([]));
-    } else {
-      setSelectedScheduleId(params.id);
-    }
-  }, [params]);
+    api.getSchedules().then(setSchedules).catch(() => setSchedules([]));
+    if (params.id) setSelectedScheduleId(params.id);
+  }, [params.id]);
 
   useEffect(() => {
     let cancelled = false;
@@ -72,6 +69,12 @@ export default function RecordVisitScreen() {
       setError('Select a farmer.');
       return;
     }
+    const schedule = schedules.find((s) => s.id === scheduleId);
+    const farmerId = schedule?.farmer ?? null;
+    if (!farmerId) {
+      setError('Selected schedule has no farmer.');
+      return;
+    }
     if (!photoUri) {
       setError('Take a photo as proof of visit.');
       return;
@@ -84,7 +87,7 @@ export default function RecordVisitScreen() {
     setError('');
     try {
       await api.createVisit({
-        schedule_id: scheduleId,
+        farmer_id: farmerId,
         latitude: location.coords.latitude,
         longitude: location.coords.longitude,
         photo: { uri: photoUri, type: 'image/jpeg', name: 'visit.jpg' },
@@ -97,7 +100,7 @@ export default function RecordVisitScreen() {
     } finally {
       setSubmitting(false);
     }
-  }, [selectedScheduleId, photoUri, location, router]);
+  }, [selectedScheduleId, schedules, photoUri, location, router]);
 
   if (!permission) {
     return (
@@ -171,7 +174,12 @@ export default function RecordVisitScreen() {
           mode="contained"
           onPress={submit}
           loading={submitting}
-          disabled={!selectedScheduleId || !photoUri || !location}>
+          disabled={
+            !selectedScheduleId ||
+            !photoUri ||
+            !location ||
+            (selectedScheduleId !== null && !schedules.find((s) => s.id === selectedScheduleId))
+          }>
           Submit visit proof
         </Button>
         <Button mode="text" onPress={() => router.back()}>
@@ -216,7 +224,7 @@ const styles = StyleSheet.create({
   cameraWrap: {
     flex: 1,
     minHeight: 300,
-    borderRadius: 12,
+    borderRadius: 6,
     overflow: 'hidden',
     marginVertical: 16,
   },
@@ -232,7 +240,7 @@ const styles = StyleSheet.create({
   captureBtn: {
     width: 72,
     height: 72,
-    borderRadius: 36,
+    borderRadius: 24,
     backgroundColor: 'rgba(255,255,255,0.9)',
     borderWidth: 4,
     borderColor: '#2e7d32',
