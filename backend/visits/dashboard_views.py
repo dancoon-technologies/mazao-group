@@ -1,7 +1,8 @@
 from django.db.models import Count, Q
 from django.utils import timezone
-from rest_framework.views import APIView
 from rest_framework.response import Response
+from rest_framework.views import APIView
+
 from .models import Visit
 
 
@@ -11,6 +12,7 @@ class DashboardStatsView(APIView):
     def get(self, request):
         if request.user.role not in ("admin", "supervisor"):
             from rest_framework.exceptions import PermissionDenied
+
             raise PermissionDenied("Dashboard is for admin and supervisor only.")
         user = request.user
         base_qs = Visit.objects.all()
@@ -27,8 +29,10 @@ class DashboardStatsView(APIView):
             visits_this_month=Count("id", filter=Q(created_at__date__gte=start_of_month)),
         )
         active_officers = base_qs.values("officer").distinct().count()
-        return Response({
-            "visits_today": stats["visits_today"] or 0,
-            "visits_this_month": stats["visits_this_month"] or 0,
-            "active_officers": active_officers,
-        })
+        return Response(
+            {
+                "visits_today": stats["visits_today"] or 0,
+                "visits_this_month": stats["visits_this_month"] or 0,
+                "active_officers": active_officers,
+            }
+        )

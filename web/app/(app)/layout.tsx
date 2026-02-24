@@ -1,6 +1,6 @@
 "use client";
 
-import { AppShell, Box, Burger, Group, Text } from "@mantine/core";
+import { AppShell, Burger, Group, Text } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";

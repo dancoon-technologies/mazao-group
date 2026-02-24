@@ -9,6 +9,7 @@ Best practices:
   (e.g. Celery) and call notify_user(..., channels=["in_app"]) then enqueue email/sms.
 - Keep message text short for SMS (e.g. under 160 chars if single segment).
 """
+
 from django.conf import settings
 from django.core.mail import send_mail
 from django.utils import timezone
@@ -28,6 +29,7 @@ def send_sms(phone: str, message: str) -> bool:
     )
     try:
         from django.utils.module_loading import import_string
+
         klass = import_string(backend)
         return klass().send(phone, message)
     except Exception:

@@ -1,7 +1,8 @@
 from django.urls import path
-from .views import MobileSyncPushView, MobileSyncPullView
+
+from .views import MobileSyncPullView, MobileSyncPushView
 
 urlpatterns = [
-    path('push/', MobileSyncPushView.as_view(), name='mobile-sync-push'),
-    path('pull/', MobileSyncPullView.as_view(), name='mobile-sync-pull'),
+    path("push/", MobileSyncPushView.as_view(), name="mobile-sync-push"),
+    path("pull/", MobileSyncPullView.as_view(), name="mobile-sync-pull"),
 ]

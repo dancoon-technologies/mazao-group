@@ -42,7 +42,7 @@ const FARM_COLUMNS: DataTableColumn<Farm>[] = [
 ];
 
 export default function FarmsPage() {
-  const { role } = useAuth();
+  useAuth();
   const [farms, setFarms] = useState<Farm[]>([]);
   const [farmers, setFarmers] = useState<Farmer[]>([]);
   const [farmerFilter, setFarmerFilter] = useState<string | null>(null);

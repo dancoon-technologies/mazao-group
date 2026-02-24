@@ -1,6 +1,7 @@
 """
 SMS backends: console (log) for dev; Twilio for production when configured.
 """
+
 import logging
 
 logger = logging.getLogger(__name__)
@@ -25,6 +26,7 @@ class TwilioSMSBackend(BaseSMSBackend):
 
     def send(self, phone: str, message: str) -> bool:
         from django.conf import settings
+
         account_sid = getattr(settings, "TWILIO_ACCOUNT_SID", None)
         auth_token = getattr(settings, "TWILIO_AUTH_TOKEN", None)
         from_number = getattr(settings, "TWILIO_FROM_NUMBER", None)
@@ -33,6 +35,7 @@ class TwilioSMSBackend(BaseSMSBackend):
             return False
         try:
             from twilio.rest import Client
+
             client = Client(account_sid, auth_token)
             client.messages.create(body=message[:1600], from_=from_number, to=phone)
             return True

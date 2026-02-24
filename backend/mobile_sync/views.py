@@ -4,6 +4,7 @@ from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
+
 from schedules.models import Schedule
 from visits.models import Visit
 
@@ -15,25 +16,26 @@ class MobileSyncPushView(APIView):
     Receive locally changed schedules from mobile (bulk upsert).
     Visits are not pushed here; mobile uploads them via POST /api/visits/ (multipart) when syncing.
     """
+
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
-        schedules_data = request.data.get('schedules', [])
+        schedules_data = request.data.get("schedules", [])
         for record in schedules_data:
             # Only allow creating/updating schedules for the current user as officer
-            if str(record.get('officer')) != str(request.user.pk):
+            if str(record.get("officer")) != str(request.user.pk):
                 continue
             Schedule.objects.update_or_create(
-                id=record['id'],
+                id=record["id"],
                 defaults={
-                    'officer_id': record['officer'],
-                    'created_by_id': record.get('created_by') or request.user.pk,
-                    'farmer_id': record.get('farmer'),
-                    'scheduled_date': record['scheduled_date'],
-                    'notes': record.get('notes', ''),
-                    'status': record.get('status', Schedule.Status.PROPOSED),
-                    'updated_at': timezone.now(),
-                }
+                    "officer_id": record["officer"],
+                    "created_by_id": record.get("created_by") or request.user.pk,
+                    "farmer_id": record.get("farmer"),
+                    "scheduled_date": record["scheduled_date"],
+                    "notes": record.get("notes", ""),
+                    "status": record.get("status", Schedule.Status.PROPOSED),
+                    "updated_at": timezone.now(),
+                },
             )
         return Response({"status": "success"}, status=status.HTTP_200_OK)
 
@@ -42,14 +44,15 @@ class MobileSyncPullView(APIView):
     """
     Return visits and schedules for the current user (officer) updated after `last_sync`.
     """
+
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        last_sync = request.query_params.get('last_sync')
+        last_sync = request.query_params.get("last_sync")
         last_sync_dt = parse_datetime(last_sync) if last_sync else None
 
-        visits_qs = Visit.objects.filter(officer=request.user).select_related('farmer', 'farm')
-        schedules_qs = Schedule.objects.filter(officer=request.user).select_related('farmer')
+        visits_qs = Visit.objects.filter(officer=request.user).select_related("farmer", "farm")
+        schedules_qs = Schedule.objects.filter(officer=request.user).select_related("farmer")
 
         if last_sync_dt:
             visits_qs = visits_qs.filter(updated_at__gt=last_sync_dt)
@@ -58,8 +61,11 @@ class MobileSyncPullView(APIView):
         visits = VisitSyncSerializer(visits_qs, many=True).data
         schedules = ScheduleSyncSerializer(schedules_qs, many=True).data
 
-        return Response({
-            "visits": visits,
-            "schedules": schedules,
-            "server_time": timezone.now().isoformat(),
-        }, status=status.HTTP_200_OK)
+        return Response(
+            {
+                "visits": visits,
+                "schedules": schedules,
+                "server_time": timezone.now().isoformat(),
+            },
+            status=status.HTTP_200_OK,
+        )

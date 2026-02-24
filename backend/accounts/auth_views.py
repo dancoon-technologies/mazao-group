@@ -1,9 +1,10 @@
-from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+from rest_framework_simplejwt.views import TokenObtainPairView
 
 
 class EmailTokenObtainPairSerializer(TokenObtainPairSerializer):
     """Accept 'email' instead of 'username' for login."""
+
     username_field = "email"
 
     @classmethod

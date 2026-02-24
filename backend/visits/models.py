@@ -1,7 +1,9 @@
 import uuid
-from django.db import models
+
 from django.conf import settings
-from farmers.models import Farmer, Farm
+from django.db import models
+
+from farmers.models import Farm, Farmer
 from mobile_sync.models import MobileSyncModel
 
 
@@ -17,7 +19,10 @@ class Visit(MobileSyncModel):
         FARM_TO_FARM_VISITS = "farm_to_farm_visits", "Farm to farm visits"
         KEY_FARM_VISITS = "key_farm_visits", "Key farm visits"
         GROUP_TRAINING = "group_training", "Group training"
-        COMMON_INTEREST_GROUP_TRAINING = "common_interest_group_training", "Common Interest Group training"
+        COMMON_INTEREST_GROUP_TRAINING = (
+            "common_interest_group_training",
+            "Common Interest Group training",
+        )
         STAKEHOLDER_GROUP_TRAINING = "stakeholder_group_training", "Stakeholder group training"
         EXHIBITION = "exhibition", "Exhibition"
         MARKET_DAY_ACTIVATION = "market_day_activation", "Market day activation"
@@ -28,14 +33,20 @@ class Visit(MobileSyncModel):
         SPOT_DEMO = "spot_demo", "Spot demo"
         DEMO_SITE_TRAINING = "demo_site_training", "Demo site training"
         STAKEHOLDER_ENGAGEMENT = "stakeholder_engagement", "Stakeholder engagement"
-        FARMERS_COOPERATIVE_ENGAGEMENT = "farmers_cooperative_engagement", "Farmers Cooperative society engagement"
+        FARMERS_COOPERATIVE_ENGAGEMENT = (
+            "farmers_cooperative_engagement",
+            "Farmers Cooperative society engagement",
+        )
         STOCKISTS_ACTIVATION = "stockists_activation", "Stockists activation"
         MERCHANDISING = "merchandising", "Merchandising"
         ROUTE_STORMING = "route_storming", "Route storming"
         FARMING_POCKET_STORMING = "farming_pocket_storming", "Farming pocket storming"
         COUNTER_STAFF_TRAINING = "counter_staff_training", "Counter staff training"
         COUNTER_STAFF_BONDING = "counter_staff_bonding", "Counter staff bonding session"
-        KEY_FARMERS_BONDING = "key_farmers_bonding", "Key Farmers bonding session / Goat eating sessions"
+        KEY_FARMERS_BONDING = (
+            "key_farmers_bonding",
+            "Key Farmers bonding session / Goat eating sessions",
+        )
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     officer = models.ForeignKey(

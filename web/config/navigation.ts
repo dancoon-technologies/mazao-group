@@ -1,7 +1,6 @@
 import type { UserRole } from "@/lib/types";
 import {
   ROUTES,
-  ROLES_CAN_ACCESS_DASHBOARD,
   ROLES_SCHEDULES_PAGE,
   ROLES_STAFF_PAGE,
   ROLES_CAN_LIST_VISITS,

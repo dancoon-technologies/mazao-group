@@ -41,7 +41,7 @@ export default function RecordVisitScreen() {
           accuracy: Location.Accuracy.Balanced,
         });
         if (!cancelled) setLocation(loc);
-      } catch (e) {
+      } catch {
         if (!cancelled) setLocationError('Could not get location.');
       }
     })();

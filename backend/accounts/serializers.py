@@ -1,4 +1,5 @@
 from rest_framework import serializers
+
 from .models import User
 
 
@@ -46,15 +47,21 @@ class StaffCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = (
-            "email", "role", "first_name", "middle_name", "last_name", "phone",
-            "department", "region_id", "county_id", "sub_county_id",
+            "email",
+            "role",
+            "first_name",
+            "middle_name",
+            "last_name",
+            "phone",
+            "department",
+            "region_id",
+            "county_id",
+            "sub_county_id",
         )
 
     def validate_role(self, value):
         if value not in (User.Role.SUPERVISOR, User.Role.OFFICER):
-            raise serializers.ValidationError(
-                "Role must be 'supervisor' or 'officer'."
-            )
+            raise serializers.ValidationError("Role must be 'supervisor' or 'officer'.")
         return value
 
     def create(self, validated_data):
@@ -76,6 +83,7 @@ class StaffCreateSerializer(serializers.ModelSerializer):
             # User is created; log and/or re-raise depending on policy
             raise
         from notifications.services import notify_user
+
         notify_user(
             user,
             title="You have been registered",

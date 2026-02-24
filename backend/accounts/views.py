@@ -1,34 +1,37 @@
 from rest_framework import generics, status
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.views import APIView
 
 from .models import User
-from .serializers import UserSerializer, StaffCreateSerializer, StaffPatchSerializer
+from .serializers import StaffCreateSerializer, StaffPatchSerializer, UserSerializer
 from .services import resend_staff_credentials
 
 
 class OptionsListView(APIView):
     """GET: Option sets for forms (departments, staff_roles). Single source of truth from backend."""
+
     permission_classes = [AllowAny]
 
     def get(self, request):
         departments = [
-            {"value": choice[0], "label": choice[1]}
-            for choice in User.Department.choices
+            {"value": choice[0], "label": choice[1]} for choice in User.Department.choices
         ]
         staff_roles = [
             {"value": User.Role.SUPERVISOR, "label": dict(User.Role.choices)[User.Role.SUPERVISOR]},
             {"value": User.Role.OFFICER, "label": dict(User.Role.choices)[User.Role.OFFICER]},
         ]
-        return Response({
-            "departments": departments,
-            "staff_roles": staff_roles,
-        })
+        return Response(
+            {
+                "departments": departments,
+                "staff_roles": staff_roles,
+            }
+        )
 
 
 class OfficersListView(generics.ListAPIView):
     """List officers for schedule assignment. Admin: all; Supervisor: same region."""
+
     serializer_class = UserSerializer
     permission_classes = [IsAuthenticated]
 
@@ -51,6 +54,7 @@ class OfficersListView(generics.ListAPIView):
 
 class StaffListCreateView(generics.ListCreateAPIView):
     """List and register staff (supervisors and extension officers). Admin only."""
+
     list_serializer_class = UserSerializer
     create_serializer_class = StaffCreateSerializer
     permission_classes = [IsAuthenticated]
@@ -63,9 +67,11 @@ class StaffListCreateView(generics.ListCreateAPIView):
     def get_queryset(self):
         if self.request.user.role != "admin":
             return User.objects.none()
-        return User.objects.filter(
-            role__in=(User.Role.SUPERVISOR, User.Role.OFFICER)
-        ).select_related("region_id", "county_id", "sub_county_id").order_by("role", "email")
+        return (
+            User.objects.filter(role__in=(User.Role.SUPERVISOR, User.Role.OFFICER))
+            .select_related("region_id", "county_id", "sub_county_id")
+            .order_by("role", "email")
+        )
 
     def list(self, request, *args, **kwargs):
         if request.user.role != "admin":
@@ -90,6 +96,7 @@ class StaffListCreateView(generics.ListCreateAPIView):
 
 class StaffUpdateView(generics.GenericAPIView):
     """PATCH staff by id. Admin only. Allow is_active, department, location IDs (deactivate / assign-reassign)."""
+
     permission_classes = [IsAuthenticated]
     serializer_class = StaffPatchSerializer
 
@@ -120,6 +127,7 @@ class StaffUpdateView(generics.GenericAPIView):
 
 class ChangePasswordView(generics.GenericAPIView):
     """POST with current_password and new_password. Clears must_change_password and returns new tokens."""
+
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
@@ -143,6 +151,7 @@ class ChangePasswordView(generics.GenericAPIView):
         user.save(update_fields=["password", "must_change_password"])
         user.refresh_from_db()  # ensure in-memory state is in sync for any downstream use
         from notifications.services import notify_user
+
         notify_user(
             user,
             title="Password changed",
@@ -150,15 +159,18 @@ class ChangePasswordView(generics.GenericAPIView):
             channels=["in_app"],
         )
         refresh = RefreshToken.for_user(user)
-        return Response({
-            "detail": "Password changed successfully.",
-            "access": str(refresh.access_token),
-            "refresh": str(refresh),
-        })
+        return Response(
+            {
+                "detail": "Password changed successfully.",
+                "access": str(refresh.access_token),
+                "refresh": str(refresh),
+            }
+        )
 
 
 class StaffResendCredentialsView(generics.GenericAPIView):
     """POST to resend login credentials email to a staff member. Admin only."""
+
     permission_classes = [IsAuthenticated]
 
     def post(self, request, pk):
@@ -187,6 +199,7 @@ class StaffResendCredentialsView(generics.GenericAPIView):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
         from notifications.services import notify_user
+
         notify_user(
             user,
             title="Login credentials resent",
@@ -194,6 +207,6 @@ class StaffResendCredentialsView(generics.GenericAPIView):
             channels=["in_app"],
         )
         return Response(
-            {"detail": "Credentials email sent to {}.".format(user.email)},
+            {"detail": f"Credentials email sent to {user.email}."},
             status=status.HTTP_200_OK,
         )

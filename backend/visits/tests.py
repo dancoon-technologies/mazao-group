@@ -1,22 +1,25 @@
 """
 Tests for visits: Haversine, create visit (GPS, photo, assignment), list, dashboard.
 """
+
 from io import BytesIO
 
 from django.test import TestCase
-from rest_framework.test import APIClient
 from rest_framework import status
+from rest_framework.test import APIClient
 
 from accounts.models import User
 from farmers.models import Farmer
 from locations.models import Region
+
 from .models import Visit
-from .utils import haversine_meters, MAX_VISIT_DISTANCE_METERS
+from .utils import MAX_VISIT_DISTANCE_METERS, haversine_meters
 
 
 def make_jpeg_file(name="photo.jpg", size_kb=1):
     """Minimal valid JPEG for upload tests."""
     from PIL import Image
+
     img = Image.new("RGB", (10, 10), color="red")
     buf = BytesIO()
     img.save(buf, format="JPEG")
@@ -25,6 +28,7 @@ def make_jpeg_file(name="photo.jpg", size_kb=1):
     if size_kb > 1:
         content = content + b"\x00" * ((size_kb * 1024) - len(content))
     from django.core.files.uploadedfile import SimpleUploadedFile
+
     return SimpleUploadedFile(name, content[: size_kb * 1024], content_type="image/jpeg")
 
 
@@ -62,23 +66,34 @@ class VisitAPITests(TestCase):
             email="admin@test.com", password="admin123", role=User.Role.ADMIN
         )
         self.officer = User.objects.create_user(
-            email="officer@test.com", password="officer123", role=User.Role.OFFICER, region_id=region_north
+            email="officer@test.com",
+            password="officer123",
+            role=User.Role.OFFICER,
+            region_id=region_north,
         )
         self.supervisor = User.objects.create_user(
-            email="super@test.com", password="super123", role=User.Role.SUPERVISOR, region_id=region_north
+            email="super@test.com",
+            password="super123",
+            role=User.Role.SUPERVISOR,
+            region_id=region_north,
         )
         self.farmer = Farmer.objects.create(
-            first_name="Test", last_name="Farmer",
+            first_name="Test",
+            last_name="Farmer",
             phone="+255111",
             latitude=-6.0,
             longitude=39.0,
             assigned_officer=self.officer,
         )
         self.other_officer = User.objects.create_user(
-            email="other@test.com", password="other123", role=User.Role.OFFICER, region_id=region_south
+            email="other@test.com",
+            password="other123",
+            role=User.Role.OFFICER,
+            region_id=region_south,
         )
         self.farmer_other = Farmer.objects.create(
-            first_name="Other", last_name="Farmer",
+            first_name="Other",
+            last_name="Farmer",
             phone="+255222",
             latitude=-6.01,
             longitude=39.01,
@@ -86,7 +101,9 @@ class VisitAPITests(TestCase):
         )
 
     def _login(self, email, password):
-        r = self.client.post("/api/auth/login/", {"email": email, "password": password}, format="json")
+        r = self.client.post(
+            "/api/auth/login/", {"email": email, "password": password}, format="json"
+        )
         self.assertEqual(r.status_code, status.HTTP_200_OK)
         return r.json()["access"]
 
@@ -154,6 +171,7 @@ class VisitAPITests(TestCase):
         token = self._login("officer@test.com", "officer123")
         self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
         import uuid
+
         data = {
             "farmer_id": str(uuid.uuid4()),
             "latitude": -6.0,
@@ -165,13 +183,19 @@ class VisitAPITests(TestCase):
 
     def test_list_visits_officer_sees_only_own(self):
         Visit.objects.create(
-            officer=self.officer, farmer=self.farmer,
-            latitude=-6.0, longitude=39.0, distance_from_farmer=0,
+            officer=self.officer,
+            farmer=self.farmer,
+            latitude=-6.0,
+            longitude=39.0,
+            distance_from_farmer=0,
             verification_status=Visit.VerificationStatus.VERIFIED,
         )
         Visit.objects.create(
-            officer=self.other_officer, farmer=self.farmer_other,
-            latitude=-6.01, longitude=39.01, distance_from_farmer=0,
+            officer=self.other_officer,
+            farmer=self.farmer_other,
+            latitude=-6.01,
+            longitude=39.01,
+            distance_from_farmer=0,
             verification_status=Visit.VerificationStatus.VERIFIED,
         )
         token = self._login("officer@test.com", "officer123")
@@ -183,8 +207,11 @@ class VisitAPITests(TestCase):
 
     def test_list_visits_admin_sees_all(self):
         Visit.objects.create(
-            officer=self.officer, farmer=self.farmer,
-            latitude=-6.0, longitude=39.0, distance_from_farmer=0,
+            officer=self.officer,
+            farmer=self.farmer,
+            latitude=-6.0,
+            longitude=39.0,
+            distance_from_farmer=0,
             verification_status=Visit.VerificationStatus.VERIFIED,
         )
         token = self._login("admin@test.com", "admin123")
@@ -195,13 +222,17 @@ class VisitAPITests(TestCase):
 
     def test_list_visits_filter_by_date(self):
         Visit.objects.create(
-            officer=self.officer, farmer=self.farmer,
-            latitude=-6.0, longitude=39.0, distance_from_farmer=0,
+            officer=self.officer,
+            farmer=self.farmer,
+            latitude=-6.0,
+            longitude=39.0,
+            distance_from_farmer=0,
             verification_status=Visit.VerificationStatus.VERIFIED,
         )
         token = self._login("officer@test.com", "officer123")
         self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
         from django.utils import timezone
+
         today = timezone.now().date().isoformat()
         r = self.client.get(f"/api/visits/?date={today}")
         self.assertEqual(r.status_code, status.HTTP_200_OK)

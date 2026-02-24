@@ -4,7 +4,7 @@ import { Anchor, Badge, Box, Grid, Paper, Table, Text, Title } from "@mantine/co
 import Link from "next/link";
 import { useAsyncData } from "@/hooks/useAsyncData";
 import { api } from "@/lib/api";
-import type { DashboardStats, Visit } from "@/lib/types";
+import type { Visit } from "@/lib/types";
 import { PageLoading, PageError } from "@/components/ui";
 import { PAGE_BOX_MIN_WIDTH, ROUTES } from "@/lib/constants";
 import { formatDateTime, formatActivityType } from "@/lib/format";

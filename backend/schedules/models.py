@@ -1,6 +1,8 @@
 import uuid
-from django.db import models
+
 from django.conf import settings
+from django.db import models
+
 from farmers.models import Farmer
 from mobile_sync.models import MobileSyncModel
 

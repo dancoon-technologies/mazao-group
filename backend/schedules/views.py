@@ -1,10 +1,10 @@
 from django.db.models import Q
 from rest_framework import generics, status
-from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
 
 from .models import Schedule
-from .serializers import ScheduleSerializer, ScheduleCreateSerializer
+from .serializers import ScheduleCreateSerializer, ScheduleSerializer
 
 
 class ScheduleListCreateView(generics.ListCreateAPIView):
@@ -65,8 +65,10 @@ class ScheduleListCreateView(generics.ListCreateAPIView):
                 status=Schedule.Status.ACCEPTED,
                 approved_by=user,
             )
-            from notifications.services import notify_user
             from django.utils.formats import date_format
+
+            from notifications.services import notify_user
+
             farmer_name = schedule.farmer.name if schedule.farmer else "No specific farmer"
             date_str = date_format(schedule.scheduled_date, use_l10n=True)
             notify_user(
@@ -91,8 +93,10 @@ class ScheduleListCreateView(generics.ListCreateAPIView):
                 status=Schedule.Status.PROPOSED,
             )
             from django.contrib.auth import get_user_model
-            from notifications.services import notify_user
             from django.utils.formats import date_format
+
+            from notifications.services import notify_user
+
             User = get_user_model()
             if getattr(user, "region_id_id", None):
                 supervisors_same_region = User.objects.filter(
@@ -117,6 +121,7 @@ class ScheduleListCreateView(generics.ListCreateAPIView):
 
 class ScheduleApproveView(generics.GenericAPIView):
     """POST with {"action": "accept" | "reject"}. Supervisor or admin only."""
+
     permission_classes = [IsAuthenticated]
     queryset = Schedule.objects.all()
 
@@ -156,8 +161,10 @@ class ScheduleApproveView(generics.GenericAPIView):
             schedule.status = Schedule.Status.ACCEPTED
             schedule.approved_by = user
             schedule.save(update_fields=["status", "approved_by"])
-            from notifications.services import notify_user
             from django.utils.formats import date_format
+
+            from notifications.services import notify_user
+
             farmer_name = schedule.farmer.name if schedule.farmer else "No specific farmer"
             date_str = date_format(schedule.scheduled_date, use_l10n=True)
             notify_user(
@@ -171,8 +178,10 @@ class ScheduleApproveView(generics.GenericAPIView):
             schedule.status = Schedule.Status.REJECTED
             schedule.approved_by = user
             schedule.save(update_fields=["status", "approved_by"])
-            from notifications.services import notify_user
             from django.utils.formats import date_format
+
+            from notifications.services import notify_user
+
             date_str = date_format(schedule.scheduled_date, use_l10n=True)
             notify_user(
                 schedule.officer,

@@ -1,0 +1,5 @@
+# Development / code quality (optional)
+# Install: pip install -r requirements-dev.txt
+# Then: ruff check .  |  ruff format .
+
+ruff>=0.8.0

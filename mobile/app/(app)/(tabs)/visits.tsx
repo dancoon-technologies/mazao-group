@@ -2,7 +2,9 @@ import { api, type Schedule } from '@/lib/api';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button, Card, Text, TextInput, ActivityIndicator } from 'react-native-paper';
+import { colors, radius, spacing } from '@/constants/theme';
 
 function formatDate(iso: string) {
   try {
@@ -44,7 +46,8 @@ export default function VisitsScreen() {
   );
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <SafeAreaView style={styles.safe} edges={['bottom']}>
+      <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <Text variant="bodySmall" style={styles.hint}>
         Select a schedule to record a visit (GPS + photo). You can also record from Dashboard.
       </Text>
@@ -100,20 +103,22 @@ export default function VisitsScreen() {
           </Card>
         ))
       )}
-    </ScrollView>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safe: { flex: 1 },
   container: { flex: 1 },
-  content: { padding: 16, paddingBottom: 32 },
-  hint: { marginBottom: 12, opacity: 0.8 },
-  search: { marginBottom: 16 },
-  loader: { marginVertical: 24 },
-  card: { marginBottom: 12, borderRadius: 8 },
-  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
+  content: { padding: spacing.lg, paddingBottom: spacing.xxl },
+  hint: { marginBottom: spacing.md, opacity: 0.8 },
+  search: { marginBottom: spacing.lg },
+  loader: { marginVertical: spacing.xl },
+  card: { marginBottom: spacing.md, borderRadius: radius.sm },
+  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.xs },
   status: { textTransform: 'capitalize', opacity: 0.8 },
-  notes: { marginTop: 4, fontStyle: 'italic', opacity: 0.9 },
-  muted: { marginTop: 4, opacity: 0.8 },
-  error: { color: '#b00020', marginBottom: 8 },
+  notes: { marginTop: spacing.xs, fontStyle: 'italic', opacity: 0.9 },
+  muted: { marginTop: spacing.xs, opacity: 0.8 },
+  error: { color: colors.error, marginBottom: spacing.sm },
 });

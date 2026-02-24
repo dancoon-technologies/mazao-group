@@ -13,6 +13,7 @@ import {
   TextInput,
 } from "@mantine/core";
 import { useMemo, useState } from "react";
+import * as XLSX from "xlsx";
 import { useAsyncData } from "@/hooks/useAsyncData";
 import { api, photoUrl } from "@/lib/api";
 import type { Visit } from "@/lib/types";
@@ -96,7 +97,7 @@ export default function VisitsPage() {
     () => (isAdminOrSupervisor ? api.getOfficers() : Promise.resolve([])),
     [isAdminOrSupervisor]
   );
-  const officers = officersData ?? [];
+  const officers = useMemo(() => officersData ?? [], [officersData]);
 
   const visits = visitsData ?? [];
 
@@ -106,7 +107,6 @@ export default function VisitsPage() {
   );
 
   const handleExportExcel = () => {
-    const XLSX = require("xlsx");
     const rows = visits.map((v) => ({
       Date: formatDateTime(v.created_at),
       Officer: v.officer_email ?? v.officer,

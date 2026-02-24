@@ -1,7 +1,9 @@
 import { api, type Visit } from '@/lib/api';
 import { useCallback, useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { ActivityIndicator, Card, Text, Button } from 'react-native-paper';
+import { colors, radius, spacing } from '@/constants/theme';
 
 function formatDateTime(iso: string) {
   try {
@@ -61,6 +63,7 @@ export default function HistoryScreen() {
 
   if (forbidden) {
     return (
+      <SafeAreaView style={styles.safe} edges={['bottom']}>
       <ScrollView style={styles.container} contentContainerStyle={styles.content}>
         <Card style={styles.card}>
           <Card.Content>
@@ -71,11 +74,13 @@ export default function HistoryScreen() {
           </Card.Content>
         </Card>
       </ScrollView>
+      </SafeAreaView>
     );
   }
 
   if (error) {
     return (
+      <SafeAreaView style={styles.safe} edges={['bottom']}>
       <ScrollView style={styles.container} contentContainerStyle={styles.content}>
         <Card style={styles.card}>
           <Card.Content>
@@ -84,11 +89,13 @@ export default function HistoryScreen() {
           </Card.Content>
         </Card>
       </ScrollView>
+      </SafeAreaView>
     );
   }
 
   if (visits.length === 0) {
     return (
+      <SafeAreaView style={styles.safe} edges={['bottom']}>
       <ScrollView style={styles.container} contentContainerStyle={styles.content}>
         <Card style={styles.card}>
           <Card.Content>
@@ -99,10 +106,12 @@ export default function HistoryScreen() {
           </Card.Content>
         </Card>
       </ScrollView>
+      </SafeAreaView>
     );
   }
 
   return (
+    <SafeAreaView style={styles.safe} edges={['bottom']}>
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       {visits.map((v) => (
         <Card key={v.id} style={styles.card}>
@@ -123,16 +132,18 @@ export default function HistoryScreen() {
         </Card>
       ))}
     </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safe: { flex: 1 },
   container: { flex: 1 },
-  content: { padding: 16, paddingBottom: 32 },
+  content: { padding: spacing.lg, paddingBottom: spacing.xxl },
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  card: { marginBottom: 12, borderRadius: 8 },
-  muted: { marginTop: 4, opacity: 0.8 },
-  error: { color: '#b00020', marginBottom: 8 },
+  card: { marginBottom: spacing.md, borderRadius: radius.sm },
+  muted: { marginTop: spacing.xs, opacity: 0.8 },
+  error: { color: colors.error, marginBottom: spacing.sm },
   activity: { marginTop: 2, textTransform: 'capitalize', opacity: 0.9 },
-  verified: { marginTop: 2, textTransform: 'capitalize', color: '#2e7d32' },
+  verified: { marginTop: 2, textTransform: 'capitalize', color: colors.success },
 });

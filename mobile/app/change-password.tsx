@@ -1,8 +1,10 @@
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { View, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { TextInput, Button, Text, HelperText } from 'react-native-paper';
 import { useAuth } from '@/contexts/AuthContext';
+import { spacing } from '@/constants/theme';
 
 export default function ChangePasswordScreen() {
   const router = useRouter();
@@ -49,12 +51,13 @@ export default function ChangePasswordScreen() {
   if (isLoading) return null;
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      style={styles.container}
-    >
-      <View style={styles.inner}>
-        <Text variant="headlineSmall" style={styles.title}>
+    <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.container}
+      >
+        <View style={styles.inner}>
+          <Text variant="headlineSmall" style={styles.title}>
           Set new password
         </Text>
         <Text variant="bodyMedium" style={styles.subtitle}>
@@ -97,16 +100,18 @@ export default function ChangePasswordScreen() {
         >
           Change password
         </Button>
-      </View>
-    </KeyboardAvoidingView>
+        </View>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safe: { flex: 1 },
   container: {
     flex: 1,
     justifyContent: 'center',
-    padding: 24,
+    padding: spacing.xl,
   },
   inner: {
     maxWidth: 400,
@@ -115,17 +120,17 @@ const styles = StyleSheet.create({
   },
   title: {
     textAlign: 'center',
-    marginBottom: 8,
+    marginBottom: spacing.sm,
   },
   subtitle: {
     textAlign: 'center',
-    marginBottom: 24,
+    marginBottom: spacing.xl,
     opacity: 0.8,
   },
   input: {
-    marginBottom: 12,
+    marginBottom: spacing.md,
   },
   button: {
-    marginTop: 16,
+    marginTop: spacing.lg,
   },
 });

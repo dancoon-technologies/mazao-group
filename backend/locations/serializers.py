@@ -1,5 +1,6 @@
 from rest_framework import serializers
-from .models import Region, County, SubCounty
+
+from .models import County, Region, SubCounty
 
 
 class RegionSerializer(serializers.ModelSerializer):

@@ -3,7 +3,9 @@ import { syncWithServer, getPendingSyncCount } from '@/lib/syncWithServer';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { View, StyleSheet } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { List, Button, Text, Card } from 'react-native-paper';
+import { colors, radius, spacing } from '@/constants/theme';
 
 export default function ProfileScreen() {
   const router = useRouter();
@@ -36,8 +38,9 @@ export default function ProfileScreen() {
   };
 
   return (
-    <View style={styles.container}>
-      <Card style={styles.card}>
+    <SafeAreaView style={styles.safe} edges={['bottom']}>
+      <View style={styles.container}>
+        <Card style={styles.card}>
         <Card.Content>
           <Text variant="titleMedium">Account</Text>
           <Text variant="bodyMedium" style={styles.email}>
@@ -84,15 +87,17 @@ export default function ProfileScreen() {
           Sign out
         </Button>
       </View>
-    </View>
+      </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16 },
-  card: { marginBottom: 16, borderRadius: 8 },
-  email: { marginTop: 4, opacity: 0.8 },
-  syncBtn: { marginTop: 8 },
-  logoutWrap: { marginTop: 24 },
-  logout: { borderColor: '#b00020' },
+  safe: { flex: 1 },
+  container: { flex: 1, padding: spacing.lg },
+  card: { marginBottom: spacing.lg, borderRadius: radius.sm },
+  email: { marginTop: spacing.xs, opacity: 0.8 },
+  syncBtn: { marginTop: spacing.sm },
+  logoutWrap: { marginTop: spacing.xl },
+  logout: { borderColor: colors.error },
 });

@@ -2,7 +2,9 @@ import { api, type Farmer, type Schedule } from '@/lib/api';
 import { router } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Avatar, Card, Text } from 'react-native-paper';
+import { colors, radius, spacing } from '@/constants/theme';
 
 function formatDate(iso: string) {
   try {
@@ -56,12 +58,13 @@ export default function HomeScreen() {
   }
 
   return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={{ padding: 16 }}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-    >
-      <Card style={styles.welcomeCard}>
+    <SafeAreaView style={styles.safe} edges={['bottom']}>
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={styles.content}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+      >
+        <Card style={styles.welcomeCard}>
         <Card.Content>
           <View style={styles.welcomeHeader}>
             <View>
@@ -106,7 +109,7 @@ export default function HomeScreen() {
       <View style={styles.quickActions}>
         <Card style={styles.quickCard} onPress={() => router.push('/(app)/(tabs)/visits')}>
           <Card.Content style={styles.quickCardContent}>
-            <Avatar.Icon icon="clipboard-list" size={36} style={{ backgroundColor: '#e8f5e9' }} />
+            <Avatar.Icon icon="clipboard-list" size={36} style={styles.iconBg1} />
             <View>
               <Text variant="titleSmall">Schedules</Text>
               <Text variant="bodySmall">Record a visit</Text>
@@ -115,7 +118,7 @@ export default function HomeScreen() {
         </Card>
         <Card style={styles.quickCard} onPress={() => router.push('/(app)/add-farmer')}>
           <Card.Content style={styles.quickCardContent}>
-            <Avatar.Icon icon="account-plus" size={36} style={{ backgroundColor: '#e3f2fd' }} />
+            <Avatar.Icon icon="account-plus" size={36} style={styles.iconBg2} />
             <View>
               <Text variant="titleSmall">Add farmer</Text>
               <Text variant="bodySmall">Register farmer & farm</Text>
@@ -124,7 +127,7 @@ export default function HomeScreen() {
         </Card>
         <Card style={styles.quickCard} onPress={() => router.push('/(app)/propose-schedule')}>
           <Card.Content style={styles.quickCardContent}>
-            <Avatar.Icon icon="calendar-plus" size={36} style={{ backgroundColor: '#fff3e0' }} />
+            <Avatar.Icon icon="calendar-plus" size={36} style={styles.iconBg3} />
             <View>
               <Text variant="titleSmall">Propose schedule</Text>
               <Text variant="bodySmall">Request approval</Text>
@@ -133,7 +136,7 @@ export default function HomeScreen() {
         </Card>
         <Card style={styles.quickCard} onPress={() => router.push('/(app)/(tabs)/history')}>
           <Card.Content style={styles.quickCardContent}>
-            <Avatar.Icon icon="history" size={36} style={{ backgroundColor: '#f3e5f5' }} />
+            <Avatar.Icon icon="history" size={36} style={styles.iconBg4} />
             <View>
               <Text variant="titleSmall">History</Text>
               <Text variant="bodySmall">View visits</Text>
@@ -196,32 +199,39 @@ export default function HomeScreen() {
           </Card.Content>
         </Card>
       ) : null}
-    </ScrollView>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safe: { flex: 1 },
   container: { flex: 1 },
+  content: { padding: spacing.lg, paddingBottom: spacing.xxl },
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   welcomeCard: {
-    backgroundColor: '#2e7d32',
-    borderRadius: 12,
+    backgroundColor: colors.primary,
+    borderRadius: radius.md,
     padding: 2,
   },
   welcomeHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: spacing.sm,
   },
-  statsRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
-  statCard: { flex: 1, minWidth: 90, borderRadius: 8 },
-  sectionTitle: { marginTop: 24, marginBottom: 8 },
-  quickActions: { gap: 8 },
-  quickCard: { marginBottom: 8, borderRadius: 8 },
-  quickCardContent: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  card: { marginBottom: 8, borderRadius: 8 },
-  muted: { marginTop: 4, opacity: 0.8 },
-  recordLink: { color: '#2e7d32' },
-  error: { color: '#b00020' },
+  statsRow: { flexDirection: 'row', gap: spacing.sm, flexWrap: 'wrap' },
+  statCard: { flex: 1, minWidth: 90, borderRadius: radius.sm },
+  sectionTitle: { marginTop: spacing.xl, marginBottom: spacing.sm },
+  quickActions: { gap: spacing.sm },
+  quickCard: { marginBottom: spacing.sm, borderRadius: radius.sm },
+  quickCardContent: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+  card: { marginBottom: spacing.sm, borderRadius: radius.sm },
+  muted: { marginTop: spacing.xs, opacity: 0.8 },
+  recordLink: { color: colors.primary },
+  error: { color: colors.error },
+  iconBg1: { backgroundColor: colors.primaryContainer },
+  iconBg2: { backgroundColor: '#e3f2fd' },
+  iconBg3: { backgroundColor: '#fff3e0' },
+  iconBg4: { backgroundColor: colors.surfaceVariant },
 });

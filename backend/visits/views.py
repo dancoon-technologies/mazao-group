@@ -1,22 +1,25 @@
 from django.conf import settings as django_settings
 from rest_framework import generics, status
-from rest_framework.parsers import MultiPartParser, FormParser
+from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.response import Response
 
-from farmers.models import Farmer, Farm
+from farmers.models import Farm, Farmer
+
 from .models import Visit
-from .serializers import VisitSerializer, VisitCreateSerializer
-from .utils import haversine_meters, MAX_VISIT_DISTANCE_METERS
+from .serializers import VisitCreateSerializer, VisitSerializer
+from .utils import MAX_VISIT_DISTANCE_METERS, haversine_meters
 
 
 def _validate_photo(file):
     """Validate file type and size. Max 5MB."""
     if not file:
         return None, "Photo is required."
-    max_bytes = (getattr(django_settings, "VISIT_PHOTO_MAX_SIZE_MB", 5) * 1024 * 1024)
+    max_bytes = getattr(django_settings, "VISIT_PHOTO_MAX_SIZE_MB", 5) * 1024 * 1024
     if file.size > max_bytes:
         return None, f"Photo must be under {django_settings.VISIT_PHOTO_MAX_SIZE_MB}MB."
-    allowed = getattr(django_settings, "VISIT_PHOTO_ALLOWED_EXTENSIONS", ("image/jpeg", "image/png", "image/jpg"))
+    allowed = getattr(
+        django_settings, "VISIT_PHOTO_ALLOWED_EXTENSIONS", ("image/jpeg", "image/png", "image/jpg")
+    )
     if file.content_type not in allowed:
         return None, "Allowed types: JPEG, PNG."
     return None, None
@@ -80,7 +83,10 @@ class VisitListCreateView(generics.ListCreateAPIView):
 
         user = request.user
         if user.role != "admin" and farmer.assigned_officer_id != user.pk:
-            return Response({"farmer_id": ["You are not assigned to this farmer."]}, status=status.HTTP_403_FORBIDDEN)
+            return Response(
+                {"farmer_id": ["You are not assigned to this farmer."]},
+                status=status.HTTP_403_FORBIDDEN,
+            )
 
         ref_lat, ref_lon = None, None
         farm = None
@@ -132,7 +138,9 @@ class VisitListCreateView(generics.ListCreateAPIView):
             farmers_feedback=data.get("farmers_feedback", ""),
         )
         from django.contrib.auth import get_user_model
+
         from notifications.services import notify_user
+
         User = get_user_model()
         if getattr(user, "region_id_id", None):
             supervisors_same_region = User.objects.filter(

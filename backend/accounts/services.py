@@ -1,5 +1,7 @@
 """Account services: password generation, sending credentials email."""
+
 import secrets
+
 from django.conf import settings
 from django.core.mail import send_mail
 
@@ -22,7 +24,7 @@ def send_staff_credentials_email(
     ).rstrip("/")
     subject = "Your Mazao Portal login credentials"
     role_hint = "You have been registered as staff on the Mazao portal."
-    body = f"""Hello{f' {name}' if name else ''},
+    body = f"""Hello{f" {name}" if name else ""},
 
 {role_hint}
 

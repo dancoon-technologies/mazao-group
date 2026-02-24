@@ -1,6 +1,6 @@
 from rest_framework import generics, status
-from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
 
 from .models import Notification
 from .serializers import NotificationSerializer
@@ -8,6 +8,7 @@ from .serializers import NotificationSerializer
 
 class NotificationListView(generics.ListAPIView):
     """List notifications for the current user."""
+
     serializer_class = NotificationSerializer
     permission_classes = [IsAuthenticated]
 
@@ -20,6 +21,7 @@ class NotificationListView(generics.ListAPIView):
 
 class NotificationMarkReadView(generics.GenericAPIView):
     """Mark a notification as read."""
+
     permission_classes = [IsAuthenticated]
 
     def patch(self, request, pk):
@@ -33,6 +35,7 @@ class NotificationMarkReadView(generics.GenericAPIView):
                 status=status.HTTP_404_NOT_FOUND,
             )
         from django.utils import timezone
+
         notification.read_at = timezone.now()
         notification.save(update_fields=["read_at"])
         return Response(NotificationSerializer(notification).data)
@@ -40,6 +43,7 @@ class NotificationMarkReadView(generics.GenericAPIView):
 
 class NotificationUnreadCountView(generics.GenericAPIView):
     """Get unread count (for badge)."""
+
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
@@ -53,10 +57,12 @@ class NotificationUnreadCountView(generics.GenericAPIView):
 
 class NotificationMarkAllReadView(generics.GenericAPIView):
     """Mark all notifications as read for the current user."""
+
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
         from django.utils import timezone
+
         updated = Notification.objects.filter(
             user=request.user,
             read_at__isnull=True,
@@ -67,6 +73,7 @@ class NotificationMarkAllReadView(generics.GenericAPIView):
 
 class NotificationArchiveView(generics.GenericAPIView):
     """Archive a notification (remove from list)."""
+
     permission_classes = [IsAuthenticated]
 
     def post(self, request, pk):
@@ -81,6 +88,7 @@ class NotificationArchiveView(generics.GenericAPIView):
                 status=status.HTTP_404_NOT_FOUND,
             )
         from django.utils import timezone
+
         notification.archived_at = timezone.now()
         notification.save(update_fields=["archived_at"])
         return Response(status=status.HTTP_204_NO_CONTENT)

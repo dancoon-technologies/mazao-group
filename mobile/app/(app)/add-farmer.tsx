@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { Button, Text, TextInput, ActivityIndicator } from 'react-native-paper';
 import * as Location from 'expo-location';
-import { api, type LocationData } from '@/lib/api';
+import { api } from '@/lib/api';
 
 type LocationState = {
   regions: { id: number; name: string }[];

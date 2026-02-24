@@ -1,13 +1,17 @@
 from django.contrib.auth import get_user_model
 from rest_framework import serializers
-from .models import Farmer, Farm
-from locations.models import County, SubCounty, Region
+
+from locations.models import County, Region, SubCounty
+
+from .models import Farm, Farmer
 
 User = get_user_model()
 
 
 class FarmerSerializer(serializers.ModelSerializer):
-    assigned_officer = serializers.UUIDField(source="assigned_officer_id", read_only=True, allow_null=True)
+    assigned_officer = serializers.UUIDField(
+        source="assigned_officer_id", read_only=True, allow_null=True
+    )
     display_name = serializers.ReadOnlyField(source="name")
 
     class Meta:
@@ -37,7 +41,17 @@ class FarmerCreateSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Farmer
-        fields = ("title", "first_name", "middle_name", "last_name", "phone", "latitude", "longitude", "crop_type", "assigned_officer")
+        fields = (
+            "title",
+            "first_name",
+            "middle_name",
+            "last_name",
+            "phone",
+            "latitude",
+            "longitude",
+            "crop_type",
+            "assigned_officer",
+        )
 
 
 class FarmSerializer(serializers.ModelSerializer):
@@ -75,6 +89,7 @@ class FarmSerializer(serializers.ModelSerializer):
     def get_sub_county(self, obj):
         return obj.sub_county_id.name
 
+
 class FarmCreateSerializer(serializers.ModelSerializer):
     farmer_id = serializers.UUIDField(write_only=True)
     region_id = serializers.PrimaryKeyRelatedField(
@@ -92,4 +107,14 @@ class FarmCreateSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Farm
-        fields = ("farmer_id", "region_id", "county_id", "sub_county_id", "village", "latitude", "longitude", "plot_size", "crop_type")
+        fields = (
+            "farmer_id",
+            "region_id",
+            "county_id",
+            "sub_county_id",
+            "village",
+            "latitude",
+            "longitude",
+            "plot_size",
+            "crop_type",
+        )

@@ -1,8 +1,10 @@
 import { useState } from 'react';
 import { useRouter } from 'expo-router';
 import { StyleSheet, View, KeyboardAvoidingView, Platform } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { TextInput, Button, Text, HelperText } from 'react-native-paper';
 import { useAuth } from '@/contexts/AuthContext';
+import { spacing } from '@/constants/theme';
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -34,17 +36,18 @@ export default function LoginScreen() {
   }
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      style={styles.container}
-    >
-      <View style={styles.inner}>
-        <Text variant="headlineMedium" style={styles.title}>
-          Mazao
-        </Text>
-        <Text variant="bodyLarge" style={styles.subtitle}>
-          Extension officer sign in
-        </Text>
+    <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.container}
+      >
+        <View style={styles.inner}>
+          <Text variant="headlineMedium" style={styles.title}>
+            Mazao
+          </Text>
+          <Text variant="bodyLarge" style={styles.subtitle}>
+            Extension officer sign in
+          </Text>
         <TextInput
           label="Email"
           value={email}
@@ -68,16 +71,18 @@ export default function LoginScreen() {
         <Button mode="contained" onPress={handleLogin} loading={loading} style={styles.button}>
           Sign in
         </Button>
-      </View>
-    </KeyboardAvoidingView>
+        </View>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safe: { flex: 1 },
   container: {
     flex: 1,
     justifyContent: 'center',
-    padding: 24,
+    padding: spacing.xl,
   },
   inner: {
     maxWidth: 400,
@@ -86,17 +91,17 @@ const styles = StyleSheet.create({
   },
   title: {
     textAlign: 'center',
-    marginBottom: 8,
+    marginBottom: spacing.sm,
   },
   subtitle: {
     textAlign: 'center',
-    marginBottom: 24,
+    marginBottom: spacing.xl,
     opacity: 0.8,
   },
   input: {
-    marginBottom: 12,
+    marginBottom: spacing.md,
   },
   button: {
-    marginTop: 16,
+    marginTop: spacing.lg,
   },
 });

@@ -10,10 +10,11 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
+from datetime import timedelta
 from pathlib import Path
 
-from decouple import config
 import dj_database_url
+from decouple import config
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -122,14 +123,15 @@ REST_FRAMEWORK = {
     "PAGE_SIZE": 50,
 }
 
-from datetime import timedelta
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(hours=1),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
 }
 
 # CORS
-CORS_ALLOWED_ORIGINS = config("CORS_ALLOWED_ORIGINS", default="http://localhost:3000,http://192.168.0.103:3000").split(",")
+CORS_ALLOWED_ORIGINS = config(
+    "CORS_ALLOWED_ORIGINS", default="http://localhost:3000,http://192.168.0.103:3000"
+).split(",")
 CORS_ALLOW_ALL_ORIGINS = True if DEBUG else False
 
 # Visit photo: max 5MB

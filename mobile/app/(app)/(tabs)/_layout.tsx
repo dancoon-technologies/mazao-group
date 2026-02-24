@@ -1,17 +1,21 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
+import { colors, spacing } from '@/constants/theme';
 
 export default function AppTabsLayout() {
   return (
     <Tabs
       screenOptions={({ route }) => ({
-        tabBarActiveTintColor: '#2e7d32',
+        tabBarActiveTintColor: colors.primary,
+        tabBarInactiveTintColor: colors.onSurfaceVariant,
         headerShown: true,
         headerTitle: getHeaderTitle(route.name),
         headerTitleStyle: {
           fontSize: 20,
-          fontWeight: 'bold',
+          fontWeight: '600',
         },
+        headerShadowVisible: false,
+        tabBarLabelStyle: { fontSize: 12, fontWeight: '500' },
       })}>
       <Tabs.Screen
         name="index"
@@ -66,5 +70,4 @@ function getHeaderTitle(name: string) {
     default:
       return '';
   }
-  return name;
 }

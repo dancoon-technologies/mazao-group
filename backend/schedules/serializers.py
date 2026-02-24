@@ -1,6 +1,7 @@
 from rest_framework import serializers
-from farmers.models import Farmer
+
 from accounts.models import User
+from farmers.models import Farmer
 
 from .models import Schedule
 
@@ -34,6 +35,7 @@ class ScheduleSerializer(serializers.ModelSerializer):
 
 class ScheduleCreateSerializer(serializers.ModelSerializer):
     """Admin/supervisor: pass officer, farmer, date, notes. Officer: pass farmer, date, notes (officer=self)."""
+
     officer = serializers.PrimaryKeyRelatedField(
         queryset=User.objects.filter(role=User.Role.OFFICER),
         required=False,

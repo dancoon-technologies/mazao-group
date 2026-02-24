@@ -53,7 +53,7 @@ function MapLifecycle({ center, zoom }: { center: [number, number]; zoom: number
   }, [map]);
   useEffect(() => {
     map.setView(center, zoom);
-  }, [map, center[0], center[1], zoom]);
+  }, [map, center, zoom]);
   return null;
 }
 

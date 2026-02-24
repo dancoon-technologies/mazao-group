@@ -4,7 +4,6 @@ import {
   COOKIE_ACCESS,
   COOKIE_REFRESH,
   COOKIE_OPTIONS,
-  REFRESH_COOKIE_OPTIONS,
   decodePayload,
 } from "@/lib/auth-server";
 
