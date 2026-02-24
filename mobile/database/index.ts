@@ -3,10 +3,12 @@ import SQLiteAdapter from '@nozbe/watermelondb/adapters/sqlite'
 import Schedule from './models/Schedule'
 import SyncQueue from './models/SyncQueue'
 import Visit from './models/Visit'
+import migrations from './migrations'
 import { schema } from './schema'
 
 const adapter = new SQLiteAdapter({
-    schema: schema,
+  schema,
+  migrations,
 })
 
 export const database = new Database({

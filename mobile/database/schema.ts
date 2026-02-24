@@ -10,8 +10,11 @@ export const visitSchema = tableSchema({
     { name: 'farm', type: 'string', isOptional: true },
     { name: 'latitude', type: 'number' },
     { name: 'longitude', type: 'number' },
+    { name: 'photo_uri', type: 'string', isOptional: true },
     { name: 'notes', type: 'string', isOptional: true },
     { name: 'activity_type', type: 'string', isOptional: true },
+    { name: 'verification_status', type: 'string', isOptional: true },
+    { name: 'created_at', type: 'number', isOptional: true },
     { name: 'updated_at', type: 'number' },
     { name: 'is_deleted', type: 'boolean' },
   ],
@@ -26,6 +29,8 @@ export const scheduleSchema = tableSchema({
     { name: 'scheduled_date', type: 'number' },
     { name: 'notes', type: 'string', isOptional: true },
     { name: 'status', type: 'string' },
+    { name: 'created_by', type: 'string', isOptional: true },
+    { name: 'approved_by', type: 'string', isOptional: true },
     { name: 'updated_at', type: 'number' },
     { name: 'is_deleted', type: 'boolean' },
   ],
@@ -44,6 +49,6 @@ export const syncQueueSchema = tableSchema({
 })
 
 export const schema = appSchema({
-  version: 1,
+  version: 2,
   tables: [visitSchema, scheduleSchema, syncQueueSchema],
 })

@@ -12,33 +12,35 @@ from .serializers import ScheduleSyncSerializer, VisitSyncSerializer
 
 class MobileSyncPushView(APIView):
     """
-    Receive locally changed visits and schedules from mobile.
+    Receive locally changed schedules from mobile (bulk upsert).
+    Visits are not pushed here; mobile uploads them via POST /api/visits/ (multipart) when syncing.
     """
+    permission_classes = [IsAuthenticated]
 
     def post(self, request):
-        visits_data = request.data.get('visits', [])
         schedules_data = request.data.get('schedules', [])
-
-        # Process Visits
-        for record in visits_data:
-            obj, _ = Visit.objects.update_or_create(
-                id=record['id'],
-                defaults=record
-            )
-
-        # Process Schedules
         for record in schedules_data:
-            obj, _ = Schedule.objects.update_or_create(
+            # Only allow creating/updating schedules for the current user as officer
+            if str(record.get('officer')) != str(request.user.pk):
+                continue
+            Schedule.objects.update_or_create(
                 id=record['id'],
-                defaults=record
+                defaults={
+                    'officer_id': record['officer'],
+                    'created_by_id': record.get('created_by') or request.user.pk,
+                    'farmer_id': record.get('farmer'),
+                    'scheduled_date': record['scheduled_date'],
+                    'notes': record.get('notes', ''),
+                    'status': record.get('status', Schedule.Status.PROPOSED),
+                    'updated_at': timezone.now(),
+                }
             )
-
         return Response({"status": "success"}, status=status.HTTP_200_OK)
 
 
 class MobileSyncPullView(APIView):
     """
-    Return visits and schedules updated after `last_sync` timestamp.
+    Return visits and schedules for the current user (officer) updated after `last_sync`.
     """
     permission_classes = [IsAuthenticated]
 
@@ -46,8 +48,8 @@ class MobileSyncPullView(APIView):
         last_sync = request.query_params.get('last_sync')
         last_sync_dt = parse_datetime(last_sync) if last_sync else None
 
-        visits_qs = Visit.objects.all()
-        schedules_qs = Schedule.objects.all()
+        visits_qs = Visit.objects.filter(officer=request.user).select_related('farmer', 'farm')
+        schedules_qs = Schedule.objects.filter(officer=request.user).select_related('farmer')
 
         if last_sync_dt:
             visits_qs = visits_qs.filter(updated_at__gt=last_sync_dt)
@@ -59,5 +61,5 @@ class MobileSyncPullView(APIView):
         return Response({
             "visits": visits,
             "schedules": schedules,
-            "server_time": timezone.now()
+            "server_time": timezone.now().isoformat(),
         }, status=status.HTTP_200_OK)
