@@ -1,10 +1,26 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { View, StyleSheet, TouchableOpacity, Image, Alert } from 'react-native';
-import { Button, Text, ActivityIndicator } from 'react-native-paper';
+import {
+  View,
+  StyleSheet,
+  TouchableOpacity,
+  Image,
+  ScrollView,
+  KeyboardAvoidingView,
+  Platform,
+} from 'react-native';
+import {
+  Button,
+  Text,
+  ActivityIndicator,
+  TextInput,
+  Menu,
+  Divider,
+} from 'react-native-paper';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as Location from 'expo-location';
-import { api, type Farmer } from '@/lib/api';
+import { api, type Farmer, type Farm } from '@/lib/api';
+import { ACTIVITY_TYPES, DEFAULT_ACTIVITY_TYPE } from '@/lib/constants/activityTypes';
 
 export default function RecordVisitScreen() {
   const router = useRouter();
@@ -16,16 +32,38 @@ export default function RecordVisitScreen() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [farmers, setFarmers] = useState<Farmer[]>([]);
+  const [farms, setFarms] = useState<Farm[]>([]);
   const [selectedFarmerId, setSelectedFarmerId] = useState<string | null>(params.farmerId ?? null);
+  const [selectedFarmId, setSelectedFarmId] = useState<string | null>(null);
+  const [activityType, setActivityType] = useState(DEFAULT_ACTIVITY_TYPE);
+  const [activityMenuOpen, setActivityMenuOpen] = useState(false);
+  const [notes, setNotes] = useState('');
+  const [cropStage, setCropStage] = useState('');
+  const [germinationPercent, setGerminationPercent] = useState('');
+  const [survivalRate, setSurvivalRate] = useState('');
+  const [pestsDiseases, setPestsDiseases] = useState('');
+  const [orderValue, setOrderValue] = useState('');
+  const [harvestKgs, setHarvestKgs] = useState('');
+  const [farmersFeedback, setFarmersFeedback] = useState('');
   const cameraRef = useRef<CameraView>(null);
 
   useEffect(() => {
-    if (!params.farmerId) {
-      api.getFarmers().then(setFarmers).catch(() => setFarmers([]));
-    } else {
-      setSelectedFarmerId(params.farmerId);
-    }
+    api.getFarmers().then(setFarmers).catch(() => setFarmers([]));
+  }, []);
+
+  useEffect(() => {
+    if (params.farmerId) setSelectedFarmerId(params.farmerId);
   }, [params.farmerId]);
+
+  useEffect(() => {
+    if (!selectedFarmerId) {
+      setFarms([]);
+      setSelectedFarmId(null);
+      return;
+    }
+    api.getFarms(selectedFarmerId).then(setFarms).catch(() => setFarms([]));
+    setSelectedFarmId(null);
+  }, [selectedFarmerId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -38,10 +76,10 @@ export default function RecordVisitScreen() {
       }
       try {
         const loc = await Location.getCurrentPositionAsync({
-          accuracy: Location.Accuracy.Balanced,
+          accuracy: Location.Accuracy.High,
         });
         if (!cancelled) setLocation(loc);
-      } catch (e) {
+      } catch {
         if (!cancelled) setLocationError('Could not get location.');
       }
     })();
@@ -67,8 +105,7 @@ export default function RecordVisitScreen() {
   }, [permission?.granted, requestPermission]);
 
   const submit = useCallback(async () => {
-    const farmerId = selectedFarmerId;
-    if (!farmerId) {
+    if (!selectedFarmerId) {
       setError('Select a farmer.');
       return;
     }
@@ -84,20 +121,45 @@ export default function RecordVisitScreen() {
     setError('');
     try {
       await api.createVisit({
-        farmer_id: farmerId,
+        farmer_id: selectedFarmerId,
+        farm_id: selectedFarmId || undefined,
         latitude: location.coords.latitude,
         longitude: location.coords.longitude,
         photo: { uri: photoUri, type: 'image/jpeg', name: 'visit.jpg' },
+        activity_type: activityType,
+        notes: notes || undefined,
+        crop_stage: cropStage || undefined,
+        germination_percent: germinationPercent ? parseFloat(germinationPercent) : undefined,
+        survival_rate: survivalRate || undefined,
+        pests_diseases: pestsDiseases || undefined,
+        order_value: orderValue ? parseFloat(orderValue) : undefined,
+        harvest_kgs: harvestKgs ? parseFloat(harvestKgs) : undefined,
+        farmers_feedback: farmersFeedback || undefined,
       });
-      Alert.alert('Success', 'Visit recorded successfully.', [
-        { text: 'OK', onPress: () => router.back() },
-      ]);
+      router.back();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to submit visit');
     } finally {
       setSubmitting(false);
     }
-  }, [selectedFarmerId, photoUri, location, router]);
+  }, [
+    selectedFarmerId,
+    selectedFarmId,
+    photoUri,
+    location,
+    activityType,
+    notes,
+    cropStage,
+    germinationPercent,
+    survivalRate,
+    pestsDiseases,
+    orderValue,
+    harvestKgs,
+    farmersFeedback,
+    router,
+  ]);
+
+  const activityLabel = ACTIVITY_TYPES.find((a) => a.value === activityType)?.label ?? activityType;
 
   if (!permission) {
     return (
@@ -121,108 +183,216 @@ export default function RecordVisitScreen() {
   }
 
   return (
-    <View style={styles.container}>
-      {!params.farmerId && farmers.length > 0 && (
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      keyboardVerticalOffset={100}
+    >
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+      >
+        {/* Farmer selection */}
         <View style={styles.section}>
-          <Text variant="labelLarge">Select farmer</Text>
-          {farmers.map((f) => (
-            <Button
-              key={f.id}
-              mode={selectedFarmerId === f.id ? 'contained' : 'outlined'}
-              onPress={() => setSelectedFarmerId(f.id)}
-              style={styles.farmerBtn}>
-              {f.display_name}
-            </Button>
-          ))}
+          <Text variant="labelLarge">Farmer *</Text>
+          {farmers.length === 0 && !params.farmerId ? (
+            <Text variant="bodySmall" style={styles.hint}>
+              No farmers assigned. Add a farmer first.
+            </Text>
+          ) : (
+            farmers.map((f) => (
+              <Button
+                key={f.id}
+                mode={selectedFarmerId === f.id ? 'contained' : 'outlined'}
+                onPress={() => setSelectedFarmerId(f.id)}
+                style={styles.farmerBtn}
+              >
+                {f.display_name}
+              </Button>
+            ))
+          )}
         </View>
-      )}
 
-      {locationError ? (
-        <Text style={styles.error}>{locationError}</Text>
-      ) : location ? (
-        <Text variant="bodySmall" style={styles.coords}>
-          Location: {location.coords.latitude.toFixed(5)}, {location.coords.longitude.toFixed(5)}
-        </Text>
-      ) : (
-        <ActivityIndicator size="small" style={styles.locationLoad} />
-      )}
-
-      <View style={styles.cameraWrap}>
-        {photoUri ? (
-          <View style={styles.preview}>
-            <Image source={{ uri: photoUri }} style={styles.previewImg} />
-            <Button mode="outlined" onPress={() => setPhotoUri(null)}>
-              Retake photo
+        {/* Optional farm */}
+        {selectedFarmerId && farms.length > 0 && (
+          <View style={styles.section}>
+            <Text variant="labelLarge">Farm (optional)</Text>
+            <Button
+              mode={selectedFarmId === null ? 'contained' : 'outlined'}
+              onPress={() => setSelectedFarmId(null)}
+              style={styles.farmerBtn}
+            >
+              No specific farm
             </Button>
+            {farms.map((farm) => (
+              <Button
+                key={farm.id}
+                mode={selectedFarmId === farm.id ? 'contained' : 'outlined'}
+                onPress={() => setSelectedFarmId(farm.id)}
+                style={styles.farmerBtn}
+              >
+                {farm.village} {farm.county ? `— ${farm.county}` : ''}
+              </Button>
+            ))}
           </View>
-        ) : (
-          <CameraView style={styles.camera} ref={cameraRef}>
-            <View style={styles.cameraActions}>
-              <TouchableOpacity style={styles.captureBtn} onPress={takePhoto} />
-            </View>
-          </CameraView>
         )}
-      </View>
 
-      {error ? <Text style={styles.error}>{error}</Text> : null}
+        {/* Activity type */}
+        <View style={styles.section}>
+          <Text variant="labelLarge">Activity type</Text>
+          <Menu
+            visible={activityMenuOpen}
+            onDismiss={() => setActivityMenuOpen(false)}
+            anchor={
+              <Button
+                mode="outlined"
+                onPress={() => setActivityMenuOpen(true)}
+                style={styles.menuAnchor}
+              >
+                {activityLabel}
+              </Button>
+            }
+          >
+            {ACTIVITY_TYPES.map((a) => (
+              <Menu.Item
+                key={a.value}
+                onPress={() => {
+                  setActivityType(a.value);
+                  setActivityMenuOpen(false);
+                }}
+                title={a.label}
+              />
+            ))}
+          </Menu>
+        </View>
 
-      <View style={styles.actions}>
-        <Button
-          mode="contained"
-          onPress={submit}
-          loading={submitting}
-          disabled={!selectedFarmerId || !photoUri || !location}>
-          Submit visit proof
-        </Button>
-        <Button mode="text" onPress={() => router.back()}>
-          Cancel
-        </Button>
-      </View>
-    </View>
+        {/* Location */}
+        {locationError ? (
+          <Text style={styles.error}>{locationError}</Text>
+        ) : location ? (
+          <Text variant="bodySmall" style={styles.coords}>
+            Location: {location.coords.latitude.toFixed(5)}, {location.coords.longitude.toFixed(5)}
+          </Text>
+        ) : (
+          <ActivityIndicator size="small" style={styles.locationLoad} />
+        )}
+
+        {/* Camera */}
+        <View style={styles.cameraWrap}>
+          {photoUri ? (
+            <View style={styles.preview}>
+              <Image source={{ uri: photoUri }} style={styles.previewImg} />
+              <Button mode="outlined" onPress={() => setPhotoUri(null)}>
+                Retake photo
+              </Button>
+            </View>
+          ) : (
+            <CameraView style={styles.camera} ref={cameraRef}>
+              <View style={styles.cameraActions}>
+                <TouchableOpacity style={styles.captureBtn} onPress={takePhoto} />
+              </View>
+            </CameraView>
+          )}
+        </View>
+
+        {/* Notes */}
+        <TextInput
+          label="Notes"
+          value={notes}
+          onChangeText={setNotes}
+          mode="outlined"
+          multiline
+          numberOfLines={2}
+          style={styles.input}
+        />
+
+        {/* Optional report fields */}
+        <Text variant="labelMedium" style={styles.optionalSection}>
+          Optional report fields
+        </Text>
+        <TextInput label="Crop stage" value={cropStage} onChangeText={setCropStage} mode="outlined" style={styles.input} />
+        <TextInput
+          label="Germination %"
+          value={germinationPercent}
+          onChangeText={setGerminationPercent}
+          keyboardType="decimal-pad"
+          mode="outlined"
+          style={styles.input}
+        />
+        <TextInput label="Survival rate" value={survivalRate} onChangeText={setSurvivalRate} mode="outlined" style={styles.input} />
+        <TextInput label="Pests / diseases" value={pestsDiseases} onChangeText={setPestsDiseases} mode="outlined" style={styles.input} />
+        <TextInput
+          label="Order value"
+          value={orderValue}
+          onChangeText={setOrderValue}
+          keyboardType="decimal-pad"
+          mode="outlined"
+          style={styles.input}
+        />
+        <TextInput
+          label="Harvest (kgs)"
+          value={harvestKgs}
+          onChangeText={setHarvestKgs}
+          keyboardType="decimal-pad"
+          mode="outlined"
+          style={styles.input}
+        />
+        <TextInput
+          label="Farmer feedback"
+          value={farmersFeedback}
+          onChangeText={setFarmersFeedback}
+          mode="outlined"
+          multiline
+          numberOfLines={2}
+          style={styles.input}
+        />
+
+        {error ? <Text style={styles.error}>{error}</Text> : null}
+
+        <View style={styles.actions}>
+          <Button
+            mode="contained"
+            onPress={submit}
+            loading={submitting}
+            disabled={!selectedFarmerId || !photoUri || !location || submitting}
+          >
+            Submit visit
+          </Button>
+          <Button mode="text" onPress={() => router.back()}>
+            Cancel
+          </Button>
+        </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    padding: 16,
-  },
+  container: { flex: 1 },
+  scroll: { flex: 1 },
+  scrollContent: { padding: 16, paddingBottom: 32 },
   centered: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 24,
   },
-  message: {
-    textAlign: 'center',
-    marginBottom: 16,
-  },
-  button: {
-    marginTop: 8,
-  },
-  section: {
-    marginBottom: 16,
-  },
-  farmerBtn: {
-    marginTop: 4,
-  },
-  coords: {
-    marginBottom: 8,
-    opacity: 0.8,
-  },
-  locationLoad: {
-    marginVertical: 8,
-  },
+  message: { textAlign: 'center', marginBottom: 16 },
+  button: { marginTop: 8 },
+  section: { marginBottom: 16 },
+  hint: { marginTop: 4, opacity: 0.8 },
+  farmerBtn: { marginTop: 4 },
+  menuAnchor: { alignSelf: 'flex-start' },
+  coords: { marginBottom: 8, opacity: 0.8 },
+  locationLoad: { marginVertical: 8 },
   cameraWrap: {
-    flex: 1,
-    minHeight: 300,
+    minHeight: 280,
     borderRadius: 12,
     overflow: 'hidden',
     marginVertical: 16,
   },
-  camera: {
-    flex: 1,
-  },
+  camera: { flex: 1, minHeight: 260 },
   cameraActions: {
     flex: 1,
     justifyContent: 'flex-end',
@@ -238,21 +408,14 @@ const styles = StyleSheet.create({
     borderColor: '#2e7d32',
   },
   preview: {
-    flex: 1,
+    minHeight: 260,
     backgroundColor: '#000',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  previewImg: {
-    width: '100%',
-    flex: 1,
-    resizeMode: 'contain',
-  },
-  error: {
-    color: '#b00020',
-    marginVertical: 8,
-  },
-  actions: {
-    gap: 8,
-  },
+  previewImg: { width: '100%', height: 240, resizeMode: 'contain' },
+  input: { marginBottom: 8 },
+  optionalSection: { marginTop: 8, marginBottom: 4 },
+  error: { color: '#b00020', marginVertical: 8 },
+  actions: { gap: 8, marginTop: 16 },
 });

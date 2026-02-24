@@ -1,0 +1,405 @@
+import { useRouter } from 'expo-router';
+import { useCallback, useEffect, useState } from 'react';
+import {
+  View,
+  StyleSheet,
+  ScrollView,
+  KeyboardAvoidingView,
+  Platform,
+  Alert,
+} from 'react-native';
+import { Button, Text, TextInput, ActivityIndicator } from 'react-native-paper';
+import * as Location from 'expo-location';
+import { api, type LocationData } from '@/lib/api';
+
+type LocationState = {
+  regions: { id: number; name: string }[];
+  counties: { id: number; region_id: number; name: string }[];
+  sub_counties: { id: number; county_id: number; name: string }[];
+};
+
+export default function AddFarmerScreen() {
+  const router = useRouter();
+  const [locations, setLocations] = useState<LocationState | null>(null);
+  const [loadingLocations, setLoadingLocations] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
+
+  const [title, setTitle] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [middleName, setMiddleName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [phone, setPhone] = useState('');
+  const [cropType, setCropType] = useState('');
+  const [lat, setLat] = useState('');
+  const [lon, setLon] = useState('');
+
+  const [regionId, setRegionId] = useState<number | null>(null);
+  const [countyId, setCountyId] = useState<number | null>(null);
+  const [subCountyId, setSubCountyId] = useState<number | null>(null);
+  const [village, setVillage] = useState('');
+  const [farmLat, setFarmLat] = useState('');
+  const [farmLon, setFarmLon] = useState('');
+  const [plotSize, setPlotSize] = useState('');
+  const [farmCropType, setFarmCropType] = useState('');
+
+  const loadLocations = useCallback(async () => {
+    try {
+      const data = await api.getLocations();
+      setLocations({
+        regions: data.regions,
+        counties: data.counties,
+        sub_counties: data.sub_counties,
+      });
+    } catch {
+      setError('Failed to load locations');
+    } finally {
+      setLoadingLocations(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadLocations();
+  }, [loadLocations]);
+
+  const getCurrentLocation = useCallback(async (forFarm: boolean) => {
+    const { status } = await Location.requestForegroundPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission', 'Location permission is required.');
+      return;
+    }
+    try {
+      const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      if (forFarm) {
+        setFarmLat(String(loc.coords.latitude));
+        setFarmLon(String(loc.coords.longitude));
+      } else {
+        setLat(String(loc.coords.latitude));
+        setLon(String(loc.coords.longitude));
+      }
+    } catch {
+      Alert.alert('Error', 'Could not get location.');
+    }
+  }, []);
+
+  const submit = useCallback(async () => {
+    if (!firstName.trim() || !lastName.trim()) {
+      setError('First name and last name are required.');
+      return;
+    }
+    if (!locations) return;
+    if (!regionId || !countyId || !subCountyId) {
+      setError('Select region, county and sub-county for the farm.');
+      return;
+    }
+    if (!village.trim()) {
+      setError('Village is required.');
+      return;
+    }
+    const farmLatNum = parseFloat(farmLat);
+    const farmLonNum = parseFloat(farmLon);
+    if (isNaN(farmLatNum) || isNaN(farmLonNum)) {
+      setError('Farm location (latitude and longitude) is required.');
+      return;
+    }
+
+    setSubmitting(true);
+    setError('');
+    try {
+      const farmerLatNum = lat ? parseFloat(lat) : 0;
+      const farmerLonNum = lon ? parseFloat(lon) : 0;
+      const farmer = await api.createFarmer({
+        title: title.trim() || undefined,
+        first_name: firstName.trim(),
+        middle_name: middleName.trim() || undefined,
+        last_name: lastName.trim(),
+        phone: phone.trim() || undefined,
+        crop_type: cropType.trim() || undefined,
+        latitude: isNaN(farmerLatNum) ? 0 : farmerLatNum,
+        longitude: isNaN(farmerLonNum) ? 0 : farmerLonNum,
+      });
+
+      await api.createFarm({
+        farmer_id: farmer.id,
+        region_id: regionId,
+        county_id: countyId,
+        sub_county_id: subCountyId,
+        village: village.trim(),
+        latitude: farmLatNum,
+        longitude: farmLonNum,
+        plot_size: plotSize.trim() || undefined,
+        crop_type: farmCropType.trim() || undefined,
+      });
+
+      Alert.alert('Success', 'Farmer and farm added.', [
+        { text: 'OK', onPress: () => router.back() },
+      ]);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to add farmer');
+    } finally {
+      setSubmitting(false);
+    }
+  }, [
+    firstName,
+    lastName,
+    locations,
+    regionId,
+    countyId,
+    subCountyId,
+    village,
+    farmLat,
+    farmLon,
+    lat,
+    lon,
+    title,
+    middleName,
+    phone,
+    cropType,
+    plotSize,
+    farmCropType,
+    router,
+  ]);
+
+  const counties = locations
+    ? locations.counties.filter((c) => c.region_id === regionId)
+    : [];
+  const subCounties = locations
+    ? locations.sub_counties.filter((s) => s.county_id === countyId)
+    : [];
+
+  if (loadingLocations) {
+    return (
+      <View style={styles.centered}>
+        <ActivityIndicator size="large" />
+      </View>
+    );
+  }
+
+  return (
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      keyboardVerticalOffset={100}
+    >
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+      >
+        <Text variant="titleMedium" style={styles.sectionTitle}>
+          Farmer details
+        </Text>
+        <TextInput
+          label="Title"
+          value={title}
+          onChangeText={setTitle}
+          mode="outlined"
+          style={styles.input}
+          placeholder="e.g. Mr"
+        />
+        <TextInput
+          label="First name *"
+          value={firstName}
+          onChangeText={setFirstName}
+          mode="outlined"
+          style={styles.input}
+        />
+        <TextInput
+          label="Middle name"
+          value={middleName}
+          onChangeText={setMiddleName}
+          mode="outlined"
+          style={styles.input}
+        />
+        <TextInput
+          label="Last name *"
+          value={lastName}
+          onChangeText={setLastName}
+          mode="outlined"
+          style={styles.input}
+        />
+        <TextInput
+          label="Phone"
+          value={phone}
+          onChangeText={setPhone}
+          keyboardType="phone-pad"
+          mode="outlined"
+          style={styles.input}
+        />
+        <TextInput
+          label="Crop type"
+          value={cropType}
+          onChangeText={setCropType}
+          mode="outlined"
+          style={styles.input}
+        />
+        <View style={styles.row}>
+          <TextInput
+            label="Latitude"
+            value={lat}
+            onChangeText={setLat}
+            keyboardType="decimal-pad"
+            mode="outlined"
+            style={[styles.input, styles.flex]}
+          />
+          <TextInput
+            label="Longitude"
+            value={lon}
+            onChangeText={setLon}
+            keyboardType="decimal-pad"
+            mode="outlined"
+            style={[styles.input, styles.flex]}
+          />
+        </View>
+        <Button mode="outlined" onPress={() => getCurrentLocation(false)} style={styles.locationBtn}>
+          Use my location
+        </Button>
+
+        <Text variant="titleMedium" style={styles.sectionTitle}>
+          First farm (required)
+        </Text>
+        <Text variant="bodySmall" style={styles.hint}>
+          Select region, then county, then sub-county. At least one farm is required.
+        </Text>
+        {locations && (
+          <>
+            <Text variant="labelMedium" style={styles.label}>Region</Text>
+            <View style={styles.chipRow}>
+              {locations.regions.map((r) => (
+                <Button
+                  key={r.id}
+                  mode={regionId === r.id ? 'contained' : 'outlined'}
+                  compact
+                  onPress={() => {
+                    setRegionId(r.id);
+                    setCountyId(null);
+                    setSubCountyId(null);
+                  }}
+                  style={styles.chip}
+                >
+                  {r.name}
+                </Button>
+              ))}
+            </View>
+            {regionId !== null && (
+              <>
+                <Text variant="labelMedium" style={styles.label}>County</Text>
+                <View style={styles.chipRow}>
+                  {counties.map((c) => (
+                    <Button
+                      key={c.id}
+                      mode={countyId === c.id ? 'contained' : 'outlined'}
+                      compact
+                      onPress={() => {
+                        setCountyId(c.id);
+                        setSubCountyId(null);
+                      }}
+                      style={styles.chip}
+                    >
+                      {c.name}
+                    </Button>
+                  ))}
+                </View>
+              </>
+            )}
+            {countyId !== null && (
+              <>
+                <Text variant="labelMedium" style={styles.label}>Sub-county</Text>
+                <View style={styles.chipRow}>
+                  {subCounties.map((s) => (
+                    <Button
+                      key={s.id}
+                      mode={subCountyId === s.id ? 'contained' : 'outlined'}
+                      compact
+                      onPress={() => setSubCountyId(s.id)}
+                      style={styles.chip}
+                    >
+                      {s.name}
+                    </Button>
+                  ))}
+                </View>
+              </>
+            )}
+          </>
+        )}
+        <TextInput
+          label="Village *"
+          value={village}
+          onChangeText={setVillage}
+          mode="outlined"
+          style={styles.input}
+        />
+        <View style={styles.row}>
+          <TextInput
+            label="Farm latitude *"
+            value={farmLat}
+            onChangeText={setFarmLat}
+            keyboardType="decimal-pad"
+            mode="outlined"
+            style={[styles.input, styles.flex]}
+          />
+          <TextInput
+            label="Farm longitude *"
+            value={farmLon}
+            onChangeText={setFarmLon}
+            keyboardType="decimal-pad"
+            mode="outlined"
+            style={[styles.input, styles.flex]}
+          />
+        </View>
+        <Button mode="outlined" onPress={() => getCurrentLocation(true)} style={styles.locationBtn}>
+          Use my location for farm
+        </Button>
+        <TextInput
+          label="Plot size"
+          value={plotSize}
+          onChangeText={setPlotSize}
+          mode="outlined"
+          style={styles.input}
+          placeholder="e.g. 2 acres"
+        />
+        <TextInput
+          label="Crop type (farm)"
+          value={farmCropType}
+          onChangeText={setFarmCropType}
+          mode="outlined"
+          style={styles.input}
+        />
+
+        {error ? <Text style={styles.error}>{error}</Text> : null}
+
+        <View style={styles.actions}>
+          <Button
+            mode="contained"
+            onPress={submit}
+            loading={submitting}
+            disabled={submitting || !firstName.trim() || !lastName.trim() || !regionId || !countyId || !subCountyId || !village.trim()}
+          >
+            Add farmer
+          </Button>
+          <Button mode="text" onPress={() => router.back()}>
+            Cancel
+          </Button>
+        </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1 },
+  scroll: { flex: 1 },
+  scrollContent: { padding: 16, paddingBottom: 32 },
+  centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  sectionTitle: { marginTop: 16, marginBottom: 8 },
+  hint: { marginBottom: 8, opacity: 0.8 },
+  label: { marginTop: 8, marginBottom: 4 },
+  input: { marginBottom: 8 },
+  row: { flexDirection: 'row', gap: 8 },
+  flex: { flex: 1 },
+  locationBtn: { marginBottom: 8 },
+  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 8 },
+  chip: { margin: 0 },
+  error: { color: '#b00020', marginVertical: 8 },
+  actions: { gap: 8, marginTop: 16 },
+});
