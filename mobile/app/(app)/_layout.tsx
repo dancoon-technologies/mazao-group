@@ -6,14 +6,19 @@ import { useEffect, useRef } from 'react';
 
 export default function AppLayout() {
   const router = useRouter();
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, mustChangePassword } = useAuth();
   const wasOffline = useRef<boolean | null>(null);
 
   useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
+    if (isLoading) return;
+    if (!isAuthenticated) {
       router.replace('/login');
+      return;
     }
-  }, [isAuthenticated, isLoading, router]);
+    if (mustChangePassword) {
+      router.replace('/change-password');
+    }
+  }, [isAuthenticated, isLoading, mustChangePassword, router]);
 
   useEffect(() => {
     if (!isAuthenticated) return;
@@ -27,7 +32,7 @@ export default function AppLayout() {
     return () => sub();
   }, [isAuthenticated]);
 
-  if (!isAuthenticated) return null;
+  if (!isAuthenticated || mustChangePassword) return null;
 
   return (
     <Stack screenOptions={{ headerShown: false }}>

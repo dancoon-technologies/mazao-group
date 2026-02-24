@@ -1,6 +1,6 @@
 /**
  * Decode JWT payload without verification (for reading our own token from backend).
- * Payload is base64url-encoded JSON.
+ * Payload is base64url-encoded JSON. Uses atob (available in Expo/React Native).
  */
 export function decodeJwtPayload(token: string | null): Record<string, unknown> | null {
   if (!token || typeof token !== 'string') return null;
@@ -8,7 +8,9 @@ export function decodeJwtPayload(token: string | null): Record<string, unknown> 
     const parts = token.split('.');
     if (parts.length !== 3) return null;
     const base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
-    const json = atob(base64);
+    const pad = base64.length % 4;
+    const padded = pad ? base64 + '='.repeat(4 - pad) : base64;
+    const json = atob(padded);
     return JSON.parse(json) as Record<string, unknown>;
   } catch {
     return null;

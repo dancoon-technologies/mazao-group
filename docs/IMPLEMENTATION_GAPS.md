@@ -100,7 +100,7 @@ This document lists what is **not implemented** or **incomplete** across backend
 - **Report as output**  
   - **Screen:** Implemented (web dashboard + visits list; mobile record-visit and history message).  
   - **Excel:** Implemented (web visits export).  
-  - **PDF:** Not implemented anywhere.
+  - **PDF:** Implemented (web visits page Export PDF).
 - **“Report template” alignment**  
   - Data model and visit/farmer fields match README §4.3 and §7.1.  
   - No separate “report template” UI or PDF layout that explicitly mirrors the README table; Excel is the main export and is broadly aligned.
@@ -122,12 +122,12 @@ This document lists what is **not implemented** or **incomplete** across backend
 | §5.1 (5) Schedule approval | Yes | Yes | N/A |
 | §5.1 (6) Insights & reporting | Yes | Yes | N/A (officer 403) |
 | §5.1 (7) Visit verification (system) | Yes | Shown | Shown |
-| §5.2 UC1 Invite and assign | Yes | Yes | **No change-password** |
+| §5.2 UC1 Invite and assign | Yes | Yes | **Yes (change-password enforced)** |
 | §5.2 UC2 Deactivate | Yes | Yes | N/A |
 | §5.2 UC3–UC5, UC7 | Yes | Yes (where applicable) | Yes |
 | §5.2 UC6 Accept/reject + notify | Yes | Yes | N/A |
 | §7.2 Activity types | Yes | Shown | Yes (full list) |
-| §7.3 Report output PDF/Excel | No PDF | **Excel only, no PDF** | N/A |
+| §7.3 Report output PDF/Excel | No PDF | **Excel + PDF** | N/A |
 | §9.1 Offline-first (was out of scope) | Sync API | N/A | Implemented |
 
 ---
