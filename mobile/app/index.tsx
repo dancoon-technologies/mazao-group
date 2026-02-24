@@ -5,16 +5,20 @@ import { useAuth } from '@/contexts/AuthContext';
 
 export default function IndexScreen() {
   const router = useRouter();
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, mustChangePassword } = useAuth();
 
   useEffect(() => {
     if (isLoading) return;
-    if (isAuthenticated) {
-      router.replace('/(app)');
-    } else {
+    if (!isAuthenticated) {
       router.replace('/login');
+      return;
     }
-  }, [isAuthenticated, isLoading, router]);
+    if (mustChangePassword) {
+      router.replace('/change-password');
+    } else {
+      router.replace('/(app)');
+    }
+  }, [isAuthenticated, isLoading, mustChangePassword, router]);
 
   return (
     <View style={styles.centered}>

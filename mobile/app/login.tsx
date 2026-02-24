@@ -20,8 +20,12 @@ export default function LoginScreen() {
     }
     setLoading(true);
     try {
-      await login(email.trim(), password);
-      router.replace('/(app)');
+      const { mustChangePassword } = await login(email.trim(), password);
+      if (mustChangePassword) {
+        router.replace('/change-password');
+      } else {
+        router.replace('/(app)');
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Login failed');
     } finally {

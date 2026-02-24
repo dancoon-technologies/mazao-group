@@ -3,19 +3,22 @@ import { AppState, AppStateStatus } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 import { api } from '@/lib/api';
 import { STORAGE_KEYS } from '@/constants/config';
+import { decodeJwtPayload, getMustChangePasswordFromToken } from '@/lib/jwt';
 
 type AuthState = {
   isAuthenticated: boolean;
   isLoading: boolean;
   email: string | null;
+  mustChangePassword: boolean;
 };
 
 type AuthContextValue = AuthState & {
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<{ mustChangePassword: boolean }>;
   logout: () => Promise<void>;
   setUnlocked: (unlocked: boolean) => void;
   isUnlocked: boolean;
   checkUnlocked: () => Promise<boolean>;
+  clearMustChangePassword: () => void;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -25,6 +28,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     isAuthenticated: false,
     isLoading: true,
     email: null,
+    mustChangePassword: false,
   });
   const [isUnlocked, setIsUnlocked] = useState(false);
   const mounted = useRef(true);
@@ -32,12 +36,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const checkToken = useCallback(async () => {
     const access = await SecureStore.getItemAsync(STORAGE_KEYS.ACCESS_TOKEN);
     if (!mounted.current) return;
-    setState((s) => ({
-      ...s,
-      isAuthenticated: !!access,
-      isLoading: false,
-      email: s.email,
-    }));
+    if (!access) {
+      setState({ isAuthenticated: false, isLoading: false, email: null, mustChangePassword: false });
+      return;
+    }
+    const payload = decodeJwtPayload(access);
+    const email = (payload?.email as string) ?? null;
+    const mustChangePassword = getMustChangePasswordFromToken(access);
+    setState({ isAuthenticated: true, isLoading: false, email, mustChangePassword });
   }, []);
 
   useEffect(() => {
@@ -57,15 +63,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const login = useCallback(async (email: string, password: string) => {
     await api.login(email, password);
-    if (!mounted.current) return;
-    setState({ isAuthenticated: true, isLoading: false, email });
+    if (!mounted.current) return { mustChangePassword: false };
+    const access = await SecureStore.getItemAsync(STORAGE_KEYS.ACCESS_TOKEN);
+    const mustChangePassword = getMustChangePasswordFromToken(access);
+    setState({ isAuthenticated: true, isLoading: false, email, mustChangePassword });
+    return { mustChangePassword };
   }, []);
 
   const logout = useCallback(async () => {
     await api.logout();
     if (!mounted.current) return;
-    setState({ isAuthenticated: false, isLoading: false, email: null });
+    setState({ isAuthenticated: false, isLoading: false, email: null, mustChangePassword: false });
     setIsUnlocked(false);
+  }, []);
+
+  const clearMustChangePassword = useCallback(() => {
+    setState((s) => (s.mustChangePassword ? { ...s, mustChangePassword: false } : s));
   }, []);
 
   const setUnlocked = useCallback((unlocked: boolean) => {
@@ -81,6 +94,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUnlocked,
     isUnlocked,
     checkUnlocked,
+    clearMustChangePassword,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

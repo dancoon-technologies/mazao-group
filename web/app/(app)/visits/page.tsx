@@ -131,6 +131,60 @@ export default function VisitsPage() {
     XLSX.writeFile(wb, `visits-export-${new Date().toISOString().slice(0, 10)}.xlsx`);
   };
 
+  const handleExportPdf = async () => {
+    const [{ jsPDF }, { default: autoTable }] = await Promise.all([
+      import("jspdf"),
+      import("jspdf-autotable"),
+    ]);
+    const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+    const head = [
+      "Date",
+      "Officer",
+      "Farmer",
+      "Farm visited",
+      "Activity",
+      "Crop stage",
+      "Germination %",
+      "Survival",
+      "Pests/diseases",
+      "Order value",
+      "Harvest (kg)",
+      "Feedback",
+      "Notes",
+      "Distance (m)",
+      "Status",
+    ];
+    const body = visits.map((v) => [
+      formatDateTime(v.created_at),
+      (v.officer_email ?? v.officer) ?? "",
+      (v.farmer_display_name ?? v.farmer) ?? "",
+      v.farm_display_name ?? "",
+      formatActivityType(v.activity_type ?? ""),
+      v.crop_stage ?? "",
+      v.germination_percent != null ? String(v.germination_percent) : "",
+      v.survival_rate ?? "",
+      v.pests_diseases ?? "",
+      v.order_value != null ? String(v.order_value) : "",
+      v.harvest_kgs != null ? String(v.harvest_kgs) : "",
+      v.farmers_feedback ?? "",
+      (v.notes ?? "").slice(0, 40),
+      v.distance_from_farmer != null ? String(Math.round(v.distance_from_farmer)) : "",
+      v.verification_status ?? "",
+    ]);
+    doc.setFontSize(14);
+    doc.text("Visit / Farmer Report", 14, 12);
+    doc.setFontSize(10);
+    doc.text(`Generated ${formatDateTime(new Date().toISOString())} — ${visits.length} visit(s)`, 14, 18);
+    autoTable(doc, {
+      head: [head],
+      body,
+      startY: 22,
+      styles: { fontSize: 7 },
+      margin: { left: 14, right: 14 },
+    });
+    doc.save(`visits-export-${new Date().toISOString().slice(0, 10)}.pdf`);
+  };
+
   const openDetail = (v: Visit) => {
     setSelectedVisit(v);
     setDetailOpen(true);
@@ -260,9 +314,14 @@ export default function VisitsPage() {
               placeholder="Filter by date"
             />
             {visits.length > 0 && (
-              <Button variant="light" color="green" onClick={handleExportExcel}>
-                Export Excel
-              </Button>
+              <>
+                <Button variant="light" color="green" onClick={handleExportExcel}>
+                  Export Excel
+                </Button>
+                <Button variant="light" color="green" onClick={handleExportPdf}>
+                  Export PDF
+                </Button>
+              </>
             )}
           </Group>
         }

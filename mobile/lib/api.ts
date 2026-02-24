@@ -170,6 +170,22 @@ export const api = {
     return data;
   },
 
+  async changePassword(current_password: string, new_password: string) {
+    const access = await getAccessToken();
+    if (!access) throw new Error('Not authenticated');
+    const res = await fetch(`${API_BASE}/auth/change-password/`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${access}`,
+      },
+      body: JSON.stringify({ current_password, new_password }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.current_password?.[0] || data.detail || 'Failed to change password');
+    if (data.access && data.refresh) await setTokens(data.access, data.refresh);
+  },
+
   logout: clearTokens,
 
   getFarmers: () => request<Farmer[]>('/farmers/'),
