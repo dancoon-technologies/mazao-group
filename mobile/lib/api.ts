@@ -226,12 +226,19 @@ export const api = {
     });
   },
 
-  getVisits: (params?: { officer?: string; date?: string }) => {
+  getVisits: async (params?: { officer?: string; date?: string }) => {
     const q = new URLSearchParams();
     if (params?.officer) q.set('officer', params.officer);
     if (params?.date) q.set('date', params.date);
     const query = q.toString();
-    return request<Visit[]>(`/visits/${query ? `?${query}` : ''}`);
+    try {
+      const data = await request<Visit[] | { results: Visit[] }>(`/visits/${query ? `?${query}` : ''}`);
+      return Array.isArray(data) ? data : (data?.results ?? []);
+    } catch (e) {
+      const err = e as Error & { status?: number };
+      if (err.message?.includes('403') || err.message?.toLowerCase().includes('forbidden')) throw new Error('FORBIDDEN');
+      throw e;
+    }
   },
 
   async createVisit(params: {

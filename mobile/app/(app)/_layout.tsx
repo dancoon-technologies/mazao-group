@@ -19,6 +19,9 @@ export default function AppLayout() {
       <Stack.Screen name="index" />
       <Stack.Screen name="unlock" />
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+      <Stack.Screen name="record-visit" options={{ title: 'Record visit' }} />
+      <Stack.Screen name="add-farmer" options={{ title: 'Add farmer' }} />
+      <Stack.Screen name="propose-schedule" options={{ title: 'Propose schedule' }} />
     </Stack>
   );
 }
