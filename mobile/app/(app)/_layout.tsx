@@ -1,16 +1,31 @@
 import { useAuth } from '@/contexts/AuthContext';
+import { syncWithServer } from '@/lib/syncWithServer';
 import { Stack, useRouter } from 'expo-router';
-import { useEffect } from 'react';
+import NetInfo from '@react-native-community/netinfo';
+import { useEffect, useRef } from 'react';
 
 export default function AppLayout() {
   const router = useRouter();
   const { isAuthenticated, isLoading } = useAuth();
+  const wasOffline = useRef<boolean | null>(null);
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
       router.replace('/login');
     }
   }, [isAuthenticated, isLoading, router]);
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    const sub = NetInfo.addEventListener((state) => {
+      const online = state.isConnected ?? false;
+      if (online && wasOffline.current === true) {
+        syncWithServer().catch(() => {});
+      }
+      wasOffline.current = !online;
+    });
+    return () => sub();
+  }, [isAuthenticated]);
 
   if (!isAuthenticated) return null;
 

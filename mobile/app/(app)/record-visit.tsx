@@ -9,18 +9,13 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
-import {
-  Button,
-  Text,
-  ActivityIndicator,
-  TextInput,
-  Menu,
-  Divider,
-} from 'react-native-paper';
+import { Button, Text, ActivityIndicator, TextInput, Menu, Snackbar } from 'react-native-paper';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as Location from 'expo-location';
+import NetInfo from '@react-native-community/netinfo';
 import { api, type Farmer, type Farm } from '@/lib/api';
 import { ACTIVITY_TYPES, DEFAULT_ACTIVITY_TYPE } from '@/lib/constants/activityTypes';
+import { enqueueVisit } from '@/lib/syncWithServer';
 
 export default function RecordVisitScreen() {
   const router = useRouter();
@@ -45,7 +40,14 @@ export default function RecordVisitScreen() {
   const [orderValue, setOrderValue] = useState('');
   const [harvestKgs, setHarvestKgs] = useState('');
   const [farmersFeedback, setFarmersFeedback] = useState('');
+  const [isOnline, setIsOnline] = useState<boolean | null>(null);
+  const [snackbar, setSnackbar] = useState('');
   const cameraRef = useRef<CameraView>(null);
+
+  useEffect(() => {
+    const sub = NetInfo.addEventListener((state) => setIsOnline(state.isConnected ?? false));
+    return () => sub();
+  }, []);
 
   useEffect(() => {
     api.getFarmers().then(setFarmers).catch(() => setFarmers([]));
@@ -120,14 +122,39 @@ export default function RecordVisitScreen() {
     setSubmitting(true);
     setError('');
     try {
-      await api.createVisit({
+      const online = isOnline === true
+      if (online) {
+        try {
+          await api.createVisit({
+            farmer_id: selectedFarmerId,
+            farm_id: selectedFarmId || undefined,
+            latitude: location.coords.latitude,
+            longitude: location.coords.longitude,
+            photo: { uri: photoUri, type: 'image/jpeg', name: 'visit.jpg' },
+            activity_type: activityType,
+            notes: notes || undefined,
+            crop_stage: cropStage || undefined,
+            germination_percent: germinationPercent ? parseFloat(germinationPercent) : undefined,
+            survival_rate: survivalRate || undefined,
+            pests_diseases: pestsDiseases || undefined,
+            order_value: orderValue ? parseFloat(orderValue) : undefined,
+            harvest_kgs: harvestKgs ? parseFloat(harvestKgs) : undefined,
+            farmers_feedback: farmersFeedback || undefined,
+          })
+          router.back()
+          return
+        } catch {
+          setSnackbar('Upload failed. Saving for sync when online.')
+        }
+      }
+      await enqueueVisit({
         farmer_id: selectedFarmerId,
         farm_id: selectedFarmId || undefined,
         latitude: location.coords.latitude,
         longitude: location.coords.longitude,
-        photo: { uri: photoUri, type: 'image/jpeg', name: 'visit.jpg' },
-        activity_type: activityType,
+        photo_uri: photoUri,
         notes: notes || undefined,
+        activity_type: activityType,
         crop_stage: cropStage || undefined,
         germination_percent: germinationPercent ? parseFloat(germinationPercent) : undefined,
         survival_rate: survivalRate || undefined,
@@ -135,12 +162,13 @@ export default function RecordVisitScreen() {
         order_value: orderValue ? parseFloat(orderValue) : undefined,
         harvest_kgs: harvestKgs ? parseFloat(harvestKgs) : undefined,
         farmers_feedback: farmersFeedback || undefined,
-      });
-      router.back();
+      })
+      setSnackbar('Saved for sync. Will upload when online.')
+      setTimeout(() => router.back(), 1500)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to submit visit');
+      setError(e instanceof Error ? e.message : 'Failed to save visit')
     } finally {
-      setSubmitting(false);
+      setSubmitting(false)
     }
   }, [
     selectedFarmerId,
@@ -156,8 +184,9 @@ export default function RecordVisitScreen() {
     orderValue,
     harvestKgs,
     farmersFeedback,
+    isOnline,
     router,
-  ]);
+  ])
 
   const activityLabel = ACTIVITY_TYPES.find((a) => a.value === activityType)?.label ?? activityType;
 
@@ -364,6 +393,9 @@ export default function RecordVisitScreen() {
           </Button>
         </View>
       </ScrollView>
+      <Snackbar visible={!!snackbar} onDismiss={() => setSnackbar('')} duration={4000}>
+        {snackbar}
+      </Snackbar>
     </KeyboardAvoidingView>
   );
 }

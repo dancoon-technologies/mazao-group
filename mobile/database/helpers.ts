@@ -68,13 +68,13 @@ export async function createOrUpdate<T extends Model>(
     if (existing) {
       await existing.update((record) => {
         Object.entries(data).forEach(([key, value]) => {
-          ;(record as Record<string, unknown>)[key] = value
+          ;(record as unknown as Record<string, unknown>)[key] = value
         })
       })
     } else {
       await collection.create((record) => {
         Object.entries(data).forEach(([key, value]) => {
-          ;(record as Record<string, unknown>)[key] = value
+          ;(record as unknown as Record<string, unknown>)[key] = value
         })
       })
     }

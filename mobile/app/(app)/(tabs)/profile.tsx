@@ -1,11 +1,34 @@
 import { useAuth } from '@/contexts/AuthContext';
+import { syncWithServer, getPendingSyncCount } from '@/lib/syncWithServer';
 import { useRouter } from 'expo-router';
+import { useCallback, useEffect, useState } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { List, Button, Text, Card } from 'react-native-paper';
 
 export default function ProfileScreen() {
   const router = useRouter();
   const { email, logout } = useAuth();
+  const [syncing, setSyncing] = useState(false);
+  const [pendingCount, setPendingCount] = useState(0);
+
+  const refreshPending = useCallback(async () => {
+    const n = await getPendingSyncCount();
+    setPendingCount(n);
+  }, []);
+
+  useEffect(() => {
+    refreshPending();
+  }, [refreshPending]);
+
+  const handleSync = useCallback(async () => {
+    setSyncing(true);
+    try {
+      await syncWithServer();
+      await refreshPending();
+    } finally {
+      setSyncing(false);
+    }
+  }, [refreshPending]);
 
   const handleLogout = async () => {
     await logout();
@@ -22,6 +45,17 @@ export default function ProfileScreen() {
           </Text>
         </Card.Content>
       </Card>
+
+      {pendingCount > 0 && (
+        <Card style={styles.card}>
+          <Card.Content>
+            <Text variant="bodyMedium">{pendingCount} visit(s) waiting to sync</Text>
+            <Button mode="contained" onPress={handleSync} loading={syncing} disabled={syncing} style={styles.syncBtn}>
+              Sync now
+            </Button>
+          </Card.Content>
+        </Card>
+      )}
 
       <List.Section>
         <List.Subheader>App</List.Subheader>
@@ -58,6 +92,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, padding: 16 },
   card: { marginBottom: 16, borderRadius: 8 },
   email: { marginTop: 4, opacity: 0.8 },
+  syncBtn: { marginTop: 8 },
   logoutWrap: { marginTop: 24 },
   logout: { borderColor: '#b00020' },
 });
