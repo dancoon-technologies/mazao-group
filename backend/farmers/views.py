@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 
 class FarmerListCreateView(generics.ListCreateAPIView):
-    """List farmers. Admin: all. Officer: only assigned. Create: authenticated users."""
+    """List farmers: all authenticated users see all farmers in the DB. Create: authenticated users."""
 
     list_serializer_class = FarmerSerializer
     create_serializer_class = FarmerCreateSerializer
@@ -27,22 +27,7 @@ class FarmerListCreateView(generics.ListCreateAPIView):
         return self.list_serializer_class
 
     def get_queryset(self):
-        user = self.request.user
-        if user.role == "admin":
-            qs = Farmer.objects.all().select_related("assigned_officer")
-        elif user.role == "supervisor":
-            if getattr(user, "department", None):
-                qs = Farmer.objects.filter(
-                    assigned_officer__department=user.department
-                ).select_related("assigned_officer")
-            elif getattr(user, "region_id_id", None):
-                qs = Farmer.objects.filter(
-                    assigned_officer__region_id_id=user.region_id_id
-                ).select_related("assigned_officer")
-            else:
-                qs = Farmer.objects.none()
-        else:
-            qs = Farmer.objects.filter(assigned_officer=user).select_related("assigned_officer")
+        qs = Farmer.objects.all().select_related("assigned_officer")
         search = (self.request.query_params.get("search") or "").strip()
         if search:
             qs = qs.filter(
@@ -91,7 +76,7 @@ class FarmerListCreateView(generics.ListCreateAPIView):
 
 
 class FarmListCreateView(generics.ListCreateAPIView):
-    """List farms (optional ?farmer=uuid). Create: admin or officer assigned to farmer."""
+    """List farms: all authenticated users see all farms (optional ?farmer=uuid). Create: admin or officer assigned to farmer."""
 
     list_serializer_class = FarmSerializer
     create_serializer_class = FarmCreateSerializer
@@ -102,21 +87,13 @@ class FarmListCreateView(generics.ListCreateAPIView):
         return self.list_serializer_class
 
     def get_queryset(self):
-        user = self.request.user
         qs = Farm.objects.select_related("farmer", "farmer__assigned_officer").order_by(
             "farmer", "created_at"
         )
         farmer_id = self.request.query_params.get("farmer")
         if farmer_id:
             qs = qs.filter(farmer_id=farmer_id)
-        if user.role == "admin":
-            return qs
-        if user.role == "supervisor":
-            if getattr(user, "department", None):
-                return qs.filter(farmer__assigned_officer__department=user.department)
-            if getattr(user, "region_id_id", None):
-                return qs.filter(farmer__assigned_officer__region_id_id=user.region_id_id)
-        return qs.filter(farmer__assigned_officer=user)
+        return qs
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)

@@ -45,7 +45,42 @@ export const syncQueueSchema = tableSchema({
   ],
 })
 
+export const farmerSchema = tableSchema({
+  name: 'farmers',
+  columns: [
+    { name: 'first_name', type: 'string' },
+    { name: 'middle_name', type: 'string', isOptional: true },
+    { name: 'last_name', type: 'string' },
+    { name: 'display_name', type: 'string', isOptional: true },
+    { name: 'phone', type: 'string', isOptional: true },
+    { name: 'latitude', type: 'string', isOptional: true },
+    { name: 'longitude', type: 'string', isOptional: true },
+    { name: 'crop_type', type: 'string', isOptional: true },
+    { name: 'assigned_officer', type: 'string', isOptional: true },
+    { name: 'created_at', type: 'string', isOptional: true },
+  ],
+})
+
+export const farmSchema = tableSchema({
+  name: 'farms',
+  columns: [
+    { name: 'farmer_id', type: 'string' },
+    { name: 'village', type: 'string' },
+    { name: 'latitude', type: 'number' },
+    { name: 'longitude', type: 'number' },
+    { name: 'plot_size', type: 'string', isOptional: true },
+    { name: 'crop_type', type: 'string', isOptional: true },
+    { name: 'region_id', type: 'number', isOptional: true },
+    { name: 'county_id', type: 'number', isOptional: true },
+    { name: 'sub_county_id', type: 'number', isOptional: true },
+    { name: 'region', type: 'string', isOptional: true },
+    { name: 'county', type: 'string', isOptional: true },
+    { name: 'sub_county', type: 'string', isOptional: true },
+    { name: 'created_at', type: 'string', isOptional: true },
+  ],
+})
+
 export const schema = appSchema({
-  version: 2,
-  tables: [visitSchema, scheduleSchema, syncQueueSchema],
+  version: 3,
+  tables: [visitSchema, scheduleSchema, syncQueueSchema, farmerSchema, farmSchema],
 })

@@ -1,40 +1,38 @@
+import { api, type Farm, type Farmer, type VisitSettings } from '@/lib/api';
+import { ACTIVITY_TYPES, DEFAULT_ACTIVITY_TYPE } from '@/lib/constants/activityTypes';
+import { enqueueVisit } from '@/lib/syncWithServer';
+import NetInfo from '@react-native-community/netinfo';
+import { CameraView, useCameraPermissions } from 'expo-camera';
+import * as Location from 'expo-location';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  View,
-  StyleSheet,
-  ScrollView,
-  KeyboardAvoidingView,
-  Platform,
   Image,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   Pressable,
+  ScrollView,
+  StyleSheet,
+  View,
 } from 'react-native';
 import {
-  Text,
-  TextInput,
+  ActivityIndicator,
   Button,
   Card,
-  Menu,
   Chip,
-  ProgressBar,
+  Dialog,
   HelperText,
   List,
-  Surface,
-  ActivityIndicator,
+  Menu,
   Portal,
-  Dialog,
   Snackbar,
-  Divider,
+  Surface,
+  Text,
+  TextInput,
+  useTheme
 } from 'react-native-paper';
-import { CameraView, useCameraPermissions } from 'expo-camera';
-import * as Location from 'expo-location';
-import NetInfo from '@react-native-community/netinfo';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { api, type Farmer, type Farm, type VisitSettings } from '@/lib/api';
-import { ACTIVITY_TYPES, DEFAULT_ACTIVITY_TYPE } from '@/lib/constants/activityTypes';
-import { enqueueVisit } from '@/lib/syncWithServer';
-import { useTheme } from 'react-native-paper';
 
 function haversineDistance(
   lat1: number,
@@ -430,14 +428,6 @@ export default function RecordVisitScreen() {
               >
                 Take Photo
               </Button>
-              <Button
-                mode="outlined"
-                icon="upload"
-                onPress={openCameraModal}
-                style={styles.photoEvidenceBtn}
-              >
-                Upload Photo
-              </Button>
             </View>
             {photoUri ? (
               <View style={styles.photoPreviewWrap}>
@@ -498,76 +488,76 @@ export default function RecordVisitScreen() {
               style={styles.accordion}
               right={props => <List.Icon {...props} icon={accordionExpanded ? 'chevron-up' : 'chevron-down'} />}
             >
-                  <Surface style={styles.accordionInner} elevation={0}>
-                    <View style={styles.twoColRow}>
-                      <TextInput
-                        label="Crop Stage"
-                        value={cropStage}
-                        onChangeText={setCropStage}
-                        mode="outlined"
-                        placeholder="e.g., Flowering"
-                        style={styles.inputHalf}
-                      />
-                      <TextInput
-                        label="Germination %"
-                        value={germinationPercent}
-                        onChangeText={setGerminationPercent}
-                        keyboardType="decimal-pad"
-                        mode="outlined"
-                        placeholder="0-100"
-                        style={styles.inputHalf}
-                      />
-                    </View>
-                    <View style={styles.twoColRow}>
-                      <TextInput
-                        label="Survival Rate %"
-                        value={survivalRatePercent}
-                        onChangeText={setSurvivalRatePercent}
-                        keyboardType="decimal-pad"
-                        mode="outlined"
-                        placeholder="0-100"
-                        style={styles.inputHalf}
-                      />
-                      <TextInput
-                        label="Order Value"
-                        value={orderValue}
-                        onChangeText={setOrderValue}
-                        keyboardType="decimal-pad"
-                        mode="outlined"
-                        placeholder="Amount"
-                        style={styles.inputHalf}
-                      />
-                    </View>
-                    <TextInput
-                      label="Harvest (kg)"
-                      value={harvestKgs}
-                      onChangeText={setHarvestKgs}
-                      keyboardType="decimal-pad"
-                      mode="outlined"
-                      placeholder="Harvest in kilograms"
-                      style={styles.input}
-                    />
-                    <TextInput
-                      label="Pests/Diseases"
-                      value={pestsDiseases}
-                      onChangeText={setPestsDiseases}
-                      mode="outlined"
-                      placeholder="List any pests or diseases"
-                      style={styles.input}
-                    />
-                    <TextInput
-                      label="Farmer's Feedback"
-                      value={farmersFeedback}
-                      onChangeText={setFarmersFeedback}
-                      mode="outlined"
-                      multiline
-                      numberOfLines={2}
-                      placeholder="Farmer's comments or feedback"
-                      style={styles.input}
-                    />
-                  </Surface>
-                </List.Accordion>
-              </List.AccordionGroup>
+              <Surface style={styles.accordionInner} elevation={0}>
+                <View style={styles.twoColRow}>
+                  <TextInput
+                    label="Crop Stage"
+                    value={cropStage}
+                    onChangeText={setCropStage}
+                    mode="outlined"
+                    placeholder="e.g., Flowering"
+                    style={styles.inputHalf}
+                  />
+                  <TextInput
+                    label="Germination %"
+                    value={germinationPercent}
+                    onChangeText={setGerminationPercent}
+                    keyboardType="decimal-pad"
+                    mode="outlined"
+                    placeholder="0-100"
+                    style={styles.inputHalf}
+                  />
+                </View>
+                <View style={styles.twoColRow}>
+                  <TextInput
+                    label="Survival Rate %"
+                    value={survivalRatePercent}
+                    onChangeText={setSurvivalRatePercent}
+                    keyboardType="decimal-pad"
+                    mode="outlined"
+                    placeholder="0-100"
+                    style={styles.inputHalf}
+                  />
+                  <TextInput
+                    label="Order Value"
+                    value={orderValue}
+                    onChangeText={setOrderValue}
+                    keyboardType="decimal-pad"
+                    mode="outlined"
+                    placeholder="Amount"
+                    style={styles.inputHalf}
+                  />
+                </View>
+                <TextInput
+                  label="Harvest (kg)"
+                  value={harvestKgs}
+                  onChangeText={setHarvestKgs}
+                  keyboardType="decimal-pad"
+                  mode="outlined"
+                  placeholder="Harvest in kilograms"
+                  style={styles.input}
+                />
+                <TextInput
+                  label="Pests/Diseases"
+                  value={pestsDiseases}
+                  onChangeText={setPestsDiseases}
+                  mode="outlined"
+                  placeholder="List any pests or diseases"
+                  style={styles.input}
+                />
+                <TextInput
+                  label="Farmer's Feedback"
+                  value={farmersFeedback}
+                  onChangeText={setFarmersFeedback}
+                  mode="outlined"
+                  multiline
+                  numberOfLines={2}
+                  placeholder="Farmer's comments or feedback"
+                  style={styles.input}
+                />
+              </Surface>
+            </List.Accordion>
+          </List.AccordionGroup>
 
           {error ? (
             <HelperText type="error" style={styles.errorBlock}>{error}</HelperText>
@@ -618,7 +608,7 @@ export default function RecordVisitScreen() {
             </View>
           </Modal>
 
-          </ScrollView>
+        </ScrollView>
       </KeyboardAvoidingView>
 
       <Portal>

@@ -1,5 +1,7 @@
 import { Database } from '@nozbe/watermelondb'
 import SQLiteAdapter from '@nozbe/watermelondb/adapters/sqlite'
+import Farm from './models/Farm'
+import Farmer from './models/Farmer'
 import Schedule from './models/Schedule'
 import SyncQueue from './models/SyncQueue'
 import Visit from './models/Visit'
@@ -12,6 +14,6 @@ const adapter = new SQLiteAdapter({
 })
 
 export const database = new Database({
-    adapter,
-    modelClasses: [Visit, Schedule, SyncQueue],
+  adapter,
+  modelClasses: [Visit, Schedule, SyncQueue, Farmer, Farm],
 })

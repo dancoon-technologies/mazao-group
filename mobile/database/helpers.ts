@@ -49,6 +49,43 @@ export function normalizeServerSchedule(record: Record<string, unknown>): Record
   }
 }
 
+/** Normalize server farmer to local schema */
+export function normalizeServerFarmer(record: Record<string, unknown>): Record<string, unknown> {
+  return {
+    id: record.id,
+    first_name: record.first_name ?? '',
+    middle_name: record.middle_name ?? null,
+    last_name: record.last_name ?? '',
+    display_name: record.display_name ?? null,
+    phone: record.phone ?? null,
+    latitude: record.latitude != null ? String(record.latitude) : null,
+    longitude: record.longitude != null ? String(record.longitude) : null,
+    crop_type: record.crop_type ?? null,
+    assigned_officer: record.assigned_officer ?? null,
+    created_at: record.created_at ?? null,
+  }
+}
+
+/** Normalize server farm to local schema */
+export function normalizeServerFarm(record: Record<string, unknown>): Record<string, unknown> {
+  return {
+    id: record.id,
+    farmer_id: record.farmer ?? '',
+    village: record.village ?? '',
+    latitude: Number(record.latitude) || 0,
+    longitude: Number(record.longitude) || 0,
+    plot_size: record.plot_size ?? null,
+    crop_type: record.crop_type ?? null,
+    region_id: record.region_id != null ? Number(record.region_id) : null,
+    county_id: record.county_id != null ? Number(record.county_id) : null,
+    sub_county_id: record.sub_county_id != null ? Number(record.sub_county_id) : null,
+    region: record.region ?? null,
+    county: record.county ?? null,
+    sub_county: record.sub_county ?? null,
+    created_at: record.created_at ?? null,
+  }
+}
+
 /**
  * createOrUpdate - inserts or updates a record in WatermelonDB
  * @param tableName - 'visits' | 'schedules'

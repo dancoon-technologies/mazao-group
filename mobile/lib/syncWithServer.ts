@@ -1,10 +1,20 @@
 import * as SecureStore from 'expo-secure-store'
-import SyncQueue from '@/database/models/SyncQueue'
 import { API_BASE, LAST_SYNC_KEY, STORAGE_KEYS, SYNC_PULL_PATH } from '@/constants/config'
 import { database } from '@/database'
-import { createOrUpdate, normalizeServerVisit, normalizeServerSchedule } from '@/database/helpers'
+import {
+  createOrUpdate,
+  normalizeServerFarm,
+  normalizeServerFarmer,
+  normalizeServerSchedule,
+  normalizeServerVisit,
+} from '@/database/helpers'
+import Farm from '@/database/models/Farm'
+import Farmer from '@/database/models/Farmer'
 import Schedule from '@/database/models/Schedule'
+import SyncQueue from '@/database/models/SyncQueue'
 import Visit from '@/database/models/Visit'
+import { api } from '@/lib/api'
+import { logger } from '@/lib/logger'
 
 async function getAccessToken(): Promise<string | null> {
   return SecureStore.getItemAsync(STORAGE_KEYS.ACCESS_TOKEN)
