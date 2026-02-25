@@ -1,6 +1,10 @@
+import { database } from '@/database';
+import FarmerModel from '@/database/models/Farmer';
+import FarmModel from '@/database/models/Farm';
 import { api, type Farm, type Farmer, type VisitSettings } from '@/lib/api';
 import { ACTIVITY_TYPES, DEFAULT_ACTIVITY_TYPE } from '@/lib/constants/activityTypes';
-import { enqueueVisit } from '@/lib/syncWithServer';
+import { enqueueVisit, syncWithServer } from '@/lib/syncWithServer';
+import { Q } from '@nozbe/watermelondb';
 import NetInfo from '@react-native-community/netinfo';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as Location from 'expo-location';
@@ -123,8 +127,38 @@ export default function RecordVisitScreen() {
   }, []);
 
   useEffect(() => {
-    api.getFarmers().then(setFarmers).catch(() => setFarmers([]));
+    let cancelled = false;
+    (async () => {
+      try {
+        const farmersCollection = database.get('farmers');
+        const rows = await farmersCollection.query().fetch() as FarmerModel[];
+        if (cancelled) return;
+        const list: Farmer[] = rows.map((r) => ({
+          id: r.id,
+          first_name: r.first_name,
+          middle_name: r.middle_name ?? undefined,
+          last_name: r.last_name,
+          display_name: r.display_name ?? [r.first_name, r.last_name].filter(Boolean).join(' '),
+          phone: r.phone ?? undefined,
+          latitude: r.latitude ?? undefined,
+          longitude: r.longitude ?? undefined,
+          crop_type: r.crop_type ?? undefined,
+          assigned_officer: r.assigned_officer ?? undefined,
+          created_at: r.created_at ?? undefined,
+        }));
+        setFarmers(list);
+      } catch {
+        if (!cancelled) setFarmers([]);
+      }
+    })();
+    return () => { cancelled = true; };
   }, []);
+
+  useEffect(() => {
+    if (isOnline === true) {
+      syncWithServer().catch(() => {});
+    }
+  }, [isOnline]);
 
   useEffect(() => {
     if (params.farmerId) setSelectedFarmerId(params.farmerId);
@@ -136,8 +170,35 @@ export default function RecordVisitScreen() {
       setSelectedFarmId(null);
       return;
     }
-    api.getFarms(selectedFarmerId).then(setFarms).catch(() => setFarms([]));
+    let cancelled = false;
     setSelectedFarmId(null);
+    (async () => {
+      try {
+        const farmsCollection = database.get('farms');
+        const rows = await farmsCollection.query(Q.where('farmer_id', selectedFarmerId)).fetch() as FarmModel[];
+        if (cancelled) return;
+        const list: Farm[] = rows.map((r) => ({
+          id: r.id,
+          farmer: r.farmer_id,
+          village: r.village,
+          latitude: r.latitude,
+          longitude: r.longitude,
+          plot_size: r.plot_size ?? undefined,
+          crop_type: r.crop_type ?? undefined,
+          region_id: r.region_id ?? undefined,
+          region: r.region ?? undefined,
+          county_id: r.county_id ?? undefined,
+          county: r.county ?? undefined,
+          sub_county_id: r.sub_county_id ?? undefined,
+          sub_county: r.sub_county ?? undefined,
+          created_at: r.created_at ?? undefined,
+        }));
+        setFarms(list);
+      } catch {
+        if (!cancelled) setFarms([]);
+      }
+    })();
+    return () => { cancelled = true; };
   }, [selectedFarmerId]);
 
   useEffect(() => {

@@ -101,7 +101,7 @@ export async function createOrUpdate<T extends Model>(
   const id = data.id as string
   const existing = await collection.find(id).catch(() => null)
 
-  await database.action(async () => {
+  await database.write(async () => {
     if (existing) {
       await existing.update((record) => {
         Object.entries(data).forEach(([key, value]) => {

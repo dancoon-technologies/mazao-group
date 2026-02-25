@@ -88,7 +88,7 @@ async function pushQueue(accessToken: string): Promise<{ ok: boolean; error?: st
         }
       }
 
-      await database.action(async () => {
+      await database.write(async () => {
         await item.update((r) => {
           r.status = 'synced'
         })
@@ -133,8 +133,27 @@ async function pullFromServer(accessToken: string): Promise<{ ok: boolean; error
   return { ok: true, serverTime }
 }
 
+/** Pull farmers and farms from API and upsert into local DB (for offline farmer select). */
+async function syncFarmersAndFarms(): Promise<void> {
+  try {
+    const [farmers, farms] = await Promise.all([api.getFarmers(), api.getFarms()])
+    for (const f of farmers) {
+      const normalized = normalizeServerFarmer(f as unknown as Record<string, unknown>)
+      await createOrUpdate('farmers', normalized, Farmer as any)
+    }
+    for (const f of farms) {
+      const normalized = normalizeServerFarm(f as unknown as Record<string, unknown>)
+      await createOrUpdate('farms', normalized, Farm as any)
+    }
+    logger.info(`syncFarmersAndFarms: upserted ${farmers.length} farmers, ${farms.length} farms`)
+  } catch (e) {
+    logger.warn('syncFarmersAndFarms failed', e instanceof Error ? e.message : e)
+  }
+}
+
 /**
- * Full sync: push pending queue (visits as multipart, schedules as JSON), then pull from server.
+ * Full sync: push pending queue (visits as multipart, schedules as JSON), then pull from server,
+ * then sync farmers/farms for offline use.
  * Requires auth. Returns { success, error? }.
  */
 export async function syncWithServer(): Promise<{ success: boolean; error?: string }> {
@@ -147,6 +166,7 @@ export async function syncWithServer(): Promise<{ success: boolean; error?: stri
   const pullResult = await pullFromServer(accessToken)
   if (!pullResult.ok) return { success: false, error: pullResult.error }
 
+  await syncFarmersAndFarms()
   return { success: true }
 }
 
@@ -170,7 +190,7 @@ export async function enqueueVisit(payload: {
   farmers_feedback?: string
 }): Promise<void> {
   const queue = database.get<SyncQueue>('sync_queue')
-  await database.action(async () => {
+  await database.write(async () => {
     await queue.create((r) => {
       r.entity = 'visit'
       r.operation = 'CREATE'
@@ -188,7 +208,7 @@ export async function enqueueSchedule(payload: {
   notes?: string
 }): Promise<void> {
   const queue = database.get<SyncQueue>('sync_queue')
-  await database.action(async () => {
+  await database.write(async () => {
     await queue.create((r) => {
       r.entity = 'schedule'
       r.operation = 'CREATE'
