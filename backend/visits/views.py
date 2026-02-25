@@ -86,10 +86,12 @@ class VisitListCreateView(generics.ListCreateAPIView):
         try:
             farmer = Farmer.objects.prefetch_related("farms").get(pk=farmer_id)
         except Farmer.DoesNotExist:
+            logger.warning("POST /api/visits/ farmer_id=%s not found", farmer_id)
             return Response({"farmer_id": ["Farmer not found."]}, status=status.HTTP_404_NOT_FOUND)
 
         user = request.user
         if user.role != "admin" and farmer.assigned_officer_id != user.pk:
+            logger.warning("POST /api/visits/ forbidden user=%s not assigned to farmer_id=%s", user.id, farmer_id)
             return Response(
                 {"farmer_id": ["You are not assigned to this farmer."]},
                 status=status.HTTP_403_FORBIDDEN,
@@ -102,6 +104,7 @@ class VisitListCreateView(generics.ListCreateAPIView):
                 farm = Farm.objects.get(pk=farm_id, farmer=farmer)
                 ref_lat, ref_lon = float(farm.latitude), float(farm.longitude)
             except Farm.DoesNotExist:
+                logger.warning("POST /api/visits/ farm_id=%s not found for farmer_id=%s", farm_id, farmer_id)
                 return Response(
                     {"farm_id": ["Farm not found or does not belong to this farmer."]},
                     status=status.HTTP_400_BAD_REQUEST,
@@ -126,7 +129,14 @@ class VisitListCreateView(generics.ListCreateAPIView):
                 f"(max {max_m}m allowed)."
             )
             logger.warning("POST /api/visits/ %s", msg)
-            return Response({"detail": msg}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {
+                    "detail": msg,
+                    "distance_meters": round(distance, 1),
+                    "max_allowed_meters": max_m,
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         visit = Visit.objects.create(
             officer=user,
@@ -166,5 +176,12 @@ class VisitListCreateView(generics.ListCreateAPIView):
                 message=f"{user.email} recorded a visit to {farmer.name}.",
                 channels=["in_app", "email", "sms"],
             )
+        logger.info(
+            "POST /api/visits/ created visit_id=%s farmer_id=%s by user=%s distance=%.0fm",
+            visit.id,
+            farmer_id,
+            user.id,
+            distance,
+        )
         out_serializer = VisitSerializer(visit)
         return Response(out_serializer.data, status=status.HTTP_201_CREATED)

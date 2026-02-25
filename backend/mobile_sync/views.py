@@ -1,3 +1,5 @@
+import logging
+
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 from rest_framework import status
@@ -10,6 +12,8 @@ from visits.models import Visit
 
 from .serializers import ScheduleSyncSerializer, VisitSyncSerializer
 
+logger = logging.getLogger(__name__)
+
 
 class MobileSyncPushView(APIView):
     """
@@ -21,6 +25,7 @@ class MobileSyncPushView(APIView):
 
     def post(self, request):
         schedules_data = request.data.get("schedules", [])
+        accepted = 0
         for record in schedules_data:
             # Only allow creating/updating schedules for the current user as officer
             if str(record.get("officer")) != str(request.user.pk):
@@ -37,6 +42,13 @@ class MobileSyncPushView(APIView):
                     "updated_at": timezone.now(),
                 },
             )
+            accepted += 1
+        logger.info(
+            "POST /api/mobile-sync/push/ user=%s schedules_total=%s schedules_accepted=%s",
+            request.user.id,
+            len(schedules_data),
+            accepted,
+        )
         return Response({"status": "success"}, status=status.HTTP_200_OK)
 
 
@@ -60,7 +72,13 @@ class MobileSyncPullView(APIView):
 
         visits = VisitSyncSerializer(visits_qs, many=True).data
         schedules = ScheduleSyncSerializer(schedules_qs, many=True).data
-
+        logger.info(
+            "GET /api/mobile-sync/pull/ user=%s last_sync=%s visits=%s schedules=%s",
+            request.user.id,
+            last_sync,
+            len(visits),
+            len(schedules),
+        )
         return Response(
             {
                 "visits": visits,

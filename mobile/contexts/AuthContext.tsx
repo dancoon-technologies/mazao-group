@@ -8,7 +8,9 @@ import { decodeJwtPayload, getMustChangePasswordFromToken } from '@/lib/jwt';
 type AuthState = {
   isAuthenticated: boolean;
   isLoading: boolean;
+  userId: string | null;
   email: string | null;
+  role: string | null;
   department: string | null;
   mustChangePassword: boolean;
 };
@@ -28,7 +30,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<AuthState>({
     isAuthenticated: false,
     isLoading: true,
+    userId: null,
     email: null,
+    role: null,
     department: null,
     mustChangePassword: false,
   });
@@ -39,14 +43,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const access = await SecureStore.getItemAsync(STORAGE_KEYS.ACCESS_TOKEN);
     if (!mounted.current) return;
     if (!access) {
-      setState({ isAuthenticated: false, isLoading: false, email: null, department: null, mustChangePassword: false });
+      setState({ isAuthenticated: false, isLoading: false, userId: null, email: null, role: null, department: null, mustChangePassword: false });
       return;
     }
     const payload = decodeJwtPayload(access);
+    const userId = (payload?.user_id as string) ?? null;
     const email = (payload?.email as string) ?? null;
+    const role = (payload?.role as string) ?? null;
     const department = (payload?.department_display as string) ?? (payload?.department as string) ?? null;
     const mustChangePassword = getMustChangePasswordFromToken(access);
-    setState({ isAuthenticated: true, isLoading: false, email, department: department || null, mustChangePassword });
+    setState({ isAuthenticated: true, isLoading: false, userId, email, role, department: department || null, mustChangePassword });
   }, []);
 
   useEffect(() => {
@@ -69,16 +75,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!mounted.current) return { mustChangePassword: false };
     const access = await SecureStore.getItemAsync(STORAGE_KEYS.ACCESS_TOKEN);
     const payload = decodeJwtPayload(access);
+    const userId = (payload?.user_id as string) ?? null;
+    const role = (payload?.role as string) ?? null;
     const department = (payload?.department_display as string) ?? (payload?.department as string) ?? null;
     const mustChangePassword = getMustChangePasswordFromToken(access);
-    setState({ isAuthenticated: true, isLoading: false, email, department: department || null, mustChangePassword });
+    setState({ isAuthenticated: true, isLoading: false, userId, email, role, department: department || null, mustChangePassword });
     return { mustChangePassword };
   }, []);
 
   const logout = useCallback(async () => {
     await api.logout();
     if (!mounted.current) return;
-    setState({ isAuthenticated: false, isLoading: false, email: null, department: null, mustChangePassword: false });
+    setState({ isAuthenticated: false, isLoading: false, userId: null, email: null, role: null, department: null, mustChangePassword: false });
     setIsUnlocked(false);
   }, []);
 

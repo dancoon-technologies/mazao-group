@@ -1,9 +1,13 @@
+import logging
+
 from django.db.models import Count, Q
 from django.utils import timezone
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from .models import Visit
+
+logger = logging.getLogger(__name__)
 
 
 class DashboardStatsView(APIView):
@@ -29,10 +33,10 @@ class DashboardStatsView(APIView):
             visits_this_month=Count("id", filter=Q(created_at__date__gte=start_of_month)),
         )
         active_officers = base_qs.values("officer").distinct().count()
-        return Response(
-            {
-                "visits_today": stats["visits_today"] or 0,
-                "visits_this_month": stats["visits_this_month"] or 0,
-                "active_officers": active_officers,
-            }
-        )
+        payload = {
+            "visits_today": stats["visits_today"] or 0,
+            "visits_this_month": stats["visits_this_month"] or 0,
+            "active_officers": active_officers,
+        }
+        logger.info("GET /api/dashboard/stats/ user=%s role=%s %s", user.id, user.role, payload)
+        return Response(payload)

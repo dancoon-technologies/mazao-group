@@ -1,5 +1,6 @@
 import * as SecureStore from 'expo-secure-store';
 import { API_BASE, STORAGE_KEYS } from '@/constants/config';
+import { logger } from '@/lib/logger';
 
 export interface Farmer {
   id: string;
@@ -83,6 +84,27 @@ export interface DashboardStats {
   active_officers: number;
 }
 
+/** Staff user (officer) for schedule assignment. From GET /api/officers/. */
+export interface Officer {
+  id: string;
+  email: string;
+  first_name?: string;
+  last_name?: string;
+  display_name?: string;
+  role: string;
+}
+
+export interface VisitSettings {
+  max_distance_meters: number;
+  warning_distance_meters: number;
+}
+
+export interface OptionsResponse {
+  departments: { value: string; label: string }[];
+  staff_roles: { value: string; label: string }[];
+  visit_settings: VisitSettings;
+}
+
 // --- Helpers ---
 
 /** Normalize API list responses (array or paginated { results }) to always return an array. */
@@ -124,12 +146,33 @@ async function refreshAccessToken(): Promise<string | null> {
     body: JSON.stringify({ refresh }),
   });
   if (!res.ok) {
+    logger.warn('Token refresh failed, clearing tokens');
     await clearTokens();
     return null;
   }
   const data = await res.json();
   await setTokens(data.access, data.refresh ?? refresh);
+  logger.debug('Token refresh success');
   return data.access;
+}
+
+/** Extract first user-facing message from DRF-style error body (detail, or any key with string[]). */
+function getApiErrorMessage(error: unknown): string | null {
+  if (error == null || typeof error !== 'object') return null;
+  const o = error as Record<string, unknown>;
+  if (o.detail != null) {
+    if (typeof o.detail === 'string') return o.detail;
+    if (Array.isArray(o.detail) && typeof o.detail[0] === 'string') return o.detail[0];
+  }
+  for (const key of ['officer', 'farmer', 'scheduled_date', 'photo', 'farmer_id', 'farm_id'] as const) {
+    const v = o[key];
+    if (Array.isArray(v) && typeof v[0] === 'string') return v[0];
+  }
+  for (const v of Object.values(o)) {
+    const s = Array.isArray(v) ? v.find((x) => typeof x === 'string') : typeof v === 'string' ? v : undefined;
+    if (typeof s === 'string') return s;
+  }
+  return null;
 }
 
 // --- JSON request helper (with refresh) ---
@@ -147,19 +190,19 @@ async function request<T>(
   };
   let res = await execute(access ?? undefined);
   if (res.status === 401) {
+    logger.debug(`Request ${path} returned 401, attempting token refresh`);
     const newAccess = await refreshAccessToken();
-    if (!newAccess) throw new Error('Session expired');
+    if (!newAccess) {
+      logger.warn('Session expired (refresh failed)');
+      throw new Error('Session expired');
+    }
     res = await execute(newAccess);
   }
   if (!res.ok) {
     const error = await res.json().catch(() => ({}));
-    const msg =
-      error.detail ||
-      (typeof error === 'object' && error !== null && Array.isArray(error.photo) ? error.photo[0] : null) ||
-      (error.farmer_id?.[0]) ||
-      (error.farm_id?.[0]) ||
-      'Request failed';
-    throw new Error(typeof msg === 'string' ? msg : 'Request failed');
+    const errMsg = getApiErrorMessage(error) || `Request failed (${res.status})`;
+    logger.warn(`API ${path} ${res.status}: ${errMsg}`);
+    throw new Error(errMsg);
   }
   return res.json();
 }
@@ -174,8 +217,12 @@ export const api = {
       body: JSON.stringify({ email, password }),
     });
     const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(data.detail || 'Login failed');
+    if (!res.ok) {
+      logger.warn(`Login failed for email=${email}: ${data.detail || res.status}`);
+      throw new Error(data.detail || 'Login failed');
+    }
     await setTokens(data.access, data.refresh);
+    logger.info(`Login success email=${email}`);
     return data;
   },
 
@@ -196,11 +243,6 @@ export const api = {
   },
 
   logout: clearTokens,
-
-  async getFarmers() {
-    const data = await request<Farmer[] | { results: Farmer[] }>('/farmers/');
-    return ensureArray(data);
-  },
 
   async createFarmer(body: {
     first_name: string;
@@ -249,14 +291,26 @@ export const api = {
     return ensureArray(data);
   },
 
+  async getOfficers() {
+    const data = await request<Officer[] | { results: Officer[] }>('/officers/');
+    return ensureArray(data);
+  },
+
   async createSchedule(body: {
+    officer?: string | null;
     farmer?: string | null;
     scheduled_date: string; // YYYY-MM-DD
     notes?: string;
   }) {
+    const payload: Record<string, unknown> = {
+      scheduled_date: String(body.scheduled_date).trim(),
+      notes: body.notes?.trim() ?? '',
+      farmer: body.farmer ?? null,
+    };
+    if (body.officer != null && body.officer !== '') payload.officer = body.officer;
     return request<Schedule>('/schedules/', {
       method: 'POST',
-      body: JSON.stringify(body),
+      body: JSON.stringify(payload),
     });
   },
 
@@ -325,10 +379,25 @@ export const api = {
           ? (Object.values(data).flat().find((v) => typeof v === 'string') as string | undefined)
           : undefined) ||
         'Failed to submit visit';
+      logger.warn(`Create visit failed ${res.status}: ${msg ?? 'Failed to submit visit'}`);
       throw new Error(msg ?? 'Failed to submit visit');
     }
+    logger.info(`Visit created id=${(data as Visit).id} farmer_id=${params.farmer_id}`);
     return data as Visit;
   },
 
   getDashboardStats: () => request<DashboardStats>('/dashboard/stats/'),
+
+  /** Options and app settings (no auth required for GET). */
+  async getOptions() {
+    const res = await fetch(`${API_BASE}/options/`);
+    if (!res.ok) throw new Error('Failed to load options');
+    return res.json() as Promise<OptionsResponse>;
+  },
+
+  async getFarmers(params?: { search?: string }) {
+    const q = params?.search?.trim() ? `?search=${encodeURIComponent(params.search.trim())}` : '';
+    const data = await request<Farmer[] | { results: Farmer[] }>(`/farmers/${q}`);
+    return ensureArray(data);
+  },
 };

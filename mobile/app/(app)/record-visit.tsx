@@ -31,7 +31,7 @@ import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as Location from 'expo-location';
 import NetInfo from '@react-native-community/netinfo';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { api, type Farmer, type Farm } from '@/lib/api';
+import { api, type Farmer, type Farm, type VisitSettings } from '@/lib/api';
 import { ACTIVITY_TYPES, DEFAULT_ACTIVITY_TYPE } from '@/lib/constants/activityTypes';
 import { enqueueVisit } from '@/lib/syncWithServer';
 import { useTheme } from 'react-native-paper';
@@ -88,28 +88,40 @@ export default function RecordVisitScreen() {
   const [isOnline, setIsOnline] = useState<boolean | null>(null);
   const [cameraModalVisible, setCameraModalVisible] = useState(false);
   const cameraRef = useRef<CameraView>(null);
+  const [visitSettings, setVisitSettings] = useState<VisitSettings | null>(null);
 
   const selectedFarmer = farmers.find((f) => f.id === selectedFarmerId);
   const selectedFarm = farms.find((f) => f.id === selectedFarmId);
 
+  const refPoint = selectedFarm ?? (selectedFarmer && selectedFarmer.latitude != null && selectedFarmer.longitude != null
+    ? { latitude: Number(selectedFarmer.latitude), longitude: Number(selectedFarmer.longitude) }
+    : null);
+
   const distanceM = useMemo(() => {
-    if (!location || !selectedFarm) return null;
+    if (!location || !refPoint) return null;
     return Math.round(
       haversineDistance(
         location.coords.latitude,
         location.coords.longitude,
-        selectedFarm.latitude,
-        selectedFarm.longitude
+        refPoint.latitude,
+        refPoint.longitude
       )
     );
-  }, [location, selectedFarm]);
+  }, [location, refPoint]);
 
-  const gpsValid = distanceM === null || distanceM <= 100;
-  const progress = distanceM !== null ? Math.max(0, 1 - distanceM / 100) : 1;
+  const maxM = visitSettings?.max_distance_meters ?? 100;
+  const warningM = visitSettings?.warning_distance_meters ?? 80;
+  const gpsValid = distanceM === null || distanceM <= maxM;
+  const distanceWarning = distanceM !== null && distanceM > warningM && distanceM <= maxM;
+  const progress = distanceM !== null ? Math.max(0, 1 - distanceM / maxM) : 1;
 
   useEffect(() => {
     const sub = NetInfo.addEventListener((state) => setIsOnline(state.isConnected ?? false));
     return () => sub();
+  }, []);
+
+  useEffect(() => {
+    api.getOptions().then((o) => setVisitSettings(o.visit_settings)).catch(() => setVisitSettings(null));
   }, []);
 
   useEffect(() => {
@@ -388,13 +400,16 @@ export default function RecordVisitScreen() {
                     <Text variant="bodySmall" style={styles.locationStatus}>Getting location…</Text>
                   ) : location ? (
                     <Text variant="bodySmall" style={styles.locationStatus}>
-                      {distanceM !== null ? `Distance from farm: ${distanceM}m` : 'Location captured'}
+                      {distanceM !== null ? `Distance: ${distanceM}m (max ${maxM}m)` : 'Location captured'}
                     </Text>
                   ) : (
                     <Text variant="bodySmall" style={styles.locationStatus}>Location not captured</Text>
                   )}
+                  {location && distanceM !== null && distanceWarning && gpsValid && (
+                    <HelperText type="info">You are approaching the limit. Stay within {maxM}m to submit.</HelperText>
+                  )}
                   {location && distanceM !== null && !gpsValid && (
-                    <HelperText type="error">Must be within 100m of the farm.</HelperText>
+                    <HelperText type="error">Must be within {maxM}m of the farmer/farm to record this visit.</HelperText>
                   )}
                 </View>
               </View>

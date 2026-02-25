@@ -1,4 +1,5 @@
-import { api, type Farmer, type Schedule } from '@/lib/api';
+import { useAuth } from '@/contexts/AuthContext';
+import { api, type Farmer, type Officer, type Schedule } from '@/lib/api';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import {
@@ -15,6 +16,7 @@ import {
   TextInput,
   ActivityIndicator,
   Card,
+  Menu,
 } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -26,16 +28,24 @@ function formatDate(iso: string) {
   }
 }
 
+const isAssigner = (role: string | null) => role === 'admin' || role === 'supervisor';
+
 export default function ProposeScheduleScreen() {
   const router = useRouter();
+  const { userId, role } = useAuth();
   const [farmers, setFarmers] = useState<Farmer[]>([]);
+  const [officers, setOfficers] = useState<Officer[]>([]);
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [selectedDate, setSelectedDate] = useState('');
   const [selectedFarmerId, setSelectedFarmerId] = useState<string | null>(null);
+  const [selectedOfficerId, setSelectedOfficerId] = useState<string | null>(null);
   const [notes, setNotes] = useState('');
+  const [officerMenuOpen, setOfficerMenuOpen] = useState(false);
+
+  const assigner = isAssigner(role);
 
   const load = useCallback(async () => {
     try {
@@ -43,12 +53,18 @@ export default function ProposeScheduleScreen() {
       setFarmers(f);
       setSchedules(s);
       setError('');
+      if (assigner) {
+        const o = await api.getOfficers().catch(() => []);
+        setOfficers(Array.isArray(o) ? o : []);
+      } else {
+        setOfficers([]);
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [assigner]);
 
   useEffect(() => {
     load();
@@ -60,25 +76,36 @@ export default function ProposeScheduleScreen() {
   }, [selectedDate]);
 
   const submit = useCallback(async () => {
-    if (!selectedDate) {
+    const dateStr = selectedDate?.trim() ?? '';
+    if (!dateStr) {
       setError('Select a date.');
+      return;
+    }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+      setError('Enter date as YYYY-MM-DD (e.g. 2026-02-25).');
+      return;
+    }
+    if (assigner && !selectedOfficerId) {
+      setError('Select an extension officer to assign this schedule to.');
       return;
     }
     setSubmitting(true);
     setError('');
     try {
       await api.createSchedule({
-        farmer: selectedFarmerId || undefined,
-        scheduled_date: selectedDate,
-        notes: notes.trim() || undefined,
+        officer: assigner ? selectedOfficerId! : (userId ?? undefined),
+        farmer: selectedFarmerId || null,
+        scheduled_date: dateStr,
+        notes: (notes?.trim() ?? '') || undefined,
       });
       router.back();
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to propose schedule');
+      const message = e instanceof Error ? e.message : 'Failed to propose schedule';
+      setError(message);
     } finally {
       setSubmitting(false);
     }
-  }, [selectedDate, selectedFarmerId, notes, router]);
+  }, [assigner, userId, role, selectedDate, selectedOfficerId, selectedFarmerId, notes, router]);
 
   if (loading) {
     return (
@@ -111,8 +138,46 @@ export default function ProposeScheduleScreen() {
           keyboardShouldPersistTaps="handled"
         >
           <Text variant="bodyMedium" style={styles.hint}>
-            Your supervisor will accept or reject the proposal.
+            {assigner
+              ? 'Assign a visit to an extension officer. The schedule is accepted immediately.'
+              : 'Your supervisor will accept or reject the proposal. The schedule is for you (logged-in user).'}
           </Text>
+
+          {assigner && (
+            <>
+              <Text variant="labelLarge" style={styles.label}>Assign to officer *</Text>
+              <Menu
+                visible={officerMenuOpen}
+                onDismiss={() => setOfficerMenuOpen(false)}
+                anchor={
+                  <Button
+                    mode="outlined"
+                    onPress={() => setOfficerMenuOpen(true)}
+                    style={styles.input}
+                    contentStyle={styles.menuButtonContent}
+                  >
+                    {selectedOfficerId
+                      ? (officers.find((o) => o.id === selectedOfficerId)?.display_name || officers.find((o) => o.id === selectedOfficerId)?.email || 'Select officer')
+                      : 'Select officer'}
+                  </Button>
+                }
+              >
+                {officers.map((o) => (
+                  <Menu.Item
+                    key={o.id}
+                    onPress={() => {
+                      setSelectedOfficerId(o.id);
+                      setOfficerMenuOpen(false);
+                    }}
+                    title={o.display_name || o.email}
+                  />
+                ))}
+                {officers.length === 0 && (
+                  <Menu.Item onPress={() => setOfficerMenuOpen(false)} title="No officers available" />
+                )}
+              </Menu>
+            </>
+          )}
 
           <Text variant="labelLarge" style={styles.label}>Scheduled date *</Text>
           <TextInput
@@ -166,9 +231,9 @@ export default function ProposeScheduleScreen() {
               mode="contained"
               onPress={submit}
               loading={submitting}
-              disabled={submitting || !selectedDate}
+              disabled={submitting || !selectedDate || (assigner && !selectedOfficerId)}
             >
-              Propose schedule
+              {assigner ? 'Assign schedule' : 'Propose schedule'}
             </Button>
             <Button mode="text" onPress={() => router.back()}>
               Cancel
@@ -208,6 +273,7 @@ const styles = StyleSheet.create({
   hint: { marginBottom: 16, opacity: 0.8 },
   label: { marginTop: 12, marginBottom: 4 },
   input: { marginBottom: 12 },
+  menuButtonContent: { justifyContent: 'flex-start' },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 },
   chip: { margin: 0 },
   error: { color: '#b00020', marginVertical: 8 },

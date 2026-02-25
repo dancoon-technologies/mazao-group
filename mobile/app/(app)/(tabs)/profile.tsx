@@ -9,7 +9,7 @@ import { colors, radius, spacing } from '@/constants/theme';
 
 export default function ProfileScreen() {
   const router = useRouter();
-  const { email, logout } = useAuth();
+  const { email, department, logout } = useAuth();
   const [syncing, setSyncing] = useState(false);
   const [pendingCount, setPendingCount] = useState(0);
 
@@ -46,6 +46,11 @@ export default function ProfileScreen() {
           <Text variant="bodyMedium" style={styles.email}>
             {email ?? 'Field officer'}
           </Text>
+          {department ? (
+            <Text variant="bodySmall" style={styles.department}>
+              {department}
+            </Text>
+          ) : null}
         </Card.Content>
       </Card>
 
@@ -97,6 +102,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, padding: spacing.lg },
   card: { marginBottom: spacing.lg, borderRadius: radius.sm },
   email: { marginTop: spacing.xs, opacity: 0.8 },
+  department: { marginTop: spacing.xs, opacity: 0.7 },
   syncBtn: { marginTop: spacing.sm },
   logoutWrap: { marginTop: spacing.xl },
   logout: { borderColor: colors.error },

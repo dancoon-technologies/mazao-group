@@ -140,6 +140,8 @@ VISIT_PHOTO_ALLOWED_EXTENSIONS = ("image/jpeg", "image/png", "image/jpg")
 
 # Visit GPS: max distance (meters) from farmer/farm to accept visit. Increase for development/testing.
 VISIT_MAX_DISTANCE_METERS = config("VISIT_MAX_DISTANCE_METERS", default=100, cast=int)
+# Optional: distance (meters) at which to show a warning in the app before user is over limit.
+VISIT_WARNING_DISTANCE_METERS = config("VISIT_WARNING_DISTANCE_METERS", default=80, cast=int)
 
 # Email (staff credentials): console when DEBUG, else SMTP (override with EMAIL_BACKEND if needed)
 if DEBUG:
@@ -164,3 +166,40 @@ NOTIFICATION_SMS_BACKEND = config(
 TWILIO_ACCOUNT_SID = config("TWILIO_ACCOUNT_SID", default="")
 TWILIO_AUTH_TOKEN = config("TWILIO_AUTH_TOKEN", default="")
 TWILIO_FROM_NUMBER = config("TWILIO_FROM_NUMBER", default="")
+
+# Logging: console with level from LOG_LEVEL (default INFO). Per-app loggers available.
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "verbose": {
+            "format": "{asctime} [{levelname}] {name}: {message}",
+            "style": "{",
+        },
+        "simple": {
+            "format": "{levelname} {name}: {message}",
+            "style": "{",
+        },
+    },
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "formatter": "verbose",
+        },
+    },
+    "root": {
+        "handlers": ["console"],
+        "level": config("LOG_LEVEL", default="INFO"),
+    },
+    "loggers": {
+        "django": {"level": "INFO", "propagate": False},
+        "django.request": {"level": "WARNING", "propagate": False},
+        "accounts": {"level": "DEBUG", "propagate": True},
+        "farmers": {"level": "DEBUG", "propagate": True},
+        "visits": {"level": "DEBUG", "propagate": True},
+        "schedules": {"level": "DEBUG", "propagate": True},
+        "notifications": {"level": "DEBUG", "propagate": True},
+        "locations": {"level": "DEBUG", "propagate": True},
+        "mobile_sync": {"level": "DEBUG", "propagate": True},
+    },
+}

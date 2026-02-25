@@ -1,9 +1,13 @@
+import logging
+
 from rest_framework import generics, status
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from .models import User
+
+logger = logging.getLogger(__name__)
 from .serializers import StaffCreateSerializer, StaffPatchSerializer, UserSerializer
 from .services import resend_staff_credentials
 
@@ -14,6 +18,9 @@ class OptionsListView(APIView):
     permission_classes = [AllowAny]
 
     def get(self, request):
+        from django.conf import settings as django_settings
+
+        logger.debug("GET /api/options/")
         departments = [
             {"value": choice[0], "label": choice[1]} for choice in User.Department.choices
         ]
@@ -21,10 +28,16 @@ class OptionsListView(APIView):
             {"value": User.Role.SUPERVISOR, "label": dict(User.Role.choices)[User.Role.SUPERVISOR]},
             {"value": User.Role.OFFICER, "label": dict(User.Role.choices)[User.Role.OFFICER]},
         ]
+        visit_max_m = getattr(django_settings, "VISIT_MAX_DISTANCE_METERS", 100)
+        visit_warning_m = getattr(django_settings, "VISIT_WARNING_DISTANCE_METERS", 80)
         return Response(
             {
                 "departments": departments,
                 "staff_roles": staff_roles,
+                "visit_settings": {
+                    "max_distance_meters": visit_max_m,
+                    "warning_distance_meters": visit_warning_m,
+                },
             }
         )
 
@@ -75,6 +88,7 @@ class StaffListCreateView(generics.ListCreateAPIView):
 
     def list(self, request, *args, **kwargs):
         if request.user.role != "admin":
+            logger.warning("GET /api/staff/ forbidden: user=%s role=%s", request.user.id, request.user.role)
             return Response(
                 {"detail": "Only admins can list staff."},
                 status=status.HTTP_403_FORBIDDEN,
@@ -83,13 +97,17 @@ class StaffListCreateView(generics.ListCreateAPIView):
 
     def create(self, request, *args, **kwargs):
         if request.user.role != "admin":
+            logger.warning("POST /api/staff/ forbidden: user=%s", request.user.id)
             return Response(
                 {"detail": "Only admins can register staff."},
                 status=status.HTTP_403_FORBIDDEN,
             )
         serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
+        if not serializer.is_valid():
+            logger.warning("POST /api/staff/ validation failed: %s", serializer.errors)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         user = serializer.save()
+        logger.info("POST /api/staff/ created staff_id=%s email=%s by admin=%s", user.id, user.email, request.user.id)
         out = UserSerializer(user)
         return Response(out.data, status=status.HTTP_201_CREATED)
 
@@ -102,6 +120,7 @@ class StaffUpdateView(generics.GenericAPIView):
 
     def patch(self, request, pk):
         if request.user.role != "admin":
+            logger.warning("PATCH /api/staff/%s forbidden: user=%s", pk, request.user.id)
             return Response(
                 {"detail": "Only admins can update staff."},
                 status=status.HTTP_403_FORBIDDEN,
@@ -109,19 +128,24 @@ class StaffUpdateView(generics.GenericAPIView):
         try:
             user = User.objects.select_related("region_id", "county_id", "sub_county_id").get(pk=pk)
         except User.DoesNotExist:
+            logger.warning("PATCH /api/staff/%s staff not found", pk)
             return Response(
                 {"detail": "Staff member not found."},
                 status=status.HTTP_404_NOT_FOUND,
             )
         if user.role not in (User.Role.SUPERVISOR, User.Role.OFFICER):
+            logger.warning("PATCH /api/staff/%s user is not staff role=%s", pk, user.role)
             return Response(
                 {"detail": "User is not staff (supervisor or officer)."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
         serializer = StaffPatchSerializer(user, data=request.data, partial=True)
-        serializer.is_valid(raise_exception=True)
+        if not serializer.is_valid():
+            logger.warning("PATCH /api/staff/%s validation failed: %s", pk, serializer.errors)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         serializer.save()
         user.refresh_from_db()
+        logger.info("PATCH /api/staff/%s updated by admin=%s", pk, request.user.id)
         return Response(UserSerializer(user).data)
 
 
@@ -136,12 +160,14 @@ class ChangePasswordView(generics.GenericAPIView):
         current = request.data.get("current_password")
         new_password = request.data.get("new_password")
         if not current or not new_password:
+            logger.warning("POST /api/auth/change-password/ missing fields user=%s", request.user.id)
             return Response(
                 {"detail": "current_password and new_password are required."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
         user = request.user
         if not user.check_password(current):
+            logger.warning("POST /api/auth/change-password/ wrong current password user=%s", user.id)
             return Response(
                 {"current_password": ["Current password is incorrect."]},
                 status=status.HTTP_400_BAD_REQUEST,
@@ -150,6 +176,7 @@ class ChangePasswordView(generics.GenericAPIView):
         user.must_change_password = False
         user.save(update_fields=["password", "must_change_password"])
         user.refresh_from_db()  # ensure in-memory state is in sync for any downstream use
+        logger.info("POST /api/auth/change-password/ success user=%s", user.id)
         from notifications.services import notify_user
 
         notify_user(
@@ -175,6 +202,7 @@ class StaffResendCredentialsView(generics.GenericAPIView):
 
     def post(self, request, pk):
         if request.user.role != "admin":
+            logger.warning("POST /api/staff/%s/resend-credentials/ forbidden user=%s", pk, request.user.id)
             return Response(
                 {"detail": "Only admins can resend staff credentials."},
                 status=status.HTTP_403_FORBIDDEN,
@@ -182,11 +210,13 @@ class StaffResendCredentialsView(generics.GenericAPIView):
         try:
             user = User.objects.get(pk=pk)
         except User.DoesNotExist:
+            logger.warning("POST /api/staff/%s/resend-credentials/ staff not found", pk)
             return Response(
                 {"detail": "Staff member not found."},
                 status=status.HTTP_404_NOT_FOUND,
             )
         if user.role not in (User.Role.SUPERVISOR, User.Role.OFFICER):
+            logger.warning("POST /api/staff/%s/resend-credentials/ not staff role=%s", pk, user.role)
             return Response(
                 {"detail": "User is not staff (supervisor or officer)."},
                 status=status.HTTP_400_BAD_REQUEST,
@@ -194,10 +224,12 @@ class StaffResendCredentialsView(generics.GenericAPIView):
         try:
             resend_staff_credentials(user)
         except Exception as e:
+            logger.exception("POST /api/staff/%s/resend-credentials/ send failed: %s", pk, e)
             return Response(
                 {"detail": str(e) or "Failed to send email."},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
+        logger.info("POST /api/staff/%s/resend-credentials/ sent to %s by admin=%s", pk, user.email, request.user.id)
         from notifications.services import notify_user
 
         notify_user(

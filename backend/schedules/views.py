@@ -1,3 +1,5 @@
+import logging
+
 from django.db.models import Q
 from rest_framework import generics, status
 from rest_framework.permissions import IsAuthenticated
@@ -5,6 +7,8 @@ from rest_framework.response import Response
 
 from .models import Schedule
 from .serializers import ScheduleCreateSerializer, ScheduleSerializer
+
+logger = logging.getLogger(__name__)
 
 
 class ScheduleListCreateView(generics.ListCreateAPIView):
@@ -33,7 +37,9 @@ class ScheduleListCreateView(generics.ListCreateAPIView):
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
+        if not serializer.is_valid():
+            logger.warning("POST /api/schedules/ validation failed: %s", serializer.errors)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         data = serializer.validated_data
         user = request.user
 
@@ -115,6 +121,13 @@ class ScheduleListCreateView(generics.ListCreateAPIView):
                     message=message,
                     channels=["in_app", "email", "sms"],
                 )
+        logger.info(
+            "POST /api/schedules/ created schedule_id=%s officer_id=%s farmer_id=%s by user=%s",
+            schedule.id,
+            schedule.officer_id,
+            schedule.farmer_id,
+            user.id,
+        )
         out = ScheduleSerializer(schedule)
         return Response(out.data, status=status.HTTP_201_CREATED)
 
@@ -129,12 +142,14 @@ class ScheduleApproveView(generics.GenericAPIView):
         try:
             schedule = Schedule.objects.select_related("officer", "farmer").get(pk=pk)
         except Schedule.DoesNotExist:
+            logger.warning("POST /api/schedules/%s/approve schedule not found", pk)
             return Response(
                 {"detail": "Schedule not found."},
                 status=status.HTTP_404_NOT_FOUND,
             )
         user = request.user
         if user.role not in ("admin", "supervisor"):
+            logger.warning("POST /api/schedules/%s/approve forbidden user=%s role=%s", pk, user.id, user.role)
             return Response(
                 {"detail": "Only supervisors and admins can approve or reject schedules."},
                 status=status.HTTP_403_FORBIDDEN,
@@ -152,6 +167,7 @@ class ScheduleApproveView(generics.GenericAPIView):
                     status=status.HTTP_403_FORBIDDEN,
                 )
         if schedule.status != Schedule.Status.PROPOSED:
+            logger.warning("POST /api/schedules/%s/approve already status=%s", pk, schedule.status)
             return Response(
                 {"detail": f"Schedule is already {schedule.get_status_display()}."},
                 status=status.HTTP_400_BAD_REQUEST,
@@ -161,6 +177,7 @@ class ScheduleApproveView(generics.GenericAPIView):
             schedule.status = Schedule.Status.ACCEPTED
             schedule.approved_by = user
             schedule.save(update_fields=["status", "approved_by"])
+            logger.info("POST /api/schedules/%s/approve accepted by user=%s", pk, user.id)
             from django.utils.formats import date_format
 
             from notifications.services import notify_user
@@ -178,6 +195,7 @@ class ScheduleApproveView(generics.GenericAPIView):
             schedule.status = Schedule.Status.REJECTED
             schedule.approved_by = user
             schedule.save(update_fields=["status", "approved_by"])
+            logger.info("POST /api/schedules/%s/approve rejected by user=%s", pk, user.id)
             from django.utils.formats import date_format
 
             from notifications.services import notify_user
@@ -190,6 +208,7 @@ class ScheduleApproveView(generics.GenericAPIView):
                 channels=["in_app", "email", "sms"],
             )
             return Response(ScheduleSerializer(schedule).data)
+        logger.warning("POST /api/schedules/%s/approve invalid action=%s", pk, request.data.get("action"))
         return Response(
             {"action": ["Must be 'accept' or 'reject'."]},
             status=status.HTTP_400_BAD_REQUEST,

@@ -41,10 +41,10 @@ export default function FarmersScreen() {
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (searchQuery?: string) => {
     try {
       const [farmersData, farmsData] = await Promise.all([
-        api.getFarmers(),
+        api.getFarmers(searchQuery?.trim() ? { search: searchQuery.trim() } : undefined),
         api.getFarms(),
       ]);
       const list = Array.isArray(farmersData) ? farmersData : [];
@@ -74,8 +74,13 @@ export default function FarmersScreen() {
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
-    load();
-  }, [load]);
+    load(search.trim() || undefined);
+  }, [load, search]);
+
+  const onSearchSubmit = useCallback(() => {
+    setLoading(true);
+    load(search.trim() || undefined);
+  }, [load, search]);
 
   const filteredFarmers = useMemo(() => {
     if (!search.trim()) return farmers;
@@ -109,10 +114,12 @@ export default function FarmersScreen() {
         />
         <TextInput
           style={[styles.searchInput, { color: theme.colors.onSurface }]}
-          placeholder="Search farmers..."
+          placeholder="Search by name or phone..."
           placeholderTextColor={theme.colors.onSurfaceVariant}
           value={search}
           onChangeText={setSearch}
+          onSubmitEditing={onSearchSubmit}
+          returnKeyType="search"
         />
       </View>
 
@@ -131,7 +138,7 @@ export default function FarmersScreen() {
               <Text variant="bodyMedium" style={styles.error}>
                 {error}
               </Text>
-              <Button mode="outlined" onPress={load}>
+              <Button mode="outlined" onPress={() => load()}>
                 Retry
               </Button>
             </Card.Content>

@@ -17,7 +17,6 @@ class ConsoleSMSBackend(BaseSMSBackend):
 
     def send(self, phone: str, message: str) -> bool:
         logger.info("[SMS to %s] %s", phone, message[:200])
-        print(f"[SMS to {phone}] {message[:200]}")  # noqa: T201
         return True
 
 
