@@ -10,8 +10,11 @@ type AuthState = {
   isLoading: boolean;
   userId: string | null;
   email: string | null;
+  displayName: string | null;
   role: string | null;
+  roleDisplay: string | null;
   department: string | null;
+  region: string | null;
   mustChangePassword: boolean;
 };
 
@@ -32,8 +35,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     isLoading: true,
     userId: null,
     email: null,
+    displayName: null,
     role: null,
+    roleDisplay: null,
     department: null,
+    region: null,
     mustChangePassword: false,
   });
   const [isUnlocked, setIsUnlocked] = useState(false);
@@ -43,16 +49,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const access = await SecureStore.getItemAsync(STORAGE_KEYS.ACCESS_TOKEN);
     if (!mounted.current) return;
     if (!access) {
-      setState({ isAuthenticated: false, isLoading: false, userId: null, email: null, role: null, department: null, mustChangePassword: false });
+      setState({ isAuthenticated: false, isLoading: false, userId: null, email: null, displayName: null, role: null, roleDisplay: null, department: null, region: null, mustChangePassword: false });
       return;
     }
     const payload = decodeJwtPayload(access);
     const userId = (payload?.user_id as string) ?? null;
     const email = (payload?.email as string) ?? null;
+    const displayName = (payload?.display_name as string) ?? null;
     const role = (payload?.role as string) ?? null;
+    const roleDisplay = (payload?.role_display as string) ?? null;
     const department = (payload?.department_display as string) ?? (payload?.department as string) ?? null;
+    const region = (payload?.region_display as string) ?? null;
     const mustChangePassword = getMustChangePasswordFromToken(access);
-    setState({ isAuthenticated: true, isLoading: false, userId, email, role, department: department || null, mustChangePassword });
+    setState({ isAuthenticated: true, isLoading: false, userId, email, displayName, role, roleDisplay, department: department || null, region: region || null, mustChangePassword });
   }, []);
 
   useEffect(() => {
@@ -76,17 +85,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const access = await SecureStore.getItemAsync(STORAGE_KEYS.ACCESS_TOKEN);
     const payload = decodeJwtPayload(access);
     const userId = (payload?.user_id as string) ?? null;
+    const displayName = (payload?.display_name as string) ?? null;
     const role = (payload?.role as string) ?? null;
+    const roleDisplay = (payload?.role_display as string) ?? null;
     const department = (payload?.department_display as string) ?? (payload?.department as string) ?? null;
+    const region = (payload?.region_display as string) ?? null;
     const mustChangePassword = getMustChangePasswordFromToken(access);
-    setState({ isAuthenticated: true, isLoading: false, userId, email, role, department: department || null, mustChangePassword });
+    setState({ isAuthenticated: true, isLoading: false, userId, email, displayName, role, roleDisplay, department: department || null, region: region || null, mustChangePassword });
     return { mustChangePassword };
   }, []);
 
   const logout = useCallback(async () => {
     await api.logout();
     if (!mounted.current) return;
-    setState({ isAuthenticated: false, isLoading: false, userId: null, email: null, role: null, department: null, mustChangePassword: false });
+    setState({ isAuthenticated: false, isLoading: false, userId: null, email: null, displayName: null, role: null, roleDisplay: null, department: null, region: null, mustChangePassword: false });
     setIsUnlocked(false);
   }, []);
 

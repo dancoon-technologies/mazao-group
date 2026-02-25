@@ -17,6 +17,8 @@ import {
   ActivityIndicator,
   Card,
   Menu,
+  Snackbar,
+  Banner,
 } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -44,8 +46,20 @@ export default function ProposeScheduleScreen() {
   const [selectedOfficerId, setSelectedOfficerId] = useState<string | null>(null);
   const [notes, setNotes] = useState('');
   const [officerMenuOpen, setOfficerMenuOpen] = useState(false);
+  const [snackbarMsg, setSnackbarMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [snackbarVisible, setSnackbarVisible] = useState(false);
 
   const assigner = isAssigner(role);
+
+  const showSnackbar = useCallback((type: 'success' | 'error', text: string) => {
+    setSnackbarMsg({ type, text });
+    setSnackbarVisible(true);
+  }, []);
+
+  const dismissSnackbar = useCallback(() => {
+    setSnackbarVisible(false);
+    setSnackbarMsg(null);
+  }, []);
 
   const load = useCallback(async () => {
     try {
@@ -60,11 +74,13 @@ export default function ProposeScheduleScreen() {
         setOfficers([]);
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load');
+      const msg = e instanceof Error ? e.message : 'Failed to load';
+      setError(msg);
+      showSnackbar('error', msg);
     } finally {
       setLoading(false);
     }
-  }, [assigner]);
+  }, [assigner, showSnackbar]);
 
   useEffect(() => {
     load();
@@ -86,7 +102,9 @@ export default function ProposeScheduleScreen() {
       return;
     }
     if (assigner && !selectedOfficerId) {
-      setError('Select an extension officer to assign this schedule to.');
+      const msg = 'Select an extension officer to assign this schedule to.';
+      setError(msg);
+      showSnackbar('error', msg);
       return;
     }
     setSubmitting(true);
@@ -98,14 +116,16 @@ export default function ProposeScheduleScreen() {
         scheduled_date: dateStr,
         notes: (notes?.trim() ?? '') || undefined,
       });
-      router.back();
+      showSnackbar('success', assigner ? 'Schedule assigned successfully.' : 'Schedule proposed successfully.');
+      setTimeout(() => router.back(), 1500);
     } catch (e) {
       const message = e instanceof Error ? e.message : 'Failed to propose schedule';
       setError(message);
+      showSnackbar('error', message);
     } finally {
       setSubmitting(false);
     }
-  }, [assigner, userId, role, selectedDate, selectedOfficerId, selectedFarmerId, notes, router]);
+  }, [assigner, userId, role, selectedDate, selectedOfficerId, selectedFarmerId, notes, router, showSnackbar]);
 
   if (loading) {
     return (
@@ -127,6 +147,15 @@ export default function ProposeScheduleScreen() {
         <Appbar.BackAction onPress={() => router.back()} />
         <Appbar.Content title="Propose schedule" />
       </Appbar.Header>
+      {error ? (
+        <Banner
+          visible
+          actions={[{ label: 'Dismiss', onPress: () => setError('') }]}
+          style={styles.banner}
+        >
+          {error}
+        </Banner>
+      ) : null}
       <KeyboardAvoidingView
         style={styles.container}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -224,8 +253,6 @@ export default function ProposeScheduleScreen() {
             style={styles.input}
           />
 
-          {error ? <Text style={styles.error}>{error}</Text> : null}
-
           <View style={styles.actions}>
             <Button
               mode="contained"
@@ -259,6 +286,16 @@ export default function ProposeScheduleScreen() {
           )}
         </ScrollView>
       </KeyboardAvoidingView>
+
+      <Snackbar
+        visible={snackbarVisible}
+        onDismiss={dismissSnackbar}
+        duration={snackbarMsg?.type === 'success' ? 2500 : 5000}
+        action={snackbarMsg?.type === 'error' ? { label: 'Dismiss', onPress: dismissSnackbar } : undefined}
+        style={snackbarMsg?.type === 'error' ? styles.snackbarError : undefined}
+      >
+        {snackbarMsg?.text}
+      </Snackbar>
     </SafeAreaView>
   );
 }
@@ -276,7 +313,8 @@ const styles = StyleSheet.create({
   menuButtonContent: { justifyContent: 'flex-start' },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 },
   chip: { margin: 0 },
-  error: { color: '#b00020', marginVertical: 8 },
+  banner: { backgroundColor: '#ffebee' },
+  snackbarError: { backgroundColor: '#b00020' },
   actions: { gap: 8, marginTop: 20 },
   scheduleCard: { marginBottom: 8 },
   status: { textTransform: 'capitalize', opacity: 0.8, marginTop: 2 },

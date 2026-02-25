@@ -1,5 +1,5 @@
 import { colors, radius, spacing } from '@/constants/theme';
-import { api, type Visit } from '@/lib/api';
+import { api, type Schedule, type Visit } from '@/lib/api';
 import { ACTIVITY_TYPES } from '@/lib/constants/activityTypes';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -38,6 +38,15 @@ function formatDateShort(iso: string) {
   }
 }
 
+function formatScheduleDate(iso: string) {
+  try {
+    const d = new Date(iso);
+    return d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+  } catch {
+    return iso;
+  }
+}
+
 function getActivityLabel(value: string): string {
   const found = ACTIVITY_TYPES.find((a) => a.value === value);
   return found?.label ?? value.replace(/_/g, ' ');
@@ -56,6 +65,7 @@ export default function VisitsScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [visits, setVisits] = useState<Visit[]>([]);
+  const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<FilterStatus>('all');
   const [todayOnly, setTodayOnly] = useState(false);
@@ -66,17 +76,26 @@ export default function VisitsScreen() {
 
   const load = useCallback(async () => {
     try {
-      const data = await api.getVisits();
-      setVisits(Array.isArray(data) ? data : []);
+      const [visitsData, schedulesData] = await Promise.all([
+        api.getVisits(),
+        api.getSchedules(),
+      ]);
+      setVisits(Array.isArray(visitsData) ? visitsData : []);
+      setSchedules(Array.isArray(schedulesData) ? schedulesData : []);
       setError('');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load visits');
       setVisits([]);
+      setSchedules([]);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
   }, []);
+
+  const pendingSchedules = schedules
+    .filter((s) => s.status === 'proposed')
+    .sort((a, b) => (a.scheduled_date > b.scheduled_date ? 1 : -1));
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
@@ -155,6 +174,53 @@ export default function VisitsScreen() {
           </Text>
         </View>
 
+        {pendingSchedules.length > 0 && (
+          <View style={styles.pendingSection}>
+            <Text variant="titleSmall" style={styles.pendingSectionTitle}>
+              Pending visits (my proposals)
+            </Text>
+            {pendingSchedules.map((s) => (
+              <Pressable
+                key={s.id}
+                style={({ pressed }) => [styles.pendingCard, pressed && styles.pressed]}
+                onPress={() =>
+                  router.push(
+                    s.farmer
+                      ? { pathname: '/(app)/record-visit', params: { farmerId: s.farmer } }
+                      : '/(app)/record-visit'
+                  )
+                }
+              >
+                <Card style={styles.pendingCardInner} elevation={0}>
+                  <Card.Content>
+                    <View style={styles.cardHeader}>
+                      <Text variant="titleMedium" style={styles.cardName}>
+                        {s.farmer_display_name ?? 'No farmer assigned'}
+                      </Text>
+                      <View style={styles.pendingBadge}>
+                        <Text variant="labelSmall" style={styles.pendingBadgeText}>
+                          Pending
+                        </Text>
+                      </View>
+                    </View>
+                    <Text variant="bodySmall" style={styles.pendingSubtitle}>
+                      {formatScheduleDate(s.scheduled_date)} · Awaiting approval
+                    </Text>
+                    {s.notes ? (
+                      <Text variant="bodySmall" style={styles.notes} numberOfLines={1}>
+                        {s.notes}
+                      </Text>
+                    ) : null}
+                  </Card.Content>
+                </Card>
+              </Pressable>
+            ))}
+          </View>
+        )}
+
+        <Text variant="titleSmall" style={styles.recordedSectionTitle}>
+          Recorded visits
+        </Text>
         <Searchbar
           placeholder="Search visits..."
           value={search}
@@ -309,6 +375,32 @@ const styles = StyleSheet.create({
   header: { marginBottom: spacing.lg },
   subtitle: { color: colors.gray700 },
   searchbar: { marginBottom: spacing.md },
+  pendingSection: { marginBottom: spacing.xl },
+  pendingSectionTitle: {
+    color: colors.gray700,
+    marginBottom: spacing.sm,
+    fontWeight: '600',
+  },
+  recordedSectionTitle: {
+    color: colors.gray700,
+    marginBottom: spacing.sm,
+    fontWeight: '600',
+  },
+  pendingCard: { marginBottom: spacing.sm },
+  pendingCardInner: {
+    borderRadius: radius.lg,
+    backgroundColor: colors.gray100,
+    borderWidth: 1,
+    borderColor: colors.gray200,
+  },
+  pendingBadge: {
+    backgroundColor: colors.gray200,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: radius.sm,
+  },
+  pendingBadgeText: { color: colors.gray700, fontWeight: '600', fontSize: 11 },
+  pendingSubtitle: { color: colors.gray700, marginTop: 2 },
   filterRow: { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.lg },
   filterButton: {
     flex: 1,

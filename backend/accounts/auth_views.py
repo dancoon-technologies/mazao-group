@@ -17,9 +17,12 @@ class EmailTokenObtainPairSerializer(TokenObtainPairSerializer):
         token["user_id"] = str(user.pk)
         token["email"] = user.email
         token["role"] = user.role
+        token["role_display"] = dict(user.Role.choices).get(user.role, user.role)
         token["must_change_password"] = getattr(user, "must_change_password", False)
         token["department"] = user.department or ""
         token["department_display"] = user.get_department_display() if user.department else ""
+        token["display_name"] = (user.display_name or user.email) or ""
+        token["region_display"] = user.get_region_display() or ""
         return token
 
 

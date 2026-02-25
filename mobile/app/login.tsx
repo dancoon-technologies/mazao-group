@@ -1,16 +1,26 @@
-import { useState } from 'react';
+import { colors, radius, spacing } from '@/constants/theme';
+import { useAuth } from '@/contexts/AuthContext';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { StyleSheet, View, KeyboardAvoidingView, Platform } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useState } from 'react';
 import {
-  Surface,
-  Text,
-  TextInput,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  View,
+} from 'react-native';
+import {
+  ActivityIndicator,
   Button,
   Snackbar,
-  ActivityIndicator,
+  Text,
+  TextInput,
 } from 'react-native-paper';
-import { useAuth } from '@/contexts/AuthContext';
+import { SafeAreaView } from 'react-native-safe-area-context';
+
+const LOGIN_BG = '#F2FFF2';
+const CARD_RADIUS = 20;
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -50,52 +60,74 @@ export default function LoginScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.container}
       >
-        <Surface style={styles.surface} elevation={0}>
-          <Text variant="headlineMedium">Mazao Field App</Text>
-          <Text variant="bodyLarge" style={styles.subtitle}>
-            Extension officer sign in
-          </Text>
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.card}>
+            <View style={styles.logoWrap}>
+              <MaterialCommunityIcons
+                name="check"
+                size={40}
+                color={colors.white}
+              />
+            </View>
+            <Text variant="headlineSmall" style={styles.brand}>
+              Mazao Group
+            </Text>
+            <Text variant="bodyMedium" style={styles.portalTitle}>
+              Field Officer Portal
+            </Text>
 
-          <View style={styles.spacer} />
+            <TextInput
+              label="Email"
+              value={email}
+              onChangeText={setEmail}
+              placeholder="officer@mazao.com"
+              placeholderTextColor={colors.gray500}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoComplete="email"
+              mode="outlined"
+              outlineColor={colors.gray200}
+              activeOutlineColor={colors.primary}
+              textColor={colors.gray900}
+              style={styles.input}
+              contentStyle={styles.inputContent}
+            />
+            <TextInput
+              label="Password"
+              value={password}
+              onChangeText={setPassword}
+              placeholder="••••••••"
+              placeholderTextColor={colors.gray500}
+              secureTextEntry
+              autoComplete="password"
+              mode="outlined"
+              outlineColor={colors.gray200}
+              activeOutlineColor={colors.primary}
+              textColor={colors.gray900}
+              style={styles.input}
+              contentStyle={styles.inputContent}
+            />
 
-          <TextInput
-            label="Email"
-            value={email}
-            onChangeText={setEmail}
-            keyboardType="email-address"
-            autoCapitalize="none"
-            autoComplete="email"
-            mode="outlined"
-            style={styles.input}
-          />
-          <TextInput
-            label="Password"
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry
-            autoComplete="password"
-            mode="outlined"
-            style={styles.input}
-          />
-
-          {loading ? (
-            <ActivityIndicator size="small" style={styles.loader} />
-          ) : (
-            <Button
-              mode="contained"
-              onPress={handleLogin}
-              disabled={loading}
-              style={styles.button}
-              accessibilityLabel="Login"
-            >
-              Login
-            </Button>
-          )}
-
-          <Text variant="bodySmall" style={styles.footer}>
-            Contact your supervisor if you need access
-          </Text>
-        </Surface>
+            {loading ? (
+              <ActivityIndicator size="small" style={styles.loader} color={colors.primary} />
+            ) : (
+              <Button
+                mode="contained"
+                onPress={handleLogin}
+                disabled={loading}
+                style={styles.signInBtn}
+                contentStyle={styles.signInBtnContent}
+                labelStyle={styles.signInBtnLabel}
+              >
+                Sign In
+              </Button>
+            )}
+          </View>
+        </ScrollView>
       </KeyboardAvoidingView>
 
       <Snackbar
@@ -110,21 +142,65 @@ export default function LoginScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1 },
+  safe: { flex: 1, backgroundColor: LOGIN_BG },
   container: { flex: 1 },
-  surface: {
-    flex: 1,
-    padding: 24,
+  scrollContent: {
+    flexGrow: 1,
     justifyContent: 'center',
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.xxl,
   },
-  subtitle: { marginTop: 4, marginBottom: 24 },
-  spacer: { height: 40 },
-  input: { marginBottom: 16 },
-  loader: { marginTop: 24 },
-  button: { marginTop: 24 },
-  footer: {
-    textAlign: 'center',
-    marginTop: 32,
-    opacity: 0.7,
+  card: {
+    backgroundColor: colors.white,
+    borderRadius: CARD_RADIUS,
+    padding: spacing.xl,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 4,
+  },
+  logoWrap: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: colors.primary,
+    borderWidth: 3,
+    borderColor: colors.white,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: spacing.lg,
+  },
+  brand: {
+    fontWeight: '700',
+    color: colors.gray900,
+    marginBottom: spacing.xs,
+  },
+  portalTitle: {
+    color: colors.gray700,
+    marginBottom: spacing.xl,
+  },
+  input: {
+    marginBottom: spacing.lg,
+    backgroundColor: colors.white,
+    width: '100%',
+  },
+  inputContent: {
+    borderRadius: radius.lg,
+  },
+  loader: { marginTop: spacing.lg },
+  signInBtn: {
+    marginTop: spacing.sm,
+    borderRadius: radius.lg,
+    width: '100%',
+    backgroundColor: colors.primary,
+  },
+  signInBtnContent: {
+    paddingVertical: 6,
+  },
+  signInBtnLabel: {
+    fontWeight: '700',
+    fontSize: 16,
   },
 });

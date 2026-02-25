@@ -80,6 +80,9 @@ export default function HomeScreen() {
 
   const today = new Date().toISOString().slice(0, 10);
   const todaySchedules = schedules.filter((s) => s.scheduled_date === today);
+  const pendingProposals = schedules
+    .filter((s) => s.status === 'proposed')
+    .sort((a, b) => (a.scheduled_date > b.scheduled_date ? 1 : -1));
   const recentFarmers = farmers.slice(0, 5);
   const visitsToday = stats?.visits_today ?? 0;
   const visitsThisMonth = stats?.visits_this_month ?? 0;
@@ -141,6 +144,29 @@ export default function HomeScreen() {
           <StatCard icon={STAT_ICONS.schedules} label="Schedules" value={schedules.length} />
           <StatCard icon={STAT_ICONS.farmers} label="Farmers" value={farmers.length} />
         </View>
+
+        <SectionHeader title="Pending (my proposals)" />
+        {pendingProposals.length === 0 ? (
+          <EmptyStateCard message="No pending proposals. Propose a schedule to see it here." />
+        ) : (
+          pendingProposals.map((s) => (
+            <InfoCard
+              key={s.id}
+              title={s.farmer_display_name ?? 'No farmer assigned'}
+              subtitle={`${formatDate(s.scheduled_date)} · Awaiting approval`}
+              right={
+                <Chip style={styles.pendingChip} textStyle={styles.pendingChipText} compact>
+                  Pending
+                </Chip>
+              }
+              onPress={() =>
+                s.farmer
+                  ? router.push({ pathname: '/(app)/record-visit', params: { farmerId: s.farmer } })
+                  : router.push('/(app)/record-visit')
+              }
+            />
+          ))
+        )}
 
         <SectionHeader title="Today's Schedule" />
         {todaySchedules.length === 0 ? (
@@ -227,6 +253,8 @@ const styles = StyleSheet.create({
   },
   statusChip: { backgroundColor: colors.primaryLight },
   statusChipText: { color: colors.primary, fontSize: 12 },
+  pendingChip: { backgroundColor: colors.gray200 },
+  pendingChipText: { color: colors.gray700, fontSize: 12 },
   errorCard: { marginTop: spacing.md, borderWidth: 1, borderColor: colors.error },
   errorText: { color: colors.error },
 });
