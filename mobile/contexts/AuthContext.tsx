@@ -9,6 +9,7 @@ type AuthState = {
   isAuthenticated: boolean;
   isLoading: boolean;
   email: string | null;
+  department: string | null;
   mustChangePassword: boolean;
 };
 
@@ -28,6 +29,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     isAuthenticated: false,
     isLoading: true,
     email: null,
+    department: null,
     mustChangePassword: false,
   });
   const [isUnlocked, setIsUnlocked] = useState(false);
@@ -37,13 +39,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const access = await SecureStore.getItemAsync(STORAGE_KEYS.ACCESS_TOKEN);
     if (!mounted.current) return;
     if (!access) {
-      setState({ isAuthenticated: false, isLoading: false, email: null, mustChangePassword: false });
+      setState({ isAuthenticated: false, isLoading: false, email: null, department: null, mustChangePassword: false });
       return;
     }
     const payload = decodeJwtPayload(access);
     const email = (payload?.email as string) ?? null;
+    const department = (payload?.department_display as string) ?? (payload?.department as string) ?? null;
     const mustChangePassword = getMustChangePasswordFromToken(access);
-    setState({ isAuthenticated: true, isLoading: false, email, mustChangePassword });
+    setState({ isAuthenticated: true, isLoading: false, email, department: department || null, mustChangePassword });
   }, []);
 
   useEffect(() => {
@@ -65,15 +68,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await api.login(email, password);
     if (!mounted.current) return { mustChangePassword: false };
     const access = await SecureStore.getItemAsync(STORAGE_KEYS.ACCESS_TOKEN);
+    const payload = decodeJwtPayload(access);
+    const department = (payload?.department_display as string) ?? (payload?.department as string) ?? null;
     const mustChangePassword = getMustChangePasswordFromToken(access);
-    setState({ isAuthenticated: true, isLoading: false, email, mustChangePassword });
+    setState({ isAuthenticated: true, isLoading: false, email, department: department || null, mustChangePassword });
     return { mustChangePassword };
   }, []);
 
   const logout = useCallback(async () => {
     await api.logout();
     if (!mounted.current) return;
-    setState({ isAuthenticated: false, isLoading: false, email: null, mustChangePassword: false });
+    setState({ isAuthenticated: false, isLoading: false, email: null, department: null, mustChangePassword: false });
     setIsUnlocked(false);
   }, []);
 

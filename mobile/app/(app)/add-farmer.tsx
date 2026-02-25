@@ -25,7 +25,6 @@ export default function AddFarmerScreen() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
-  const [title, setTitle] = useState('');
   const [firstName, setFirstName] = useState('');
   const [middleName, setMiddleName] = useState('');
   const [lastName, setLastName] = useState('');
@@ -98,8 +97,16 @@ export default function AddFarmerScreen() {
     }
     const farmLatNum = parseFloat(farmLat);
     const farmLonNum = parseFloat(farmLon);
-    if (isNaN(farmLatNum) || isNaN(farmLonNum)) {
+    if (Number.isNaN(farmLatNum) || Number.isNaN(farmLonNum)) {
       setError('Farm location (latitude and longitude) is required.');
+      return;
+    }
+    if (farmLatNum < -90 || farmLatNum > 90) {
+      setError('Farm latitude must be between -90 and 90.');
+      return;
+    }
+    if (farmLonNum < -180 || farmLonNum > 180) {
+      setError('Farm longitude must be between -180 and 180.');
       return;
     }
 
@@ -109,7 +116,6 @@ export default function AddFarmerScreen() {
       const farmerLatNum = lat ? parseFloat(lat) : 0;
       const farmerLonNum = lon ? parseFloat(lon) : 0;
       const farmer = await api.createFarmer({
-        title: title.trim() || undefined,
         first_name: firstName.trim(),
         middle_name: middleName.trim() || undefined,
         last_name: lastName.trim(),
@@ -157,7 +163,6 @@ export default function AddFarmerScreen() {
     farmLon,
     lat,
     lon,
-    title,
     middleName,
     phone,
     cropType,
@@ -195,14 +200,6 @@ export default function AddFarmerScreen() {
         <Text variant="titleMedium" style={styles.sectionTitle}>
           Farmer details
         </Text>
-        <TextInput
-          label="Title"
-          value={title}
-          onChangeText={setTitle}
-          mode="outlined"
-          style={styles.input}
-          placeholder="e.g. Mr"
-        />
         <TextInput
           label="First name *"
           value={firstName}

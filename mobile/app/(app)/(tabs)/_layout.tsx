@@ -1,6 +1,7 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Tabs, useRouter } from 'expo-router';
 import { Pressable, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, shadows, typography } from '@/constants/theme';
 
 const TAB_ICONS: Record<string, keyof typeof MaterialCommunityIcons.glyphMap> = {
@@ -13,11 +14,13 @@ const TAB_ICONS: Record<string, keyof typeof MaterialCommunityIcons.glyphMap> = 
 
 export default function AppTabsLayout() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
 
   return (
     <Tabs
       screenOptions={({ route }) => {
         const isRecord = route.name === 'record';
+        const bottomInset = insets.bottom;
         return {
           tabBarActiveTintColor: colors.primary,
           tabBarInactiveTintColor: colors.gray500,
@@ -27,12 +30,18 @@ export default function AppTabsLayout() {
             fontSize: typography.headingL.fontSize,
             fontWeight: typography.headingL.fontWeight,
           },
+          headerStyle: {
+            backgroundColor: colors.white,
+            borderBottomColor: colors.gray200,
+            borderBottomWidth: 0.5,
+          },
           headerShadowVisible: false,
           headerBackground: () => null,
           tabBarLabelStyle: { fontSize: 12, fontWeight: '500' },
           tabBarStyle: {
-            height: 88,
+            height: 88 + bottomInset,
             paddingTop: 8,
+            paddingBottom: bottomInset,
             backgroundColor: colors.white,
             borderTopColor: colors.gray200,
           },
@@ -134,17 +143,17 @@ export default function AppTabsLayout() {
 function getHeaderTitle(name: string) {
   switch (name) {
     case 'index':
-      return 'Dashboard';
+      return 'Welcome Back';
     case 'profile':
       return 'Profile';
     case 'visits':
-      return 'Visits';
+      return 'My Visits';
     case 'record':
-      return 'Record visit';
+      return 'Record Visit';
     case 'farmers':
       return 'Farmers';
     case 'history':
-      return 'History';
+      return 'Visit History';
     default:
       return '';
   }

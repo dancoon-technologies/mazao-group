@@ -2,7 +2,6 @@ export type UserRole = "admin" | "supervisor" | "officer";
 
 export interface Farmer {
   id: string;
-  title: string;
   first_name: string;
   middle_name: string;
   last_name: string;

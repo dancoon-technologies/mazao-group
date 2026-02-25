@@ -60,7 +60,6 @@ const FARMER_COLUMNS: DataTableColumn<Farmer>[] = [
 ];
 
 const INITIAL_FARMER_FORM = {
-  title: "",
   first_name: "",
   middle_name: "",
   last_name: "",
@@ -100,7 +99,6 @@ export default function FarmersPage() {
       setSubmitting(true);
       try {
         await api.createFarmer({
-          title: form.title.trim() || undefined,
           first_name: first,
           middle_name: form.middle_name.trim() || undefined,
           last_name: last,
@@ -151,14 +149,6 @@ export default function FarmersPage() {
                 </Alert>
               )}
               <Grid>
-                <Grid.Col span={{ base: 12, sm: 6, lg: 3 }}>
-                  <TextInput
-                    label="Title"
-                    placeholder="e.g. Mr, Mrs"
-                    value={form.title}
-                    onChange={(e) => updateField("title", e.target.value)}
-                  />
-                </Grid.Col>
                 <Grid.Col span={{ base: 12, sm: 6, lg: 3 }}>
                   <TextInput
                     label="First name"

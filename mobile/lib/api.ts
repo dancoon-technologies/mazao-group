@@ -3,7 +3,6 @@ import { API_BASE, STORAGE_KEYS } from '@/constants/config';
 
 export interface Farmer {
   id: string;
-  title?: string;
   first_name: string;
   middle_name?: string;
   last_name: string;
@@ -204,7 +203,6 @@ export const api = {
   },
 
   async createFarmer(body: {
-    title?: string;
     first_name: string;
     middle_name?: string;
     last_name: string;
@@ -323,8 +321,11 @@ export const api = {
         data.photo?.[0] ||
         data.farmer_id?.[0] ||
         data.farm_id?.[0] ||
+        (typeof data === 'object' && data !== null
+          ? (Object.values(data).flat().find((v) => typeof v === 'string') as string | undefined)
+          : undefined) ||
         'Failed to submit visit';
-      throw new Error(msg);
+      throw new Error(msg ?? 'Failed to submit visit');
     }
     return data as Visit;
   },

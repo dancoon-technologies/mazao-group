@@ -6,11 +6,11 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
-  TouchableOpacity,
   Image,
+  Modal,
+  Pressable,
 } from 'react-native';
 import {
-  Appbar,
   Text,
   TextInput,
   Button,
@@ -19,13 +19,13 @@ import {
   Chip,
   ProgressBar,
   HelperText,
-  IconButton,
   List,
   Surface,
   ActivityIndicator,
   Portal,
   Dialog,
   Snackbar,
+  Divider,
 } from 'react-native-paper';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as Location from 'expo-location';
@@ -72,13 +72,21 @@ export default function RecordVisitScreen() {
   const [farmerMenuOpen, setFarmerMenuOpen] = useState(false);
   const [activityMenuOpen, setActivityMenuOpen] = useState(false);
   const [accordionExpanded, setAccordionExpanded] = useState(false);
+  const [locationLoading, setLocationLoading] = useState(false);
   const [notes, setNotes] = useState('');
   const [cropStage, setCropStage] = useState('');
   const [germinationPercent, setGerminationPercent] = useState('');
+  const [survivalRatePercent, setSurvivalRatePercent] = useState('');
+  const [orderValue, setOrderValue] = useState('');
+  const [harvestKgs, setHarvestKgs] = useState('');
+  const [pestsDiseases, setPestsDiseases] = useState('');
+  const [farmersFeedback, setFarmersFeedback] = useState('');
   const [snackbarMsg, setSnackbarMsg] = useState('');
   const [dialogVisible, setDialogVisible] = useState(false);
   const [dialogSuccess, setDialogSuccess] = useState(true);
+  const [submitError, setSubmitError] = useState('');
   const [isOnline, setIsOnline] = useState<boolean | null>(null);
+  const [cameraModalVisible, setCameraModalVisible] = useState(false);
   const cameraRef = useRef<CameraView>(null);
 
   const selectedFarmer = farmers.find((f) => f.id === selectedFarmerId);
@@ -124,11 +132,13 @@ export default function RecordVisitScreen() {
 
   useEffect(() => {
     let cancelled = false;
+    setLocationLoading(true);
     (async () => {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (cancelled) return;
       if (status !== 'granted') {
         setLocationError('Location permission is required.');
+        setLocationLoading(false);
         return;
       }
       try {
@@ -139,22 +149,49 @@ export default function RecordVisitScreen() {
       } catch {
         if (!cancelled) setLocationError('Could not get location.');
       }
+      if (!cancelled) setLocationLoading(false);
     })();
     return () => { cancelled = true; };
   }, []);
 
   const takePhoto = useCallback(async () => {
-    if (!cameraRef.current || !permission?.granted) {
-      if (!permission?.granted) requestPermission();
-      return;
-    }
+    if (!cameraRef.current || !permission?.granted) return;
     try {
       const photo = await cameraRef.current.takePictureAsync({ quality: 0.8, base64: false });
-      if (photo?.uri) setPhotoUri(photo.uri);
+      if (photo?.uri) {
+        setPhotoUri(photo.uri);
+        setCameraModalVisible(false);
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to take photo');
     }
+  }, [permission?.granted]);
+
+  const openCameraModal = useCallback(() => {
+    if (!permission?.granted) {
+      requestPermission();
+      return;
+    }
+    setCameraModalVisible(true);
   }, [permission?.granted, requestPermission]);
+
+  const refreshLocation = useCallback(async () => {
+    setLocationError('');
+    setLocationLoading(true);
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        setLocationError('Location permission is required.');
+        return;
+      }
+      const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+      setLocation(loc);
+    } catch {
+      setLocationError('Could not get location.');
+    } finally {
+      setLocationLoading(false);
+    }
+  }, []);
 
   const submit = useCallback(async () => {
     if (!selectedFarmerId || !photoUri || !location) {
@@ -176,6 +213,11 @@ export default function RecordVisitScreen() {
             notes: notes || undefined,
             crop_stage: cropStage || undefined,
             germination_percent: germinationPercent ? parseFloat(germinationPercent) : undefined,
+            survival_rate: survivalRatePercent || undefined,
+            pests_diseases: pestsDiseases || undefined,
+            order_value: orderValue ? parseFloat(orderValue) : undefined,
+            harvest_kgs: harvestKgs ? parseFloat(harvestKgs) : undefined,
+            farmers_feedback: farmersFeedback || undefined,
           });
           setDialogSuccess(true);
           setDialogVisible(true);
@@ -194,16 +236,22 @@ export default function RecordVisitScreen() {
         activity_type: activityType,
         crop_stage: cropStage || undefined,
         germination_percent: germinationPercent ? parseFloat(germinationPercent) : undefined,
+        survival_rate: survivalRatePercent || undefined,
+        pests_diseases: pestsDiseases || undefined,
+        order_value: orderValue ? parseFloat(orderValue) : undefined,
+        harvest_kgs: harvestKgs ? parseFloat(harvestKgs) : undefined,
+        farmers_feedback: farmersFeedback || undefined,
       });
       setSnackbarMsg('Saved for sync when online.');
       setTimeout(() => router.back(), 1500);
     } catch (e) {
+      setSubmitError(e instanceof Error ? e.message : 'Failed to submit visit.');
       setDialogSuccess(false);
       setDialogVisible(true);
     } finally {
       setSubmitting(false);
     }
-  }, [selectedFarmerId, selectedFarmId, photoUri, location, activityType, notes, cropStage, germinationPercent, isOnline, router]);
+  }, [selectedFarmerId, selectedFarmId, photoUri, location, activityType, notes, cropStage, germinationPercent, survivalRatePercent, orderValue, harvestKgs, pestsDiseases, farmersFeedback, isOnline, router]);
 
   const activityLabel = ACTIVITY_TYPES.find((a) => a.value === activityType)?.label ?? activityType;
 
@@ -228,10 +276,14 @@ export default function RecordVisitScreen() {
 
   return (
     <SafeAreaView style={styles.safe} edges={['bottom']}>
-      <Appbar.Header>
-        <Appbar.BackAction onPress={() => router.back()} />
-        <Appbar.Content title="Record Visit" />
-      </Appbar.Header>
+      <View style={styles.header}>
+        <Text variant="headlineSmall" style={styles.headerTitle}>
+          Record Visit
+        </Text>
+        <Pressable onPress={() => router.back()} style={styles.headerClose} hitSlop={12}>
+          <Text variant="headlineMedium" style={styles.headerCloseText}>×</Text>
+        </Pressable>
+      </View>
 
       <KeyboardAvoidingView
         style={styles.container}
@@ -241,234 +293,330 @@ export default function RecordVisitScreen() {
         <ScrollView
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={true}
         >
           {!isOnline && isOnline !== null && (
-            <Chip icon="cloud-off-outline" style={styles.offlineChip}>
+            <Chip icon="cloud-off-outline" style={styles.offlineChip} compact>
               Offline — will sync when back online
             </Chip>
           )}
 
-          <Menu
-            visible={farmerMenuOpen}
-            onDismiss={() => setFarmerMenuOpen(false)}
-            anchorPosition="bottom"
-            anchor={
-              <View>
-                <TextInput
-                  label="Select Farmer"
-                  value={selectedFarmer?.display_name ?? ''}
-                  mode="outlined"
-                  right={<TextInput.Icon icon="menu-down" onPress={() => setFarmerMenuOpen(true)} />}
-                  style={styles.block}
-                  onPressIn={() => setFarmerMenuOpen(true)}
-                />
-              </View>
-            }
-          >
-            {farmers.map((f) => (
-              <Menu.Item
-                key={f.id}
-                onPress={() => {
-                  setSelectedFarmerId(f.id);
-                  setFarmerMenuOpen(false);
-                }}
-                title={f.display_name}
-              />
-            ))}
-          </Menu>
-          <Button mode="text" onPress={() => router.push('/(app)/add-farmer')} style={styles.block}>
-            + Add Farmer
-          </Button>
-
-          {selectedFarmerId && farms.length > 0 && (
-            <>
-              <Text variant="titleSmall" style={styles.sectionLabel}>
-                Farm (optional)
+          <Surface style={styles.section} elevation={0}>
+            <Text variant="labelLarge" style={styles.fieldLabel}>Farmer *</Text>
+            {farmers.length === 0 ? (
+              <Text variant="bodyMedium" style={styles.hint}>
+                No farmers yet. Add a farmer first, then record visits.
               </Text>
-              <Card
-                mode={selectedFarmId === null ? 'contained' : 'outlined'}
-                style={styles.card}
-                onPress={() => setSelectedFarmId(null)}
-              >
-                <Card.Content>
-                  <Text variant="bodyMedium">No specific farm</Text>
-                </Card.Content>
-              </Card>
-              {farms.map((farm) => (
-                <Card
-                  key={farm.id}
-                  mode={selectedFarmId === farm.id ? 'contained' : 'outlined'}
-                  style={styles.card}
-                  onPress={() => setSelectedFarmId(farm.id)}
+            ) : (
+              <>
+                <Menu
+                  visible={farmerMenuOpen}
+                  onDismiss={() => setFarmerMenuOpen(false)}
+                  anchorPosition="bottom"
+                  anchor={
+                    <TextInput
+                      placeholder="Select farmer"
+                      value={selectedFarmer?.display_name ?? ''}
+                      mode="outlined"
+                      right={<TextInput.Icon icon="menu-down" onPress={() => setFarmerMenuOpen(true)} />}
+                      style={styles.input}
+                      onPressIn={() => setFarmerMenuOpen(true)}
+                      editable={false}
+                    />
+                  }
                 >
-                  <Card.Title title={farm.village} />
+                  {farmers.map((f) => (
+                    <Menu.Item
+                      key={f.id}
+                      onPress={() => {
+                        setSelectedFarmerId(f.id);
+                        setFarmerMenuOpen(false);
+                      }}
+                      title={f.display_name}
+                    />
+                  ))}
+                </Menu>
+                <Button
+                  mode="text"
+                  icon="account-plus"
+                  onPress={() => router.push('/(app)/add-farmer')}
+                  style={styles.addFarmerBtn}
+                  compact
+                >
+                  Add new farmer
+                </Button>
+              </>
+            )}
+            {selectedFarmerId && farms.length > 0 && (
+              <>
+                <Text variant="labelLarge" style={styles.fieldLabel}>Farm (optional)</Text>
+                <Card
+                  mode={selectedFarmId === null ? 'contained' : 'outlined'}
+                  style={styles.farmCard}
+                  onPress={() => setSelectedFarmId(null)}
+                >
                   <Card.Content>
-                    <Text variant="bodyMedium">Crop: {farm.crop_type ?? '—'}</Text>
-                    <Text variant="bodySmall">{farm.plot_size ?? '—'} Acres</Text>
+                    <Text variant="bodyMedium">No specific farm</Text>
                   </Card.Content>
                 </Card>
-              ))}
-            </>
-          )}
+                {farms.map((farm) => (
+                  <Card
+                    key={farm.id}
+                    mode={selectedFarmId === farm.id ? 'contained' : 'outlined'}
+                    style={styles.farmCard}
+                    onPress={() => setSelectedFarmId(farm.id)}
+                  >
+                    <Card.Title title={farm.village} titleVariant="titleSmall" />
+                    <Card.Content>
+                      <Text variant="bodySmall">Crop: {farm.crop_type ?? '—'} · {farm.plot_size ?? '—'}</Text>
+                    </Card.Content>
+                  </Card>
+                ))}
+              </>
+            )}
+          </Surface>
 
-          <Text variant="titleSmall" style={styles.sectionLabel}>
-            Location Verification
-          </Text>
-          <Card style={styles.card}>
-            <Card.Content>
-              {locationError ? (
-                <HelperText type="error">{locationError}</HelperText>
-              ) : location ? (
-                <>
-                  <Text variant="bodyMedium">
-                    Distance from Farm: {distanceM !== null ? `${distanceM}m` : 'N/A'}
-                  </Text>
-                  <ProgressBar
-                    progress={progress}
-                    color={gpsValid ? theme.colors.primary : theme.colors.error}
-                    style={styles.progressBar}
-                  />
-                  <Chip icon="map-marker" style={styles.chip}>
-                    GPS Accuracy ±5m
-                  </Chip>
-                  {!gpsValid && (
-                    <HelperText type="error">You must be within 100m of the farm.</HelperText>
-                  )}
-                </>
-              ) : (
-                <ActivityIndicator size="small" />
-              )}
-            </Card.Content>
-          </Card>
-
-          <Text variant="titleSmall" style={styles.sectionLabel}>
-            Photo
-          </Text>
-          <Card style={styles.card}>
-            <Card.Content style={styles.photoContent}>
-              {photoUri ? (
-                <>
-                  <Image source={{ uri: photoUri }} style={styles.previewImg} />
-                  <Button mode="outlined" onPress={() => setPhotoUri(null)}>
-                    Retake photo
-                  </Button>
-                </>
-              ) : (
-                <View style={styles.cameraWrap}>
-                  <CameraView style={styles.camera} ref={cameraRef} />
-                  <View style={styles.cameraOverlay}>
-                    <IconButton
-                      icon="camera"
-                      size={48}
-                      onPress={takePhoto}
-                      iconColor="#fff"
-                      style={styles.captureIcon}
-                    />
-                    <Text variant="bodyMedium" style={styles.cameraPrompt}>
-                      Tap to capture photo
+          <Surface style={styles.section} elevation={0}>
+            <View style={styles.locationBox}>
+              <View style={styles.locationBoxLeft}>
+                <List.Icon icon="map-marker" color={theme.colors.primary} style={styles.locationIcon} />
+                <View>
+                  <Text variant="labelLarge" style={styles.fieldLabel}>Location</Text>
+                  {locationError ? (
+                    <Text variant="bodySmall" style={styles.locationStatusError}>{locationError}</Text>
+                  ) : locationLoading ? (
+                    <Text variant="bodySmall" style={styles.locationStatus}>Getting location…</Text>
+                  ) : location ? (
+                    <Text variant="bodySmall" style={styles.locationStatus}>
+                      {distanceM !== null ? `Distance from farm: ${distanceM}m` : 'Location captured'}
                     </Text>
-                    <TouchableOpacity style={styles.captureTouch} activeOpacity={1} onPress={takePhoto} />
-                  </View>
+                  ) : (
+                    <Text variant="bodySmall" style={styles.locationStatus}>Location not captured</Text>
+                  )}
+                  {location && distanceM !== null && !gpsValid && (
+                    <HelperText type="error">Must be within 100m of the farm.</HelperText>
+                  )}
                 </View>
-              )}
-            </Card.Content>
-          </Card>
+              </View>
+              <Button mode="outlined" compact onPress={refreshLocation} disabled={locationLoading}>
+                Refresh
+              </Button>
+            </View>
+          </Surface>
 
-          <Text variant="titleSmall" style={styles.sectionLabel}>
-            Activity type
-          </Text>
-          <Menu
-            visible={activityMenuOpen}
-            onDismiss={() => setActivityMenuOpen(false)}
-            anchor={<Button mode="outlined" onPress={() => setActivityMenuOpen(true)}>{activityLabel}</Button>}
-          >
-            {ACTIVITY_TYPES.map((a) => (
-              <Menu.Item
-                key={a.value}
-                onPress={() => {
-                  setActivityType(a.value);
-                  setActivityMenuOpen(false);
-                }}
-                title={a.label}
-              />
-            ))}
-          </Menu>
+          <Surface style={styles.section} elevation={0}>
+            <Text variant="labelLarge" style={styles.fieldLabel}>Photo Evidence *</Text>
+            <View style={styles.photoEvidenceRow}>
+              <Button
+                mode="outlined"
+                icon="camera"
+                onPress={openCameraModal}
+                style={styles.photoEvidenceBtn}
+              >
+                Take Photo
+              </Button>
+              <Button
+                mode="outlined"
+                icon="upload"
+                onPress={openCameraModal}
+                style={styles.photoEvidenceBtn}
+              >
+                Upload Photo
+              </Button>
+            </View>
+            {photoUri ? (
+              <View style={styles.photoPreviewWrap}>
+                <Image source={{ uri: photoUri }} style={styles.previewImg} />
+                <Button mode="text" compact onPress={() => { setPhotoUri(null); openCameraModal(); }}>
+                  Retake photo
+                </Button>
+              </View>
+            ) : null}
+          </Surface>
 
-          <TextInput
-            label="Notes"
-            value={notes}
-            onChangeText={setNotes}
-            mode="outlined"
-            multiline
-            numberOfLines={2}
-            style={styles.block}
-          />
+          <Surface style={styles.section} elevation={0}>
+            <Text variant="labelLarge" style={styles.fieldLabel}>Activity Type *</Text>
+            <Menu
+              visible={activityMenuOpen}
+              onDismiss={() => setActivityMenuOpen(false)}
+              anchor={
+                <TextInput
+                  placeholder="Select activity type"
+                  value={activityLabel}
+                  mode="outlined"
+                  right={<TextInput.Icon icon="menu-down" onPress={() => setActivityMenuOpen(true)} />}
+                  style={styles.input}
+                  onPressIn={() => setActivityMenuOpen(true)}
+                  editable={false}
+                />
+              }
+            >
+              {ACTIVITY_TYPES.map((a) => (
+                <Menu.Item
+                  key={a.value}
+                  onPress={() => {
+                    setActivityType(a.value);
+                    setActivityMenuOpen(false);
+                  }}
+                  title={a.label}
+                />
+              ))}
+            </Menu>
+            <Text variant="labelLarge" style={styles.fieldLabel}>Notes</Text>
+            <TextInput
+              value={notes}
+              onChangeText={setNotes}
+              mode="outlined"
+              multiline
+              numberOfLines={3}
+              placeholder="Add any notes about this visit..."
+              style={styles.input}
+            />
+          </Surface>
 
           <List.AccordionGroup>
             <List.Accordion
-              title="Additional Details"
+              title="Additional Details (Optional)"
               id="1"
               expanded={accordionExpanded}
               onPress={() => setAccordionExpanded(!accordionExpanded)}
+              style={styles.accordion}
+              right={props => <List.Icon {...props} icon={accordionExpanded ? 'chevron-up' : 'chevron-down'} />}
             >
-              <List.Item title="" />
-              <Surface style={styles.accordionInner} elevation={0}>
-                <TextInput
-                  label="Crop stage"
-                  value={cropStage}
-                  onChangeText={setCropStage}
-                  mode="outlined"
-                  style={styles.block}
-                />
-                <TextInput
-                  label="Germination %"
-                  value={germinationPercent}
-                  onChangeText={setGerminationPercent}
-                  keyboardType="numeric"
-                  mode="outlined"
-                  style={styles.block}
-                />
-                <TextInput
-                  label="Notes"
-                  value={notes}
-                  onChangeText={setNotes}
-                  mode="outlined"
-                  multiline
-                  style={styles.block}
-                />
-              </Surface>
-            </List.Accordion>
-          </List.AccordionGroup>
+                  <Surface style={styles.accordionInner} elevation={0}>
+                    <View style={styles.twoColRow}>
+                      <TextInput
+                        label="Crop Stage"
+                        value={cropStage}
+                        onChangeText={setCropStage}
+                        mode="outlined"
+                        placeholder="e.g., Flowering"
+                        style={styles.inputHalf}
+                      />
+                      <TextInput
+                        label="Germination %"
+                        value={germinationPercent}
+                        onChangeText={setGerminationPercent}
+                        keyboardType="decimal-pad"
+                        mode="outlined"
+                        placeholder="0-100"
+                        style={styles.inputHalf}
+                      />
+                    </View>
+                    <View style={styles.twoColRow}>
+                      <TextInput
+                        label="Survival Rate %"
+                        value={survivalRatePercent}
+                        onChangeText={setSurvivalRatePercent}
+                        keyboardType="decimal-pad"
+                        mode="outlined"
+                        placeholder="0-100"
+                        style={styles.inputHalf}
+                      />
+                      <TextInput
+                        label="Order Value"
+                        value={orderValue}
+                        onChangeText={setOrderValue}
+                        keyboardType="decimal-pad"
+                        mode="outlined"
+                        placeholder="Amount"
+                        style={styles.inputHalf}
+                      />
+                    </View>
+                    <TextInput
+                      label="Harvest (kg)"
+                      value={harvestKgs}
+                      onChangeText={setHarvestKgs}
+                      keyboardType="decimal-pad"
+                      mode="outlined"
+                      placeholder="Harvest in kilograms"
+                      style={styles.input}
+                    />
+                    <TextInput
+                      label="Pests/Diseases"
+                      value={pestsDiseases}
+                      onChangeText={setPestsDiseases}
+                      mode="outlined"
+                      placeholder="List any pests or diseases"
+                      style={styles.input}
+                    />
+                    <TextInput
+                      label="Farmer's Feedback"
+                      value={farmersFeedback}
+                      onChangeText={setFarmersFeedback}
+                      mode="outlined"
+                      multiline
+                      numberOfLines={2}
+                      placeholder="Farmer's comments or feedback"
+                      style={styles.input}
+                    />
+                  </Surface>
+                </List.Accordion>
+              </List.AccordionGroup>
 
-          {error ? <HelperText type="error">{error}</HelperText> : null}
+          {error ? (
+            <HelperText type="error" style={styles.errorBlock}>{error}</HelperText>
+          ) : null}
 
-          <Button
-            mode="contained"
-            onPress={submit}
-            loading={submitting}
-            disabled={!selectedFarmerId || !photoUri || !location || !gpsValid || submitting}
-            style={styles.submitBtn}
-            accessibilityLabel="Submit visit"
+          <Surface style={styles.actionsSection} elevation={0}>
+            <Button
+              mode="contained"
+              onPress={submit}
+              loading={submitting}
+              disabled={submitting}
+              style={styles.submitBtn}
+              accessibilityLabel="Record visit"
+            >
+              Record Visit
+            </Button>
+          </Surface>
+
+          <Modal
+            visible={cameraModalVisible}
+            animationType="slide"
+            onRequestClose={() => setCameraModalVisible(false)}
           >
-            Submit Visit
-          </Button>
-          <Button mode="outlined" onPress={() => router.back()} style={styles.block}>
-            Cancel
-          </Button>
-        </ScrollView>
+            <View style={styles.cameraModal}>
+              <View style={styles.cameraModalHeader}>
+                <Text variant="titleMedium" style={styles.cameraModalTitle}>
+                  Take photo
+                </Text>
+                <Pressable
+                  onPress={() => setCameraModalVisible(false)}
+                  style={styles.cameraModalClose}
+                  hitSlop={12}
+                >
+                  <Text variant="titleLarge" style={styles.cameraModalCloseText}>×</Text>
+                </Pressable>
+              </View>
+              <View style={styles.cameraModalCamera}>
+                <CameraView style={StyleSheet.absoluteFill} ref={cameraRef} />
+                <View style={styles.cameraModalOverlay}>
+                  <Pressable style={styles.captureButton} onPress={takePhoto}>
+                    <View style={styles.captureButtonInner} />
+                  </Pressable>
+                  <Text variant="bodyMedium" style={styles.cameraModalHint}>
+                    Tap to capture
+                  </Text>
+                </View>
+              </View>
+            </View>
+          </Modal>
+
+          </ScrollView>
       </KeyboardAvoidingView>
 
       <Portal>
-        <Dialog visible={dialogVisible} onDismiss={() => { setDialogVisible(false); router.back(); }}>
+        <Dialog visible={dialogVisible} onDismiss={() => { setDialogVisible(false); setSubmitError(''); router.back(); }}>
           <Dialog.Icon icon={dialogSuccess ? 'check-circle' : 'alert'} color={dialogSuccess ? theme.colors.primary : theme.colors.error} />
           <Dialog.Title>{dialogSuccess ? 'Visit Verified' : 'Error'}</Dialog.Title>
           <Dialog.Content>
             <Text variant="bodyMedium">
-              {dialogSuccess ? (distanceM !== null ? `Distance: ${distanceM}m` : 'Visit recorded.') : 'Failed to submit visit.'}
+              {dialogSuccess ? (distanceM !== null ? `Distance: ${distanceM}m` : 'Visit recorded.') : (submitError || 'Failed to submit visit.')}
             </Text>
           </Dialog.Content>
           <Dialog.Actions>
-            <Button onPress={() => { setDialogVisible(false); router.back(); }}>OK</Button>
+            <Button onPress={() => { setDialogVisible(false); setSubmitError(''); router.back(); }}>OK</Button>
           </Dialog.Actions>
         </Dialog>
       </Portal>
@@ -483,28 +631,96 @@ export default function RecordVisitScreen() {
 const styles = StyleSheet.create({
   safe: { flex: 1 },
   container: { flex: 1 },
-  scrollContent: { padding: 16, paddingBottom: 32 },
+  scrollContent: { padding: 12, paddingBottom: 24 },
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 },
   topBtn: { marginTop: 16 },
-  block: { marginBottom: 12 },
-  sectionLabel: { marginTop: 8, marginBottom: 4 },
-  offlineChip: { marginBottom: 12 },
-  card: { marginVertical: 8 },
-  progressBar: { height: 8, borderRadius: 2, marginVertical: 8 },
-  chip: { alignSelf: 'flex-start', marginTop: 4 },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 4,
+  },
+  headerTitle: { fontWeight: '600' },
+  headerClose: { padding: 8 },
+  headerCloseText: { fontSize: 28, lineHeight: 32, opacity: 0.9 },
+  offlineChip: { marginBottom: 8 },
+  section: { padding: 12, marginBottom: 4, borderRadius: 8 },
+  locationBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: 'rgba(0,0,0,0.06)',
+    borderRadius: 8,
+    padding: 12,
+  },
+  locationBoxLeft: { flexDirection: 'row', alignItems: 'center', flex: 1 },
+  locationIcon: { margin: 0, marginRight: 12 },
+  locationStatus: { opacity: 0.85 },
+  locationStatusError: { color: '#b00020' },
+  photoEvidenceRow: { flexDirection: 'row', gap: 12, marginBottom: 8 },
+  photoEvidenceBtn: { flex: 1 },
+  photoPreviewWrap: { marginTop: 8, alignItems: 'center' },
+  sectionTitle: { marginBottom: 6 },
+  fieldLabel: { marginTop: 6, marginBottom: 4 },
+  hint: { marginTop: 2, opacity: 0.85 },
+  input: { marginBottom: 8 },
+  inputHalf: { flex: 1, marginBottom: 8 },
+  twoColRow: { flexDirection: 'row', gap: 12, marginBottom: 0 },
+  addFarmerBtn: { marginTop: -2, marginBottom: 2 },
+  farmCard: { marginBottom: 4 },
+  card: { marginBottom: 8 },
+  divider: { marginVertical: 4 },
+  progressBar: { height: 6, borderRadius: 2, marginVertical: 4 },
+  chip: { alignSelf: 'flex-start', marginTop: 2 },
+  locationLoading: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  locationLoadingText: { opacity: 0.8 },
   photoContent: { alignItems: 'center', overflow: 'hidden' },
-  previewImg: { width: '100%', height: 200, borderRadius: 4, marginBottom: 8 },
-  cameraWrap: { position: 'relative', width: '100%', minHeight: 240, borderRadius: 4, overflow: 'hidden' },
-  camera: { flex: 1, minHeight: 240 },
-  cameraOverlay: {
+  previewImg: { width: '100%', height: 200, borderRadius: 8, marginBottom: 8 },
+  retakeBtn: { marginTop: 4 },
+  takePhotoBtn: { minWidth: 160 },
+  cameraModal: { flex: 1, backgroundColor: '#000' },
+  cameraModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingTop: 56,
+    paddingBottom: 12,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+  },
+  cameraModalTitle: { color: '#fff' },
+  cameraModalClose: { padding: 8 },
+  cameraModalCloseText: { color: '#fff', fontSize: 32, lineHeight: 36 },
+  cameraModalCamera: { flex: 1, position: 'relative' },
+  cameraModalOverlay: {
     ...StyleSheet.absoluteFillObject,
     justifyContent: 'flex-end',
     alignItems: 'center',
-    paddingBottom: 24,
+    paddingBottom: 48,
   },
-  captureIcon: { backgroundColor: 'rgba(0,0,0,0.3)' },
-  cameraPrompt: { color: '#fff', marginTop: 4, textShadowColor: 'rgba(0,0,0,0.8)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 4 },
-  captureTouch: { ...StyleSheet.absoluteFillObject },
-  accordionInner: { paddingHorizontal: 16, paddingBottom: 16 },
-  submitBtn: { marginTop: 16 },
+  captureButton: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: 'rgba(255,255,255,0.9)',
+    borderWidth: 4,
+    borderColor: '#1B8F3A',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  captureButtonInner: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#fff',
+  },
+  cameraModalHint: { color: '#fff', marginTop: 12 },
+  accordion: { marginTop: 4 },
+  accordionInner: { paddingHorizontal: 12, paddingBottom: 12 },
+  errorBlock: { marginVertical: 4 },
+  actionsSection: { paddingTop: 12, paddingBottom: 4 },
+  nextBtn: { marginBottom: 0 },
+  submitBtn: { marginBottom: 0 },
 });

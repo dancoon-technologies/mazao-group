@@ -171,7 +171,7 @@ export async function enqueueVisit(payload: {
   })
 }
 
-/** Enqueue a schedule for later sync (offline). */
+/** Enqueue a schedule for later sync (offline). farmer is the farmer UUID (Farmer model has no title field). */
 export async function enqueueSchedule(payload: {
   farmer?: string | null
   scheduled_date: string

@@ -1,18 +1,29 @@
+import {
+  ActionCard,
+  EmptyStateCard,
+  InfoCard,
+  SectionHeader,
+  StatCard,
+} from '@/components/dashboard';
+import { colors, spacing } from '@/constants/theme';
+import { useAuth } from '@/contexts/AuthContext';
 import { api, type Farmer, type Schedule } from '@/lib/api';
 import { router } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import {
-  Appbar,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  View,
+} from 'react-native';
+import {
+  ActivityIndicator,
+  Card,
+  Chip,
   Surface,
   Text,
-  Card,
-  Button,
-  FAB,
-  ActivityIndicator,
-  Divider,
 } from 'react-native-paper';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 function formatDate(iso: string) {
   try {
@@ -23,18 +34,32 @@ function formatDate(iso: string) {
   }
 }
 
+const STAT_ICONS = {
+  today: 'clipboard-text-outline',
+  month: 'chart-line',
+  schedules: 'calendar-outline',
+  farmers: 'account-group-outline',
+} as const;
+
 export default function HomeScreen() {
+  const { email, department } = useAuth();
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [farmers, setFarmers] = useState<Farmer[]>([]);
+  const [stats, setStats] = useState<{ visits_today: number; visits_this_month: number } | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
 
   const load = useCallback(async () => {
     try {
-      const [s, f] = await Promise.all([api.getSchedules(), api.getFarmers()]);
-      setSchedules(s);
-      setFarmers(f);
+      const [s, f, statsRes] = await Promise.all([
+        api.getSchedules(),
+        api.getFarmers(),
+        api.getDashboardStats?.().catch(() => null),
+      ]);
+      setSchedules(Array.isArray(s) ? s : []);
+      setFarmers(Array.isArray(f) ? f : []);
+      setStats(statsRes ?? null);
       setError('');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load');
@@ -55,7 +80,9 @@ export default function HomeScreen() {
 
   const today = new Date().toISOString().slice(0, 10);
   const todaySchedules = schedules.filter((s) => s.scheduled_date === today);
-  const proposedCount = schedules.filter((s) => s.status === 'proposed').length;
+  const recentFarmers = farmers.slice(0, 5);
+  const visitsToday = stats?.visits_today ?? 0;
+  const visitsThisMonth = stats?.visits_this_month ?? 0;
 
   if (loading) {
     return (
@@ -76,147 +103,94 @@ export default function HomeScreen() {
         style={styles.container}
         contentContainerStyle={styles.content}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+        showsVerticalScrollIndicator={false}
       >
-        <Surface style={styles.surface} elevation={0}>
-          <View style={styles.kpiRow}>
-            <Card style={styles.kpiCard}>
-              <Card.Content>
-                <Text variant="headlineLarge">{farmers.length}</Text>
-                <Text variant="bodyMedium">Assigned farmers</Text>
-              </Card.Content>
-            </Card>
-            <Card style={styles.kpiCard}>
-              <Card.Content>
-                <Text variant="headlineLarge">{todaySchedules.length}</Text>
-                <Text variant="bodyMedium">Visits today</Text>
-              </Card.Content>
-            </Card>
-          </View>
-          <View style={styles.kpiRow}>
-            <Card style={styles.kpiCard}>
-              <Card.Content>
-                <Text variant="headlineLarge">{proposedCount}</Text>
-                <Text variant="bodyMedium">Pending proposals</Text>
-              </Card.Content>
-            </Card>
-            <View style={styles.kpiCardPlaceholder} />
-          </View>
-
-          <Divider style={styles.divider} />
-
-          <Text variant="titleMedium" style={styles.sectionTitle}>
-            Quick actions
+        <View style={styles.welcome}>
+          <Text variant="bodyLarge" style={styles.welcomeEmail}>
+            {email ?? 'Field officer'}
           </Text>
-          <Button
-            mode="contained"
-            onPress={() => router.push('/(app)/record-visit')}
-            style={styles.quickBtn}
-            accessibilityLabel="Record visit"
-          >
-            Record Visit
-          </Button>
-          <Button
-            mode="outlined"
-            onPress={() => router.push('/(app)/add-farmer')}
-            style={styles.quickBtn}
-          >
-            Add Farmer
-          </Button>
-          <Button
-            mode="text"
-            onPress={() => router.push('/(app)/propose-schedule')}
-            style={styles.quickBtn}
-          >
-            Propose Schedule
-          </Button>
-          <Button
-            mode="outlined"
-            onPress={() => router.push('/(app)/(tabs)/visits')}
-            style={styles.quickBtn}
-          >
-            Schedules
-          </Button>
-          <Button
-            mode="text"
-            onPress={() => router.push('/(app)/(tabs)/history')}
-            style={styles.quickBtn}
-          >
-            History
-          </Button>
-
-          <Divider style={styles.divider} />
-
-          <Text variant="titleMedium" style={styles.sectionTitle}>
-            Today&apos;s schedules
-          </Text>
-          {todaySchedules.length === 0 ? (
-            <Card>
-              <Card.Content>
-                <Text variant="bodyMedium">No visits scheduled for today</Text>
-                <Text variant="bodySmall" style={styles.muted}>
-                  Propose a schedule or go to Visits to record one.
-                </Text>
-              </Card.Content>
-            </Card>
-          ) : (
-            todaySchedules.map((s) => (
-              <Card
-                key={s.id}
-                style={styles.card}
-                onPress={() =>
-                  s.farmer
-                    ? router.push({
-                        pathname: '/(app)/record-visit',
-                        params: { farmerId: s.farmer },
-                      })
-                    : router.push('/(app)/record-visit')
-                }
-              >
-                <Card.Content>
-                  <Text variant="titleMedium">
-                    {s.farmer_display_name ?? 'No farmer assigned'}
-                  </Text>
-                  <Text variant="bodySmall">
-                    {formatDate(s.scheduled_date)} — {s.status}
-                  </Text>
-                </Card.Content>
-                <Card.Actions>
-                  <Button
-                    mode="text"
-                    compact
-                    onPress={() =>
-                      router.push({
-                        pathname: '/(app)/record-visit',
-                        params: s.farmer ? { farmerId: s.farmer } : {},
-                      })
-                    }
-                  >
-                    Record visit
-                  </Button>
-                </Card.Actions>
-              </Card>
-            ))
-          )}
-
-          {error ? (
-            <Card style={styles.errorCard}>
-              <Card.Content>
-                <Text variant="bodyMedium" style={styles.errorText}>
-                  {error}
-                </Text>
-              </Card.Content>
-            </Card>
+          {department ? (
+            <Chip style={styles.tag} textStyle={styles.tagText}>
+              {department}
+            </Chip>
           ) : null}
-        </Surface>
-      </ScrollView>
+        </View>
 
-      <FAB
-        icon="plus"
-        style={styles.fab}
-        onPress={() => router.push('/(app)/record-visit')}
-        label="Record"
-        accessibilityLabel="Record visit"
-      />
+        <View style={styles.actionRow}>
+          <ActionCard
+            icon="camera"
+            label="Record Visit"
+            variant="primary"
+            onPress={() => router.push('/(app)/record-visit')}
+          />
+          <ActionCard
+            icon="account-plus"
+            label="Add Farmer"
+            onPress={() => router.push('/(app)/add-farmer')}
+          />
+          <ActionCard
+            icon="calendar"
+            label="Schedule"
+            onPress={() => router.push('/(app)/propose-schedule')}
+          />
+        </View>
+
+        <View style={styles.statsGrid}>
+          <StatCard icon={STAT_ICONS.today} label="Today" value={visitsToday} />
+          <StatCard icon={STAT_ICONS.month} label="This Month" value={visitsThisMonth} />
+          <StatCard icon={STAT_ICONS.schedules} label="Schedules" value={schedules.length} />
+          <StatCard icon={STAT_ICONS.farmers} label="Farmers" value={farmers.length} />
+        </View>
+
+        <SectionHeader title="Today's Schedule" />
+        {todaySchedules.length === 0 ? (
+          <EmptyStateCard message="No visits scheduled for today" />
+        ) : (
+          todaySchedules.map((s) => (
+            <InfoCard
+              key={s.id}
+              title={s.farmer_display_name ?? 'No farmer assigned'}
+              subtitle={s.notes || formatDate(s.scheduled_date)}
+              right={
+                <Chip style={styles.statusChip} textStyle={styles.statusChipText} compact>
+                  {s.status}
+                </Chip>
+              }
+              onPress={() =>
+                s.farmer
+                  ? router.push({ pathname: '/(app)/record-visit', params: { farmerId: s.farmer } })
+                  : router.push('/(app)/record-visit')
+              }
+            />
+          ))
+        )}
+
+        <SectionHeader
+          title="Recent Farmers"
+          rightLabel="View all"
+          onRightPress={() => router.push('/(app)/(tabs)/farmers')}
+        />
+        {recentFarmers.length === 0 ? (
+          <EmptyStateCard message="No farmers yet" />
+        ) : (
+          recentFarmers.map((f) => (
+            <InfoCard
+              key={f.id}
+              title={f.display_name}
+              subtitle={f.phone || '—'}
+              onPress={() => router.push('/(app)/(tabs)/farmers')}
+            />
+          ))
+        )}
+
+        {error ? (
+          <Card style={styles.errorCard}>
+            <Card.Content>
+              <Text variant="bodyMedium" style={styles.errorText}>{error}</Text>
+            </Card.Content>
+          </Card>
+        ) : null}
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -224,8 +198,7 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   safe: { flex: 1 },
   container: { flex: 1 },
-  content: { paddingBottom: 100 },
-  surface: { padding: 16 },
+  content: { padding: spacing.lg, paddingTop: 0, paddingBottom: 100 },
   centered: {
     flex: 1,
     justifyContent: 'center',
@@ -233,23 +206,27 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   loadingText: { marginTop: 16 },
-  kpiRow: {
+  welcome: { marginBottom: spacing.xl },
+  welcomeEmail: { marginTop: 0, color: colors.gray700 },
+  tag: {
+    marginTop: 8,
+    alignSelf: 'flex-start',
+    backgroundColor: colors.primaryLight,
+  },
+  tagText: { color: colors.primary, fontWeight: '600' },
+  actionRow: {
     flexDirection: 'row',
-    gap: 12,
-    marginBottom: 12,
+    gap: spacing.md,
+    marginBottom: spacing.xl,
   },
-  kpiCard: { flex: 1, minWidth: 0 },
-  kpiCardPlaceholder: { flex: 1, minWidth: 0, opacity: 0 },
-  divider: { marginVertical: 16 },
-  sectionTitle: { marginBottom: 12 },
-  quickBtn: { marginBottom: 8 },
-  card: { marginBottom: 12 },
-  muted: { marginTop: 4, opacity: 0.8 },
-  errorCard: { marginTop: 12, borderWidth: 1, borderColor: 'rgb(239, 68, 68)' },
-  errorText: { color: 'rgb(239, 68, 68)' },
-  fab: {
-    position: 'absolute',
-    right: 16,
-    bottom: 24,
+  statsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.md,
+    marginBottom: spacing.xl,
   },
+  statusChip: { backgroundColor: colors.primaryLight },
+  statusChipText: { color: colors.primary, fontSize: 12 },
+  errorCard: { marginTop: spacing.md, borderWidth: 1, borderColor: colors.error },
+  errorText: { color: colors.error },
 });

@@ -138,6 +138,9 @@ CORS_ALLOW_ALL_ORIGINS = True if DEBUG else False
 VISIT_PHOTO_MAX_SIZE_MB = 5
 VISIT_PHOTO_ALLOWED_EXTENSIONS = ("image/jpeg", "image/png", "image/jpg")
 
+# Visit GPS: max distance (meters) from farmer/farm to accept visit. Increase for development/testing.
+VISIT_MAX_DISTANCE_METERS = config("VISIT_MAX_DISTANCE_METERS", default=100, cast=int)
+
 # Email (staff credentials): console when DEBUG, else SMTP (override with EMAIL_BACKEND if needed)
 if DEBUG:
     EMAIL_BACKEND = config(

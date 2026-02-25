@@ -6,7 +6,6 @@ from django.db import models
 
 class Farmer(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    title = models.CharField(max_length=30, blank=True)
     first_name = models.CharField(max_length=100)
     middle_name = models.CharField(max_length=100, blank=True)
     last_name = models.CharField(max_length=100)
@@ -24,10 +23,13 @@ class Farmer(models.Model):
     )
     created_at = models.DateTimeField(auto_now_add=True)
 
+    class Meta:
+        ordering = ["created_at"]
+
     @property
     def name(self):
-        """Display name: Title First Middle Last (for backwards compatibility)."""
-        parts = [p for p in (self.title, self.first_name, self.middle_name, self.last_name) if p]
+        """Display name: First Middle Last."""
+        parts = [p for p in (self.first_name, self.middle_name, self.last_name) if p]
         return " ".join(parts) if parts else ""
 
     def __str__(self):

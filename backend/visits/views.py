@@ -1,3 +1,5 @@
+import logging
+
 from django.conf import settings as django_settings
 from rest_framework import generics, status
 from rest_framework.parsers import FormParser, MultiPartParser
@@ -7,7 +9,9 @@ from farmers.models import Farm, Farmer
 
 from .models import Visit
 from .serializers import VisitCreateSerializer, VisitSerializer
-from .utils import MAX_VISIT_DISTANCE_METERS, haversine_meters
+from .utils import haversine_meters
+
+logger = logging.getLogger(__name__)
 
 
 def _validate_photo(file):
@@ -64,7 +68,9 @@ class VisitListCreateView(generics.ListCreateAPIView):
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
+        if not serializer.is_valid():
+            logger.warning("POST /api/visits/ validation failed: %s", serializer.errors)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         data = serializer.validated_data
         farmer_id = data["farmer_id"]
         farm_id = data.get("farm_id")
@@ -74,6 +80,7 @@ class VisitListCreateView(generics.ListCreateAPIView):
 
         err_msg = _validate_photo(photo)[1]
         if err_msg:
+            logger.warning("POST /api/visits/ photo invalid: %s", err_msg)
             return Response({"photo": [err_msg]}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
@@ -111,12 +118,15 @@ class VisitListCreateView(generics.ListCreateAPIView):
         if ref_lat is None:
             ref_lat, ref_lon = float(farmer.latitude), float(farmer.longitude)
 
+        max_m = getattr(django_settings, "VISIT_MAX_DISTANCE_METERS", 100)
         distance = haversine_meters(lat, lon, ref_lat, ref_lon)
-        if distance > MAX_VISIT_DISTANCE_METERS:
-            return Response(
-                {"detail": "Visit rejected: officer is more than 100m from farmer/farm."},
-                status=status.HTTP_400_BAD_REQUEST,
+        if distance > max_m:
+            msg = (
+                f"Visit rejected: officer is {distance:.0f}m from farmer/farm "
+                f"(max {max_m}m allowed)."
             )
+            logger.warning("POST /api/visits/ %s", msg)
+            return Response({"detail": msg}, status=status.HTTP_400_BAD_REQUEST)
 
         visit = Visit.objects.create(
             officer=user,

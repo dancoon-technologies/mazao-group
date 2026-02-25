@@ -1,8 +1,22 @@
+import { api, type Farmer, type Schedule } from '@/lib/api';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { View, StyleSheet, ScrollView } from 'react-native';
-import { Button, Text, TextInput, ActivityIndicator } from 'react-native-paper';
-import { api, type Farmer, type Schedule } from '@/lib/api';
+import {
+  View,
+  StyleSheet,
+  ScrollView,
+  KeyboardAvoidingView,
+  Platform,
+} from 'react-native';
+import {
+  Appbar,
+  Button,
+  Text,
+  TextInput,
+  ActivityIndicator,
+  Card,
+} from 'react-native-paper';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 function formatDate(iso: string) {
   try {
@@ -68,107 +82,137 @@ export default function ProposeScheduleScreen() {
 
   if (loading) {
     return (
-      <View style={styles.centered}>
-        <ActivityIndicator size="large" />
-      </View>
+      <SafeAreaView style={styles.safe} edges={['bottom']}>
+        <Appbar.Header>
+          <Appbar.BackAction onPress={() => router.back()} />
+          <Appbar.Content title="Propose schedule" />
+        </Appbar.Header>
+        <View style={styles.centered}>
+          <ActivityIndicator size="large" />
+        </View>
+      </SafeAreaView>
     );
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <Text variant="titleMedium" style={styles.sectionTitle}>
-        Propose a visit schedule
-      </Text>
-      <Text variant="bodySmall" style={styles.hint}>
-        Your supervisor will accept or reject the proposal.
-      </Text>
-
-      <Text variant="labelLarge" style={styles.label}>Date *</Text>
-      <TextInput
-        label="Scheduled date"
-        value={selectedDate}
-        onChangeText={setSelectedDate}
-        mode="outlined"
-        placeholder="YYYY-MM-DD"
-        style={styles.input}
-      />
-
-      <Text variant="labelLarge" style={styles.label}>Farmer (optional)</Text>
-      <View style={styles.chipRow}>
-        <Button
-          mode={selectedFarmerId === null ? 'contained' : 'outlined'}
-          compact
-          onPress={() => setSelectedFarmerId(null)}
-          style={styles.chip}
+    <SafeAreaView style={styles.safe} edges={['bottom']}>
+      <Appbar.Header>
+        <Appbar.BackAction onPress={() => router.back()} />
+        <Appbar.Content title="Propose schedule" />
+      </Appbar.Header>
+      <KeyboardAvoidingView
+        style={styles.container}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={80}
+      >
+        <ScrollView
+          style={styles.scroll}
+          contentContainerStyle={styles.content}
+          keyboardShouldPersistTaps="handled"
         >
-          No farmer
-        </Button>
-        {farmers.map((f) => (
-          <Button
-            key={f.id}
-            mode={selectedFarmerId === f.id ? 'contained' : 'outlined'}
-            compact
-            onPress={() => setSelectedFarmerId(f.id)}
-            style={styles.chip}
-          >
-            {f.display_name}
-          </Button>
-        ))}
-      </View>
+          <Text variant="bodyMedium" style={styles.hint}>
+            Your supervisor will accept or reject the proposal.
+          </Text>
 
-      <TextInput
-        label="Notes"
-        value={notes}
-        onChangeText={setNotes}
-        mode="outlined"
-        multiline
-        numberOfLines={2}
-        style={styles.input}
-      />
+          <Text variant="labelLarge" style={styles.label}>Scheduled date *</Text>
+          <TextInput
+            label="Date"
+            value={selectedDate}
+            onChangeText={setSelectedDate}
+            mode="outlined"
+            placeholder="YYYY-MM-DD"
+            style={styles.input}
+            keyboardType="numbers-and-punctuation"
+          />
 
-      {error ? <Text style={styles.error}>{error}</Text> : null}
-
-      <View style={styles.actions}>
-        <Button mode="contained" onPress={submit} loading={submitting} disabled={submitting || !selectedDate}>
-          Propose schedule
-        </Button>
-        <Button mode="text" onPress={() => router.back()}>
-          Cancel
-        </Button>
-      </View>
-
-      <Text variant="titleMedium" style={styles.sectionTitle}>
-        My recent schedules
-      </Text>
-      {schedules.length === 0 ? (
-        <Text variant="bodySmall" style={styles.muted}>No schedules yet</Text>
-      ) : (
-        schedules.slice(0, 10).map((s) => (
-          <View key={s.id} style={styles.scheduleRow}>
-            <Text variant="bodyMedium">
-              {formatDate(s.scheduled_date)} — {s.farmer_display_name ?? 'No farmer'}
-            </Text>
-            <Text variant="bodySmall" style={styles.status}>{s.status}</Text>
+          <Text variant="labelLarge" style={styles.label}>Farmer (optional)</Text>
+          <View style={styles.chipRow}>
+            <Button
+              mode={selectedFarmerId === null ? 'contained' : 'outlined'}
+              compact
+              onPress={() => setSelectedFarmerId(null)}
+              style={styles.chip}
+            >
+              No farmer
+            </Button>
+            {farmers.map((f) => (
+              <Button
+                key={f.id}
+                mode={selectedFarmerId === f.id ? 'contained' : 'outlined'}
+                compact
+                onPress={() => setSelectedFarmerId(f.id)}
+                style={styles.chip}
+              >
+                {f.display_name}
+              </Button>
+            ))}
           </View>
-        ))
-      )}
-    </ScrollView>
+
+          <Text variant="labelLarge" style={styles.label}>Notes</Text>
+          <TextInput
+            label="Notes"
+            value={notes}
+            onChangeText={setNotes}
+            mode="outlined"
+            multiline
+            numberOfLines={3}
+            style={styles.input}
+          />
+
+          {error ? <Text style={styles.error}>{error}</Text> : null}
+
+          <View style={styles.actions}>
+            <Button
+              mode="contained"
+              onPress={submit}
+              loading={submitting}
+              disabled={submitting || !selectedDate}
+            >
+              Propose schedule
+            </Button>
+            <Button mode="text" onPress={() => router.back()}>
+              Cancel
+            </Button>
+          </View>
+
+          <Text variant="titleMedium" style={styles.sectionTitle}>
+            My recent schedules
+          </Text>
+          {schedules.length === 0 ? (
+            <Text variant="bodySmall" style={styles.muted}>No schedules yet</Text>
+          ) : (
+            schedules.slice(0, 10).map((s) => (
+              <Card key={s.id} style={styles.scheduleCard}>
+                <Card.Content>
+                  <Text variant="bodyMedium">
+                    {formatDate(s.scheduled_date)} — {s.farmer_display_name ?? 'No farmer'}
+                  </Text>
+                  <Text variant="bodySmall" style={styles.status}>{s.status}</Text>
+                </Card.Content>
+              </Card>
+            ))
+          )}
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safe: { flex: 1 },
   container: { flex: 1 },
+  scroll: { flex: 1 },
   content: { padding: 16, paddingBottom: 32 },
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  sectionTitle: { marginTop: 16, marginBottom: 8 },
-  hint: { marginBottom: 12, opacity: 0.8 },
-  label: { marginTop: 8, marginBottom: 4 },
+  sectionTitle: { marginTop: 20, marginBottom: 8 },
+  hint: { marginBottom: 16, opacity: 0.8 },
+  label: { marginTop: 12, marginBottom: 4 },
   input: { marginBottom: 12 },
-  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 12 },
+  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 },
   chip: { margin: 0 },
   error: { color: '#b00020', marginVertical: 8 },
-  actions: { gap: 8, marginTop: 16 },
-  scheduleRow: { marginBottom: 8, paddingVertical: 4 },
-  status: { textTransform: 'capitalize', opacity: 0.8 },
+  actions: { gap: 8, marginTop: 20 },
+  scheduleCard: { marginBottom: 8 },
+  status: { textTransform: 'capitalize', opacity: 0.8, marginTop: 2 },
   muted: { opacity: 0.7 },
 });

@@ -18,7 +18,6 @@ class FarmerSerializer(serializers.ModelSerializer):
         model = Farmer
         fields = (
             "id",
-            "title",
             "first_name",
             "middle_name",
             "last_name",
@@ -42,7 +41,6 @@ class FarmerCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Farmer
         fields = (
-            "title",
             "first_name",
             "middle_name",
             "last_name",

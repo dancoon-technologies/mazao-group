@@ -76,7 +76,7 @@ export default function FarmsPage() {
   const countyOptions = useMemo(() => {
     return locations.counties.map((c) => ({ value: String(c.id), label: c.name }));
   }, [locations.counties]);
-  
+
   const subCountyOptions = useMemo(() => {
     if (!form.county_id) return [];
     return locations.sub_counties
@@ -113,7 +113,6 @@ export default function FarmsPage() {
       try {
         await api.createFarm({
           farmer_id: form.farmer_id,
-          region_id: form.region_id,
           county_id: form.county_id,
           sub_county_id: form.sub_county_id,
           village: form.village.trim(),
@@ -188,18 +187,18 @@ export default function FarmsPage() {
                 value={form.region_id || null}
                 onChange={(v) => updateField("region_id", v ?? "")}
               />
-                <Select
-                  label="County"
-                  placeholder="Search county…"
-                  searchable
-                  clearable
-                  data={countyOptions}
-                  value={form.county_id || null}
-                  onChange={(v) => {
-                    updateField("county_id", v ?? "");
-                    updateField("sub_county_id", "");
-                  }}
-                />
+              <Select
+                label="County"
+                placeholder="Search county…"
+                searchable
+                clearable
+                data={countyOptions}
+                value={form.county_id || null}
+                onChange={(v) => {
+                  updateField("county_id", v ?? "");
+                  updateField("sub_county_id", "");
+                }}
+              />
               <Select
                 label="Sub-county"
                 placeholder="Search sub-county…"
