@@ -65,35 +65,27 @@ WantedBy=multi-user.target
 
 ## 3. Nginx
 
-- Reverse proxy to the Gunicorn socket.
-- Serve static files from Django’s `STATIC_ROOT` (after `collectstatic`).
+- Reverse proxy to Gunicorn (PM2 binds to `127.0.0.1:8000`).
+- Serve static files from Django’s `STATIC_ROOT` and media from `MEDIA_ROOT`.
 - SSL via **Let’s Encrypt** (Certbot).
 
-Example Nginx server block (after SSL):
+A ready-to-use server block is in **`backend/docs/nginx-mazao.conf`**. Copy it and adjust paths/domain:
 
-```nginx
-server {
-    listen 443 ssl;
-    server_name api.yourdomain.com;
-    ssl_certificate /etc/letsencrypt/live/api.yourdomain.com/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/api.yourdomain.com/privkey.pem;
-
-    location / {
-        proxy_pass http://unix:/var/www/mazao/backend.sock;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        client_max_body_size 5M;
-    }
-
-    location /static/ {
-        alias /var/www/mazao/backend/staticfiles/;
-    }
-}
+```bash
+sudo cp /var/www/mazao-group/backend/docs/nginx-mazao.conf /etc/nginx/sites-available/mazao
+sudo ln -s /etc/nginx/sites-available/mazao /etc/nginx/sites-enabled/
+# Edit server_name and paths if different from api.yourdomain.com and /var/www/mazao-group
+sudo nginx -t && sudo systemctl reload nginx
 ```
 
-`client_max_body_size 5M` matches the 5 MB photo limit.
+It includes:
+- **HTTP** on port 80 (and an optional **HTTPS** block in comments).
+- `location /static/` → `backend/staticfiles/` (after `collectstatic`).
+- `location /media/` → `backend/media/` (uploaded files).
+- `location /` → proxy to `http://127.0.0.1:8000` with correct headers.
+- `client_max_body_size 5M` for the 5 MB photo limit.
+
+For SSL, run `certbot --nginx -d api.yourdomain.com`; Certbot can enable the HTTPS block for you.
 
 ---
 
