@@ -57,7 +57,7 @@ export const farmerSchema = tableSchema({
     { name: 'longitude', type: 'string', isOptional: true },
     { name: 'crop_type', type: 'string', isOptional: true },
     { name: 'assigned_officer', type: 'string', isOptional: true },
-    { name: 'created_at', type: 'string', isOptional: true },
+    { name: 'created_at', type: 'number', isOptional: false },
   ],
 })
 
@@ -76,7 +76,7 @@ export const farmSchema = tableSchema({
     { name: 'region', type: 'string', isOptional: true },
     { name: 'county', type: 'string', isOptional: true },
     { name: 'sub_county', type: 'string', isOptional: true },
-    { name: 'created_at', type: 'string', isOptional: true },
+    { name: 'created_at', type: 'number', isOptional: false },
   ],
 })
 

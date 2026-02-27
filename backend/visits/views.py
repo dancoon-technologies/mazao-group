@@ -6,6 +6,7 @@ from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.response import Response
 
 from farmers.models import Farm, Farmer
+from schedules.models import Schedule
 
 from .models import Visit
 from .serializers import VisitCreateSerializer, VisitSerializer
@@ -41,7 +42,7 @@ class VisitListCreateView(generics.ListCreateAPIView):
 
     def get_queryset(self):
         user = self.request.user
-        qs = Visit.objects.select_related("officer", "farmer", "farm")
+        qs = Visit.objects.select_related("officer", "farmer", "farm", "schedule", "schedule__farmer")
         if user.role == "admin":
             return qs
         if user.role == "supervisor":
@@ -74,6 +75,7 @@ class VisitListCreateView(generics.ListCreateAPIView):
         data = serializer.validated_data
         farmer_id = data["farmer_id"]
         farm_id = data.get("farm_id")
+        schedule_id = data.get("schedule_id")
         lat = float(data["latitude"])
         lon = float(data["longitude"])
         photo = request.FILES.get("photo")
@@ -121,6 +123,28 @@ class VisitListCreateView(generics.ListCreateAPIView):
         if ref_lat is None:
             ref_lat, ref_lon = float(farmer.latitude), float(farmer.longitude)
 
+        schedule = None
+        if schedule_id:
+            try:
+                schedule = Schedule.objects.get(pk=schedule_id)
+                if schedule.officer_id != user.pk:
+                    logger.warning("POST /api/visits/ schedule_id=%s officer mismatch user=%s", schedule_id, user.id)
+                    return Response(
+                        {"schedule_id": ["This schedule is not assigned to you."]},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+                if schedule.farmer_id and schedule.farmer_id != farmer_id:
+                    return Response(
+                        {"schedule_id": ["Schedule is for a different farmer."]},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+            except Schedule.DoesNotExist:
+                logger.warning("POST /api/visits/ schedule_id=%s not found", schedule_id)
+                return Response(
+                    {"schedule_id": ["Schedule not found."]},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
         max_m = getattr(django_settings, "VISIT_MAX_DISTANCE_METERS", 100)
         distance = haversine_meters(lat, lon, ref_lat, ref_lon)
         if distance > max_m:
@@ -142,6 +166,7 @@ class VisitListCreateView(generics.ListCreateAPIView):
             officer=user,
             farmer=farmer,
             farm=farm,
+            schedule=schedule,
             latitude=lat,
             longitude=lon,
             notes=data.get("notes", ""),

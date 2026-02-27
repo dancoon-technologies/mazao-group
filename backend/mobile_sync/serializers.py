@@ -5,6 +5,8 @@ from visits.models import Visit
 
 
 class VisitSyncSerializer(serializers.ModelSerializer):
+    schedule = serializers.UUIDField(source="schedule_id", read_only=True, allow_null=True)
+
     class Meta:
         model = Visit
         fields = [
@@ -12,6 +14,7 @@ class VisitSyncSerializer(serializers.ModelSerializer):
             "officer",
             "farmer",
             "farm",
+            "schedule",
             "latitude",
             "longitude",
             "photo",

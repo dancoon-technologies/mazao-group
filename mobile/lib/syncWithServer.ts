@@ -41,6 +41,7 @@ async function pushQueue(accessToken: string): Promise<{ ok: boolean; error?: st
         const form = new FormData()
         form.append('farmer_id', String(payload.farmer_id ?? payload.farmer))
         if (payload.farm_id) form.append('farm_id', String(payload.farm_id))
+        if (payload.schedule_id) form.append('schedule_id', String(payload.schedule_id))
         form.append('latitude', String(payload.latitude))
         form.append('longitude', String(payload.longitude))
         if (payload.notes) form.append('notes', String(payload.notes))
@@ -176,6 +177,7 @@ export { getLastSync, setLastSync }
 export async function enqueueVisit(payload: {
   farmer_id: string
   farm_id?: string | null
+  schedule_id?: string | null
   latitude: number
   longitude: number
   photo_uri: string

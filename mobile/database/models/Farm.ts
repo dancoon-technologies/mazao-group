@@ -17,5 +17,5 @@ export default class Farm extends Model {
   @field('region') region!: string | null
   @field('county') county!: string | null
   @field('sub_county') sub_county!: string | null
-  @field('created_at') created_at!: string | null
+  @field('created_at') created_at!: number
 }

@@ -55,6 +55,8 @@ export interface Visit {
   farmer_display_name?: string;
   farm: string | null;
   farm_display_name?: string | null;
+  schedule?: string | null;
+  schedule_display?: string | null;
   latitude: number;
   longitude: number;
   photo?: string;
@@ -326,6 +328,7 @@ export const api = {
   async createVisit(params: {
     farmer_id: string;
     farm_id?: string | null;
+    schedule_id?: string | null;
     latitude: number;
     longitude: number;
     notes?: string;
@@ -345,6 +348,7 @@ export const api = {
     const form = new FormData();
     form.append('farmer_id', params.farmer_id);
     if (params.farm_id) form.append('farm_id', params.farm_id);
+    if (params.schedule_id) form.append('schedule_id', params.schedule_id);
     form.append('latitude', String(params.latitude));
     form.append('longitude', String(params.longitude));
     if (params.notes) form.append('notes', params.notes);
@@ -375,6 +379,7 @@ export const api = {
         data.photo?.[0] ||
         data.farmer_id?.[0] ||
         data.farm_id?.[0] ||
+        data.schedule_id?.[0] ||
         (typeof data === 'object' && data !== null
           ? (Object.values(data).flat().find((v) => typeof v === 'string') as string | undefined)
           : undefined) ||

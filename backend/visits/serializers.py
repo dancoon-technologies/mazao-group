@@ -7,9 +7,11 @@ class VisitSerializer(serializers.ModelSerializer):
     officer = serializers.UUIDField(source="officer_id", read_only=True)
     farmer = serializers.UUIDField(source="farmer_id", read_only=True)
     farm = serializers.UUIDField(source="farm_id", read_only=True, allow_null=True)
+    schedule = serializers.UUIDField(source="schedule_id", read_only=True, allow_null=True)
     officer_email = serializers.SerializerMethodField()
     farmer_display_name = serializers.SerializerMethodField()
     farm_display_name = serializers.SerializerMethodField()
+    schedule_display = serializers.SerializerMethodField()
 
     class Meta:
         model = Visit
@@ -21,6 +23,8 @@ class VisitSerializer(serializers.ModelSerializer):
             "farmer_display_name",
             "farm",
             "farm_display_name",
+            "schedule",
+            "schedule_display",
             "latitude",
             "longitude",
             "photo",
@@ -56,16 +60,23 @@ class VisitSerializer(serializers.ModelSerializer):
             return str(obj.farm)
         return None
 
+    def get_schedule_display(self, obj):
+        if obj.schedule_id and obj.schedule:
+            return f"{obj.schedule.scheduled_date} — {obj.schedule.farmer.name if obj.schedule.farmer_id else 'N/A'}"
+        return None
+
 
 class VisitCreateSerializer(serializers.ModelSerializer):
     farmer_id = serializers.UUIDField(write_only=True)
     farm_id = serializers.UUIDField(write_only=True, required=False, allow_null=True)
+    schedule_id = serializers.UUIDField(write_only=True, required=False, allow_null=True)
 
     class Meta:
         model = Visit
         fields = (
             "farmer_id",
             "farm_id",
+            "schedule_id",
             "latitude",
             "longitude",
             "notes",

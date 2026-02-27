@@ -14,5 +14,5 @@ export default class Farmer extends Model {
   @field('longitude') longitude!: string | null
   @field('crop_type') crop_type!: string | null
   @field('assigned_officer') assigned_officer!: string | null
-  @field('created_at') created_at!: string | null
+  @field('created_at') created_at!: number
 }

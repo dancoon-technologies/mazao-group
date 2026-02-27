@@ -62,6 +62,13 @@ class Visit(MobileSyncModel):
         blank=True,
         related_name="visits",
     )
+    schedule = models.ForeignKey(
+        "schedules.Schedule",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="visits",
+    )
     latitude = models.DecimalField(max_digits=10, decimal_places=7)
     longitude = models.DecimalField(max_digits=10, decimal_places=7)
     photo = models.ImageField(upload_to="visits/%Y/%m/", blank=True)

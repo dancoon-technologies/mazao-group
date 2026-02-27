@@ -1,7 +1,9 @@
 import { database } from '@/database';
 import FarmerModel from '@/database/models/Farmer';
 import FarmModel from '@/database/models/Farm';
-import { api, type Farm, type Farmer, type VisitSettings } from '@/lib/api';
+import ScheduleModel from '@/database/models/Schedule';
+import { useAuth } from '@/contexts/AuthContext';
+import { api, type Farm, type Farmer, type Schedule, type VisitSettings } from '@/lib/api';
 import { ACTIVITY_TYPES, DEFAULT_ACTIVITY_TYPE } from '@/lib/constants/activityTypes';
 import { enqueueVisit, syncWithServer } from '@/lib/syncWithServer';
 import { Q } from '@nozbe/watermelondb';
@@ -59,7 +61,8 @@ function haversineDistance(
 export default function RecordVisitScreen() {
   const router = useRouter();
   const theme = useTheme();
-  const params = useLocalSearchParams<{ farmerId?: string }>();
+  const { userId } = useAuth();
+  const params = useLocalSearchParams<{ farmerId?: string; scheduleId?: string }>();
   const [permission, requestPermission] = useCameraPermissions();
   const [location, setLocation] = useState<Location.LocationObject | null>(null);
   const [locationError, setLocationError] = useState('');
@@ -68,6 +71,8 @@ export default function RecordVisitScreen() {
   const [error, setError] = useState('');
   const [farmers, setFarmers] = useState<Farmer[]>([]);
   const [farms, setFarms] = useState<Farm[]>([]);
+  const [plannedSchedules, setPlannedSchedules] = useState<Schedule[]>([]);
+  const [selectedScheduleId, setSelectedScheduleId] = useState<string | null>(params.scheduleId ?? null);
   const [selectedFarmerId, setSelectedFarmerId] = useState<string | null>(params.farmerId ?? null);
   const [selectedFarmId, setSelectedFarmId] = useState<string | null>(null);
   const [activityType, setActivityType] = useState(DEFAULT_ACTIVITY_TYPE);
@@ -144,7 +149,7 @@ export default function RecordVisitScreen() {
           longitude: r.longitude ?? undefined,
           crop_type: r.crop_type ?? undefined,
           assigned_officer: r.assigned_officer ?? undefined,
-          created_at: r.created_at ?? undefined,
+          created_at: r.created_at ? new Date(r.created_at).toISOString() : undefined,
         }));
         setFarmers(list);
       } catch {
@@ -163,6 +168,55 @@ export default function RecordVisitScreen() {
   useEffect(() => {
     if (params.farmerId) setSelectedFarmerId(params.farmerId);
   }, [params.farmerId]);
+
+  useEffect(() => {
+    if (!userId) {
+      setPlannedSchedules([]);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const schedulesCollection = database.get('schedules');
+        const rows = await schedulesCollection
+          .query(Q.where('officer', userId))
+          .fetch() as ScheduleModel[];
+        if (cancelled) return;
+        const startOfToday = new Date();
+        startOfToday.setHours(0, 0, 0, 0);
+        const startTs = startOfToday.getTime();
+        const endTs = startTs + 7 * 24 * 60 * 60 * 1000;
+        const list: Schedule[] = rows
+          .filter((r) => !r.is_deleted && r.scheduled_date >= startTs && r.scheduled_date <= endTs)
+          .sort((a, b) => a.scheduled_date - b.scheduled_date)
+          .map((r) => ({
+            id: r.id,
+            officer: r.officer,
+            officer_email: '',
+            farmer: r.farmer ?? null,
+            farmer_display_name: null,
+            scheduled_date: new Date(r.scheduled_date).toISOString().slice(0, 10),
+            notes: r.notes ?? '',
+            status: r.status as 'proposed' | 'accepted' | 'rejected',
+            created_at: undefined,
+          }));
+        setPlannedSchedules(list);
+      } catch {
+        if (!cancelled) setPlannedSchedules([]);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [userId]);
+
+  useEffect(() => {
+    if (params.scheduleId && plannedSchedules.length > 0) {
+      const s = plannedSchedules.find((s) => s.id === params.scheduleId);
+      if (s?.farmer) {
+        setSelectedScheduleId(s.id);
+        setSelectedFarmerId(s.farmer);
+      }
+    }
+  }, [params.scheduleId, plannedSchedules]);
 
   useEffect(() => {
     if (!selectedFarmerId) {
@@ -191,7 +245,7 @@ export default function RecordVisitScreen() {
           county: r.county ?? undefined,
           sub_county_id: r.sub_county_id ?? undefined,
           sub_county: r.sub_county ?? undefined,
-          created_at: r.created_at ?? undefined,
+          created_at: r.created_at ? new Date(r.created_at).toISOString() : undefined,
         }));
         setFarms(list);
       } catch {
@@ -277,6 +331,7 @@ export default function RecordVisitScreen() {
           await api.createVisit({
             farmer_id: selectedFarmerId,
             farm_id: selectedFarmId || undefined,
+            schedule_id: selectedScheduleId || undefined,
             latitude: location.coords.latitude,
             longitude: location.coords.longitude,
             photo: { uri: photoUri, type: 'image/jpeg', name: 'visit.jpg' },
@@ -300,6 +355,7 @@ export default function RecordVisitScreen() {
       await enqueueVisit({
         farmer_id: selectedFarmerId,
         farm_id: selectedFarmId || undefined,
+        schedule_id: selectedScheduleId || undefined,
         latitude: location.coords.latitude,
         longitude: location.coords.longitude,
         photo_uri: photoUri,
@@ -322,9 +378,10 @@ export default function RecordVisitScreen() {
     } finally {
       setSubmitting(false);
     }
-  }, [selectedFarmerId, selectedFarmId, photoUri, location, activityType, notes, cropStage, germinationPercent, survivalRatePercent, orderValue, harvestKgs, pestsDiseases, farmersFeedback, isOnline, router]);
+  }, [selectedFarmerId, selectedFarmId, selectedScheduleId, photoUri, location, activityType, notes, cropStage, germinationPercent, survivalRatePercent, orderValue, harvestKgs, pestsDiseases, farmersFeedback, isOnline, router]);
 
   const activityLabel = ACTIVITY_TYPES.find((a) => a.value === activityType)?.label ?? activityType;
+  const scheduleLocked = !!selectedScheduleId;
 
   if (!permission) {
     return (
@@ -372,12 +429,62 @@ export default function RecordVisitScreen() {
             </Chip>
           )}
 
+          {plannedSchedules.length > 0 && (
+            <Surface style={styles.section} elevation={0}>
+              <Text variant="labelLarge" style={styles.fieldLabel}>Link to planned visit (optional)</Text>
+              <Text variant="bodySmall" style={styles.hint}>
+                Selecting a schedule links this visit to that planned visit. Farmer and farm are then fixed for this visit.
+              </Text>
+              <View style={styles.scheduleChips}>
+                <Chip
+                  selected={selectedScheduleId === null}
+                  onPress={() => {
+                    setSelectedScheduleId(null);
+                  }}
+                  style={styles.scheduleChip}
+                  compact
+                >
+                  None
+                </Chip>
+                {plannedSchedules.map((s) => {
+                  const farmerName = farmers.find((f) => f.id === s.farmer)?.display_name ?? s.farmer ?? '—';
+                  const dateStr = s.scheduled_date;
+                  return (
+                    <Chip
+                      key={s.id}
+                      selected={selectedScheduleId === s.id}
+                      onPress={() => {
+                        setSelectedScheduleId(s.id);
+                        if (s.farmer) setSelectedFarmerId(s.farmer);
+                      }}
+                      style={styles.scheduleChip}
+                      compact
+                    >
+                      {dateStr} — {farmerName}
+                    </Chip>
+                  );
+                })}
+              </View>
+            </Surface>
+          )}
+
           <Surface style={styles.section} elevation={0}>
             <Text variant="labelLarge" style={styles.fieldLabel}>Farmer *</Text>
             {farmers.length === 0 ? (
               <Text variant="bodyMedium" style={styles.hint}>
                 No farmers yet. Add a farmer first, then record visits.
               </Text>
+            ) : scheduleLocked ? (
+              <>
+                <TextInput
+                  placeholder="Select farmer"
+                  value={selectedFarmer?.display_name ?? ''}
+                  mode="outlined"
+                  editable={false}
+                  style={styles.input}
+                />
+                <HelperText type="info" style={styles.lockedHint}>Set by selected planned visit. Change schedule above to change farmer.</HelperText>
+              </>
             ) : (
               <>
                 <Menu
@@ -421,10 +528,14 @@ export default function RecordVisitScreen() {
             {selectedFarmerId && farms.length > 0 && (
               <>
                 <Text variant="labelLarge" style={styles.fieldLabel}>Farm (optional)</Text>
+                {scheduleLocked && (
+                  <HelperText type="info" style={styles.lockedHint}>Set by selected planned visit. Change schedule above to change farm.</HelperText>
+                )}
                 <Card
                   mode={selectedFarmId === null ? 'contained' : 'outlined'}
-                  style={styles.farmCard}
-                  onPress={() => setSelectedFarmId(null)}
+                  style={[styles.farmCard, scheduleLocked && styles.farmCardLocked]}
+                  onPress={scheduleLocked ? undefined : () => setSelectedFarmId(null)}
+                  disabled={scheduleLocked}
                 >
                   <Card.Content>
                     <Text variant="bodyMedium">No specific farm</Text>
@@ -434,8 +545,9 @@ export default function RecordVisitScreen() {
                   <Card
                     key={farm.id}
                     mode={selectedFarmId === farm.id ? 'contained' : 'outlined'}
-                    style={styles.farmCard}
-                    onPress={() => setSelectedFarmId(farm.id)}
+                    style={[styles.farmCard, scheduleLocked && styles.farmCardLocked]}
+                    onPress={scheduleLocked ? undefined : () => setSelectedFarmId(farm.id)}
+                    disabled={scheduleLocked}
                   >
                     <Card.Title title={farm.village} titleVariant="titleSmall" />
                     <Card.Content>
@@ -736,6 +848,10 @@ const styles = StyleSheet.create({
   twoColRow: { flexDirection: 'row', gap: 12, marginBottom: 0 },
   addFarmerBtn: { marginTop: -2, marginBottom: 2 },
   farmCard: { marginBottom: 4 },
+  farmCardLocked: { opacity: 0.85 },
+  lockedHint: { marginTop: 2, marginBottom: 4 },
+  scheduleChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 6 },
+  scheduleChip: { marginBottom: 0 },
   card: { marginBottom: 8 },
   divider: { marginVertical: 4 },
   progressBar: { height: 6, borderRadius: 2, marginVertical: 4 },

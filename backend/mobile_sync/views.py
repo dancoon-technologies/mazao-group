@@ -63,7 +63,7 @@ class MobileSyncPullView(APIView):
         last_sync = request.query_params.get("last_sync")
         last_sync_dt = parse_datetime(last_sync) if last_sync else None
 
-        visits_qs = Visit.objects.filter(officer=request.user).select_related("farmer", "farm")
+        visits_qs = Visit.objects.filter(officer=request.user).select_related("farmer", "farm", "schedule")
         schedules_qs = Schedule.objects.filter(officer=request.user).select_related("farmer")
 
         if last_sync_dt:

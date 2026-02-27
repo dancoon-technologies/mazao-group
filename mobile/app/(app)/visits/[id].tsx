@@ -88,6 +88,7 @@ export default function RecordVisitScreen() {
     try {
       await api.createVisit({
         farmer_id: farmerId,
+        schedule_id: selectedScheduleId,
         latitude: location.coords.latitude,
         longitude: location.coords.longitude,
         photo: { uri: photoUri, type: 'image/jpeg', name: 'visit.jpg' },

@@ -62,7 +62,7 @@ export function normalizeServerFarmer(record: Record<string, unknown>): Record<s
     longitude: record.longitude != null ? String(record.longitude) : null,
     crop_type: record.crop_type ?? null,
     assigned_officer: record.assigned_officer ?? null,
-    created_at: record.created_at ?? null,
+    created_at: isoToTimestamp(record.created_at as string) ?? 0,
   }
 }
 
@@ -82,7 +82,7 @@ export function normalizeServerFarm(record: Record<string, unknown>): Record<str
     region: record.region ?? null,
     county: record.county ?? null,
     sub_county: record.sub_county ?? null,
-    created_at: record.created_at ?? null,
+    created_at: isoToTimestamp(record.created_at as string) ?? 0,
   }
 }
 
