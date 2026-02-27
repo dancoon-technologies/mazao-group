@@ -16,7 +16,31 @@ Production checklist: Ubuntu server, Gunicorn, Nginx, PostgreSQL, S3, SSL.
 ## 2. Application
 
 - Run Django with **Gunicorn** (no `runserver` in production).
-- Use a process manager (**systemd**) to keep Gunicorn running.
+- Use a process manager (**PM2** or **systemd**) to keep Gunicorn running.
+
+### PM2 (recommended for this repo)
+
+From the **repo root** (e.g. `/var/www/mazao-group`):
+
+```bash
+# First time: ensure venv exists in backend and gunicorn is installed
+cd backend
+python -m venv .venv  # or create elsewhere and set path in ecosystem.config.cjs
+source .venv/bin/activate
+pip install -r requirements.txt
+cd ..
+
+# Start
+pm2 start ecosystem.config.cjs
+
+# After deploy (e.g. git pull, migrate)
+pm2 reload mazao-backend
+# Or: pm2 restart all
+```
+
+The `ecosystem.config.cjs` in the repo root binds Gunicorn to `0.0.0.0:8000`. Put Nginx (or another proxy) in front and proxy to `http://127.0.0.1:8000`.
+
+### systemd (alternative)
 
 Example systemd unit (`/etc/systemd/system/mazao.service`):
 
