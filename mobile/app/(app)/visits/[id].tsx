@@ -124,11 +124,23 @@ export default function RecordVisitScreen() {
     );
   }
 
+  const selectedSchedule = selectedScheduleId ? schedules.find((s) => s.id === selectedScheduleId) : null;
+
   return (
     <View style={styles.container}>
+      {selectedScheduleId && selectedSchedule && (
+        <View style={styles.section}>
+          <Text variant="bodySmall" style={styles.hint}>
+            Recording visit for planned schedule — {selectedSchedule.farmer_display_name ?? 'Farmer'} (fixed).
+          </Text>
+        </View>
+      )}
       {!params.id && schedules.length > 0 && (
         <View style={styles.section}>
           <Text variant="labelLarge">Select schedule</Text>
+          <Text variant="bodySmall" style={styles.hint}>
+            Visit will be linked to the selected schedule. Farmer is fixed by the schedule.
+          </Text>
           {schedules.map((s) => (
             <Button
               key={s.id}
@@ -211,6 +223,11 @@ const styles = StyleSheet.create({
   },
   section: {
     marginBottom: 16,
+  },
+  hint: {
+    marginTop: 2,
+    marginBottom: 8,
+    opacity: 0.85,
   },
   scheduleBtn: {
     marginTop: 4,
