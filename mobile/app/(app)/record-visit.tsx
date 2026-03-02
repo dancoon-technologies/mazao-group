@@ -1,12 +1,12 @@
-import { database } from '@/database';
-import FarmerModel from '@/database/models/Farmer';
-import FarmModel from '@/database/models/Farm';
-import ScheduleModel from '@/database/models/Schedule';
+import {
+  getFarmers as getFarmersDb,
+  getFarms as getFarmsDb,
+  getPlannedSchedules as getPlannedSchedulesDb,
+} from '@/database/sqlite';
 import { useAuth } from '@/contexts/AuthContext';
 import { api, type Farm, type Farmer, type Schedule, type VisitSettings } from '@/lib/api';
 import { ACTIVITY_TYPES, DEFAULT_ACTIVITY_TYPE } from '@/lib/constants/activityTypes';
 import { enqueueVisit, syncWithServer } from '@/lib/syncWithServer';
-import { Q } from '@nozbe/watermelondb';
 import NetInfo from '@react-native-community/netinfo';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as Location from 'expo-location';
@@ -135,8 +135,7 @@ export default function RecordVisitScreen() {
     let cancelled = false;
     (async () => {
       try {
-        const farmersCollection = database.get('farmers');
-        const rows = await farmersCollection.query().fetch() as FarmerModel[];
+        const rows = await getFarmersDb();
         if (cancelled) return;
         const list: Farmer[] = rows.map((r) => ({
           id: r.id,
@@ -177,29 +176,23 @@ export default function RecordVisitScreen() {
     let cancelled = false;
     (async () => {
       try {
-        const schedulesCollection = database.get('schedules');
-        const rows = await schedulesCollection
-          .query(Q.where('officer', userId))
-          .fetch() as ScheduleModel[];
-        if (cancelled) return;
         const startOfToday = new Date();
         startOfToday.setHours(0, 0, 0, 0);
         const startTs = startOfToday.getTime();
         const endTs = startTs + 7 * 24 * 60 * 60 * 1000;
-        const list: Schedule[] = rows
-          .filter((r) => !r.is_deleted && r.scheduled_date >= startTs && r.scheduled_date <= endTs)
-          .sort((a, b) => a.scheduled_date - b.scheduled_date)
-          .map((r) => ({
-            id: r.id,
-            officer: r.officer,
-            officer_email: '',
-            farmer: r.farmer ?? null,
-            farmer_display_name: null,
-            scheduled_date: new Date(r.scheduled_date).toISOString().slice(0, 10),
-            notes: r.notes ?? '',
-            status: r.status as 'proposed' | 'accepted' | 'rejected',
-            created_at: undefined,
-          }));
+        const rows = await getPlannedSchedulesDb(userId, startTs, endTs);
+        if (cancelled) return;
+        const list: Schedule[] = rows.map((r) => ({
+          id: r.id,
+          officer: r.officer,
+          officer_email: '',
+          farmer: r.farmer ?? null,
+          farmer_display_name: null,
+          scheduled_date: new Date(r.scheduled_date).toISOString().slice(0, 10),
+          notes: r.notes ?? '',
+          status: r.status as 'proposed' | 'accepted' | 'rejected',
+          created_at: undefined,
+        }));
         setPlannedSchedules(list);
       } catch {
         if (!cancelled) setPlannedSchedules([]);
@@ -228,8 +221,7 @@ export default function RecordVisitScreen() {
     setSelectedFarmId(null);
     (async () => {
       try {
-        const farmsCollection = database.get('farms');
-        const rows = await farmsCollection.query(Q.where('farmer_id', selectedFarmerId)).fetch() as FarmModel[];
+        const rows = await getFarmsDb(selectedFarmerId);
         if (cancelled) return;
         const list: Farm[] = rows.map((r) => ({
           id: r.id,

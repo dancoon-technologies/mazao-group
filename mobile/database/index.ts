@@ -1,19 +1,23 @@
-import { Database } from '@nozbe/watermelondb'
-import SQLiteAdapter from '@nozbe/watermelondb/adapters/sqlite'
-import Farm from './models/Farm'
-import Farmer from './models/Farmer'
-import Schedule from './models/Schedule'
-import SyncQueue from './models/SyncQueue'
-import Visit from './models/Visit'
-import migrations from './migrations'
-import { schema } from './schema'
+/**
+ * Local database — uses expo-sqlite (Expo-supported).
+ * Re-exports from sqlite for convenience.
+ */
 
-const adapter = new SQLiteAdapter({
-  schema,
-  migrations,
-})
-
-export const database = new Database({
-  adapter,
-  modelClasses: [Visit, Schedule, SyncQueue, Farmer, Farm],
-})
+export {
+  getDb,
+  getFarmers,
+  getFarms,
+  getPlannedSchedules,
+  getPendingSyncQueue,
+  enqueueSyncItem,
+  markSyncItemSynced,
+  getPendingSyncCount,
+  createOrUpdateVisit,
+  createOrUpdateSchedule,
+  createOrUpdateFarmer,
+  createOrUpdateFarm,
+  type FarmerRow,
+  type FarmRow,
+  type ScheduleRow,
+  type SyncQueueRow,
+} from './sqlite'

@@ -1,6 +1,3 @@
-import { Model } from '@nozbe/watermelondb'
-import { database } from './index'
-
 function isoToTimestamp(iso: string | null | undefined): number | null {
   if (iso == null) return null
   const t = new Date(iso).getTime()
@@ -84,36 +81,4 @@ export function normalizeServerFarm(record: Record<string, unknown>): Record<str
     sub_county: record.sub_county ?? null,
     created_at: isoToTimestamp(record.created_at as string) ?? 0,
   }
-}
-
-/**
- * createOrUpdate - inserts or updates a record in WatermelonDB
- * @param tableName - 'visits' | 'schedules'
- * @param data - record payload (normalized for local schema)
- * @param ModelClass - Visit or Schedule model class
- */
-export async function createOrUpdate<T extends Model>(
-  tableName: string,
-  data: Record<string, unknown>,
-  ModelClass: new (...args: unknown[]) => T
-) {
-  const collection = database.get(tableName)
-  const id = data.id as string
-  const existing = await collection.find(id).catch(() => null)
-
-  await database.write(async () => {
-    if (existing) {
-      await existing.update((record) => {
-        Object.entries(data).forEach(([key, value]) => {
-          ;(record as unknown as Record<string, unknown>)[key] = value
-        })
-      })
-    } else {
-      await collection.create((record) => {
-        Object.entries(data).forEach(([key, value]) => {
-          ;(record as unknown as Record<string, unknown>)[key] = value
-        })
-      })
-    }
-  })
 }

@@ -1,18 +1,21 @@
 import * as SecureStore from 'expo-secure-store'
 import { API_BASE, LAST_SYNC_KEY, STORAGE_KEYS, SYNC_PULL_PATH } from '@/constants/config'
-import { database } from '@/database'
 import {
-  createOrUpdate,
+  createOrUpdateFarm,
+  createOrUpdateFarmer,
+  createOrUpdateSchedule,
+  createOrUpdateVisit,
+  getPendingSyncCount as getPendingSyncCountDb,
+  getPendingSyncQueue,
+  markSyncItemSynced,
+  enqueueSyncItem,
+} from '@/database/sqlite'
+import {
   normalizeServerFarm,
   normalizeServerFarmer,
   normalizeServerSchedule,
   normalizeServerVisit,
 } from '@/database/helpers'
-import Farm from '@/database/models/Farm'
-import Farmer from '@/database/models/Farmer'
-import Schedule from '@/database/models/Schedule'
-import SyncQueue from '@/database/models/SyncQueue'
-import Visit from '@/database/models/Visit'
 import { api } from '@/lib/api'
 import { logger } from '@/lib/logger'
 
@@ -30,9 +33,7 @@ async function setLastSync(iso: string): Promise<void> {
 
 /** Push pending sync queue items to the server (visits via multipart, schedules via JSON) */
 async function pushQueue(accessToken: string): Promise<{ ok: boolean; error?: string }> {
-  const queue = database.get<SyncQueue>('sync_queue')
-  const pending = await queue.query().fetch()
-  const toSync = pending.filter((r) => r.status === 'pending')
+  const toSync = await getPendingSyncQueue()
 
   for (const item of toSync) {
     try {
@@ -89,11 +90,7 @@ async function pushQueue(accessToken: string): Promise<{ ok: boolean; error?: st
         }
       }
 
-      await database.write(async () => {
-        await item.update((r) => {
-          r.status = 'synced'
-        })
-      })
+      await markSyncItemSynced(item.id)
     } catch (e) {
       return {
         ok: false,
@@ -124,11 +121,11 @@ async function pullFromServer(accessToken: string): Promise<{ ok: boolean; error
   const serverTime = data.server_time
   for (const v of data.visits ?? []) {
     const normalized = normalizeServerVisit(v)
-    await createOrUpdate('visits', normalized, Visit as any)
+    await createOrUpdateVisit(normalized)
   }
   for (const s of data.schedules ?? []) {
     const normalized = normalizeServerSchedule(s)
-    await createOrUpdate('schedules', normalized, Schedule as any)
+    await createOrUpdateSchedule(normalized)
   }
   if (serverTime) await setLastSync(serverTime)
   return { ok: true, serverTime }
@@ -140,11 +137,11 @@ async function syncFarmersAndFarms(): Promise<void> {
     const [farmers, farms] = await Promise.all([api.getFarmers(), api.getFarms()])
     for (const f of farmers) {
       const normalized = normalizeServerFarmer(f as unknown as Record<string, unknown>)
-      await createOrUpdate('farmers', normalized, Farmer as any)
+      await createOrUpdateFarmer(normalized)
     }
     for (const f of farms) {
       const normalized = normalizeServerFarm(f as unknown as Record<string, unknown>)
-      await createOrUpdate('farms', normalized, Farm as any)
+      await createOrUpdateFarm(normalized)
     }
     logger.info(`syncFarmersAndFarms: upserted ${farmers.length} farmers, ${farms.length} farms`)
   } catch (e) {
@@ -191,39 +188,19 @@ export async function enqueueVisit(payload: {
   harvest_kgs?: number | null
   farmers_feedback?: string
 }): Promise<void> {
-  const queue = database.get<SyncQueue>('sync_queue')
-  await database.write(async () => {
-    await queue.create((r) => {
-      r.entity = 'visit'
-      r.operation = 'CREATE'
-      r.payload = JSON.stringify(payload)
-      r.status = 'pending'
-      r.timestamp = Date.now()
-    })
-  })
+  await enqueueSyncItem('visit', 'CREATE', payload)
 }
 
-/** Enqueue a schedule for later sync (offline). farmer is the farmer UUID (Farmer model has no title field). */
+/** Enqueue a schedule for later sync (offline). */
 export async function enqueueSchedule(payload: {
   farmer?: string | null
   scheduled_date: string
   notes?: string
 }): Promise<void> {
-  const queue = database.get<SyncQueue>('sync_queue')
-  await database.write(async () => {
-    await queue.create((r) => {
-      r.entity = 'schedule'
-      r.operation = 'CREATE'
-      r.payload = JSON.stringify(payload)
-      r.status = 'pending'
-      r.timestamp = Date.now()
-    })
-  })
+  await enqueueSyncItem('schedule', 'CREATE', payload)
 }
 
 /** Get count of pending sync items */
 export async function getPendingSyncCount(): Promise<number> {
-  const queue = database.get<SyncQueue>('sync_queue')
-  const pending = await queue.query().fetch()
-  return pending.filter((r) => r.status === 'pending').length
+  return getPendingSyncCountDb()
 }
