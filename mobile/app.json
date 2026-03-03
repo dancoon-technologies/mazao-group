@@ -45,7 +45,6 @@
         "expo-build-properties",
         {
           "android": {
-            "newArchEnabled": true,
             "packagingOptions": {
               "pickFirst": [
                 "**/libc++_shared.so"
