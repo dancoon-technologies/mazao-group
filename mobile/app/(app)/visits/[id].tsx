@@ -1,4 +1,4 @@
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { View, StyleSheet, TouchableOpacity, Image, Alert } from 'react-native';
 import { Button, Text, ActivityIndicator } from 'react-native-paper';
@@ -19,10 +19,18 @@ export default function RecordVisitScreen() {
   const [selectedScheduleId, setSelectedScheduleId] = useState<string | null>(params.id ?? null);
   const cameraRef = useRef<CameraView>(null);
 
-  useEffect(() => {
+  const loadSchedules = useCallback(() => {
     api.getSchedules().then(setSchedules).catch(() => setSchedules([]));
+  }, []);
+
+  useEffect(() => {
+    loadSchedules();
     if (params.id) setSelectedScheduleId(params.id);
-  }, [params.id]);
+  }, [params.id, loadSchedules]);
+
+  useFocusEffect(useCallback(() => {
+    loadSchedules();
+  }, [loadSchedules]));
 
   useEffect(() => {
     let cancelled = false;

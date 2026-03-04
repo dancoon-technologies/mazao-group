@@ -2,7 +2,7 @@ import { colors, radius, spacing } from '@/constants/theme';
 import { api, type Schedule, type Visit } from '@/lib/api';
 import { ACTIVITY_TYPES } from '@/lib/constants/activityTypes';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Pressable,
@@ -105,6 +105,10 @@ export default function VisitsScreen() {
   useEffect(() => {
     load();
   }, [load]);
+
+  useFocusEffect(useCallback(() => {
+    load();
+  }, [load]));
 
   const filtered = useMemo(() => {
     let list = visits;

@@ -1,8 +1,7 @@
 import { api, type Farm, type Farmer } from '@/lib/api';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { useIsFocused } from '@react-navigation/native';
 import {
   RefreshControl,
   ScrollView,
@@ -67,10 +66,9 @@ export default function FarmersScreen() {
     }
   }, []);
 
-  const isFocused = useIsFocused();
-  useEffect(() => {
-    if (isFocused) load();
-  }, [isFocused, load]);
+  useFocusEffect(useCallback(() => {
+    load(search.trim() || undefined);
+  }, [load, search]));
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);

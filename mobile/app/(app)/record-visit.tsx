@@ -10,7 +10,7 @@ import { enqueueVisit, syncWithServer } from '@/lib/syncWithServer';
 import NetInfo from '@react-native-community/netinfo';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as Location from 'expo-location';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Image,
@@ -168,6 +168,60 @@ export default function RecordVisitScreen() {
   useEffect(() => {
     if (params.farmerId) setSelectedFarmerId(params.farmerId);
   }, [params.farmerId]);
+
+  useFocusEffect(
+    useCallback(() => {
+      let cancelled = false;
+      const farmerId = params.farmerId;
+      (async () => {
+        try {
+          const rows = await getFarmersDb();
+          if (cancelled) return;
+          const list: Farmer[] = rows.map((r) => ({
+            id: r.id,
+            first_name: r.first_name,
+            middle_name: r.middle_name ?? undefined,
+            last_name: r.last_name,
+            display_name: r.display_name ?? [r.first_name, r.last_name].filter(Boolean).join(' '),
+            phone: r.phone ?? undefined,
+            latitude: r.latitude ?? undefined,
+            longitude: r.longitude ?? undefined,
+            crop_type: r.crop_type ?? undefined,
+            assigned_officer: r.assigned_officer ?? undefined,
+            created_at: r.created_at ? new Date(r.created_at).toISOString() : undefined,
+          }));
+          setFarmers(list);
+          if (farmerId) setSelectedFarmerId(farmerId);
+        } catch {
+          if (!cancelled && farmerId) setSelectedFarmerId(farmerId);
+        }
+        if (!userId) return;
+        try {
+          const startOfToday = new Date();
+          startOfToday.setHours(0, 0, 0, 0);
+          const startTs = startOfToday.getTime();
+          const endTs = startTs + 7 * 24 * 60 * 60 * 1000;
+          const scheduleRows = await getPlannedSchedulesDb(userId, startTs, endTs);
+          if (cancelled) return;
+          const scheduleList: Schedule[] = scheduleRows.map((r) => ({
+            id: r.id,
+            officer: r.officer,
+            officer_email: '',
+            farmer: r.farmer ?? null,
+            farmer_display_name: null,
+            scheduled_date: new Date(r.scheduled_date).toISOString().slice(0, 10),
+            notes: r.notes ?? '',
+            status: r.status as 'proposed' | 'accepted' | 'rejected',
+            created_at: undefined,
+          }));
+          setPlannedSchedules(scheduleList);
+        } catch {
+          if (!cancelled) setPlannedSchedules([]);
+        }
+      })();
+      return () => { cancelled = true; };
+    }, [params.farmerId, userId])
+  );
 
   useEffect(() => {
     if (!userId) {
@@ -464,9 +518,20 @@ export default function RecordVisitScreen() {
           <Surface style={styles.section} elevation={0}>
             <Text variant="labelLarge" style={styles.fieldLabel}>Farmer *</Text>
             {farmers.length === 0 ? (
-              <Text variant="bodyMedium" style={styles.hint}>
-                No farmers yet. Add a farmer first, then record visits.
-              </Text>
+              <>
+                <Text variant="bodyMedium" style={styles.hint}>
+                  No farmers yet. Add a farmer to record visits.
+                </Text>
+                <Button
+                  mode="contained-tonal"
+                  icon="account-plus"
+                  onPress={() => router.push({ pathname: '/(app)/add-farmer', params: { returnTo: 'record-visit' } })}
+                  style={styles.addFarmerBtn}
+                  compact
+                >
+                  Add farmer
+                </Button>
+              </>
             ) : scheduleLocked ? (
               <>
                 <TextInput
@@ -510,7 +575,7 @@ export default function RecordVisitScreen() {
                 <Button
                   mode="text"
                   icon="account-plus"
-                  onPress={() => router.push('/(app)/add-farmer')}
+                  onPress={() => router.push({ pathname: '/(app)/add-farmer', params: { returnTo: 'record-visit' } })}
                   style={styles.addFarmerBtn}
                   compact
                 >

@@ -1,6 +1,7 @@
 import { useAuth } from '@/contexts/AuthContext';
 import { api, type Farmer, type Officer, type Schedule } from '@/lib/api';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import {
   View,
@@ -36,6 +37,7 @@ const isAssigner = (role: string | null) => role === 'admin' || role === 'superv
 export default function ProposeScheduleScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const searchParams = useLocalSearchParams<{ selectedFarmerId?: string }>();
   const { userId, role } = useAuth();
   const [farmers, setFarmers] = useState<Farmer[]>([]);
   const [officers, setOfficers] = useState<Officer[]>([]);
@@ -92,6 +94,15 @@ export default function ProposeScheduleScreen() {
     const today = new Date().toISOString().slice(0, 10);
     if (!selectedDate) setSelectedDate(today);
   }, [selectedDate]);
+
+  useFocusEffect(
+    useCallback(() => {
+      const id = searchParams.selectedFarmerId;
+      load().then(() => {
+        if (id) setSelectedFarmerId(id);
+      });
+    }, [searchParams.selectedFarmerId, load])
+  );
 
   const submit = useCallback(async () => {
     const dateStr = selectedDate?.trim() ?? '';
@@ -242,6 +253,15 @@ export default function ProposeScheduleScreen() {
                 {f.display_name}
               </Button>
             ))}
+            <Button
+              mode="outlined"
+              compact
+              icon="account-plus"
+              onPress={() => router.push({ pathname: '/(app)/add-farmer', params: { returnTo: 'propose-schedule' } })}
+              style={styles.chip}
+            >
+              Add farmer
+            </Button>
           </View>
 
           <Text variant="labelLarge" style={styles.label}>Notes</Text>

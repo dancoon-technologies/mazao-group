@@ -8,7 +8,7 @@ import {
 import { colors, spacing } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
 import { api, type Farmer, type Schedule } from '@/lib/api';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import {
   RefreshControl,
@@ -72,6 +72,10 @@ export default function HomeScreen() {
   useEffect(() => {
     load();
   }, [load]);
+
+  useFocusEffect(useCallback(() => {
+    load();
+  }, [load]));
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);

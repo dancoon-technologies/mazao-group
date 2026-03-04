@@ -1,4 +1,4 @@
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import {
   View,
@@ -11,6 +11,8 @@ import {
 import { Button, Text, TextInput, ActivityIndicator } from 'react-native-paper';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Location from 'expo-location';
+import { createOrUpdateFarmer, createOrUpdateFarm } from '@/database';
+import { normalizeServerFarmer, normalizeServerFarm } from '@/database/helpers';
 import { api } from '@/lib/api';
 
 type LocationState = {
@@ -24,6 +26,8 @@ const KEYBOARD_PADDING = 320;
 export default function AddFarmerScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const params = useLocalSearchParams<{ returnTo?: string }>();
+  const returnTo = params.returnTo;
   const [locations, setLocations] = useState<LocationState | null>(null);
   const [loadingLocations, setLoadingLocations] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -135,7 +139,7 @@ export default function AddFarmerScreen() {
         return;
       }
 
-      await api.createFarm({
+      const farm = await api.createFarm({
         farmer_id: farmerId,
         region_id: regionId,
         county_id: countyId,
@@ -146,6 +150,20 @@ export default function AddFarmerScreen() {
         plot_size: plotSize.trim() || undefined,
         crop_type: farmCropType.trim() || undefined,
       });
+
+      if (returnTo === 'record-visit') {
+        await createOrUpdateFarmer(normalizeServerFarmer(farmer as unknown as Record<string, unknown>));
+        await createOrUpdateFarm(normalizeServerFarm(farm as unknown as Record<string, unknown>));
+      }
+
+      if (returnTo === 'propose-schedule') {
+        router.replace({ pathname: '/(app)/propose-schedule', params: { selectedFarmerId: farmerId } });
+        return;
+      }
+      if (returnTo === 'record-visit') {
+        router.replace({ pathname: '/(app)/record-visit', params: { farmerId } });
+        return;
+      }
 
       Alert.alert('Success', 'Farmer and farm added.', [
         { text: 'OK', onPress: () => router.back() },
@@ -173,6 +191,7 @@ export default function AddFarmerScreen() {
     plotSize,
     farmCropType,
     router,
+    returnTo,
   ]);
 
   const counties = locations

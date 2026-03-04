@@ -1,4 +1,5 @@
 import { api, type Visit } from '@/lib/api';
+import { useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -52,6 +53,10 @@ export default function HistoryScreen() {
   useEffect(() => {
     load();
   }, [load]);
+
+  useFocusEffect(useCallback(() => {
+    load();
+  }, [load]));
 
   if (loading) {
     return (
