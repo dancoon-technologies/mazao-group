@@ -1,0 +1,6 @@
+# Exclude sibling apps when building mobile (run from repo root)
+# Keeps only mobile/ in the archive and reduces upload size.
+backend/
+web/
+docs/
+node_modules/

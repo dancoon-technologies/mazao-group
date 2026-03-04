@@ -1,0 +1,48 @@
+# Dependencies (EAS installs fresh)
+node_modules/
+
+# Expo
+.expo/
+dist/
+web-build/
+expo-env.d.ts
+
+# Native build outputs (EAS rebuilds these)
+.kotlin/
+*.orig.*
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+android/build
+android/app/build
+android/.gradle
+
+# Metro
+.metro-health-check*
+
+# Debug
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+
+# macOS
+.DS_Store
+*.pem
+
+# Local env (keep .env if needed for build; exclude locals)
+.env*.local
+
+# TypeScript
+*.tsbuildinfo
+
+# Unused / dev-only
+app-example
+.vscode/
+.cursor/
+*.md
+coverage/
+__tests__/
+*.test.*
+*.spec.*
