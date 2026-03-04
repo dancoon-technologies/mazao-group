@@ -21,6 +21,7 @@ import {
   Banner,
 } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { colors } from '@/constants/theme';
 
 function formatDate(iso: string) {
   try {
@@ -291,8 +292,9 @@ export default function ProposeScheduleScreen() {
         visible={snackbarVisible}
         onDismiss={dismissSnackbar}
         duration={snackbarMsg?.type === 'success' ? 2500 : 5000}
-        action={snackbarMsg?.type === 'error' ? { label: 'Dismiss', onPress: dismissSnackbar } : undefined}
-        style={snackbarMsg?.type === 'error' ? styles.snackbarError : undefined}
+        action={snackbarMsg?.type === 'error' ? { label: 'Dismiss', onPress: dismissSnackbar, textColor: colors.white } : undefined}
+        style={[styles.snackbarTop, snackbarMsg?.type === 'error' ? styles.snackbarError : styles.snackbarGreen]}
+        theme={{ colors: { surface: snackbarMsg?.type === 'error' ? colors.error : colors.primary, onSurface: colors.white } }}
       >
         {snackbarMsg?.text}
       </Snackbar>
@@ -314,7 +316,9 @@ const styles = StyleSheet.create({
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 },
   chip: { margin: 0 },
   banner: { backgroundColor: '#ffebee' },
-  snackbarError: { backgroundColor: '#b00020' },
+  snackbarTop: { position: 'absolute', top: 0, left: 0, right: 0 },
+  snackbarGreen: { backgroundColor: colors.primary },
+  snackbarError: { backgroundColor: colors.error },
   actions: { gap: 8, marginTop: 20 },
   scheduleCard: { marginBottom: 8 },
   status: { textTransform: 'capitalize', opacity: 0.8, marginTop: 2 },

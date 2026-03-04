@@ -39,6 +39,7 @@ import {
   useTheme
 } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { colors } from '@/constants/theme';
 
 function haversineDistance(
   lat1: number,
@@ -791,7 +792,7 @@ export default function RecordVisitScreen() {
         </Dialog>
       </Portal>
 
-      <Snackbar visible={!!snackbarMsg} onDismiss={() => setSnackbarMsg('')} duration={4000}>
+      <Snackbar visible={!!snackbarMsg} onDismiss={() => setSnackbarMsg('')} duration={4000} style={styles.snackbarTop}>
         {snackbarMsg}
       </Snackbar>
     </SafeAreaView>
@@ -800,6 +801,8 @@ export default function RecordVisitScreen() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1 },
+  snackbarTop: { position: 'absolute', top: 0, left: 0, right: 0 },
+  snackbarGreen: { backgroundColor: colors.primary },
   container: { flex: 1 },
   scrollContent: { padding: 12, paddingBottom: 24 },
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 },

@@ -133,7 +133,9 @@ export default function LoginScreen() {
       <Snackbar
         visible={snackbarVisible}
         onDismiss={() => setSnackbarVisible(false)}
-        action={{ label: 'Dismiss', onPress: () => setSnackbarVisible(false) }}
+        action={{ label: 'Dismiss', onPress: () => setSnackbarVisible(false), textColor: colors.white }}
+        style={styles.snackbar}
+        theme={{ colors: { surface: colors.primary, onSurface: colors.white } }}
       >
         {error}
       </Snackbar>
@@ -202,5 +204,12 @@ const styles = StyleSheet.create({
   signInBtnLabel: {
     fontWeight: '700',
     fontSize: 16,
+  },
+  snackbar: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: colors.primary,
   },
 });
