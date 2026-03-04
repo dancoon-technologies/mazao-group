@@ -177,71 +177,96 @@ function getApiErrorMessage(error: unknown): string | null {
   return null;
 }
 
+/** Append requested URL to error message for user visibility when request fails. */
+function withUrl(msg: string, url: string) {
+  return `${msg} — ${url}`;
+}
+
 // --- JSON request helper (with refresh) ---
 
 async function request<T>(
   path: string,
   options: RequestInit = {}
 ): Promise<T> {
+  const url = `${API_BASE}${path}`;
   let access = await getAccessToken();
   const execute = async (token?: string) => {
     const headers = new Headers(options.headers);
     headers.set('Content-Type', 'application/json');
     if (token) headers.set('Authorization', `Bearer ${token}`);
-    return fetch(`${API_BASE}${path}`, { ...options, headers });
+    return fetch(url, { ...options, headers });
   };
-  let res = await execute(access ?? undefined);
-  if (res.status === 401) {
-    logger.debug(`Request ${path} returned 401, attempting token refresh`);
-    const newAccess = await refreshAccessToken();
-    if (!newAccess) {
-      logger.warn('Session expired (refresh failed)');
-      throw new Error('Session expired');
+  try {
+    let res = await execute(access ?? undefined);
+    if (res.status === 401) {
+      logger.debug(`Request ${path} returned 401, attempting token refresh`);
+      const newAccess = await refreshAccessToken();
+      if (!newAccess) {
+        logger.warn('Session expired (refresh failed)');
+        throw new Error('Session expired');
+      }
+      res = await execute(newAccess);
     }
-    res = await execute(newAccess);
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({}));
+      const errMsg = getApiErrorMessage(error) || `Request failed (${res.status})`;
+      logger.warn(`API ${path} ${res.status}: ${errMsg}`);
+      throw new Error(withUrl(errMsg, url));
+    }
+    return res.json();
+  } catch (e) {
+    if (e instanceof Error && e.message !== 'Session expired' && !e.message.includes(url)) {
+      throw new Error(withUrl(e.message, url));
+    }
+    throw e;
   }
-  if (!res.ok) {
-    const error = await res.json().catch(() => ({}));
-    const errMsg = getApiErrorMessage(error) || `Request failed (${res.status})`;
-    logger.warn(`API ${path} ${res.status}: ${errMsg}`);
-    throw new Error(errMsg);
-  }
-  return res.json();
 }
 
 // --- API ---
 
 export const api = {
   async login(email: string, password: string) {
-    const res = await fetch(`${API_BASE}/auth/login/`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password }),
-    });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) {
-      logger.warn(`Login failed for email=${email}: ${data.detail || res.status}`);
-      throw new Error(data.detail || 'Login failed');
+    const url = `${API_BASE}/auth/login/`;
+    try {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        logger.warn(`Login failed for email=${email}: ${data.detail || res.status}`);
+        throw new Error(withUrl(data.detail || 'Login failed', url));
+      }
+      await setTokens(data.access, data.refresh);
+      logger.info(`Login success email=${email}`);
+      return data;
+    } catch (e) {
+      if (e instanceof Error) throw new Error(withUrl(e.message, url));
+      throw e;
     }
-    await setTokens(data.access, data.refresh);
-    logger.info(`Login success email=${email}`);
-    return data;
   },
 
   async changePassword(current_password: string, new_password: string) {
     const access = await getAccessToken();
     if (!access) throw new Error('Not authenticated');
-    const res = await fetch(`${API_BASE}/auth/change-password/`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${access}`,
-      },
-      body: JSON.stringify({ current_password, new_password }),
-    });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(data.current_password?.[0] || data.detail || 'Failed to change password');
-    if (data.access && data.refresh) await setTokens(data.access, data.refresh);
+    const url = `${API_BASE}/auth/change-password/`;
+    try {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${access}`,
+        },
+        body: JSON.stringify({ current_password, new_password }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(withUrl(data.current_password?.[0] || data.detail || 'Failed to change password', url));
+      if (data.access && data.refresh) await setTokens(data.access, data.refresh);
+    } catch (e) {
+      if (e instanceof Error) throw new Error(withUrl(e.message, url));
+      throw e;
+    }
   },
 
   logout: clearTokens,
@@ -366,12 +391,18 @@ export const api = {
     if (params.harvest_kgs != null) form.append('harvest_kgs', String(params.harvest_kgs));
     if (params.farmers_feedback) form.append('farmers_feedback', params.farmers_feedback);
 
-    const res = await fetch(`${API_BASE}/visits/`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${access}` },
-      body: form,
-    });
-
+    const url = `${API_BASE}/visits/`;
+    let res: Response;
+    try {
+      res = await fetch(url, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${access}` },
+        body: form,
+      });
+    } catch (e) {
+      if (e instanceof Error) throw new Error(withUrl(e.message, url));
+      throw e;
+    }
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
       const msg =
@@ -385,7 +416,7 @@ export const api = {
           : undefined) ||
         'Failed to submit visit';
       logger.warn(`Create visit failed ${res.status}: ${msg ?? 'Failed to submit visit'}`);
-      throw new Error(msg ?? 'Failed to submit visit');
+      throw new Error(withUrl(msg ?? 'Failed to submit visit', url));
     }
     logger.info(`Visit created id=${(data as Visit).id} farmer_id=${params.farmer_id}`);
     return data as Visit;
@@ -395,9 +426,15 @@ export const api = {
 
   /** Options and app settings (no auth required for GET). */
   async getOptions() {
-    const res = await fetch(`${API_BASE}/options/`);
-    if (!res.ok) throw new Error('Failed to load options');
-    return res.json() as Promise<OptionsResponse>;
+    const url = `${API_BASE}/options/`;
+    try {
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(withUrl('Failed to load options', url));
+      return res.json() as Promise<OptionsResponse>;
+    } catch (e) {
+      if (e instanceof Error) throw new Error(withUrl(e.message, url));
+      throw e;
+    }
   },
 
   async getFarmers(params?: { search?: string }) {
