@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { Appbar, Button, Text, TextInput, ActivityIndicator } from 'react-native-paper';
 import * as Location from 'expo-location';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 type LocationState = {
   regions: { id: number; name: string }[];
@@ -21,6 +21,7 @@ type LocationState = {
 
 export default function AddFarmScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { id: farmerId } = useLocalSearchParams<{ id: string }>();
   const [locations, setLocations] = useState<LocationState | null>(null);
   const [loadingLocations, setLoadingLocations] = useState(true);
@@ -166,7 +167,7 @@ export default function AddFarmScreen() {
       >
         <ScrollView
           style={styles.scroll}
-          contentContainerStyle={[styles.scrollContent, { paddingBottom: 320 }]}
+          contentContainerStyle={[styles.scrollContent, { paddingBottom: 320 + Math.max(insets.bottom, 24) }]}
           keyboardShouldPersistTaps="handled"
         >
           <Text variant="bodyMedium" style={styles.hint}>

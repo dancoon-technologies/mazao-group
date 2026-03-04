@@ -9,6 +9,7 @@ import {
   Alert,
 } from 'react-native';
 import { Button, Text, TextInput, ActivityIndicator } from 'react-native-paper';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Location from 'expo-location';
 import { api } from '@/lib/api';
 
@@ -18,8 +19,11 @@ type LocationState = {
   sub_counties: { id: number; county_id: number; name: string }[];
 };
 
+const KEYBOARD_PADDING = 320;
+
 export default function AddFarmerScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const [locations, setLocations] = useState<LocationState | null>(null);
   const [loadingLocations, setLoadingLocations] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -180,21 +184,26 @@ export default function AddFarmerScreen() {
 
   if (loadingLocations) {
     return (
-      <View style={styles.centered}>
-        <ActivityIndicator size="large" />
-      </View>
+      <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
+        <View style={styles.centered}>
+          <ActivityIndicator size="large" />
+        </View>
+      </SafeAreaView>
     );
   }
 
+  const scrollPaddingBottom = KEYBOARD_PADDING + Math.max(insets.bottom, 24);
+
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      keyboardVerticalOffset={100}
-    >
+    <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
+      <KeyboardAvoidingView
+        style={styles.container}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={100}
+      >
       <ScrollView
         style={styles.scroll}
-        contentContainerStyle={[styles.scrollContent, { paddingBottom: 320 }]}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: scrollPaddingBottom }]}
         keyboardShouldPersistTaps="handled"
       >
         <Text variant="titleMedium" style={styles.sectionTitle}>
@@ -385,11 +394,13 @@ export default function AddFarmerScreen() {
           </Button>
         </View>
       </ScrollView>
-    </KeyboardAvoidingView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safe: { flex: 1 },
   container: { flex: 1 },
   scroll: { flex: 1 },
   scrollContent: { padding: 16, paddingBottom: 32 },

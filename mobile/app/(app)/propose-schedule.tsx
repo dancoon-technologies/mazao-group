@@ -20,7 +20,7 @@ import {
   Snackbar,
   Banner,
 } from 'react-native-paper';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '@/constants/theme';
 
 function formatDate(iso: string) {
@@ -35,6 +35,7 @@ const isAssigner = (role: string | null) => role === 'admin' || role === 'superv
 
 export default function ProposeScheduleScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { userId, role } = useAuth();
   const [farmers, setFarmers] = useState<Farmer[]>([]);
   const [officers, setOfficers] = useState<Officer[]>([]);
@@ -164,7 +165,7 @@ export default function ProposeScheduleScreen() {
       >
         <ScrollView
           style={styles.scroll}
-          contentContainerStyle={[styles.content, { paddingBottom: 320 }]}
+          contentContainerStyle={[styles.content, { paddingBottom: 320 + Math.max(insets.bottom, 24) }]}
           keyboardShouldPersistTaps="handled"
         >
           <Text variant="bodyMedium" style={styles.hint}>
