@@ -161,12 +161,12 @@ export default function AddFarmScreen() {
       </Appbar.Header>
       <KeyboardAvoidingView
         style={styles.container}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={80}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={100}
       >
         <ScrollView
           style={styles.scroll}
-          contentContainerStyle={styles.scrollContent}
+          contentContainerStyle={[styles.scrollContent, { paddingBottom: 320 }]}
           keyboardShouldPersistTaps="handled"
         >
           <Text variant="bodyMedium" style={styles.hint}>

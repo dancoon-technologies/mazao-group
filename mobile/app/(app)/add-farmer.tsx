@@ -189,12 +189,12 @@ export default function AddFarmerScreen() {
   return (
     <KeyboardAvoidingView
       style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       keyboardVerticalOffset={100}
     >
       <ScrollView
         style={styles.scroll}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: 320 }]}
         keyboardShouldPersistTaps="handled"
       >
         <Text variant="titleMedium" style={styles.sectionTitle}>

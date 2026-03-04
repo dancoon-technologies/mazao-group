@@ -159,12 +159,12 @@ export default function ProposeScheduleScreen() {
       ) : null}
       <KeyboardAvoidingView
         style={styles.container}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={80}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={100}
       >
         <ScrollView
           style={styles.scroll}
-          contentContainerStyle={styles.content}
+          contentContainerStyle={[styles.content, { paddingBottom: 320 }]}
           keyboardShouldPersistTaps="handled"
         >
           <Text variant="bodyMedium" style={styles.hint}>

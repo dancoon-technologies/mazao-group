@@ -17,13 +17,16 @@ import {
   Text,
   TextInput,
 } from 'react-native-paper';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const LOGIN_BG = '#F2FFF2';
 const CARD_RADIUS = 20;
 
+const KEYBOARD_AVOID_EXTRA = 280;
+
 export default function LoginScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { login } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -59,9 +62,10 @@ export default function LoginScreen() {
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.container}
+        keyboardVerticalOffset={insets.top}
       >
         <ScrollView
-          contentContainerStyle={styles.scrollContent}
+          contentContainerStyle={[styles.scrollContent, { paddingBottom: KEYBOARD_AVOID_EXTRA }]}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >

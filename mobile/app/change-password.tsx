@@ -1,13 +1,16 @@
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { View, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { View, StyleSheet, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TextInput, Button, Text, HelperText } from 'react-native-paper';
 import { useAuth } from '@/contexts/AuthContext';
 import { spacing } from '@/constants/theme';
 
+const KEYBOARD_AVOID_EXTRA = 280;
+
 export default function ChangePasswordScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { isAuthenticated, isLoading, clearMustChangePassword } = useAuth();
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -55,7 +58,13 @@ export default function ChangePasswordScreen() {
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.container}
+        keyboardVerticalOffset={insets.top}
       >
+        <ScrollView
+          contentContainerStyle={[styles.scrollContent, { paddingBottom: KEYBOARD_AVOID_EXTRA }]}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
         <View style={styles.inner}>
           <Text variant="headlineSmall" style={styles.title}>
           Set new password
@@ -101,6 +110,7 @@ export default function ChangePasswordScreen() {
           Change password
         </Button>
         </View>
+        </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -110,8 +120,11 @@ const styles = StyleSheet.create({
   safe: { flex: 1 },
   container: {
     flex: 1,
-    justifyContent: 'center',
     padding: spacing.xl,
+  },
+  scrollContent: {
+    flexGrow: 1,
+    justifyContent: 'center',
   },
   inner: {
     maxWidth: 400,
