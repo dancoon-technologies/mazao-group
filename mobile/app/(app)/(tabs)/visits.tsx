@@ -1,8 +1,11 @@
 import { colors, radius, spacing } from '@/constants/theme';
+import { getAllSchedulesForOfficer, getVisitsForOfficer } from '@/database';
+import { useAuth } from '@/contexts/AuthContext';
 import { api, type Schedule, type Visit } from '@/lib/api';
 import { ACTIVITY_TYPES } from '@/lib/constants/activityTypes';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
+import NetInfo from '@react-native-community/netinfo';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Pressable,
@@ -15,6 +18,7 @@ import {
   ActivityIndicator,
   Button,
   Card,
+  Chip,
   FAB,
   Searchbar,
   Text,
@@ -95,9 +99,38 @@ function visitStatusColor(verification_status: string): string {
   return colors.accent; // orange for pending
 }
 
+function visitRowToVisit(r: { id: string; officer: string; farmer: string; farm: string | null; latitude: number; longitude: number; verification_status: string | null; activity_type: string | null; notes: string | null; created_at: number }): Visit {
+  return {
+    id: r.id,
+    officer: r.officer,
+    farmer: r.farmer,
+    farm: r.farm,
+    latitude: r.latitude,
+    longitude: r.longitude,
+    verification_status: r.verification_status ?? 'pending',
+    activity_type: r.activity_type ?? 'farm_to_farm_visits',
+    notes: r.notes ?? undefined,
+    created_at: new Date(r.created_at).toISOString(),
+  };
+}
+
+function scheduleRowToSchedule(r: { id: string; officer: string; farmer: string | null; scheduled_date: number; notes: string | null; status: string }): Schedule {
+  return {
+    id: r.id,
+    officer: r.officer,
+    officer_email: '',
+    farmer: r.farmer,
+    farmer_display_name: null,
+    scheduled_date: new Date(r.scheduled_date).toISOString().slice(0, 10),
+    notes: r.notes ?? '',
+    status: r.status as 'proposed' | 'accepted' | 'rejected',
+  };
+}
+
 export default function VisitsScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { userId } = useAuth();
   const [activeTab, setActiveTab] = useState<TabKey>('upcoming');
   const [visits, setVisits] = useState<Visit[]>([]);
   const [schedules, setSchedules] = useState<Schedule[]>([]);
@@ -105,24 +138,60 @@ export default function VisitsScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
+  const [isOnline, setIsOnline] = useState<boolean | null>(null);
 
-  const load = useCallback(async () => {
+  const loadFromDb = useCallback(async () => {
+    if (!userId) return;
     try {
-      const [visitsData, schedulesData] = await Promise.all([
-        api.getVisits(),
-        api.getSchedules(),
+      const [visitRows, scheduleRows] = await Promise.all([
+        getVisitsForOfficer(userId),
+        getAllSchedulesForOfficer(userId),
       ]);
-      setVisits(Array.isArray(visitsData) ? visitsData : []);
-      setSchedules(Array.isArray(schedulesData) ? schedulesData : []);
+      setVisits(visitRows.map(visitRowToVisit));
+      setSchedules(scheduleRows.map(scheduleRowToSchedule));
       setError('');
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load');
+      setError(e instanceof Error ? e.message : 'Failed to load offline data');
       setVisits([]);
       setSchedules([]);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
     }
+  }, [userId]);
+
+  const load = useCallback(async () => {
+    const connected = await NetInfo.fetch().then((s) => s.isConnected ?? false);
+    if (connected) {
+      try {
+        const [visitsData, schedulesData] = await Promise.all([
+          api.getVisits(),
+          api.getSchedules(),
+        ]);
+        setVisits(Array.isArray(visitsData) ? visitsData : []);
+        setSchedules(Array.isArray(schedulesData) ? schedulesData : []);
+        setError('');
+      } catch (e) {
+        if (userId) {
+          await loadFromDb();
+          setError('');
+        } else {
+          setError(e instanceof Error ? e.message : 'Failed to load');
+          setVisits([]);
+          setSchedules([]);
+        }
+      }
+    } else if (userId) {
+      await loadFromDb();
+    } else {
+      setVisits([]);
+      setSchedules([]);
+      setError('');
+    }
+    setLoading(false);
+    setRefreshing(false);
+  }, [userId, loadFromDb]);
+
+  useEffect(() => {
+    const sub = NetInfo.addEventListener((state) => setIsOnline(state.isConnected ?? false));
+    return () => sub();
   }, []);
 
   const onRefresh = useCallback(() => {
@@ -207,6 +276,11 @@ export default function VisitsScreen() {
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
           showsVerticalScrollIndicator={false}
         >
+          {isOnline === false && (
+            <Chip icon="cloud-off-outline" style={styles.offlineChip} compact>
+              Offline — showing cached data
+            </Chip>
+          )}
           {activeTab === 'upcoming' && (
             <>
               {loading ? (
@@ -434,6 +508,7 @@ const styles = StyleSheet.create({
   emptyText: { color: colors.gray700 },
   emptySubtext: { color: colors.gray500, marginTop: 4 },
   pressed: { opacity: 0.9 },
+  offlineChip: { marginBottom: spacing.md },
   fabWrap: {
     position: 'absolute',
     left: 0,

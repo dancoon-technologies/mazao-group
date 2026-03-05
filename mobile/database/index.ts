@@ -8,6 +8,8 @@ export {
   getFarmers,
   getFarms,
   getPlannedSchedules,
+  getAllSchedulesForOfficer,
+  getVisitsForOfficer,
   getPendingSyncQueue,
   enqueueSyncItem,
   markSyncItemSynced,
@@ -19,5 +21,6 @@ export {
   type FarmerRow,
   type FarmRow,
   type ScheduleRow,
+  type VisitRow,
   type SyncQueueRow,
 } from './sqlite'

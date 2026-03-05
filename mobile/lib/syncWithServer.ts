@@ -79,6 +79,7 @@ async function pushQueue(accessToken: string): Promise<{ ok: boolean; error?: st
             Authorization: `Bearer ${accessToken}`,
           },
           body: JSON.stringify({
+            ...(payload.officer && { officer: payload.officer }),
             farmer: payload.farmer || null,
             scheduled_date: payload.scheduled_date,
             notes: payload.notes || '',
@@ -191,8 +192,9 @@ export async function enqueueVisit(payload: {
   await enqueueSyncItem('visit', 'CREATE', payload)
 }
 
-/** Enqueue a schedule for later sync (offline). */
+/** Enqueue a schedule for later sync (offline). Include officer when assigner (admin/supervisor). */
 export async function enqueueSchedule(payload: {
+  officer?: string
   farmer?: string | null
   scheduled_date: string
   notes?: string

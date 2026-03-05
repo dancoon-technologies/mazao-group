@@ -1,7 +1,9 @@
 import { useAuth } from '@/contexts/AuthContext';
+import { enqueueSchedule } from '@/lib/syncWithServer';
 import { api, type Farmer, type Officer, type Schedule } from '@/lib/api';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useFocusEffect } from 'expo-router';
+import NetInfo from '@react-native-community/netinfo';
 import { useCallback, useEffect, useState } from 'react';
 import {
   View,
@@ -52,8 +54,14 @@ export default function ProposeScheduleScreen() {
   const [officerMenuOpen, setOfficerMenuOpen] = useState(false);
   const [snackbarMsg, setSnackbarMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [snackbarVisible, setSnackbarVisible] = useState(false);
+  const [isOnline, setIsOnline] = useState<boolean | null>(null);
 
   const assigner = isAssigner(role);
+
+  useEffect(() => {
+    const sub = NetInfo.addEventListener((state) => setIsOnline(state.isConnected ?? false));
+    return () => sub();
+  }, []);
 
   const showSnackbar = useCallback((type: 'success' | 'error', text: string) => {
     setSnackbarMsg({ type, text });
@@ -132,13 +140,29 @@ export default function ProposeScheduleScreen() {
       showSnackbar('success', assigner ? 'Schedule assigned successfully.' : 'Schedule proposed successfully.');
       setTimeout(() => router.back(), 1500);
     } catch (e) {
-      const message = e instanceof Error ? e.message : 'Failed to propose schedule';
-      setError(message);
-      showSnackbar('error', message);
+      if (isOnline === false || isOnline === null) {
+        try {
+          await enqueueSchedule({
+            officer: assigner ? selectedOfficerId ?? undefined : (userId ?? undefined),
+            farmer: selectedFarmerId || null,
+            scheduled_date: dateStr,
+            notes: (notes?.trim() ?? '') || undefined,
+          });
+          showSnackbar('success', 'Saved for sync when back online.');
+          setTimeout(() => router.back(), 1500);
+        } catch (enqErr) {
+          setError(enqErr instanceof Error ? enqErr.message : 'Failed to save for sync');
+          showSnackbar('error', enqErr instanceof Error ? enqErr.message : 'Failed to save for sync');
+        }
+      } else {
+        const message = e instanceof Error ? e.message : 'Failed to propose schedule';
+        setError(message);
+        showSnackbar('error', message);
+      }
     } finally {
       setSubmitting(false);
     }
-  }, [assigner, userId, selectedDate, selectedOfficerId, selectedFarmerId, notes, router, showSnackbar]);
+  }, [assigner, userId, selectedDate, selectedOfficerId, selectedFarmerId, notes, router, showSnackbar, isOnline]);
 
   if (loading) {
     return (

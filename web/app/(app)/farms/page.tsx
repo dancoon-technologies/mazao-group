@@ -33,13 +33,23 @@ const INITIAL_FARM_FORM = {
   crop_type: "",
 };
 
-const FARM_COLUMNS: DataTableColumn<Farm>[] = [
-  { key: "village", label: "Village", render: (f) => <Text size="sm" fw={500}>{f.village}</Text> },
-  { key: "county", label: "County", render: (f) => <Text size="sm" c="dimmed">{f.county}</Text> },
-  { key: "sub_county", label: "Sub-county", render: (f) => <Text size="sm" c="dimmed">{f.sub_county}</Text> },
-  { key: "plot_size", label: "Plot", visibleFrom: "md", render: (f) => <Text size="sm" c="dimmed">{f.plot_size || "—"}</Text> },
-  { key: "crop_type", label: "Crop", visibleFrom: "md", render: (f) => <Text size="sm" c="dimmed">{f.crop_type || "—"}</Text> },
-];
+function farmColumns(farmers: Farmer[]): DataTableColumn<Farm>[] {
+  return [
+    {
+      key: "farmer",
+      label: "Farmer",
+      render: (f) => {
+        const farmer = farmers.find((x) => x.id === f.farmer);
+        return <Text size="sm" fw={500}>{farmer?.display_name ?? f.farmer ?? "—"}</Text>;
+      },
+    },
+    { key: "village", label: "Village", render: (f) => <Text size="sm" fw={500}>{f.village}</Text> },
+    { key: "county", label: "County", render: (f) => <Text size="sm" c="dimmed">{f.county}</Text> },
+    { key: "sub_county", label: "Sub-county", render: (f) => <Text size="sm" c="dimmed">{f.sub_county}</Text> },
+    { key: "plot_size", label: "Plot", visibleFrom: "md", render: (f) => <Text size="sm" c="dimmed">{f.plot_size || "—"}</Text> },
+    { key: "crop_type", label: "Crop", visibleFrom: "md", render: (f) => <Text size="sm" c="dimmed">{f.crop_type || "—"}</Text> },
+  ];
+}
 
 export default function FarmsPage() {
   useAuth();
@@ -263,7 +273,7 @@ export default function FarmsPage() {
       <DataTable
         data={farms}
         rowKey="id"
-        columns={FARM_COLUMNS}
+        columns={farmColumns(farmers)}
         minWidth={500}
         emptyMessage="No farms found"
       />

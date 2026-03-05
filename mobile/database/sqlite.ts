@@ -163,6 +163,44 @@ export async function getPlannedSchedules(userId: string, startTs: number, endTs
   return rows ?? [];
 }
 
+/** All schedules for an officer (for offline visits tab list). */
+export async function getAllSchedulesForOfficer(officerId: string): Promise<ScheduleRow[]> {
+  const database = await getDb();
+  const rows = await database.getAllAsync<ScheduleRow>(
+    'SELECT * FROM schedules WHERE officer = ? AND is_deleted = 0 ORDER BY scheduled_date DESC',
+    officerId
+  );
+  return rows ?? [];
+}
+
+// --- Visits (for offline history list) ---
+
+export interface VisitRow {
+  id: string;
+  officer: string;
+  farmer: string;
+  farm: string | null;
+  latitude: number;
+  longitude: number;
+  photo_uri: string | null;
+  notes: string | null;
+  activity_type: string | null;
+  verification_status: string | null;
+  created_at: number;
+  updated_at: number;
+  is_deleted: number;
+}
+
+/** All visits for an officer (for offline visits tab history). */
+export async function getVisitsForOfficer(officerId: string): Promise<VisitRow[]> {
+  const database = await getDb();
+  const rows = await database.getAllAsync<VisitRow>(
+    'SELECT * FROM visits WHERE officer = ? AND is_deleted = 0 ORDER BY created_at DESC',
+    officerId
+  );
+  return rows ?? [];
+}
+
 // --- Sync queue ---
 
 export interface SyncQueueRow {

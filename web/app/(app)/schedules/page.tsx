@@ -141,8 +141,8 @@ export default function SchedulesPage() {
         ? [
           ...scheduleColumnsBase,
           {
-            key: "approve",
-            label: "",
+            key: "actions",
+            label: "Actions",
             render: (s) =>
               s.status === "proposed" ? (
                 <Group gap="xs">
@@ -162,7 +162,7 @@ export default function SchedulesPage() {
                     loading={approvingId === s.id}
                     onClick={() => handleApprove(s.id, "reject")}
                   >
-                    Reject
+                    Decline
                   </Button>
                 </Group>
               ) : null,
