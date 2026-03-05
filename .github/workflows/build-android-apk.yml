@@ -13,10 +13,17 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
+          cache: 'pnpm'
+          cache-dependency-path: mobile/pnpm-lock.yaml
 
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -29,15 +36,11 @@ jobs:
 
       - name: Install dependencies
         working-directory: mobile
-        run: npm ci
-
-      - name: Install EAS CLI
-        working-directory: mobile
-        run: npm install -g eas-cli
+        run: pnpm install --frozen-lockfile
 
       - name: Build APK locally
         working-directory: mobile
-        run: eas build --platform android --profile preview --local --non-interactive --output ./build/app.apk
+        run: pnpm exec eas build --platform android --profile preview --local --non-interactive --output ./build/app.apk
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
 
