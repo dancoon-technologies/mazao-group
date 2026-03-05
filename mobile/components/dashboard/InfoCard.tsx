@@ -11,7 +11,7 @@ type InfoCardProps = {
 
 export function InfoCard({ title, subtitle, right, onPress }: InfoCardProps) {
   const content = (
-    <Card style={styles.card}>
+    <Card style={styles.card} elevation={0}>
       <Card.Content style={right ? styles.contentRow : undefined}>
         <View style={styles.left}>
           <Text variant="titleSmall">{title}</Text>

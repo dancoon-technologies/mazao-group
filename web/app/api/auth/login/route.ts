@@ -1,4 +1,5 @@
 import { cookies } from "next/headers";
+import { NextResponse } from "next/server";
 import {
   BACKEND_API,
   COOKIE_ACCESS,
@@ -8,9 +9,17 @@ import {
   decodePayload,
 } from "@/lib/auth-server";
 import { ROLES } from "@/lib/constants";
+import { ROUTES } from "@/lib/constants";
 
 export interface LoginResponse {
   user: { email: string; role: string };
+}
+
+/** GET /api/auth/login — redirect to login page (avoids "Method GET not allowed" when user hits this URL). */
+export async function GET(request: Request) {
+  const url = new URL(request.url);
+  const origin = url.origin;
+  return NextResponse.redirect(new URL(ROUTES.LOGIN, origin), 302);
 }
 
 export async function POST(request: Request) {

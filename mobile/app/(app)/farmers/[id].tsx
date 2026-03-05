@@ -68,13 +68,13 @@ export default function FarmerDetailScreen() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
         {loading ? (
-          <Card style={styles.card}>
+          <Card style={styles.card} elevation={0}>
             <Card.Content>
               <Text variant="bodyMedium">Loading…</Text>
             </Card.Content>
           </Card>
         ) : error ? (
-          <Card style={styles.card}>
+          <Card style={styles.card} elevation={0}>
             <Card.Content>
               <Text variant="bodyMedium" style={styles.error}>{error}</Text>
               <Button mode="outlined" onPress={load}>Retry</Button>
@@ -82,7 +82,7 @@ export default function FarmerDetailScreen() {
           </Card>
         ) : farmer ? (
           <>
-            <Card style={styles.card}>
+            <Card style={styles.card} elevation={0}>
               <Card.Content>
                 <Text variant="titleMedium" style={styles.cardTitle}>{farmer.display_name}</Text>
                 {farmer.phone ? <Text variant="bodyMedium">Phone: {farmer.phone}</Text> : null}
@@ -98,7 +98,7 @@ export default function FarmerDetailScreen() {
             </View>
 
             {farms.length === 0 ? (
-              <Card style={styles.card}>
+              <Card style={styles.card} elevation={0}>
                 <Card.Content>
                   <Text variant="bodyMedium" style={styles.muted}>No farms yet.</Text>
                   <Button mode="outlined" onPress={openAddFarm} style={styles.addFarmBtn}>
@@ -108,7 +108,7 @@ export default function FarmerDetailScreen() {
               </Card>
             ) : (
               farms.map((farm) => (
-                <Card key={farm.id} style={styles.farmCard}>
+                <Card key={farm.id} style={styles.farmCard} elevation={0}>
                   <Card.Content>
                     <View style={styles.farmRow}>
                       <MaterialCommunityIcons name="map-marker" size={20} style={styles.farmIcon} />

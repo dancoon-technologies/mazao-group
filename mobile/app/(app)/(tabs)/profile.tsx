@@ -94,7 +94,7 @@ export default function ProfileScreen() {
           </Text>
         </View>
 
-        <Card style={styles.card} mode="elevated">
+        <Card style={styles.card} elevation={0}>
           <Card.Content style={styles.onlineCardContent}>
             <View style={styles.onlineLeft}>
               <View style={styles.onlineIconWrap}>
@@ -119,7 +119,7 @@ export default function ProfileScreen() {
         <Text variant="titleSmall" style={styles.sectionTitle}>
           Account Information
         </Text>
-        <Card style={styles.card} mode="elevated">
+        <Card style={styles.card} elevation={0}>
           <Card.Content style={styles.infoCardContent}>
             <InfoRow
               icon="account-outline"
@@ -165,7 +165,7 @@ export default function ProfileScreen() {
         </Card>
 
         {pendingCount > 0 && (
-          <Card style={styles.card} mode="elevated">
+          <Card style={styles.card} elevation={0}>
             <Card.Content>
               <Text variant="bodyMedium">{pendingCount} visit(s) waiting to sync</Text>
               <Button

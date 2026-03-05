@@ -63,14 +63,14 @@ export const typography = {
   button: { fontSize: 16, fontWeight: '600' as const, lineHeight: 24 },
 } as const;
 
-// --- Shadows (Card: Y 4, Blur 12, 8% black)
+// --- Shadows (Card: subtle elevation)
 export const shadows = {
   card: {
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 3,
+    elevation: 1,
   },
   fab: {
     shadowColor: '#000',

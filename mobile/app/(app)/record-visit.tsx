@@ -38,7 +38,7 @@ import {
   TextInput,
   useTheme
 } from 'react-native-paper';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '@/constants/theme';
 
 function haversineDistance(
@@ -61,6 +61,7 @@ function haversineDistance(
 
 export default function RecordVisitScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const theme = useTheme();
   const { userId } = useAuth();
   const params = useLocalSearchParams<{ farmerId?: string; scheduleId?: string }>();
@@ -256,10 +257,21 @@ export default function RecordVisitScreen() {
     return () => { cancelled = true; };
   }, [userId]);
 
+  const acceptedSchedules = useMemo(
+    () => plannedSchedules.filter((s) => s.status === 'accepted'),
+    [plannedSchedules]
+  );
+
+  useEffect(() => {
+    if (selectedScheduleId && !acceptedSchedules.some((s) => s.id === selectedScheduleId)) {
+      setSelectedScheduleId(null);
+    }
+  }, [selectedScheduleId, acceptedSchedules]);
+
   useEffect(() => {
     if (params.scheduleId && plannedSchedules.length > 0) {
       const s = plannedSchedules.find((s) => s.id === params.scheduleId);
-      if (s?.farmer) {
+      if (s?.status === 'accepted' && s?.farmer) {
         setSelectedScheduleId(s.id);
         setSelectedFarmerId(s.farmer);
       }
@@ -378,7 +390,7 @@ export default function RecordVisitScreen() {
           await api.createVisit({
             farmer_id: selectedFarmerId,
             farm_id: selectedFarmId || undefined,
-            schedule_id: selectedScheduleId || undefined,
+            schedule_id: scheduleIdForSubmit ?? undefined,
             latitude: location.coords.latitude,
             longitude: location.coords.longitude,
             photo: { uri: photoUri, type: 'image/jpeg', name: 'visit.jpg' },
@@ -402,7 +414,7 @@ export default function RecordVisitScreen() {
       await enqueueVisit({
         farmer_id: selectedFarmerId,
         farm_id: selectedFarmId || undefined,
-        schedule_id: selectedScheduleId || undefined,
+        schedule_id: scheduleIdForSubmit ?? undefined,
         latitude: location.coords.latitude,
         longitude: location.coords.longitude,
         photo_uri: photoUri,
@@ -425,10 +437,12 @@ export default function RecordVisitScreen() {
     } finally {
       setSubmitting(false);
     }
-  }, [selectedFarmerId, selectedFarmId, selectedScheduleId, photoUri, location, activityType, notes, cropStage, germinationPercent, survivalRatePercent, orderValue, harvestKgs, pestsDiseases, farmersFeedback, isOnline, router]);
+  }, [selectedFarmerId, selectedFarmId, selectedScheduleId, scheduleIdForSubmit, photoUri, location, activityType, notes, cropStage, germinationPercent, survivalRatePercent, orderValue, harvestKgs, pestsDiseases, farmersFeedback, isOnline, router]);
 
   const activityLabel = ACTIVITY_TYPES.find((a) => a.value === activityType)?.label ?? activityType;
-  const scheduleLocked = !!selectedScheduleId;
+  const selectedSchedule = plannedSchedules.find((s) => s.id === selectedScheduleId);
+  const scheduleLocked = !!selectedScheduleId && selectedSchedule?.status === 'accepted';
+  const scheduleIdForSubmit = scheduleLocked ? selectedScheduleId : undefined;
 
   if (!permission) {
     return (
@@ -476,11 +490,11 @@ export default function RecordVisitScreen() {
             </Chip>
           )}
 
-          {plannedSchedules.length > 0 && (
+          {acceptedSchedules.length > 0 && (
             <Surface style={styles.section} elevation={0}>
               <Text variant="labelLarge" style={styles.fieldLabel}>Link to planned visit (optional)</Text>
               <Text variant="bodySmall" style={styles.hint}>
-                Selecting a schedule links this visit to that planned visit. Farmer and farm are then fixed for this visit.
+                Only accepted schedules can be linked. Selecting one sets farmer and farm for this visit.
               </Text>
               <View style={styles.scheduleChips}>
                 <Chip
@@ -493,7 +507,7 @@ export default function RecordVisitScreen() {
                 >
                   None
                 </Chip>
-                {plannedSchedules.map((s) => {
+                {acceptedSchedules.map((s) => {
                   const farmerName = farmers.find((f) => f.id === s.farmer)?.display_name ?? s.farmer ?? '—';
                   const dateStr = s.scheduled_date;
                   return (
@@ -592,6 +606,7 @@ export default function RecordVisitScreen() {
                 <Card
                   mode={selectedFarmId === null ? 'contained' : 'outlined'}
                   style={[styles.farmCard, scheduleLocked && styles.farmCardLocked]}
+                  elevation={0}
                   onPress={scheduleLocked ? undefined : () => setSelectedFarmId(null)}
                   disabled={scheduleLocked}
                 >
@@ -604,6 +619,7 @@ export default function RecordVisitScreen() {
                     key={farm.id}
                     mode={selectedFarmId === farm.id ? 'contained' : 'outlined'}
                     style={[styles.farmCard, scheduleLocked && styles.farmCardLocked]}
+                    elevation={0}
                     onPress={scheduleLocked ? undefined : () => setSelectedFarmId(farm.id)}
                     disabled={scheduleLocked}
                   >
@@ -857,7 +873,13 @@ export default function RecordVisitScreen() {
         </Dialog>
       </Portal>
 
-      <Snackbar visible={!!snackbarMsg} onDismiss={() => setSnackbarMsg('')} duration={4000} style={styles.snackbarTop}>
+      <Snackbar
+        visible={!!snackbarMsg}
+        onDismiss={() => setSnackbarMsg('')}
+        duration={4000}
+        wrapperStyle={[styles.snackbarWrapper, { top: insets.top }]}
+        style={styles.snackbarTop}
+      >
         {snackbarMsg}
       </Snackbar>
     </SafeAreaView>
@@ -866,7 +888,8 @@ export default function RecordVisitScreen() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1 },
-  snackbarTop: { position: 'absolute', top: 0, left: 0, right: 0 },
+  snackbarWrapper: { position: 'absolute', left: 0, right: 0 },
+  snackbarTop: { marginHorizontal: 0 },
   snackbarGreen: { backgroundColor: colors.primary },
   container: { flex: 1 },
   scrollContent: { padding: 12, paddingBottom: 24 },

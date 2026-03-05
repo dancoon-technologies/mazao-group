@@ -11,7 +11,7 @@ type StatCardProps = {
 
 export function StatCard({ icon, label, value }: StatCardProps) {
   return (
-    <Card style={styles.card}>
+    <Card style={styles.card} elevation={0}>
       <Card.Content style={styles.content}>
         <View style={styles.iconContainer}>
           <MaterialCommunityIcons name={icon} size={22} color={colors.gray700} />

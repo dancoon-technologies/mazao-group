@@ -138,7 +138,7 @@ export default function ProposeScheduleScreen() {
     } finally {
       setSubmitting(false);
     }
-  }, [assigner, userId, role, selectedDate, selectedOfficerId, selectedFarmerId, notes, router, showSnackbar]);
+  }, [assigner, userId, selectedDate, selectedOfficerId, selectedFarmerId, notes, router, showSnackbar]);
 
   if (loading) {
     return (
@@ -296,7 +296,7 @@ export default function ProposeScheduleScreen() {
             <Text variant="bodySmall" style={styles.muted}>No schedules yet</Text>
           ) : (
             schedules.slice(0, 10).map((s) => (
-              <Card key={s.id} style={styles.scheduleCard}>
+              <Card key={s.id} style={styles.scheduleCard} elevation={0}>
                 <Card.Content>
                   <Text variant="bodyMedium">
                     {formatDate(s.scheduled_date)} — {s.farmer_display_name ?? 'No farmer'}
@@ -314,6 +314,7 @@ export default function ProposeScheduleScreen() {
         onDismiss={dismissSnackbar}
         duration={snackbarMsg?.type === 'success' ? 2500 : 5000}
         action={snackbarMsg?.type === 'error' ? { label: 'Dismiss', onPress: dismissSnackbar, textColor: colors.white } : undefined}
+        wrapperStyle={[styles.snackbarWrapper, { top: insets.top }]}
         style={[styles.snackbarTop, snackbarMsg?.type === 'error' ? styles.snackbarError : styles.snackbarGreen]}
         theme={{ colors: { surface: snackbarMsg?.type === 'error' ? colors.error : colors.primary, onSurface: colors.white } }}
       >
@@ -337,7 +338,8 @@ const styles = StyleSheet.create({
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 },
   chip: { margin: 0 },
   banner: { backgroundColor: '#ffebee' },
-  snackbarTop: { position: 'absolute', top: 0, left: 0, right: 0 },
+  snackbarWrapper: { position: 'absolute', left: 0, right: 0 },
+  snackbarTop: { marginHorizontal: 0 },
   snackbarGreen: { backgroundColor: colors.primary },
   snackbarError: { backgroundColor: colors.error },
   actions: { gap: 8, marginTop: 20 },

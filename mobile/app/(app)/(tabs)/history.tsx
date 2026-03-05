@@ -70,7 +70,7 @@ export default function HistoryScreen() {
     return (
       <SafeAreaView style={styles.safe} edges={['bottom']}>
       <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-        <Card style={styles.card}>
+        <Card style={styles.card} elevation={0}>
           <Card.Content>
             <Text variant="bodyMedium">Visit history is available to supervisors on the web app.</Text>
             <Text variant="bodySmall" style={styles.muted}>
@@ -87,7 +87,7 @@ export default function HistoryScreen() {
     return (
       <SafeAreaView style={styles.safe} edges={['bottom']}>
       <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-        <Card style={styles.card}>
+        <Card style={styles.card} elevation={0}>
           <Card.Content>
             <Text variant="bodyMedium" style={styles.error}>{error}</Text>
             <Button onPress={load}>Retry</Button>
@@ -102,7 +102,7 @@ export default function HistoryScreen() {
     return (
       <SafeAreaView style={styles.safe} edges={['bottom']}>
       <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-        <Card style={styles.card}>
+        <Card style={styles.card} elevation={0}>
           <Card.Content>
             <Text variant="bodyMedium">No visits yet</Text>
             <Text variant="bodySmall" style={styles.muted}>
@@ -119,7 +119,7 @@ export default function HistoryScreen() {
     <SafeAreaView style={styles.safe} edges={['bottom']}>
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       {visits.map((v) => (
-        <Card key={v.id} style={styles.card}>
+        <Card key={v.id} style={styles.card} elevation={0}>
           <Card.Content>
             <Text variant="titleSmall">{v.farmer_display_name ?? v.farmer}</Text>
             <Text variant="bodySmall">{formatDateTime(v.created_at)}</Text>

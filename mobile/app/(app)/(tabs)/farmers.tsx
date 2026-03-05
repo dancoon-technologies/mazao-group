@@ -131,7 +131,7 @@ export default function FarmersScreen() {
         {loading ? (
           <ActivityIndicator size="large" style={styles.loader} />
         ) : error ? (
-          <Card style={styles.card}>
+          <Card style={styles.card} elevation={0}>
             <Card.Content>
               <Text variant="bodyMedium" style={styles.error}>
                 {error}
@@ -142,7 +142,7 @@ export default function FarmersScreen() {
             </Card.Content>
           </Card>
         ) : filteredFarmers.length === 0 ? (
-          <Card style={styles.card}>
+          <Card style={styles.card} elevation={0}>
             <Card.Content>
               <Text variant="bodyMedium">
                 {search.trim() ? 'No farmers match your search.' : 'No farmers'}
@@ -175,7 +175,7 @@ export default function FarmersScreen() {
                     })
                   }
                 >
-                  <Card style={styles.farmerCard}>
+                  <Card style={styles.farmerCard} elevation={0}>
                     <Card.Content>
                       <Text variant="titleMedium" style={styles.cardName}>
                         {farmer.display_name}

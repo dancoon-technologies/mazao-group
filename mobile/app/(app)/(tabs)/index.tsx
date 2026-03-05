@@ -214,7 +214,7 @@ export default function HomeScreen() {
         )}
 
         {error ? (
-          <Card style={styles.errorCard}>
+          <Card style={styles.errorCard} elevation={0}>
             <Card.Content>
               <Text variant="bodyMedium" style={styles.errorText}>{error}</Text>
             </Card.Content>

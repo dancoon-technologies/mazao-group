@@ -138,6 +138,7 @@ export default function LoginScreen() {
         visible={snackbarVisible}
         onDismiss={() => setSnackbarVisible(false)}
         action={{ label: 'Dismiss', onPress: () => setSnackbarVisible(false), textColor: colors.white }}
+        wrapperStyle={[styles.snackbarWrapper, { top: insets.top }]}
         style={styles.snackbar}
         theme={{ colors: { surface: colors.primary, onSurface: colors.white } }}
       >
@@ -162,10 +163,10 @@ const styles = StyleSheet.create({
     padding: spacing.xl,
     alignItems: 'center',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 3,
+    elevation: 1,
   },
   logoWrap: {
     width: 72,
@@ -209,11 +210,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     fontSize: 16,
   },
-  snackbar: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: colors.primary,
-  },
+  snackbarWrapper: { position: 'absolute', left: 0, right: 0 },
+  snackbar: { marginHorizontal: 0, backgroundColor: colors.primary },
 });
