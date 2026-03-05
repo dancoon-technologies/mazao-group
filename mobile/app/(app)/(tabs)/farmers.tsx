@@ -1,7 +1,10 @@
+import { getFarmers as getFarmersDb, getAllFarms } from '@/database';
+import { farmRowToFarm, farmerRowToFarmer } from '@/lib/offline-helpers';
 import { api, type Farm, type Farmer } from '@/lib/api';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import NetInfo from '@react-native-community/netinfo';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
   RefreshControl,
   ScrollView,
@@ -40,31 +43,47 @@ export default function FarmersScreen() {
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
 
-  const load = useCallback(async (searchQuery?: string) => {
-    try {
-      const [farmersData, farmsData] = await Promise.all([
-        api.getFarmers(searchQuery?.trim() ? { search: searchQuery.trim() } : undefined),
-        api.getFarms(),
-      ]);
-      const list = Array.isArray(farmersData) ? farmersData : [];
-      setFarmers(list);
-      const byFarmer: Record<string, Farm[]> = {};
-      const farms = Array.isArray(farmsData) ? farmsData : [];
-      for (const farm of farms) {
-        if (!byFarmer[farm.farmer]) byFarmer[farm.farmer] = [];
-        byFarmer[farm.farmer].push(farm);
-      }
-      setFarmsByFarmer(byFarmer);
-      setError('');
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load farmers');
-      setFarmers([]);
-      setFarmsByFarmer({});
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
+  const loadFromDb = useCallback(async () => {
+    const [farmerRows, farmRows] = await Promise.all([getFarmersDb(), getAllFarms()]);
+    const list = farmerRows.map(farmerRowToFarmer);
+    setFarmers(list);
+    const byFarmer: Record<string, Farm[]> = {};
+    for (const row of farmRows) {
+      const farm = farmRowToFarm(row);
+      if (!byFarmer[farm.farmer]) byFarmer[farm.farmer] = [];
+      byFarmer[farm.farmer].push(farm);
     }
+    setFarmsByFarmer(byFarmer);
+    setError('');
   }, []);
+
+  const load = useCallback(async (searchQuery?: string) => {
+    const connected = await NetInfo.fetch().then((s) => s.isConnected ?? false);
+    if (connected) {
+      try {
+        const [farmersData, farmsData] = await Promise.all([
+          api.getFarmers(searchQuery?.trim() ? { search: searchQuery.trim() } : undefined),
+          api.getFarms(),
+        ]);
+        const list = Array.isArray(farmersData) ? farmersData : [];
+        setFarmers(list);
+        const byFarmer: Record<string, Farm[]> = {};
+        const farms = Array.isArray(farmsData) ? farmsData : [];
+        for (const farm of farms) {
+          if (!byFarmer[farm.farmer]) byFarmer[farm.farmer] = [];
+          byFarmer[farm.farmer].push(farm);
+        }
+        setFarmsByFarmer(byFarmer);
+        setError('');
+      } catch (e) {
+        await loadFromDb();
+      }
+    } else {
+      await loadFromDb();
+    }
+    setLoading(false);
+    setRefreshing(false);
+  }, [loadFromDb]);
 
   useFocusEffect(useCallback(() => {
     load(search.trim() || undefined);

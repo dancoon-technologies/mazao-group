@@ -1,5 +1,9 @@
+import { useAuth } from '@/contexts/AuthContext';
+import { getVisitsForOfficer } from '@/database';
+import { visitRowToVisit } from '@/lib/offline-helpers';
 import { api, type Visit } from '@/lib/api';
 import { useFocusEffect } from 'expo-router';
+import NetInfo from '@react-native-community/netinfo';
 import { useCallback, useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -21,34 +25,49 @@ function formatDateTime(iso: string) {
 }
 
 export default function HistoryScreen() {
+  const { userId } = useAuth();
   const [visits, setVisits] = useState<Visit[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [forbidden, setForbidden] = useState(false);
 
+  const loadFromDb = useCallback(async () => {
+    if (!userId) return;
+    const rows = await getVisitsForOfficer(userId);
+    setVisits(rows.map(visitRowToVisit));
+    setError(null);
+    setForbidden(false);
+  }, [userId]);
+
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     setForbidden(false);
-    try {
-      const data = await api.getVisits();
-      setVisits(data);
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : 'Failed to load';
-      const isForbidden =
-        msg.includes('403') ||
-        msg.toLowerCase().includes('forbidden') ||
-        msg.toLowerCase().includes('permission');
-      if (isForbidden) {
-        setForbidden(true);
-        setVisits([]);
-      } else {
-        setError(msg);
+    const connected = await NetInfo.fetch().then((s) => s.isConnected ?? false);
+    if (connected) {
+      try {
+        const data = await api.getVisits();
+        setVisits(Array.isArray(data) ? data : []);
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : 'Failed to load';
+        const isForbidden =
+          msg.includes('403') ||
+          msg.toLowerCase().includes('forbidden') ||
+          msg.toLowerCase().includes('permission');
+        if (isForbidden) {
+          setForbidden(true);
+          setVisits([]);
+        } else if (userId) {
+          await loadFromDb();
+        } else {
+          setError(msg);
+        }
       }
-    } finally {
-      setLoading(false);
+    } else if (userId) {
+      await loadFromDb();
     }
-  }, []);
+    setLoading(false);
+  }, [userId, loadFromDb]);
 
   useEffect(() => {
     load();

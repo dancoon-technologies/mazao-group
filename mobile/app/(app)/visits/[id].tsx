@@ -1,13 +1,18 @@
+import { useAuth } from '@/contexts/AuthContext';
+import { getAllSchedulesForOfficer } from '@/database';
+import { scheduleRowToSchedule } from '@/lib/offline-helpers';
+import { api, type Schedule } from '@/lib/api';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import NetInfo from '@react-native-community/netinfo';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { View, StyleSheet, TouchableOpacity, Image, Alert } from 'react-native';
 import { Button, Text, ActivityIndicator } from 'react-native-paper';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as Location from 'expo-location';
-import { api, type Schedule } from '@/lib/api';
 
 export default function RecordVisitScreen() {
   const router = useRouter();
+  const { userId } = useAuth();
   const params = useLocalSearchParams<{ id?: string }>();
   const [permission, requestPermission] = useCameraPermissions();
   const [location, setLocation] = useState<Location.LocationObject | null>(null);
@@ -19,9 +24,22 @@ export default function RecordVisitScreen() {
   const [selectedScheduleId, setSelectedScheduleId] = useState<string | null>(params.id ?? null);
   const cameraRef = useRef<CameraView>(null);
 
-  const loadSchedules = useCallback(() => {
-    api.getSchedules().then(setSchedules).catch(() => setSchedules([]));
-  }, []);
+  const loadSchedules = useCallback(async () => {
+    const connected = await NetInfo.fetch().then((s) => s.isConnected ?? false);
+    if (connected) {
+      api.getSchedules().then(setSchedules).catch(async () => {
+        if (userId) {
+          const rows = await getAllSchedulesForOfficer(userId);
+          setSchedules(rows.map(scheduleRowToSchedule));
+        } else setSchedules([]);
+      });
+    } else if (userId) {
+      const rows = await getAllSchedulesForOfficer(userId);
+      setSchedules(rows.map(scheduleRowToSchedule));
+    } else {
+      setSchedules([]);
+    }
+  }, [userId]);
 
   useEffect(() => {
     loadSchedules();

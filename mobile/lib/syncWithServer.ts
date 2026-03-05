@@ -89,6 +89,75 @@ async function pushQueue(accessToken: string): Promise<{ ok: boolean; error?: st
           const err = await res.json().catch(() => ({}))
           return { ok: false, error: (err.detail || 'Schedule upload failed') as string }
         }
+      } else if (item.entity === 'farmer_with_farm') {
+        const farmerPayload = payload.farmer as Record<string, unknown>
+        const farmPayload = payload.farm as Record<string, unknown>
+        const farmerRes = await fetch(`${API_BASE}/farmers/`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${accessToken}`,
+          },
+          body: JSON.stringify({
+            first_name: farmerPayload.first_name,
+            middle_name: farmerPayload.middle_name ?? undefined,
+            last_name: farmerPayload.last_name,
+            phone: farmerPayload.phone ?? undefined,
+            crop_type: farmerPayload.crop_type ?? undefined,
+            latitude: farmerPayload.latitude,
+            longitude: farmerPayload.longitude,
+          }),
+        })
+        if (!farmerRes.ok) {
+          const err = await farmerRes.json().catch(() => ({}))
+          return { ok: false, error: (err.detail || (err as Record<string, unknown>).first_name?.[0] || 'Farmer create failed') as string }
+        }
+        const farmerCreated = (await farmerRes.json()) as { id: string }
+        const farmRes = await fetch(`${API_BASE}/farms/`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${accessToken}`,
+          },
+          body: JSON.stringify({
+            farmer_id: farmerCreated.id,
+            region_id: farmPayload.region_id,
+            county_id: farmPayload.county_id,
+            sub_county_id: farmPayload.sub_county_id,
+            village: farmPayload.village,
+            latitude: farmPayload.latitude,
+            longitude: farmPayload.longitude,
+            plot_size: farmPayload.plot_size ?? undefined,
+            crop_type: farmPayload.crop_type ?? undefined,
+          }),
+        })
+        if (!farmRes.ok) {
+          const err = await farmRes.json().catch(() => ({}))
+          return { ok: false, error: (err.detail || 'Farm create failed') as string }
+        }
+      } else if (item.entity === 'farm') {
+        const res = await fetch(`${API_BASE}/farms/`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${accessToken}`,
+          },
+          body: JSON.stringify({
+            farmer_id: payload.farmer_id,
+            region_id: payload.region_id,
+            county_id: payload.county_id,
+            sub_county_id: payload.sub_county_id,
+            village: payload.village,
+            latitude: payload.latitude,
+            longitude: payload.longitude,
+            plot_size: payload.plot_size ?? undefined,
+            crop_type: payload.crop_type ?? undefined,
+          }),
+        })
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}))
+          return { ok: false, error: (err.detail || 'Farm create failed') as string }
+        }
       }
 
       await markSyncItemSynced(item.id)
@@ -200,6 +269,46 @@ export async function enqueueSchedule(payload: {
   notes?: string
 }): Promise<void> {
   await enqueueSyncItem('schedule', 'CREATE', payload)
+}
+
+/** Enqueue farmer + farm for later sync (offline add-farmer). */
+export async function enqueueFarmerWithFarm(payload: {
+  farmer: {
+    first_name: string
+    middle_name?: string
+    last_name: string
+    phone?: string
+    crop_type?: string
+    latitude: number
+    longitude: number
+  }
+  farm: {
+    region_id: number
+    county_id: number
+    sub_county_id: number
+    village: string
+    latitude: number
+    longitude: number
+    plot_size?: string
+    crop_type?: string
+  }
+}): Promise<void> {
+  await enqueueSyncItem('farmer_with_farm', 'CREATE', payload)
+}
+
+/** Enqueue a farm for later sync (offline add-farm). */
+export async function enqueueFarm(payload: {
+  farmer_id: string
+  region_id: number
+  county_id: number
+  sub_county_id: number
+  village: string
+  latitude: number
+  longitude: number
+  plot_size?: string
+  crop_type?: string
+}): Promise<void> {
+  await enqueueSyncItem('farm', 'CREATE', payload)
 }
 
 /** Get count of pending sync items */

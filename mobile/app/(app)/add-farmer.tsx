@@ -1,4 +1,5 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import NetInfo from '@react-native-community/netinfo';
 import { useCallback, useEffect, useState } from 'react';
 import {
   View,
@@ -8,11 +9,12 @@ import {
   Platform,
   Alert,
 } from 'react-native';
-import { Button, Text, TextInput, ActivityIndicator } from 'react-native-paper';
+import { Banner, Button, Text, TextInput, ActivityIndicator } from 'react-native-paper';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Location from 'expo-location';
 import { createOrUpdateFarmer, createOrUpdateFarm } from '@/database';
 import { normalizeServerFarmer, normalizeServerFarm } from '@/database/helpers';
+import { enqueueFarmerWithFarm } from '@/lib/syncWithServer';
 import { api } from '@/lib/api';
 
 type LocationState = {
@@ -32,6 +34,7 @@ export default function AddFarmerScreen() {
   const [loadingLocations, setLoadingLocations] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [isOnline, setIsOnline] = useState<boolean | null>(null);
 
   const [firstName, setFirstName] = useState('');
   const [middleName, setMiddleName] = useState('');
@@ -69,6 +72,11 @@ export default function AddFarmerScreen() {
     loadLocations();
   }, [loadLocations]);
 
+  useEffect(() => {
+    const sub = NetInfo.addEventListener((state) => setIsOnline(state.isConnected ?? false));
+    return () => sub();
+  }, []);
+
   const getCurrentLocation = useCallback(async (forFarm: boolean) => {
     const { status } = await Location.requestForegroundPermissionsAsync();
     if (status !== 'granted') {
@@ -94,7 +102,6 @@ export default function AddFarmerScreen() {
       setError('First name and last name are required.');
       return;
     }
-    if (!locations) return;
     if (!regionId || !countyId || !subCountyId) {
       setError('Select region, county and sub-county for the farm.');
       return;
@@ -117,7 +124,49 @@ export default function AddFarmerScreen() {
       setError('Farm longitude must be between -180 and 180.');
       return;
     }
+    if (isOnline === false) {
+      if (!locations) {
+        setError('Connect to load locations first, then you can add farmer and farm offline.');
+        return;
+      }
+      setSubmitting(true);
+      setError('');
+      try {
+        const farmerLatNum = lat ? parseFloat(lat) : 0;
+        const farmerLonNum = lon ? parseFloat(lon) : 0;
+        await enqueueFarmerWithFarm({
+          farmer: {
+            first_name: firstName.trim(),
+            middle_name: middleName.trim() || undefined,
+            last_name: lastName.trim(),
+            phone: phone.trim() || undefined,
+            crop_type: cropType.trim() || undefined,
+            latitude: Number.isNaN(farmerLatNum) ? 0 : farmerLatNum,
+            longitude: Number.isNaN(farmerLonNum) ? 0 : farmerLonNum,
+          },
+          farm: {
+            region_id: regionId,
+            county_id: countyId,
+            sub_county_id: subCountyId,
+            village: village.trim(),
+            latitude: farmLatNum,
+            longitude: farmLonNum,
+            plot_size: plotSize.trim() || undefined,
+            crop_type: farmCropType.trim() || undefined,
+          },
+        });
+        Alert.alert('Saved offline', 'Farmer and farm will sync when you are back online.', [
+          { text: 'OK', onPress: () => router.back() },
+        ]);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : 'Failed to save for sync');
+      } finally {
+        setSubmitting(false);
+      }
+      return;
+    }
 
+    if (!locations) return;
     setSubmitting(true);
     setError('');
     try {
@@ -192,6 +241,7 @@ export default function AddFarmerScreen() {
     farmCropType,
     router,
     returnTo,
+    isOnline,
   ]);
 
   const counties = locations
@@ -225,6 +275,11 @@ export default function AddFarmerScreen() {
         contentContainerStyle={[styles.scrollContent, { paddingBottom: scrollPaddingBottom }]}
         keyboardShouldPersistTaps="handled"
       >
+        {isOnline === false && (
+          <Banner visible style={styles.banner}>
+            Offline — farmer and farm will sync when back online.
+          </Banner>
+        )}
         <Text variant="titleMedium" style={styles.sectionTitle}>
           Farmer details
         </Text>
@@ -422,6 +477,7 @@ const styles = StyleSheet.create({
   safe: { flex: 1 },
   container: { flex: 1 },
   scroll: { flex: 1 },
+  banner: { marginBottom: 12 },
   scrollContent: { padding: 16, paddingBottom: 32 },
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   sectionTitle: { marginTop: 16, marginBottom: 8 },

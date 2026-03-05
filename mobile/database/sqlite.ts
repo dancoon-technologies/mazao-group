@@ -137,6 +137,13 @@ export async function getFarms(farmerId: string): Promise<FarmRow[]> {
   return rows ?? [];
 }
 
+/** All farms (for offline farmers tab). */
+export async function getAllFarms(): Promise<FarmRow[]> {
+  const database = await getDb();
+  const rows = await database.getAllAsync<FarmRow>('SELECT * FROM farms ORDER BY farmer_id, village');
+  return rows ?? [];
+}
+
 // --- Schedules (for planned visits) ---
 
 export interface ScheduleRow {

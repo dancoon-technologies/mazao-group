@@ -7,8 +7,11 @@ import {
 } from '@/components/dashboard';
 import { colors, spacing } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
+import { getAllSchedulesForOfficer } from '@/database';
+import { farmerRowToFarmer, scheduleRowToSchedule } from '@/lib/offline-helpers';
 import { api, type Farmer, type Schedule } from '@/lib/api';
 import { router, useFocusEffect } from 'expo-router';
+import NetInfo from '@react-native-community/netinfo';
 import { useCallback, useEffect, useState } from 'react';
 import {
   RefreshControl,
@@ -42,7 +45,7 @@ const STAT_ICONS = {
 } as const;
 
 export default function HomeScreen() {
-  const { email, department } = useAuth();
+  const { email, department, userId } = useAuth();
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [farmers, setFarmers] = useState<Farmer[]>([]);
   const [stats, setStats] = useState<{ visits_today: number; visits_this_month: number } | null>(null);
@@ -50,24 +53,45 @@ export default function HomeScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
 
+  const loadFromDb = useCallback(async () => {
+    if (!userId) return;
+    const { getFarmers } = await import('@/database');
+    const [farmerRows, scheduleRows] = await Promise.all([
+      getFarmers(),
+      getAllSchedulesForOfficer(userId),
+    ]);
+    setFarmers(farmerRows.map(farmerRowToFarmer));
+    setSchedules(scheduleRows.map(scheduleRowToSchedule));
+    setStats(null);
+    setError('');
+  }, [userId]);
+
   const load = useCallback(async () => {
-    try {
-      const [s, f, statsRes] = await Promise.all([
-        api.getSchedules(),
-        api.getFarmers(),
-        api.getDashboardStats?.().catch(() => null),
-      ]);
-      setSchedules(Array.isArray(s) ? s : []);
-      setFarmers(Array.isArray(f) ? f : []);
-      setStats(statsRes ?? null);
-      setError('');
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load');
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
+    const connected = await NetInfo.fetch().then((s) => s.isConnected ?? false);
+    if (connected) {
+      try {
+        const [s, f, statsRes] = await Promise.all([
+          api.getSchedules(),
+          api.getFarmers(),
+          api.getDashboardStats?.().catch(() => null),
+        ]);
+        setSchedules(Array.isArray(s) ? s : []);
+        setFarmers(Array.isArray(f) ? f : []);
+        setStats(statsRes ?? null);
+        setError('');
+      } catch (e) {
+        if (userId) {
+          await loadFromDb();
+        } else {
+          setError(e instanceof Error ? e.message : 'Failed to load');
+        }
+      }
+    } else if (userId) {
+      await loadFromDb();
     }
-  }, []);
+    setLoading(false);
+    setRefreshing(false);
+  }, [userId, loadFromDb]);
 
   useEffect(() => {
     load();

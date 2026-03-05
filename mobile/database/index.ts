@@ -7,6 +7,7 @@ export {
   getDb,
   getFarmers,
   getFarms,
+  getAllFarms,
   getPlannedSchedules,
   getAllSchedulesForOfficer,
   getVisitsForOfficer,

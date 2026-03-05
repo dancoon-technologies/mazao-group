@@ -1,6 +1,7 @@
 import { colors, radius, spacing } from '@/constants/theme';
 import { getAllSchedulesForOfficer, getVisitsForOfficer } from '@/database';
 import { useAuth } from '@/contexts/AuthContext';
+import { scheduleRowToSchedule, visitRowToVisit } from '@/lib/offline-helpers';
 import { api, type Schedule, type Visit } from '@/lib/api';
 import { ACTIVITY_TYPES } from '@/lib/constants/activityTypes';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -97,34 +98,6 @@ function visitStatusColor(verification_status: string): string {
   if (s === 'verified') return colors.primary;
   if (s === 'rejected') return colors.error;
   return colors.accent; // orange for pending
-}
-
-function visitRowToVisit(r: { id: string; officer: string; farmer: string; farm: string | null; latitude: number; longitude: number; verification_status: string | null; activity_type: string | null; notes: string | null; created_at: number }): Visit {
-  return {
-    id: r.id,
-    officer: r.officer,
-    farmer: r.farmer,
-    farm: r.farm,
-    latitude: r.latitude,
-    longitude: r.longitude,
-    verification_status: r.verification_status ?? 'pending',
-    activity_type: r.activity_type ?? 'farm_to_farm_visits',
-    notes: r.notes ?? undefined,
-    created_at: new Date(r.created_at).toISOString(),
-  };
-}
-
-function scheduleRowToSchedule(r: { id: string; officer: string; farmer: string | null; scheduled_date: number; notes: string | null; status: string }): Schedule {
-  return {
-    id: r.id,
-    officer: r.officer,
-    officer_email: '',
-    farmer: r.farmer,
-    farmer_display_name: null,
-    scheduled_date: new Date(r.scheduled_date).toISOString().slice(0, 10),
-    notes: r.notes ?? '',
-    status: r.status as 'proposed' | 'accepted' | 'rejected',
-  };
 }
 
 export default function VisitsScreen() {

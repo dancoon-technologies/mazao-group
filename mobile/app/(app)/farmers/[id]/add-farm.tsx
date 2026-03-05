@@ -1,5 +1,7 @@
+import { enqueueFarm } from '@/lib/syncWithServer';
 import { api } from '@/lib/api';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import NetInfo from '@react-native-community/netinfo';
 import { useCallback, useEffect, useState } from 'react';
 import {
   View,
@@ -9,7 +11,7 @@ import {
   Platform,
   Alert,
 } from 'react-native';
-import { Appbar, Button, Text, TextInput, ActivityIndicator } from 'react-native-paper';
+import { Appbar, Banner, Button, Text, TextInput, ActivityIndicator } from 'react-native-paper';
 import * as Location from 'expo-location';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -27,6 +29,7 @@ export default function AddFarmScreen() {
   const [loadingLocations, setLoadingLocations] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [isOnline, setIsOnline] = useState<boolean | null>(null);
 
   const [regionId, setRegionId] = useState<number | null>(null);
   const [countyId, setCountyId] = useState<number | null>(null);
@@ -56,6 +59,11 @@ export default function AddFarmScreen() {
     loadLocations();
   }, [loadLocations]);
 
+  useEffect(() => {
+    const sub = NetInfo.addEventListener((state) => setIsOnline(state.isConnected ?? false));
+    return () => sub();
+  }, []);
+
   const getCurrentLocation = useCallback(async () => {
     const { status } = await Location.requestForegroundPermissionsAsync();
     if (status !== 'granted') {
@@ -76,7 +84,6 @@ export default function AddFarmScreen() {
       setError('Farmer not found.');
       return;
     }
-    if (!locations) return;
     if (!regionId || !countyId || !subCountyId) {
       setError('Select region, county and sub-county.');
       return;
@@ -99,6 +106,36 @@ export default function AddFarmScreen() {
       setError('Longitude must be between -180 and 180.');
       return;
     }
+    if (isOnline === false) {
+      if (!locations) {
+        setError('Connect to load locations first, then you can add a farm offline.');
+        return;
+      }
+      setSubmitting(true);
+      setError('');
+      try {
+        await enqueueFarm({
+          farmer_id: farmerId,
+          region_id: regionId,
+          county_id: countyId,
+          sub_county_id: subCountyId,
+          village: village.trim(),
+          latitude: farmLatNum,
+          longitude: farmLonNum,
+          plot_size: plotSize.trim() || undefined,
+          crop_type: farmCropType.trim() || undefined,
+        });
+        Alert.alert('Saved offline', 'Farm will sync when you are back online.', [
+          { text: 'OK', onPress: () => router.back() },
+        ]);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : 'Failed to save for sync');
+      } finally {
+        setSubmitting(false);
+      }
+      return;
+    }
+    if (!locations) return;
     setSubmitting(true);
     setError('');
     try {
@@ -133,6 +170,7 @@ export default function AddFarmScreen() {
     plotSize,
     farmCropType,
     router,
+    isOnline,
   ]);
 
   const counties = locations ? locations.counties.filter((c) => c.region_id === regionId) : [];
@@ -170,6 +208,11 @@ export default function AddFarmScreen() {
           contentContainerStyle={[styles.scrollContent, { paddingBottom: 320 + Math.max(insets.bottom, 24) }]}
           keyboardShouldPersistTaps="handled"
         >
+          {isOnline === false && (
+            <Banner visible style={styles.banner}>
+              Offline — farm will sync when back online.
+            </Banner>
+          )}
           <Text variant="bodyMedium" style={styles.hint}>
             Add a new farm location for this farmer.
           </Text>
@@ -312,6 +355,7 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   scroll: { flex: 1 },
   scrollContent: { padding: 16, paddingBottom: 32 },
+  banner: { marginBottom: 12 },
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   hint: { marginBottom: 16, opacity: 0.85 },
   label: { marginTop: 12, marginBottom: 6 },

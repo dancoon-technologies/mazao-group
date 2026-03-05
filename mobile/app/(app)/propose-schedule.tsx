@@ -1,4 +1,6 @@
 import { useAuth } from '@/contexts/AuthContext';
+import { getFarmers as getFarmersDb, getAllSchedulesForOfficer } from '@/database';
+import { farmerRowToFarmer, scheduleRowToSchedule } from '@/lib/offline-helpers';
 import { enqueueSchedule } from '@/lib/syncWithServer';
 import { api, type Farmer, type Officer, type Schedule } from '@/lib/api';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -73,26 +75,46 @@ export default function ProposeScheduleScreen() {
     setSnackbarMsg(null);
   }, []);
 
+  const loadFromDb = useCallback(async () => {
+    if (!userId) return;
+    const [farmerRows, scheduleRows] = await Promise.all([
+      getFarmersDb(),
+      getAllSchedulesForOfficer(userId),
+    ]);
+    setFarmers(farmerRows.map(farmerRowToFarmer));
+    setSchedules(scheduleRows.map(scheduleRowToSchedule));
+    setOfficers([]);
+    setError('');
+  }, [userId]);
+
   const load = useCallback(async () => {
-    try {
-      const [f, s] = await Promise.all([api.getFarmers(), api.getSchedules()]);
-      setFarmers(f);
-      setSchedules(s);
-      setError('');
-      if (assigner) {
-        const o = await api.getOfficers().catch(() => []);
-        setOfficers(Array.isArray(o) ? o : []);
-      } else {
-        setOfficers([]);
+    const connected = await NetInfo.fetch().then((s) => s.isConnected ?? false);
+    if (connected) {
+      try {
+        const [f, s] = await Promise.all([api.getFarmers(), api.getSchedules()]);
+        setFarmers(Array.isArray(f) ? f : []);
+        setSchedules(Array.isArray(s) ? s : []);
+        setError('');
+        if (assigner) {
+          const o = await api.getOfficers().catch(() => []);
+          setOfficers(Array.isArray(o) ? o : []);
+        } else {
+          setOfficers([]);
+        }
+      } catch (e) {
+        if (userId) {
+          await loadFromDb();
+        } else {
+          const msg = e instanceof Error ? e.message : 'Failed to load';
+          setError(msg);
+          showSnackbar('error', msg);
+        }
       }
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : 'Failed to load';
-      setError(msg);
-      showSnackbar('error', msg);
-    } finally {
-      setLoading(false);
+    } else if (userId) {
+      await loadFromDb();
     }
-  }, [assigner, showSnackbar]);
+    setLoading(false);
+  }, [assigner, userId, loadFromDb, showSnackbar]);
 
   useEffect(() => {
     load();

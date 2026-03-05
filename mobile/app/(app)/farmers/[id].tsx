@@ -1,6 +1,9 @@
+import { getFarmers as getFarmersDb, getFarms as getFarmsDb } from '@/database';
+import { farmRowToFarm, farmerRowToFarmer } from '@/lib/offline-helpers';
 import { api, type Farmer, type Farm } from '@/lib/api';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import NetInfo from '@react-native-community/netinfo';
 import React, { useCallback, useEffect, useState } from 'react';
 import { useIsFocused } from '@react-navigation/native';
 import { RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
@@ -22,27 +25,41 @@ export default function FarmerDetailScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
 
+  const loadFromDb = useCallback(async () => {
+    if (!id) return;
+    const [farmerRows, farmRows] = await Promise.all([
+      getFarmersDb(),
+      getFarmsDb(id),
+    ]);
+    const found = farmerRows.find((r) => r.id === id);
+    setFarmer(found ? farmerRowToFarmer(found) : null);
+    setFarms(farmRows.map(farmRowToFarm));
+    setError(found ? '' : 'Farmer not found');
+  }, [id]);
+
   const load = useCallback(async () => {
     if (!id) return;
-    try {
-      const [farmersData, farmsData] = await Promise.all([
-        api.getFarmers(),
-        api.getFarms(id),
-      ]);
-      const list = Array.isArray(farmersData) ? farmersData : [];
-      const found = list.find((f) => f.id === id) ?? null;
-      setFarmer(found);
-      setFarms(Array.isArray(farmsData) ? farmsData : []);
-      setError(found ? '' : 'Farmer not found');
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load');
-      setFarmer(null);
-      setFarms([]);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
+    const connected = await NetInfo.fetch().then((s) => s.isConnected ?? false);
+    if (connected) {
+      try {
+        const [farmersData, farmsData] = await Promise.all([
+          api.getFarmers(),
+          api.getFarms(id),
+        ]);
+        const list = Array.isArray(farmersData) ? farmersData : [];
+        const found = list.find((f) => f.id === id) ?? null;
+        setFarmer(found);
+        setFarms(Array.isArray(farmsData) ? farmsData : []);
+        setError(found ? '' : 'Farmer not found');
+      } catch (e) {
+        await loadFromDb();
+      }
+    } else {
+      await loadFromDb();
     }
-  }, [id]);
+    setLoading(false);
+    setRefreshing(false);
+  }, [id, loadFromDb]);
 
   const isFocused = useIsFocused();
   useEffect(() => {
