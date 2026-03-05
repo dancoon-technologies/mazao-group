@@ -56,7 +56,7 @@ function LoginForm() {
         <Text size="sm" c="dimmed" ta="center" mt="xs">
           Sign in to continue
         </Text>
-        <form onSubmit={handleSubmit}>
+        <form method="post" action="/api/auth/login" onSubmit={handleSubmit}>
           <Stack gap="md" mt="lg">
             {error && (
               <Alert color="red" title="Error" variant="light">

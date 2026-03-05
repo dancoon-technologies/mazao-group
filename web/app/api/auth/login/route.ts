@@ -34,18 +34,25 @@ export async function POST(request: Request) {
     );
   }
 
-  const res = await fetch(`${BACKEND_API}/auth/login/`, {
+  const loginUrl = `${BACKEND_API.replace(/\/$/, "")}/auth/login/`;
+  const res = await fetch(loginUrl, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email, password }),
+    redirect: "manual",
   });
 
   const data = await res.json().catch(() => ({}));
 
   if (!res.ok) {
+    const status = res.status;
+    const detail =
+      status >= 300 && status < 400
+        ? "Backend returned redirect. Check API_URL."
+        : (data as { detail?: string }).detail || "Login failed";
     return Response.json(
-      { detail: (data as { detail?: string }).detail || "Login failed" },
-      { status: res.status }
+      { detail },
+      { status: status >= 300 && status < 400 ? 502 : status }
     );
   }
 
