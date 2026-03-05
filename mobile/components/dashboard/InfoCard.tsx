@@ -1,6 +1,6 @@
 import { Pressable, StyleSheet, View } from 'react-native';
 import { Card, Text } from 'react-native-paper';
-import { colors, radius, spacing } from '@/constants/theme';
+import { colors, cardShadow, cardStyle, spacing } from '@/constants/theme';
 
 type InfoCardProps = {
   title: string;
@@ -11,8 +11,8 @@ type InfoCardProps = {
 
 export function InfoCard({ title, subtitle, right, onPress }: InfoCardProps) {
   const content = (
-    <Card style={styles.card} elevation={0}>
-      <Card.Content style={right ? styles.contentRow : undefined}>
+    <Card style={[cardStyle, cardShadow, styles.card]} elevation={2}>
+      <Card.Content style={[styles.contentBase, right ? styles.contentRow : undefined]}>
         <View style={styles.left}>
           <Text variant="titleSmall">{title}</Text>
           {subtitle != null && (
@@ -42,13 +42,14 @@ export function InfoCard({ title, subtitle, right, onPress }: InfoCardProps) {
 
 const styles = StyleSheet.create({
   wrapper: { marginBottom: spacing.md },
-  card: { borderRadius: radius.lg },
+  card: {},
+  contentBase: { paddingVertical: spacing.lg, paddingHorizontal: spacing.lg },
   contentRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  left: { flex: 1 },
+  left: { flex: 1, minWidth: 0 },
   subtitle: { marginTop: 2, color: colors.gray700 },
   pressed: { opacity: 0.85 },
 });

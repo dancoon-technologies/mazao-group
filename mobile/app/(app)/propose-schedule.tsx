@@ -20,13 +20,13 @@ import {
   Text,
   TextInput,
   ActivityIndicator,
-  Card,
   Menu,
   Snackbar,
   Banner,
 } from 'react-native-paper';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colors } from '@/constants/theme';
+import { ListItemRow } from '@/components/ListItemRow';
+import { cardShadow, cardStyle, colors, keyboardAvoidOffset, scrollPaddingKeyboard } from '@/constants/theme';
 
 function formatDate(iso: string) {
   try {
@@ -218,11 +218,11 @@ export default function ProposeScheduleScreen() {
       <KeyboardAvoidingView
         style={styles.container}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={100}
+        keyboardVerticalOffset={keyboardAvoidOffset}
       >
         <ScrollView
           style={styles.scroll}
-          contentContainerStyle={[styles.content, { paddingBottom: 320 + Math.max(insets.bottom, 24) }]}
+          contentContainerStyle={[styles.content, { paddingBottom: scrollPaddingKeyboard + Math.max(insets.bottom, 24) }]}
           keyboardShouldPersistTaps="handled"
         >
           <Text variant="bodyMedium" style={styles.hint}>
@@ -342,14 +342,12 @@ export default function ProposeScheduleScreen() {
             <Text variant="bodySmall" style={styles.muted}>No schedules yet</Text>
           ) : (
             schedules.slice(0, 10).map((s) => (
-              <Card key={s.id} style={styles.scheduleCard} elevation={0}>
-                <Card.Content>
-                  <Text variant="bodyMedium">
-                    {formatDate(s.scheduled_date)} — {s.farmer_display_name ?? 'No farmer'}
-                  </Text>
-                  <Text variant="bodySmall" style={styles.status}>{s.status}</Text>
-                </Card.Content>
-              </Card>
+              <ListItemRow
+                key={s.id}
+                avatarLetter={s.farmer_display_name ?? '?'}
+                title={s.farmer_display_name ?? 'No farmer assigned'}
+                subtitle={`${formatDate(s.scheduled_date)} · ${s.status}`}
+              />
             ))
           )}
         </ScrollView>
@@ -389,7 +387,5 @@ const styles = StyleSheet.create({
   snackbarGreen: { backgroundColor: colors.primary },
   snackbarError: { backgroundColor: colors.error },
   actions: { gap: 8, marginTop: 20 },
-  scheduleCard: { marginBottom: 8 },
-  status: { textTransform: 'capitalize', opacity: 0.8, marginTop: 2 },
   muted: { opacity: 0.7 },
 });

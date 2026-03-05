@@ -1,7 +1,7 @@
 import { Pressable, StyleSheet, ViewStyle } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { colors, radius, spacing } from '@/constants/theme';
+import { colors, radius, spacing, cardStyle, cardShadow } from '@/constants/theme';
 
 export type ActionCardVariant = 'primary' | 'default';
 
@@ -41,16 +41,14 @@ export function ActionCard({
 
 const styles = StyleSheet.create({
   card: {
+    ...cardStyle,
+    ...cardShadow,
     flex: 1,
-    backgroundColor: colors.white,
-    borderRadius: radius.lg,
     paddingVertical: spacing.lg,
     paddingHorizontal: spacing.sm,
     alignItems: 'center',
     justifyContent: 'center',
     minHeight: 88,
-    borderWidth: 1,
-    borderColor: colors.gray200,
   },
   cardPrimary: {
     backgroundColor: colors.primary,

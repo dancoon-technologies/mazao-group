@@ -14,6 +14,7 @@ import {
 import { Appbar, Banner, Button, Text, TextInput, ActivityIndicator } from 'react-native-paper';
 import * as Location from 'expo-location';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { keyboardAvoidOffset, scrollPaddingKeyboard } from '@/constants/theme';
 
 type LocationState = {
   regions: { id: number; name: string }[];
@@ -201,11 +202,11 @@ export default function AddFarmScreen() {
       <KeyboardAvoidingView
         style={styles.container}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={100}
+        keyboardVerticalOffset={keyboardAvoidOffset}
       >
         <ScrollView
           style={styles.scroll}
-          contentContainerStyle={[styles.scrollContent, { paddingBottom: 320 + Math.max(insets.bottom, 24) }]}
+          contentContainerStyle={[styles.scrollContent, { paddingBottom: scrollPaddingKeyboard + Math.max(insets.bottom, 24) }]}
           keyboardShouldPersistTaps="handled"
         >
           {isOnline === false && (

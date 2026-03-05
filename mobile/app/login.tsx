@@ -1,4 +1,4 @@
-import { colors, radius, spacing } from '@/constants/theme';
+import { colors, cardShadow, cardStyle, radius, scrollPaddingKeyboardShort, spacing } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -20,9 +20,6 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const LOGIN_BG = '#F2FFF2';
-const CARD_RADIUS = 20;
-
-const KEYBOARD_AVOID_EXTRA = 280;
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -65,7 +62,7 @@ export default function LoginScreen() {
         keyboardVerticalOffset={insets.top}
       >
         <ScrollView
-          contentContainerStyle={[styles.scrollContent, { paddingBottom: KEYBOARD_AVOID_EXTRA }]}
+          contentContainerStyle={[styles.scrollContent, { paddingBottom: scrollPaddingKeyboardShort }]}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
@@ -158,15 +155,11 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xxl,
   },
   card: {
-    backgroundColor: colors.white,
-    borderRadius: CARD_RADIUS,
+    ...cardStyle,
+    ...cardShadow,
+    borderRadius: radius.card,
     padding: spacing.xl,
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 3,
-    elevation: 1,
   },
   logoWrap: {
     width: 72,

@@ -1,6 +1,6 @@
 import { StyleSheet } from 'react-native';
 import { Card, Text } from 'react-native-paper';
-import { spacing } from '@/constants/theme';
+import { cardShadow, cardStyle, spacing } from '@/constants/theme';
 
 type EmptyStateCardProps = {
   message: string;
@@ -8,8 +8,8 @@ type EmptyStateCardProps = {
 
 export function EmptyStateCard({ message }: EmptyStateCardProps) {
   return (
-    <Card style={styles.card} elevation={0}>
-      <Card.Content>
+    <Card style={[cardStyle, cardShadow, styles.card]} elevation={2}>
+      <Card.Content style={styles.content}>
         <Text variant="bodyMedium">{message}</Text>
       </Card.Content>
     </Card>
@@ -18,4 +18,5 @@ export function EmptyStateCard({ message }: EmptyStateCardProps) {
 
 const styles = StyleSheet.create({
   card: { marginBottom: spacing.md },
+  content: { paddingVertical: spacing.lg, paddingHorizontal: spacing.lg },
 });

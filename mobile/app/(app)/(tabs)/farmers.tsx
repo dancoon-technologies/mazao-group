@@ -1,3 +1,4 @@
+import { cardShadow, cardStyle } from '@/constants/theme';
 import { getFarmers as getFarmersDb, getAllFarms } from '@/database';
 import { farmRowToFarm, farmerRowToFarmer } from '@/lib/offline-helpers';
 import { api, type Farm, type Farmer } from '@/lib/api';
@@ -10,9 +11,9 @@ import {
   ScrollView,
   StyleSheet,
   TextInput,
-  TouchableOpacity,
   View,
 } from 'react-native';
+import { ListItemRow } from '@/components/ListItemRow';
 import {
   ActivityIndicator,
   Button,
@@ -183,58 +184,26 @@ export default function FarmersScreen() {
               const farms = farmsByFarmer[farmer.id] ?? [];
               const farmCount = farms.length;
               const locations = formatFarmLocations(farms);
+              const subtitle = [
+                farmer.phone ? farmer.phone : null,
+                farmCount === 1 ? '1 Farm' : `${farmCount} Farms`,
+                locations ? locations : null,
+              ]
+                .filter(Boolean)
+                .join(' · ');
               return (
-                <TouchableOpacity
+                <ListItemRow
                   key={farmer.id}
-                  activeOpacity={0.7}
+                  avatarLetter={farmer.display_name}
+                  title={farmer.display_name}
+                  subtitle={subtitle || '—'}
                   onPress={() =>
                     router.push({
                       pathname: '/farmers/[id]',
                       params: { id: farmer.id },
                     })
                   }
-                >
-                  <Card style={styles.farmerCard} elevation={0}>
-                    <Card.Content>
-                      <Text variant="titleMedium" style={styles.cardName}>
-                        {farmer.display_name}
-                      </Text>
-                      {farmer.phone ? (
-                        <View style={styles.cardRow}>
-                          <MaterialCommunityIcons
-                            name="phone"
-                            size={18}
-                            color={theme.colors.onSurfaceVariant}
-                            style={styles.cardIcon}
-                          />
-                          <Text variant="bodyMedium" style={styles.cardMeta}>
-                            {farmer.phone}
-                          </Text>
-                        </View>
-                      ) : null}
-                      <View style={styles.cardRow}>
-                        <MaterialCommunityIcons
-                          name="map-marker"
-                          size={18}
-                          color={theme.colors.onSurfaceVariant}
-                          style={styles.cardIcon}
-                        />
-                        <Text variant="bodyMedium" style={styles.cardMeta}>
-                          {farmCount === 1 ? '1 Farm' : `${farmCount} Farms`}
-                        </Text>
-                      </View>
-                      {locations ? (
-                        <Text
-                          variant="bodySmall"
-                          style={styles.cardLocations}
-                          numberOfLines={2}
-                        >
-                          {locations}
-                        </Text>
-                      ) : null}
-                    </Card.Content>
-                  </Card>
-                </TouchableOpacity>
+                />
               );
             })}
           </View>
@@ -245,7 +214,7 @@ export default function FarmersScreen() {
         style={[
           styles.fabWrap,
           {
-            paddingBottom: insets.bottom + TAB_BAR_HEIGHT + 8,
+            paddingBottom: insets.bottom + TAB_BAR_HEIGHT + 4,
           },
         ]}
         pointerEvents="box-none"
@@ -304,27 +273,10 @@ const styles = StyleSheet.create({
   scroll: { flex: 1 },
   content: { paddingBottom: 24, paddingHorizontal: 20 },
   loader: { marginVertical: 24 },
-  card: { marginBottom: 16 },
+  card: { ...cardStyle, ...cardShadow, marginBottom: 16 },
   error: { marginBottom: 8 },
   addBtn: { marginTop: 12 },
-  cardList: { gap: 12 },
-  farmerCard: {
-    borderRadius: 12,
-    elevation: 0,
-  },
-  cardName: { fontWeight: '700', marginBottom: 6 },
-  cardRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 4,
-  },
-  cardIcon: { marginRight: 6 },
-  cardMeta: { flex: 1 },
-  cardLocations: {
-    opacity: 0.75,
-    marginTop: 4,
-    marginLeft: 24,
-  },
+  cardList: { gap: 0 },
   fabWrap: {
     position: 'absolute',
     left: 0,

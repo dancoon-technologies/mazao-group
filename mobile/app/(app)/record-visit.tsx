@@ -39,7 +39,7 @@ import {
   useTheme
 } from 'react-native-paper';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colors } from '@/constants/theme';
+import { colors, cardShadow, cardStyle, keyboardAvoidOffset, scrollPaddingKeyboard } from '@/constants/theme';
 
 function haversineDistance(
   lat1: number,
@@ -386,30 +386,26 @@ export default function RecordVisitScreen() {
     setError('');
     try {
       if (isOnline === true) {
-        try {
-          await api.createVisit({
-            farmer_id: selectedFarmerId,
-            farm_id: selectedFarmId || undefined,
-            schedule_id: scheduleIdForSubmit ?? undefined,
-            latitude: location.coords.latitude,
-            longitude: location.coords.longitude,
-            photo: { uri: photoUri, type: 'image/jpeg', name: 'visit.jpg' },
-            activity_type: activityType,
-            notes: notes || undefined,
-            crop_stage: cropStage || undefined,
+        await api.createVisit({
+          farmer_id: selectedFarmerId,
+          farm_id: selectedFarmId || undefined,
+          schedule_id: scheduleIdForSubmit ?? undefined,
+          latitude: location.coords.latitude,
+          longitude: location.coords.longitude,
+          photo: { uri: photoUri, type: 'image/jpeg', name: 'visit.jpg' },
+          activity_type: activityType,
+          notes: notes || undefined,
+          crop_stage: cropStage || undefined,
             germination_percent: germinationPercent ? parseFloat(germinationPercent) : undefined,
             survival_rate: survivalRatePercent || undefined,
             pests_diseases: pestsDiseases || undefined,
             order_value: orderValue ? parseFloat(orderValue) : undefined,
             harvest_kgs: harvestKgs ? parseFloat(harvestKgs) : undefined,
             farmers_feedback: farmersFeedback || undefined,
-          });
-          setDialogSuccess(true);
-          setDialogVisible(true);
-          return;
-        } catch {
-          setSnackbarMsg('Upload failed. Saving for sync when online.');
-        }
+        });
+        setDialogSuccess(true);
+        setDialogVisible(true);
+        return;
       }
       await enqueueVisit({
         farmer_id: selectedFarmerId,
@@ -477,10 +473,10 @@ export default function RecordVisitScreen() {
       <KeyboardAvoidingView
         style={styles.container}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={100}
+        keyboardVerticalOffset={keyboardAvoidOffset}
       >
         <ScrollView
-          contentContainerStyle={[styles.scrollContent, { paddingBottom: 320 }]}
+          contentContainerStyle={[styles.scrollContent, { paddingBottom: scrollPaddingKeyboard }]}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={true}
         >
@@ -930,7 +926,7 @@ const styles = StyleSheet.create({
   inputHalf: { flex: 1, marginBottom: 8 },
   twoColRow: { flexDirection: 'row', gap: 12, marginBottom: 0 },
   addFarmerBtn: { marginTop: -2, marginBottom: 2 },
-  farmCard: { marginBottom: 4 },
+  farmCard: { marginBottom: 4, ...cardStyle, ...cardShadow },
   farmCardLocked: { opacity: 0.85 },
   lockedHint: { marginTop: 2, marginBottom: 4 },
   scheduleChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 6 },

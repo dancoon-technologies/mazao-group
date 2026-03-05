@@ -4,9 +4,7 @@ import { View, StyleSheet, KeyboardAvoidingView, Platform, ScrollView } from 're
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TextInput, Button, Text, HelperText } from 'react-native-paper';
 import { useAuth } from '@/contexts/AuthContext';
-import { spacing } from '@/constants/theme';
-
-const KEYBOARD_AVOID_EXTRA = 280;
+import { spacing, scrollPaddingKeyboardShort } from '@/constants/theme';
 
 export default function ChangePasswordScreen() {
   const router = useRouter();
@@ -61,7 +59,7 @@ export default function ChangePasswordScreen() {
         keyboardVerticalOffset={insets.top}
       >
         <ScrollView
-          contentContainerStyle={[styles.scrollContent, { paddingBottom: KEYBOARD_AVOID_EXTRA }]}
+          contentContainerStyle={[styles.scrollContent, { paddingBottom: scrollPaddingKeyboardShort }]}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >

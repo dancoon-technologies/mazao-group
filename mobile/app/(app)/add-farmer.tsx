@@ -23,7 +23,7 @@ type LocationState = {
   sub_counties: { id: number; county_id: number; name: string }[];
 };
 
-const KEYBOARD_PADDING = 320;
+import { keyboardAvoidOffset, scrollPaddingKeyboard } from '@/constants/theme';
 
 export default function AddFarmerScreen() {
   const router = useRouter();
@@ -261,14 +261,14 @@ export default function AddFarmerScreen() {
     );
   }
 
-  const scrollPaddingBottom = KEYBOARD_PADDING + Math.max(insets.bottom, 24);
+  const scrollPaddingBottom = scrollPaddingKeyboard + Math.max(insets.bottom, 24);
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
       <KeyboardAvoidingView
         style={styles.container}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={100}
+        keyboardVerticalOffset={keyboardAvoidOffset}
       >
       <ScrollView
         style={styles.scroll}

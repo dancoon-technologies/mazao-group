@@ -1,11 +1,11 @@
 import {
   ActionCard,
   EmptyStateCard,
-  InfoCard,
   SectionHeader,
   StatCard,
 } from '@/components/dashboard';
-import { colors, spacing } from '@/constants/theme';
+import { ListItemRow } from '@/components/ListItemRow';
+import { cardShadow, cardStyle, colors, spacing } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
 import { getAllSchedulesForOfficer } from '@/database';
 import { farmerRowToFarmer, scheduleRowToSchedule } from '@/lib/offline-helpers';
@@ -108,9 +108,6 @@ export default function HomeScreen() {
 
   const today = new Date().toISOString().slice(0, 10);
   const todaySchedules = schedules.filter((s) => s.scheduled_date === today);
-  const pendingProposals = schedules
-    .filter((s) => s.status === 'proposed')
-    .sort((a, b) => (a.scheduled_date > b.scheduled_date ? 1 : -1));
   const recentFarmers = farmers.slice(0, 5);
   const visitsToday = stats?.visits_today ?? 0;
   const visitsThisMonth = stats?.visits_this_month ?? 0;
@@ -169,40 +166,18 @@ export default function HomeScreen() {
         <View style={styles.statsGrid}>
           <StatCard icon={STAT_ICONS.today} label="Today" value={visitsToday} />
           <StatCard icon={STAT_ICONS.month} label="This Month" value={visitsThisMonth} />
-          <StatCard icon={STAT_ICONS.schedules} label="Schedules" value={schedules.length} />
+          <StatCard icon={STAT_ICONS.schedules} label="Today's schedules" value={todaySchedules.length} />
           <StatCard icon={STAT_ICONS.farmers} label="Farmers" value={farmers.length} />
         </View>
-
-        <SectionHeader title="Pending (my proposals)" />
-        {pendingProposals.length === 0 ? (
-          <EmptyStateCard message="No pending proposals. Propose a schedule to see it here." />
-        ) : (
-          pendingProposals.map((s) => (
-            <InfoCard
-              key={s.id}
-              title={s.farmer_display_name ?? 'No farmer assigned'}
-              subtitle={`${formatDate(s.scheduled_date)} · Awaiting approval`}
-              right={
-                <Chip style={styles.pendingChip} textStyle={styles.pendingChipText} compact>
-                  Pending
-                </Chip>
-              }
-              onPress={() =>
-                s.farmer
-                  ? router.push({ pathname: '/(app)/record-visit', params: { farmerId: s.farmer } })
-                  : router.push('/(app)/record-visit')
-              }
-            />
-          ))
-        )}
 
         <SectionHeader title="Today's Schedule" />
         {todaySchedules.length === 0 ? (
           <EmptyStateCard message="No visits scheduled for today" />
         ) : (
           todaySchedules.map((s) => (
-            <InfoCard
+            <ListItemRow
               key={s.id}
+              avatarLetter={s.farmer_display_name ?? '?'}
               title={s.farmer_display_name ?? 'No farmer assigned'}
               subtitle={s.notes || formatDate(s.scheduled_date)}
               right={
@@ -228,8 +203,9 @@ export default function HomeScreen() {
           <EmptyStateCard message="No farmers yet" />
         ) : (
           recentFarmers.map((f) => (
-            <InfoCard
+            <ListItemRow
               key={f.id}
+              avatarLetter={f.display_name}
               title={f.display_name}
               subtitle={f.phone || '—'}
               onPress={() => router.push('/(app)/(tabs)/farmers')}
@@ -281,8 +257,6 @@ const styles = StyleSheet.create({
   },
   statusChip: { backgroundColor: colors.primaryLight },
   statusChipText: { color: colors.primary, fontSize: 12 },
-  pendingChip: { backgroundColor: colors.gray200 },
-  pendingChipText: { color: colors.gray700, fontSize: 12 },
-  errorCard: { marginTop: spacing.md, borderWidth: 1, borderColor: colors.error },
+  errorCard: { ...cardStyle, ...cardShadow, marginTop: spacing.md, borderColor: colors.error },
   errorText: { color: colors.error },
 });

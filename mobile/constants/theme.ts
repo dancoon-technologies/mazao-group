@@ -19,6 +19,7 @@ export const radius = {
   sm: 4,
   md: 6,
   lg: 8,
+  card: 12,
   full: 9999,
 } as const;
 
@@ -63,14 +64,26 @@ export const typography = {
   button: { fontSize: 16, fontWeight: '600' as const, lineHeight: 24 },
 } as const;
 
+// --- Card (shared look: rounded, light border, soft shadow)
+export const cardStyle = {
+  backgroundColor: colors.white,
+  borderRadius: radius.card,
+  borderWidth: 1,
+  borderColor: colors.gray200,
+  overflow: 'hidden' as const,
+};
+export const cardShadow = {
+  shadowColor: '#000',
+  shadowOffset: { width: 0, height: 1 },
+  shadowOpacity: 0.06,
+  shadowRadius: 4,
+  elevation: 2,
+};
+
 // --- Shadows (Card: subtle elevation)
 export const shadows = {
   card: {
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 3,
-    elevation: 1,
+    ...cardShadow,
   },
   fab: {
     shadowColor: '#000',
@@ -80,6 +93,15 @@ export const shadows = {
     elevation: 8,
   },
 } as const;
+
+/** Keyboard-avoiding: extra scroll bottom padding when keyboard may open (long forms). */
+export const scrollPaddingKeyboard = 120;
+
+/** Keyboard-avoiding: scroll bottom for short auth screens (login, change-password). */
+export const scrollPaddingKeyboardShort = 100;
+
+/** KeyboardAvoidingView vertical offset for in-app forms (below header). */
+export const keyboardAvoidOffset = 80;
 
 /** Min touch target (accessibility) */
 export const minTouchTarget = 48;

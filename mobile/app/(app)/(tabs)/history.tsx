@@ -1,14 +1,16 @@
+import { ListItemRow } from '@/components/ListItemRow';
 import { useAuth } from '@/contexts/AuthContext';
 import { getVisitsForOfficer } from '@/database';
 import { visitRowToVisit } from '@/lib/offline-helpers';
 import { api, type Visit } from '@/lib/api';
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import NetInfo from '@react-native-community/netinfo';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useCallback, useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ActivityIndicator, Card, Text, Button } from 'react-native-paper';
-import { colors, radius, spacing } from '@/constants/theme';
+import { colors, cardShadow, cardStyle, radius, spacing } from '@/constants/theme';
 
 function formatDateTime(iso: string) {
   try {
@@ -24,7 +26,22 @@ function formatDateTime(iso: string) {
   }
 }
 
+function visitStatusColor(verification_status: string): string {
+  const s = (verification_status || '').toLowerCase();
+  if (s === 'verified') return colors.primary;
+  if (s === 'rejected') return colors.error;
+  return colors.accent;
+}
+
+function visitStatusLabel(v: Visit): string {
+  const s = (v.verification_status || '').toLowerCase();
+  if (s === 'verified') return 'Verified';
+  if (s === 'rejected') return 'Rejected';
+  return 'Pending';
+}
+
 export default function HistoryScreen() {
+  const router = useRouter();
   const { userId } = useAuth();
   const [visits, setVisits] = useState<Visit[]>([]);
   const [loading, setLoading] = useState(true);
@@ -137,24 +154,27 @@ export default function HistoryScreen() {
   return (
     <SafeAreaView style={styles.safe} edges={['bottom']}>
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      {visits.map((v) => (
-        <Card key={v.id} style={styles.card} elevation={0}>
-          <Card.Content>
-            <Text variant="titleSmall">{v.farmer_display_name ?? v.farmer}</Text>
-            <Text variant="bodySmall">{formatDateTime(v.created_at)}</Text>
-            {v.activity_type ? (
-              <Text variant="bodySmall" style={styles.activity}>
-                {v.activity_type.replace(/_/g, ' ')}
-              </Text>
-            ) : null}
-            {v.verification_status ? (
-              <Text variant="bodySmall" style={styles.verified}>
-                {v.verification_status}
-              </Text>
-            ) : null}
-          </Card.Content>
-        </Card>
-      ))}
+      {visits.map((v) => {
+        const activityLabel = (v.activity_type || '').replace(/_/g, ' ');
+        const subtitle = [activityLabel, formatDateTime(v.created_at)].filter(Boolean).join(' · ');
+        return (
+          <ListItemRow
+            key={v.id}
+            avatarLetter={(v.farmer_display_name || v.farmer || '?').toString()}
+            title={v.farmer_display_name ?? v.farmer ?? 'Unknown'}
+            subtitle={subtitle}
+            right={
+              <View style={[styles.badge, { backgroundColor: visitStatusColor(v.verification_status || '') + '20' }]}>
+                <Text variant="labelSmall" style={[styles.badgeText, { color: visitStatusColor(v.verification_status || '') }]}>
+                  {visitStatusLabel(v)}
+                </Text>
+                <MaterialCommunityIcons name="chevron-right" size={14} color={visitStatusColor(v.verification_status || '')} />
+              </View>
+            }
+            onPress={() => router.push({ pathname: '/(app)/visits/[id]', params: { id: v.id } })}
+          />
+        );
+      })}
     </ScrollView>
     </SafeAreaView>
   );
@@ -165,9 +185,16 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   content: { padding: spacing.lg, paddingBottom: spacing.xxl },
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  card: { marginBottom: spacing.md, borderRadius: radius.sm },
+  card: { ...cardStyle, ...cardShadow, marginBottom: spacing.md },
   muted: { marginTop: spacing.xs, opacity: 0.8 },
   error: { color: colors.error, marginBottom: spacing.sm },
-  activity: { marginTop: 2, textTransform: 'capitalize', opacity: 0.9 },
-  verified: { marginTop: 2, textTransform: 'capitalize', color: colors.success },
+  badge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: radius.sm,
+    gap: 2,
+  },
+  badgeText: { fontWeight: '600', fontSize: 12 },
 });

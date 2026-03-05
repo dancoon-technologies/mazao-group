@@ -1,4 +1,5 @@
-import { colors, radius, spacing } from '@/constants/theme';
+import { ListItemRow } from '@/components/ListItemRow';
+import { colors, cardShadow, cardStyle, radius, spacing } from '@/constants/theme';
 import { getAllSchedulesForOfficer, getVisitsForOfficer } from '@/database';
 import { useAuth } from '@/contexts/AuthContext';
 import { scheduleRowToSchedule, visitRowToVisit } from '@/lib/offline-helpers';
@@ -21,6 +22,7 @@ import {
   Card,
   Chip,
   FAB,
+  IconButton,
   Searchbar,
   Text,
 } from 'react-native-paper';
@@ -74,6 +76,17 @@ function groupSchedulesByDate(schedules: Schedule[]): { date: string; items: Sch
   return Array.from(byDate.entries()).map(([date, items]) => ({ date, items }));
 }
 
+function groupPastSchedulesByDate(schedules: Schedule[]): { date: string; items: Schedule[] }[] {
+  const sorted = [...schedules].sort((a, b) => b.scheduled_date.localeCompare(a.scheduled_date));
+  const byDate = new Map<string, Schedule[]>();
+  for (const s of sorted) {
+    const list = byDate.get(s.scheduled_date) ?? [];
+    list.push(s);
+    byDate.set(s.scheduled_date, list);
+  }
+  return Array.from(byDate.entries()).map(([date, items]) => ({ date, items }));
+}
+
 function groupVisitsByDate(visits: Visit[]): { date: string; items: Visit[] }[] {
   const sorted = [...visits].sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
   const byDate = new Map<string, Visit[]>();
@@ -90,14 +103,14 @@ function groupVisitsByDate(visits: Visit[]): { date: string; items: Visit[] }[] 
 function scheduleStatusColor(status: Schedule['status']): string {
   if (status === 'accepted') return colors.primary;
   if (status === 'rejected') return colors.error;
-  return colors.primary; // green for proposed
+  return colors.warning; // yellow for proposed
 }
 
 function visitStatusColor(verification_status: string): string {
   const s = (verification_status || '').toLowerCase();
   if (s === 'verified') return colors.primary;
   if (s === 'rejected') return colors.error;
-  return colors.accent; // orange for pending
+  return colors.yellow; // yellow for pending
 }
 
 export default function VisitsScreen() {
@@ -180,7 +193,47 @@ export default function VisitsScreen() {
     load();
   }, [load]));
 
-  const schedulesByDate = useMemo(() => groupSchedulesByDate(schedules), [schedules]);
+  const upcomingSchedules = useMemo(() => {
+    const today = new Date().toISOString().slice(0, 10);
+    return schedules.filter(
+      (s) => s.status === 'accepted' && s.scheduled_date >= today
+    );
+  }, [schedules]);
+
+  const schedulesByDate = useMemo(
+    () => groupSchedulesByDate(upcomingSchedules),
+    [upcomingSchedules]
+  );
+
+  const pastSchedules = useMemo(() => {
+    const today = new Date().toISOString().slice(0, 10);
+    return schedules.filter(
+      (s) => s.status === 'accepted' && s.scheduled_date < today
+    );
+  }, [schedules]);
+
+  const filteredPastSchedules = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return pastSchedules;
+    return pastSchedules.filter(
+      (s) =>
+        (s.farmer_display_name ?? '').toLowerCase().includes(q) ||
+        (s.notes ?? '').toLowerCase().includes(q)
+    );
+  }, [pastSchedules, search]);
+
+  const pastSchedulesByDate = useMemo(
+    () => groupPastSchedulesByDate(filteredPastSchedules),
+    [filteredPastSchedules]
+  );
+
+  const scheduleIdToVisit = useMemo(() => {
+    const map: Record<string, Visit> = {};
+    for (const v of visits) {
+      if (v.schedule) map[v.schedule] = v;
+    }
+    return map;
+  }, [visits]);
 
   const filteredVisits = useMemo(() => {
     let list = visits;
@@ -281,37 +334,33 @@ export default function VisitsScreen() {
                       {formatDateHeader(date)}
                     </Text>
                     {items.map((s) => (
-                      <Pressable
+                      <ListItemRow
                         key={s.id}
-                        style={({ pressed }) => [styles.listCard, pressed && styles.pressed]}
-                        onPress={() =>
-                          router.push(
-                            s.farmer
-                              ? { pathname: '/(app)/record-visit', params: { farmerId: s.farmer, scheduleId: s.id } }
-                              : { pathname: '/(app)/record-visit', params: { scheduleId: s.id } }
-                          )
+                        avatarLetter={s.farmer_display_name ?? '?'}
+                        title={s.farmer_display_name ?? 'No farmer assigned'}
+                        subtitle={s.notes || 'Scheduled visit'}
+                        right={
+                          <View style={styles.upcomingRight}>
+                            <View style={[styles.badge, { backgroundColor: scheduleStatusColor(s.status) + '20' }]}>
+                              <Text variant="labelSmall" style={[styles.badgeText, { color: scheduleStatusColor(s.status) }]}>
+                                {scheduleStatusLabel(s)}
+                              </Text>
+                            </View>
+                            <IconButton
+                              icon="pencil"
+                              size={22}
+                              iconColor={colors.primary}
+                              onPress={() =>
+                                router.push(
+                                  s.farmer
+                                    ? { pathname: '/(app)/record-visit', params: { farmerId: s.farmer, scheduleId: s.id } }
+                                    : { pathname: '/(app)/record-visit', params: { scheduleId: s.id } }
+                                )
+                              }
+                            />
+                          </View>
                         }
-                      >
-                        <View style={styles.avatarCircle}>
-                          <Text variant="titleMedium" style={styles.avatarText}>
-                            {(s.farmer_display_name || '?').charAt(0).toUpperCase()}
-                          </Text>
-                        </View>
-                        <View style={styles.listCardBody}>
-                          <Text variant="titleMedium" style={styles.listCardName} numberOfLines={1}>
-                            {s.farmer_display_name ?? 'No farmer assigned'}
-                          </Text>
-                          <Text variant="bodySmall" style={styles.listCardSubtext} numberOfLines={1}>
-                            {s.notes || 'Scheduled visit'}
-                          </Text>
-                        </View>
-                        <View style={[styles.badge, { backgroundColor: scheduleStatusColor(s.status) + '20' }]}>
-                          <Text variant="labelSmall" style={[styles.badgeText, { color: scheduleStatusColor(s.status) }]}>
-                            {scheduleStatusLabel(s)}
-                          </Text>
-                          <MaterialCommunityIcons name="chevron-down" size={14} color={scheduleStatusColor(s.status)} />
-                        </View>
-                      </Pressable>
+                      />
                     ))}
                   </View>
                 ))
@@ -336,48 +385,46 @@ export default function VisitsScreen() {
                     <Button mode="outlined" onPress={load} style={styles.retryBtn}>Retry</Button>
                   </Card.Content>
                 </Card>
-              ) : visitsByDate.length === 0 ? (
+              ) : pastSchedulesByDate.length === 0 ? (
                 <Card style={styles.card} elevation={0}>
                   <Card.Content>
-                    <Text variant="bodyMedium" style={styles.emptyText}>No recorded visits</Text>
+                    <Text variant="bodyMedium" style={styles.emptyText}>No past scheduled visits</Text>
                     <Text variant="bodySmall" style={styles.emptySubtext}>
-                      Record a visit from the Record tab
+                      Accepted visits with past dates appear here
                     </Text>
                   </Card.Content>
                 </Card>
               ) : (
-                visitsByDate.map(({ date, items }) => (
+                pastSchedulesByDate.map(({ date, items }) => (
                   <View key={date} style={styles.dateSection}>
                     <Text variant="labelLarge" style={styles.dateHeader}>
                       {formatDateHeader(date)}
                     </Text>
-                    {items.map((v) => (
-                      <Pressable
-                        key={v.id}
-                        style={({ pressed }) => [styles.listCard, pressed && styles.pressed]}
-                        onPress={() => router.push({ pathname: '/(app)/visits/[id]', params: { id: v.id } })}
-                      >
-                        <View style={styles.avatarCircle}>
-                          <Text variant="titleMedium" style={styles.avatarText}>
-                            {(v.farmer_display_name || v.farmer || '?').charAt(0).toUpperCase()}
-                          </Text>
-                        </View>
-                        <View style={styles.listCardBody}>
-                          <Text variant="titleMedium" style={styles.listCardName} numberOfLines={1}>
-                            {v.farmer_display_name ?? v.farmer ?? 'Unknown'}
-                          </Text>
-                          <Text variant="bodySmall" style={styles.listCardSubtext} numberOfLines={1}>
-                            {getActivityLabel(v.activity_type || '')} · {formatDateShort(v.created_at)}
-                          </Text>
-                        </View>
-                        <View style={[styles.badge, { backgroundColor: visitStatusColor(v.verification_status) + '20' }]}>
-                          <Text variant="labelSmall" style={[styles.badgeText, { color: visitStatusColor(v.verification_status) }]}>
-                            {visitStatusLabel(v)}
-                          </Text>
-                          <MaterialCommunityIcons name="chevron-down" size={14} color={visitStatusColor(v.verification_status)} />
-                        </View>
-                      </Pressable>
-                    ))}
+                    {items.map((s) => {
+                      const recorded = !!scheduleIdToVisit[s.id];
+                      const visit = scheduleIdToVisit[s.id];
+                      return (
+                        <ListItemRow
+                          key={s.id}
+                          avatarLetter={s.farmer_display_name ?? '?'}
+                          title={s.farmer_display_name ?? 'No farmer assigned'}
+                          subtitle={s.notes || 'Scheduled visit'}
+                          right={
+                            <View style={[styles.badge, { backgroundColor: (recorded ? colors.primary : colors.gray500) + '20' }]}>
+                              <Text variant="labelSmall" style={[styles.badgeText, { color: recorded ? colors.primary : colors.gray700 }]}>
+                                {recorded ? 'Recorded' : 'Not recorded'}
+                              </Text>
+                              <MaterialCommunityIcons name={recorded ? 'check-circle' : 'circle-outline'} size={14} color={recorded ? colors.primary : colors.gray700} />
+                            </View>
+                          }
+                          onPress={
+                            recorded && visit
+                              ? () => router.push({ pathname: '/(app)/visits/[id]', params: { id: visit.id } })
+                              : undefined
+                          }
+                        />
+                      );
+                    })}
                   </View>
                 ))
               )}
@@ -388,7 +435,7 @@ export default function VisitsScreen() {
 
       {/* FAB - Propose schedule */}
       <View
-        style={[styles.fabWrap, { bottom: insets.bottom + TAB_BAR_HEIGHT + 16 }]}
+        style={[styles.fabWrap, { bottom: insets.bottom + TAB_BAR_HEIGHT + 4 }]}
         pointerEvents="box-none"
       >
         <FAB
@@ -442,29 +489,10 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     marginBottom: spacing.sm,
   },
-  listCard: {
+  upcomingRight: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.white,
-    borderRadius: radius.lg,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.md,
-    marginBottom: spacing.sm,
-    borderWidth: 1,
-    borderColor: colors.gray200,
   },
-  listCardBody: { flex: 1, marginLeft: spacing.md, minWidth: 0 },
-  listCardName: { fontWeight: '700', color: colors.gray900 },
-  listCardSubtext: { color: colors.gray700, marginTop: 2 },
-  avatarCircle: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: colors.gray200,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  avatarText: { fontWeight: '700', color: colors.gray700 },
   badge: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -475,12 +503,11 @@ const styles = StyleSheet.create({
   },
   badgeText: { fontWeight: '600', fontSize: 12 },
   loader: { marginVertical: spacing.xl },
-  card: { marginBottom: spacing.md },
+  card: { ...cardStyle, ...cardShadow, marginBottom: spacing.md },
   error: { marginBottom: 8 },
   retryBtn: { marginTop: 8 },
   emptyText: { color: colors.gray700 },
   emptySubtext: { color: colors.gray500, marginTop: 4 },
-  pressed: { opacity: 0.9 },
   offlineChip: { marginBottom: spacing.md },
   fabWrap: {
     position: 'absolute',
