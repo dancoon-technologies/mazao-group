@@ -36,7 +36,7 @@ jobs:
 
       - name: Install dependencies
         working-directory: mobile
-        run: pnpm install --frozen-lockfile
+        run: pwd && pnpm install --frozen-lockfile
 
       - name: Build APK locally
         working-directory: mobile
