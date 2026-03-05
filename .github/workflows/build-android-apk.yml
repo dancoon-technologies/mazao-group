@@ -13,17 +13,10 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 9
-
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'pnpm'
-          cache-dependency-path: mobile/pnpm-lock.yaml
 
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -34,13 +27,17 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
+      # Use npm (not pnpm) so node_modules is flat and react-native-reanimated finds
+      # react-native-worklets' libworklets.so in one place; pnpm's layout breaks the native link.
       - name: Install dependencies
         working-directory: mobile
-        run: pwd && pnpm install --frozen-lockfile
+        run: |
+          pwd
+          npm install
 
       - name: Build APK locally
         working-directory: mobile
-        run: pnpm exec eas build --platform android --profile preview --local --non-interactive --output ./build/app.apk
+        run: npx eas build --platform android --profile preview --local --non-interactive --output ./build/app.apk
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
           # Inlined into the app at build time (Expo EXPO_PUBLIC_*)
