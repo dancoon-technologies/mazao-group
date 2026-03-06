@@ -5,7 +5,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .models import User
+from .models import Department, User
 
 logger = logging.getLogger(__name__)
 from .serializers import StaffCreateSerializer, StaffPatchSerializer, UserSerializer
@@ -22,7 +22,7 @@ class OptionsListView(APIView):
 
         logger.debug("GET /api/options/")
         departments = [
-            {"value": choice[0], "label": choice[1]} for choice in User.Department.choices
+            {"value": d.slug, "label": d.name} for d in Department.objects.all()
         ]
         staff_roles = [
             {"value": User.Role.SUPERVISOR, "label": dict(User.Role.choices)[User.Role.SUPERVISOR]},
@@ -31,15 +31,14 @@ class OptionsListView(APIView):
         visit_max_m = getattr(django_settings, "VISIT_MAX_DISTANCE_METERS", 100)
         visit_warning_m = getattr(django_settings, "VISIT_WARNING_DISTANCE_METERS", 80)
 
-        # Activity types: only those for the user's department (empty departments = all)
+        # Activity types: only those for the user's department (prefetch used to avoid N+1)
         activity_types = []
         try:
             from visits.models import ActivityTypeConfig
-            user_dept_slug = getattr(request.user, "department", None) or ""
+            user_dept_slug = (request.user.department.slug if request.user.department else "")
             for at in ActivityTypeConfig.objects.prefetch_related("departments"):
-                if not at.departments.exists():
-                    activity_types.append({"value": at.value, "label": at.label})
-                elif user_dept_slug and at.departments.filter(slug=user_dept_slug).exists():
+                depts = list(at.departments.all())
+                if not depts or (user_dept_slug and any(d.slug == user_dept_slug for d in depts)):
                     activity_types.append({"value": at.value, "label": at.label})
         except Exception as e:
             logger.warning("Options activity_types: %s", e)
@@ -69,14 +68,15 @@ class OfficersListView(generics.ListAPIView):
             return User.objects.none()
         qs = (
             User.objects.filter(role=User.Role.OFFICER)
-            .select_related("region_id", "county_id", "sub_county_id")
+            .select_related("department", "region_id", "county_id", "sub_county_id")
             .order_by("email")
         )
         if user.role == "supervisor":
-            if getattr(user, "department", None):
+            # Supervisors see only officers in their department.
+            if user.department_id:
                 qs = qs.filter(department=user.department)
-            elif getattr(user, "region_id_id", None):
-                qs = qs.filter(region_id_id=user.region_id_id)
+            else:
+                qs = User.objects.none()
         return qs
 
 
@@ -97,7 +97,7 @@ class StaffListCreateView(generics.ListCreateAPIView):
             return User.objects.none()
         return (
             User.objects.filter(role__in=(User.Role.SUPERVISOR, User.Role.OFFICER))
-            .select_related("region_id", "county_id", "sub_county_id")
+            .select_related("department", "region_id", "county_id", "sub_county_id")
             .order_by("role", "email")
         )
 
@@ -141,7 +141,7 @@ class StaffUpdateView(generics.GenericAPIView):
                 status=status.HTTP_403_FORBIDDEN,
             )
         try:
-            user = User.objects.select_related("region_id", "county_id", "sub_county_id").get(pk=pk)
+            user = User.objects.select_related("department", "region_id", "county_id", "sub_county_id").get(pk=pk)
         except User.DoesNotExist:
             logger.warning("PATCH /api/staff/%s staff not found", pk)
             return Response(
@@ -201,6 +201,10 @@ class ChangePasswordView(generics.GenericAPIView):
             channels=["in_app"],
         )
         refresh = RefreshToken.for_user(user)
+        jti = refresh.get("jti")
+        if jti:
+            user.current_refresh_jti = jti
+            user.save(update_fields=["current_refresh_jti"])
         return Response(
             {
                 "detail": "Password changed successfully.",
@@ -223,7 +227,7 @@ class StaffResendCredentialsView(generics.GenericAPIView):
                 status=status.HTTP_403_FORBIDDEN,
             )
         try:
-            user = User.objects.get(pk=pk)
+            user = User.objects.select_related("department").get(pk=pk)
         except User.DoesNotExist:
             logger.warning("POST /api/staff/%s/resend-credentials/ staff not found", pk)
             return Response(

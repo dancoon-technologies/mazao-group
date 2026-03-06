@@ -31,7 +31,19 @@ class FarmerListCreateView(generics.ListCreateAPIView):
         return self.list_serializer_class
 
     def get_queryset(self):
-        qs = Farmer.objects.all().select_related("assigned_officer")
+        user = self.request.user
+        qs = Farmer.objects.all().select_related("assigned_officer", "assigned_officer__department")
+        if user.role == "admin":
+            pass  # Admin sees all farmers
+        elif user.role == "supervisor":
+            # Supervisors see only farmers assigned to officers in their department.
+            if user.department_id:
+                qs = qs.filter(assigned_officer__department=user.department)
+            else:
+                qs = qs.none()
+        else:
+            # Officers see only farmers assigned to them
+            qs = qs.filter(assigned_officer=user)
         search = (self.request.query_params.get("search") or "").strip()
         if search:
             qs = qs.filter(
@@ -91,9 +103,26 @@ class FarmListCreateView(generics.ListCreateAPIView):
         return self.list_serializer_class
 
     def get_queryset(self):
-        qs = Farm.objects.select_related("farmer", "farmer__assigned_officer").order_by(
-            "farmer", "created_at"
-        )
+        user = self.request.user
+        qs = Farm.objects.select_related(
+            "farmer",
+            "farmer__assigned_officer",
+            "farmer__assigned_officer__department",
+            "region_id",
+            "county_id",
+            "sub_county_id",
+        ).order_by("farmer", "created_at")
+        if user.role == "admin":
+            pass  # Admin sees all farms
+        elif user.role == "supervisor":
+            # Supervisors see only farms whose farmer is assigned to an officer in their department.
+            if user.department_id:
+                qs = qs.filter(farmer__assigned_officer__department=user.department)
+            else:
+                qs = qs.none()
+        else:
+            # Officers see only farms of farmers assigned to them
+            qs = qs.filter(farmer__assigned_officer=user)
         farmer_id = self.request.query_params.get("farmer")
         if farmer_id:
             qs = qs.filter(farmer_id=farmer_id)
@@ -116,7 +145,7 @@ class FarmListCreateView(generics.ListCreateAPIView):
         device_lon = serializer.validated_data.pop("device_longitude", None)
         user = request.user
         try:
-            farmer = Farmer.objects.get(pk=farmer_id)
+            farmer = Farmer.objects.select_related("assigned_officer").get(pk=farmer_id)
         except Farmer.DoesNotExist:
             logger.warning("POST /api/farms/ farmer_id=%s not found", farmer_id)
             from rest_framework.exceptions import NotFound
@@ -159,5 +188,8 @@ class FarmListCreateView(generics.ListCreateAPIView):
             farmer_id,
             user.id,
         )
+        farm = Farm.objects.select_related(
+            "farmer", "region_id", "county_id", "sub_county_id"
+        ).get(pk=farm.pk)
         out = FarmSerializer(farm)
         return Response(out.data, status=status.HTTP_201_CREATED)

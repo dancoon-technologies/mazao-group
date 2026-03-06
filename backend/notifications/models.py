@@ -1,7 +1,10 @@
 import uuid
 
 from django.conf import settings
+from django.core.validators import MaxLengthValidator
 from django.db import models
+
+MESSAGE_MAX_LENGTH = 2000
 
 
 class Notification(models.Model):
@@ -13,8 +16,8 @@ class Notification(models.Model):
         on_delete=models.CASCADE,
         related_name="notifications",
     )
-    title = models.CharField(max_length=255)
-    message = models.TextField()
+    title = models.CharField(max_length=120)
+    message = models.TextField(validators=[MaxLengthValidator(MESSAGE_MAX_LENGTH)])
     created_at = models.DateTimeField(auto_now_add=True)
     read_at = models.DateTimeField(null=True, blank=True)
     archived_at = models.DateTimeField(null=True, blank=True)

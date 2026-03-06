@@ -1,10 +1,13 @@
 import uuid
 
 from django.conf import settings
+from django.core.validators import MaxLengthValidator
 from django.db import models
 
 from farmers.models import Farmer
 from mobile_sync.models import MobileSyncModel
+
+NOTES_MAX_LENGTH = 2000
 
 
 class Schedule(MobileSyncModel):
@@ -35,7 +38,7 @@ class Schedule(MobileSyncModel):
         blank=True,
     )
     scheduled_date = models.DateField()
-    notes = models.TextField(blank=True)
+    notes = models.TextField(blank=True, validators=[MaxLengthValidator(NOTES_MAX_LENGTH)])
     status = models.CharField(
         max_length=20,
         choices=Status.choices,

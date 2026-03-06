@@ -21,11 +21,11 @@ class DashboardStatsView(APIView):
         user = request.user
         base_qs = Visit.objects.all()
         if user.role == "supervisor":
-            if getattr(user, "department", None):
+            # Supervisors see only stats for their department.
+            if user.department_id:
                 base_qs = base_qs.filter(officer__department=user.department)
             else:
-                if getattr(user, "region_id_id", None):
-                    base_qs = base_qs.filter(officer__region_id_id=user.region_id_id)
+                base_qs = base_qs.none()
         today = timezone.now().date()
         start_of_month = today.replace(day=1)
         stats = base_qs.aggregate(

@@ -1,10 +1,15 @@
 import uuid
 
 from django.conf import settings
+from django.core.validators import MaxLengthValidator
 from django.db import models
 
 from farmers.models import Farm, Farmer
 from mobile_sync.models import MobileSyncModel
+
+# Max lengths for text fields to cap storage (no 100KB notes)
+NOTES_MAX_LENGTH = 2000
+FEEDBACK_MAX_LENGTH = 2000
 
 
 class ActivityTypeConfig(models.Model):
@@ -14,7 +19,7 @@ class ActivityTypeConfig(models.Model):
     """
 
     value = models.SlugField(max_length=50, unique=True)
-    label = models.CharField(max_length=255)
+    label = models.CharField(max_length=150)
     departments = models.ManyToManyField(
         "accounts.Department",
         blank=True,
@@ -101,16 +106,16 @@ class Visit(MobileSyncModel):
         help_text="Device timestamp when the photo was captured (ISO from mobile).",
     )
     photo_device_info = models.CharField(
-        max_length=255,
+        max_length=120,
         blank=True,
         help_text="Device model and OS (e.g. iPhone 14, iOS 17).",
     )
     photo_place_name = models.CharField(
-        max_length=255,
+        max_length=120,
         blank=True,
         help_text="Place label (e.g. farm village or 'Farmer location').",
     )
-    notes = models.TextField(blank=True)
+    notes = models.TextField(blank=True, validators=[MaxLengthValidator(NOTES_MAX_LENGTH)])
     distance_from_farmer = models.FloatField(null=True, blank=True)
     verification_status = models.CharField(
         max_length=20,
@@ -125,10 +130,10 @@ class Visit(MobileSyncModel):
     crop_stage = models.CharField(max_length=100, blank=True)
     germination_percent = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
     survival_rate = models.CharField(max_length=50, blank=True)
-    pests_diseases = models.CharField(max_length=255, blank=True)
+    pests_diseases = models.CharField(max_length=180, blank=True)
     order_value = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
     harvest_kgs = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
-    farmers_feedback = models.TextField(blank=True)
+    farmers_feedback = models.TextField(blank=True, validators=[MaxLengthValidator(FEEDBACK_MAX_LENGTH)])
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

@@ -420,7 +420,16 @@ export default function RecordVisitScreen() {
     }
   }, []);
 
+  const mustSelectSchedule = acceptedSchedules.length > 0 && !selectedScheduleId;
+  const selectedSchedule = plannedSchedules.find((s) => s.id === selectedScheduleId);
+  const scheduleLocked = !!selectedScheduleId && selectedSchedule?.status === 'accepted';
+  const scheduleIdForSubmit = scheduleLocked ? selectedScheduleId : undefined;
+
   const submit = useCallback(async () => {
+    if (mustSelectSchedule) {
+      setError('Select a planned visit (accepted schedule) to record this visit.');
+      return;
+    }
     if (!selectedFarmerId || !photoUri || !location) {
       setError('Select farmer, capture photo, and ensure location is available.');
       return;
@@ -484,15 +493,12 @@ export default function RecordVisitScreen() {
     } finally {
       setSubmitting(false);
     }
-  }, [selectedFarmerId, selectedFarmId, selectedScheduleId, scheduleIdForSubmit, photoUri, photoTakenAt, location, selectedFarm, selectedFarmer, activityType, notes, cropStage, germinationPercent, survivalRatePercent, orderValue, harvestKgs, pestsDiseases, farmersFeedback, isOnline, router]);
+  }, [mustSelectSchedule, selectedFarmerId, selectedFarmId, selectedScheduleId, scheduleIdForSubmit, photoUri, photoTakenAt, location, selectedFarm, selectedFarmer, activityType, notes, cropStage, germinationPercent, survivalRatePercent, orderValue, harvestKgs, pestsDiseases, farmersFeedback, isOnline, router]);
 
   const activityLabel =
     activityTypesList.find((a) => a.value === activityType)?.label ??
     ACTIVITY_TYPES.find((a) => a.value === activityType)?.label ??
     activityType;
-  const selectedSchedule = plannedSchedules.find((s) => s.id === selectedScheduleId);
-  const scheduleLocked = !!selectedScheduleId && selectedSchedule?.status === 'accepted';
-  const scheduleIdForSubmit = scheduleLocked ? selectedScheduleId : undefined;
 
   if (!permission) {
     return (
@@ -541,23 +547,13 @@ export default function RecordVisitScreen() {
             </Chip>
           )}
 
-          {acceptedSchedules.length > 0 && (
+          {acceptedSchedules.length > 0 ? (
             <Surface style={styles.section} elevation={0}>
-              <Text variant="labelLarge" style={styles.fieldLabel}>Link to planned visit (optional)</Text>
+              <Text variant="labelLarge" style={styles.fieldLabel}>Planned visit (accepted) *</Text>
               <Text variant="bodySmall" style={styles.hint}>
-                Only accepted schedules can be linked. Selecting one sets farmer and farm for this visit.
+                Select the accepted schedule for this visit. Farmer and farm are set from the schedule.
               </Text>
               <View style={styles.scheduleChips}>
-                <Chip
-                  selected={selectedScheduleId === null}
-                  onPress={() => {
-                    setSelectedScheduleId(null);
-                  }}
-                  style={styles.scheduleChip}
-                  compact
-                >
-                  None
-                </Chip>
                 {acceptedSchedules.map((s) => {
                   const farmerName = farmers.find((f) => f.id === s.farmer)?.display_name ?? s.farmer ?? '—';
                   const dateStr = s.scheduled_date;
@@ -577,6 +573,16 @@ export default function RecordVisitScreen() {
                   );
                 })}
               </View>
+              {mustSelectSchedule && (
+                <HelperText type="error" style={styles.errorHint}>Select a planned visit to continue.</HelperText>
+              )}
+            </Surface>
+          ) : (
+            <Surface style={styles.section} elevation={0}>
+              <Text variant="labelLarge" style={styles.fieldLabel}>Planned visit</Text>
+              <Text variant="bodySmall" style={styles.hint}>
+                No accepted visits scheduled. Select a farmer below to record a visit without linking to a schedule.
+              </Text>
             </Surface>
           )}
 
@@ -989,6 +995,7 @@ const styles = StyleSheet.create({
   addFarmerBtn: { marginTop: -2, marginBottom: 2 },
   farmList: { marginTop: spacing.xs },
   lockedHint: { marginTop: 2, marginBottom: 4 },
+  errorHint: { marginTop: 4, marginBottom: 0 },
   scheduleChips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginTop: spacing.sm },
   scheduleChip: { marginBottom: 0 },
   card: { marginBottom: spacing.md },

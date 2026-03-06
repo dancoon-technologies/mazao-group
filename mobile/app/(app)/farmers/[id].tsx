@@ -1,6 +1,7 @@
 import { getFarmers as getFarmersDb, getFarms as getFarmsDb } from '@/database';
 import { farmRowToFarm, farmerRowToFarmer } from '@/lib/offline-helpers';
 import { api, type Farmer, type Farm } from '@/lib/api';
+import { colors, radius, spacing } from '@/constants/theme';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import NetInfo from '@react-native-community/netinfo';
@@ -72,6 +73,8 @@ export default function FarmerDetailScreen() {
   }, [load]);
 
   const openAddFarm = () => router.push({ pathname: '/farmers/[id]/add-farm', params: { id: id! } });
+  const openRecordVisit = () =>
+    router.push({ pathname: '/(app)/record-visit', params: { farmerId: id ?? undefined } });
 
   return (
     <SafeAreaView style={styles.safe} edges={['bottom']}>
@@ -83,66 +86,104 @@ export default function FarmerDetailScreen() {
         style={styles.container}
         contentContainerStyle={styles.content}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+        showsVerticalScrollIndicator={false}
       >
         {loading ? (
           <Card style={styles.card} elevation={0}>
             <Card.Content>
-              <Text variant="bodyMedium">Loading…</Text>
+              <Text variant="bodyMedium" style={styles.muted}>Loading…</Text>
             </Card.Content>
           </Card>
         ) : error ? (
           <Card style={styles.card} elevation={0}>
             <Card.Content>
               <Text variant="bodyMedium" style={styles.error}>{error}</Text>
-              <Button mode="outlined" onPress={load}>Retry</Button>
+              <Button mode="outlined" onPress={load} style={styles.retryBtn}>
+                Retry
+              </Button>
             </Card.Content>
           </Card>
         ) : farmer ? (
           <>
-            <Card style={styles.card} elevation={0}>
-              <Card.Content>
-                <Text variant="titleMedium" style={styles.cardTitle}>{farmer.display_name}</Text>
-                {farmer.phone ? <Text variant="bodyMedium">Phone: {farmer.phone}</Text> : null}
-                {farmer.crop_type ? <Text variant="bodyMedium">Crop: {farmer.crop_type}</Text> : null}
-              </Card.Content>
-            </Card>
-
-            <View style={styles.sectionHeader}>
-              <Text variant="titleMedium" style={styles.sectionTitle}>Farms</Text>
-              <Button mode="contained-tonal" compact onPress={openAddFarm} icon="plus">
-                Add farm
+            <View style={styles.hero}>
+              <View style={styles.avatarWrap}>
+                <Text variant="headlineMedium" style={styles.avatarLetter}>
+                  {(farmer.display_name || 'F').charAt(0).toUpperCase()}
+                </Text>
+              </View>
+              <Text variant="headlineSmall" style={styles.heroName}>
+                {farmer.display_name}
+              </Text>
+              {(farmer.phone || farmer.crop_type) && (
+                <View style={styles.heroMeta}>
+                  {farmer.phone ? (
+                    <View style={styles.metaRow}>
+                      <MaterialCommunityIcons name="phone" size={18} color={colors.gray700} />
+                      <Text variant="bodyMedium" style={styles.metaText}>{farmer.phone}</Text>
+                    </View>
+                  ) : null}
+                  {farmer.crop_type ? (
+                    <View style={styles.metaRow}>
+                      <MaterialCommunityIcons name="sprout" size={18} color={colors.gray700} />
+                      <Text variant="bodyMedium" style={styles.metaText}>{farmer.crop_type}</Text>
+                    </View>
+                  ) : null}
+                </View>
+              )}
+              <Button
+                mode="contained"
+                icon="calendar-check"
+                onPress={openRecordVisit}
+                style={styles.recordVisitBtn}
+              >
+                Record visit
               </Button>
             </View>
 
-            {farms.length === 0 ? (
-              <Card style={styles.card} elevation={0}>
-                <Card.Content>
-                  <Text variant="bodyMedium" style={styles.muted}>No farms yet.</Text>
-                  <Button mode="outlined" onPress={openAddFarm} style={styles.addFarmBtn}>
-                    Add farm
-                  </Button>
-                </Card.Content>
-              </Card>
-            ) : (
-              farms.map((farm) => (
-                <Card key={farm.id} style={styles.farmCard} elevation={0}>
+            <View style={styles.section}>
+              <View style={styles.sectionHeader}>
+                <Text variant="titleMedium" style={styles.sectionTitle}>Farms</Text>
+                <Button mode="contained-tonal" compact onPress={openAddFarm} icon="plus">
+                  Add farm
+                </Button>
+              </View>
+
+              {farms.length === 0 ? (
+                <Card style={styles.emptyCard} elevation={0}>
                   <Card.Content>
-                    <View style={styles.farmRow}>
-                      <MaterialCommunityIcons name="map-marker" size={20} style={styles.farmIcon} />
-                      <Text variant="bodyLarge" style={styles.farmVillage}>{farm.village}</Text>
-                    </View>
-                    <Text variant="bodySmall" style={styles.farmLocation}>
-                      {farmLocationLabel(farm)}
-                    </Text>
-                    {(farm.plot_size || farm.crop_type) ? (
-                      <Text variant="bodySmall" style={styles.farmMeta}>
-                        {[farm.plot_size, farm.crop_type].filter(Boolean).join(' · ')}
-                      </Text>
-                    ) : null}
+                    <Text variant="bodyMedium" style={styles.muted}>No farms yet. Add a farm location for this farmer.</Text>
+                    <Button mode="outlined" onPress={openAddFarm} style={styles.addFarmBtn}>
+                      Add farm
+                    </Button>
                   </Card.Content>
                 </Card>
-              ))
-            )}
+              ) : (
+                <View style={styles.farmList}>
+                  {farms.map((farm) => (
+                    <Card key={farm.id} style={styles.farmCard} elevation={0}>
+                      <Card.Content style={styles.farmCardContent}>
+                        <View style={styles.farmRow}>
+                          <View style={styles.farmIconWrap}>
+                            <MaterialCommunityIcons name="map-marker" size={20} color={colors.primary} />
+                          </View>
+                          <View style={styles.farmBody}>
+                            <Text variant="titleSmall" style={styles.farmVillage}>{farm.village}</Text>
+                            <Text variant="bodySmall" style={styles.farmLocation}>
+                              {farmLocationLabel(farm)}
+                            </Text>
+                            {(farm.plot_size || farm.crop_type) && (
+                              <Text variant="bodySmall" style={styles.farmMeta}>
+                                {[farm.plot_size, farm.crop_type].filter(Boolean).join(' · ')}
+                              </Text>
+                            )}
+                          </View>
+                        </View>
+                      </Card.Content>
+                    </Card>
+                  ))}
+                </View>
+              )}
+            </View>
           </>
         ) : null}
       </ScrollView>
@@ -153,23 +194,64 @@ export default function FarmerDetailScreen() {
 const styles = StyleSheet.create({
   safe: { flex: 1 },
   container: { flex: 1 },
-  content: { padding: 16, paddingBottom: 24 },
-  card: { marginBottom: 16 },
-  cardTitle: { fontWeight: '700', marginBottom: 4 },
-  error: { marginBottom: 8 },
+  content: { padding: spacing.lg, paddingBottom: spacing.xxl },
+  card: { marginBottom: spacing.lg, borderRadius: radius.card, borderWidth: 1, borderColor: colors.gray200 },
+  hero: {
+    alignItems: 'center',
+    paddingVertical: spacing.xl,
+    paddingHorizontal: spacing.lg,
+    marginBottom: spacing.xl,
+    backgroundColor: colors.white,
+    borderRadius: radius.card,
+    borderWidth: 1,
+    borderColor: colors.gray200,
+  },
+  avatarWrap: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: colors.primaryLight,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: spacing.md,
+  },
+  avatarLetter: { color: colors.primary, fontWeight: '700' },
+  heroName: { fontWeight: '700', color: colors.gray900, marginBottom: spacing.sm },
+  heroMeta: { marginBottom: spacing.lg, alignItems: 'center', gap: spacing.xs },
+  metaRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  metaText: { color: colors.gray700 },
+  recordVisitBtn: { minWidth: 200 },
+  section: { marginTop: spacing.sm },
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: spacing.md,
+    paddingHorizontal: spacing.xs,
   },
-  sectionTitle: { fontWeight: '600' },
-  muted: { opacity: 0.8, marginBottom: 8 },
-  addFarmBtn: { marginTop: 8 },
-  farmCard: { marginBottom: 12 },
-  farmRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 2 },
-  farmIcon: { marginRight: 8 },
-  farmVillage: { fontWeight: '600' },
-  farmLocation: { opacity: 0.85, marginLeft: 28 },
-  farmMeta: { opacity: 0.75, marginTop: 4, marginLeft: 28 },
+  sectionTitle: { fontWeight: '600', color: colors.gray900 },
+  emptyCard: {
+    marginBottom: spacing.lg,
+    borderRadius: radius.card,
+    borderWidth: 1,
+    borderColor: colors.gray200,
+  },
+  addFarmBtn: { marginTop: spacing.md },
+  retryBtn: { marginTop: spacing.sm },
+  farmList: { gap: spacing.sm },
+  farmCard: {
+    borderRadius: radius.card,
+    borderWidth: 1,
+    borderColor: colors.gray200,
+    overflow: 'hidden',
+  },
+  farmCardContent: { paddingVertical: spacing.md },
+  farmRow: { flexDirection: 'row', alignItems: 'flex-start' },
+  farmIconWrap: { marginRight: spacing.md, marginTop: 2 },
+  farmBody: { flex: 1 },
+  farmVillage: { fontWeight: '600', color: colors.gray900, marginBottom: 2 },
+  farmLocation: { color: colors.gray700, marginBottom: 2 },
+  farmMeta: { color: colors.gray500 },
+  error: { marginBottom: spacing.sm, color: colors.error },
+  muted: { color: colors.gray500 },
 });

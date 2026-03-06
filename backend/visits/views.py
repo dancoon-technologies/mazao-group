@@ -14,13 +14,12 @@ from .utils import haversine_meters
 
 
 def _allowed_activity_type_values(user):
-    """Return set of activity_type values allowed for this user's department."""
-    user_dept_slug = getattr(user, "department", None) or ""
+    """Return set of activity_type values allowed for this user's department (uses prefetch, no N+1)."""
+    user_dept_slug = (user.department.slug if user.department else "")
     allowed = set()
     for at in ActivityTypeConfig.objects.prefetch_related("departments"):
-        if not at.departments.exists():
-            allowed.add(at.value)
-        elif user_dept_slug and at.departments.filter(slug=user_dept_slug).exists():
+        depts = list(at.departments.all())
+        if not depts or (user_dept_slug and any(d.slug == user_dept_slug for d in depts)):
             allowed.add(at.value)
     return allowed if allowed else {Visit.ActivityType.FARM_TO_FARM_VISITS}
 
@@ -54,14 +53,14 @@ class VisitListCreateView(generics.ListCreateAPIView):
 
     def get_queryset(self):
         user = self.request.user
-        qs = Visit.objects.select_related("officer", "farmer", "farm", "schedule", "schedule__farmer")
+        qs = Visit.objects.select_related("officer", "officer__department", "farmer", "farm", "schedule", "schedule__farmer")
         if user.role == "admin":
             return qs
         if user.role == "supervisor":
-            if getattr(user, "department", None):
+            # Supervisors see only visits by officers in their department.
+            if user.department_id:
                 return qs.filter(officer__department=user.department)
-            if getattr(user, "region_id_id", None):
-                return qs.filter(officer__region_id_id=user.region_id_id)
+            return qs.none()
         return qs.filter(officer=user)
 
     def list(self, request, *args, **kwargs):
@@ -111,7 +110,7 @@ class VisitListCreateView(generics.ListCreateAPIView):
                 "POST /api/visits/ activity_type=%s not allowed for user=%s department=%s",
                 activity_type,
                 user.id,
-                getattr(user, "department", ""),
+                user.department.slug if user.department else "",
             )
             return Response(
                 {"activity_type": ["This activity type is not allowed for your department."]},
@@ -128,7 +127,7 @@ class VisitListCreateView(generics.ListCreateAPIView):
         farm = None
         if farm_id:
             try:
-                farm = Farm.objects.get(pk=farm_id, farmer=farmer)
+                farm = Farm.objects.select_related("farmer").get(pk=farm_id, farmer=farmer)
                 ref_lat, ref_lon = float(farm.latitude), float(farm.longitude)
             except Farm.DoesNotExist:
                 logger.warning("POST /api/visits/ farm_id=%s not found for farmer_id=%s", farm_id, farmer_id)
@@ -151,7 +150,7 @@ class VisitListCreateView(generics.ListCreateAPIView):
         schedule = None
         if schedule_id:
             try:
-                schedule = Schedule.objects.get(pk=schedule_id)
+                schedule = Schedule.objects.select_related("officer", "farmer").get(pk=schedule_id)
                 if schedule.officer_id != user.pk:
                     logger.warning("POST /api/visits/ schedule_id=%s officer mismatch user=%s", schedule_id, user.id)
                     return Response(
@@ -236,5 +235,8 @@ class VisitListCreateView(generics.ListCreateAPIView):
             user.id,
             distance,
         )
+        visit = Visit.objects.select_related(
+            "officer", "farmer", "farm", "schedule", "schedule__farmer"
+        ).get(pk=visit.pk)
         out_serializer = VisitSerializer(visit)
         return Response(out_serializer.data, status=status.HTTP_201_CREATED)

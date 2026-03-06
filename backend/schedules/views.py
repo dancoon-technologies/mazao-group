@@ -24,15 +24,15 @@ class ScheduleListCreateView(generics.ListCreateAPIView):
     def get_queryset(self):
         user = self.request.user
         qs = Schedule.objects.select_related(
-            "created_by", "officer", "farmer", "approved_by"
+            "created_by", "officer", "officer__department", "farmer", "approved_by"
         ).order_by("-scheduled_date", "-created_at")
         if user.role == "admin":
             return qs
         if user.role == "supervisor":
-            if getattr(user, "department", None):
+            # Supervisors see only schedules for officers in their department.
+            if user.department_id:
                 return qs.filter(officer__department=user.department)
-            if getattr(user, "region_id_id", None):
-                return qs.filter(Q(created_by=user) | Q(officer__region_id_id=user.region_id_id))
+            return qs.none()
         return qs.filter(officer=user)
 
     def create(self, request, *args, **kwargs):
@@ -71,6 +71,7 @@ class ScheduleListCreateView(generics.ListCreateAPIView):
                 status=Schedule.Status.ACCEPTED,
                 approved_by=user,
             )
+            schedule = Schedule.objects.select_related("officer", "farmer", "created_by", "approved_by").get(pk=schedule.pk)
             from django.utils.formats import date_format
 
             from notifications.services import notify_user
@@ -98,6 +99,7 @@ class ScheduleListCreateView(generics.ListCreateAPIView):
                 notes=data.get("notes", ""),
                 status=Schedule.Status.PROPOSED,
             )
+            schedule = Schedule.objects.select_related("officer", "farmer", "created_by").get(pk=schedule.pk)
             from django.contrib.auth import get_user_model
             from django.utils.formats import date_format
 
@@ -140,7 +142,7 @@ class ScheduleApproveView(generics.GenericAPIView):
 
     def post(self, request, pk):
         try:
-            schedule = Schedule.objects.select_related("officer", "farmer").get(pk=pk)
+            schedule = Schedule.objects.select_related("officer", "officer__department", "farmer").get(pk=pk)
         except Schedule.DoesNotExist:
             logger.warning("POST /api/schedules/%s/approve schedule not found", pk)
             return Response(
@@ -155,15 +157,9 @@ class ScheduleApproveView(generics.GenericAPIView):
                 status=status.HTTP_403_FORBIDDEN,
             )
         if user.role == "supervisor":
-            if getattr(user, "department", None):
-                if schedule.officer.department != user.department:
-                    return Response(
-                        {"detail": "Schedule is not in your department."},
-                        status=status.HTTP_403_FORBIDDEN,
-                    )
-            elif not user.same_region_as(schedule.officer):
+            if not user.department_id or schedule.officer.department_id != user.department_id:
                 return Response(
-                    {"detail": "Schedule is not in your region."},
+                    {"detail": "Schedule is not in your department."},
                     status=status.HTTP_403_FORBIDDEN,
                 )
         if schedule.status != Schedule.Status.PROPOSED:

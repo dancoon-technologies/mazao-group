@@ -42,22 +42,18 @@ class User(AbstractUser):
         SUPERVISOR = "supervisor", "Supervisor"
         OFFICER = "officer", "Extension Officer"
 
-    class Department(models.TextChoices):
-        MAZAO_NA_AFYA = "mazao_na_afya", "Mazao na afya"
-        AGRITECH = "agritech", "Agritech"
-        AGROPRIIZE = "agripriize", "AgriPriize"
-
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     username = None
     email = models.EmailField("email", unique=True)
     middle_name = models.CharField(max_length=150, blank=True)
     phone = models.CharField(max_length=50, blank=True)
     role = models.CharField(max_length=20, choices=Role.choices, default=Role.OFFICER)
-    department = models.CharField(
-        max_length=30,
-        choices=Department.choices,
+    department = models.ForeignKey(
+        Department,
+        on_delete=models.SET_NULL,
+        null=True,
         blank=True,
-        default="",
+        related_name="users",
     )
     region_id = models.ForeignKey(
         "locations.Region",
@@ -83,8 +79,10 @@ class User(AbstractUser):
         related_name="+",
         db_column="sub_county_id",
     )
-    device_id = models.CharField(max_length=255, blank=True)
+    device_id = models.CharField(max_length=128, blank=True)
     must_change_password = models.BooleanField(default=False)
+    # Single device: only the refresh token with this jti is valid (enforces one login at a time).
+    current_refresh_jti = models.CharField(max_length=255, blank=True, editable=False)
 
     USERNAME_FIELD = "email"
 
@@ -114,3 +112,9 @@ class User(AbstractUser):
         return ""
 
     get_region_display.short_description = "Region"
+
+    def get_department_display(self):
+        """Department name for display (e.g. in JWT, admin)."""
+        return self.department.name if self.department else ""
+
+    get_department_display.short_description = "Department"

@@ -74,11 +74,15 @@ class VisitCreateSerializer(serializers.ModelSerializer):
     farm_id = serializers.UUIDField(write_only=True, required=False, allow_null=True)
     schedule_id = serializers.UUIDField(write_only=True, required=False, allow_null=True)
     photo_taken_at = serializers.DateTimeField(required=False, allow_null=True)
-    photo_device_info = serializers.CharField(required=False, allow_blank=True, default="")
-    photo_place_name = serializers.CharField(required=False, allow_blank=True, default="")
+    photo_device_info = serializers.CharField(required=False, allow_blank=True, default="", max_length=120)
+    photo_place_name = serializers.CharField(required=False, allow_blank=True, default="", max_length=120)
 
     class Meta:
         model = Visit
+        extra_kwargs = {
+            "notes": {"max_length": 2000},
+            "farmers_feedback": {"max_length": 2000},
+        }
         fields = (
             "farmer_id",
             "farm_id",

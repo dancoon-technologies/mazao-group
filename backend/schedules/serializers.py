@@ -47,4 +47,5 @@ class ScheduleCreateSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Schedule
+        extra_kwargs = {"notes": {"max_length": 2000}}
         fields = ("officer", "farmer", "scheduled_date", "notes")

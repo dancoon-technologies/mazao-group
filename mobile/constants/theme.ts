@@ -77,7 +77,7 @@ export const cardShadow = {
   shadowOffset: { width: 0, height: 1 },
   shadowOpacity: 0.06,
   shadowRadius: 4,
-  elevation: 2,
+  elevation: 1,
 };
 
 // --- Shadows (Card: subtle elevation)
@@ -113,7 +113,7 @@ export const keyboardAvoidOffset = 80;
 export const minTouchTarget = 48;
 
 /** Button height (spec) */
-export const buttonHeight = 52;
+export const buttonHeight = 2;
 
 /** Input height (spec) */
 export const inputHeight = 56;

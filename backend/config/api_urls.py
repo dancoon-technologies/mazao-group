@@ -1,7 +1,6 @@
 from django.urls import path
-from rest_framework_simplejwt.views import TokenRefreshView
 
-from accounts.auth_views import EmailTokenObtainPairView
+from accounts.auth_views import EmailTokenObtainPairView, SingleDeviceTokenRefreshView
 from accounts.views import (
     ChangePasswordView,
     OfficersListView,
@@ -25,7 +24,7 @@ from visits.views import VisitListCreateView
 
 urlpatterns = [
     path("auth/login/", EmailTokenObtainPairView.as_view(), name="token_obtain_pair"),
-    path("auth/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
+    path("auth/refresh/", SingleDeviceTokenRefreshView.as_view(), name="token_refresh"),
     path("auth/change-password/", ChangePasswordView.as_view(), name="change_password"),
     path("farmers/", FarmerListCreateView.as_view(), name="farmer-list-create"),
     path("farms/", FarmListCreateView.as_view(), name="farm-list-create"),

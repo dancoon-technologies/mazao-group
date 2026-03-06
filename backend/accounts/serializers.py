@@ -1,11 +1,12 @@
 from rest_framework import serializers
 
-from .models import User
+from .models import Department, User
 
 
 class UserSerializer(serializers.ModelSerializer):
     display_name = serializers.ReadOnlyField()
     region = serializers.SerializerMethodField()
+    department = serializers.SerializerMethodField()
 
     class Meta:
         model = User
@@ -32,9 +33,20 @@ class UserSerializer(serializers.ModelSerializer):
             return obj.region_id.name
         return ""
 
+    def get_department(self, obj):
+        """Department slug for API (backward compat)."""
+        return obj.department.slug if obj.department else ""
+
 
 class StaffPatchSerializer(serializers.ModelSerializer):
     """Admin can update is_active, department, location IDs (assign/reassign)."""
+
+    department = serializers.SlugRelatedField(
+        slug_field="slug",
+        queryset=Department.objects.all(),
+        required=False,
+        allow_null=True,
+    )
 
     class Meta:
         model = User
@@ -43,6 +55,13 @@ class StaffPatchSerializer(serializers.ModelSerializer):
 
 class StaffCreateSerializer(serializers.ModelSerializer):
     """Admin registers a supervisor or extension officer. Password is generated and sent by email."""
+
+    department = serializers.SlugRelatedField(
+        slug_field="slug",
+        queryset=Department.objects.all(),
+        required=False,
+        allow_null=True,
+    )
 
     class Meta:
         model = User
