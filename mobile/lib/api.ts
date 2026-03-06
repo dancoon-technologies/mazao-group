@@ -147,23 +147,37 @@ const clearTokens = async () => {
   ]);
 };
 
-async function refreshAccessToken(): Promise<string | null> {
+/** Called when tokens are cleared due to refresh failure (e.g. logged in on another device). AuthContext registers to show login. */
+let onSessionInvalidated: (() => void) | null = null;
+export function setOnSessionInvalidated(callback: (() => void) | null) {
+  onSessionInvalidated = callback;
+}
+
+/** Result of refresh: access token or null; if session ended due to login elsewhere, sessionError is set. */
+async function refreshAccessToken(): Promise<{ access: string | null; sessionError?: string }> {
   const refresh = await getRefreshToken();
-  if (!refresh) return null;
+  if (!refresh) return { access: null };
   const res = await fetch(`${API_BASE}/auth/refresh/`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ refresh }),
   });
   if (!res.ok) {
-    logger.warn('Token refresh failed, clearing tokens');
+    const errBody = await res.json().catch(() => ({}));
+    const detail = (errBody as { detail?: string | string[] }).detail;
+    const message = typeof detail === 'string' ? detail : Array.isArray(detail) ? detail[0] : undefined;
+    const loggedInElsewhere =
+      typeof message === 'string' &&
+      (message.toLowerCase().includes('another device') || message.toLowerCase().includes('logged in on another'));
+    logger.warn('Token refresh failed, clearing tokens', loggedInElsewhere ? '(logged in elsewhere)' : '');
     await clearTokens();
-    return null;
+    onSessionInvalidated?.();
+    return { access: null, sessionError: message || 'Session expired' };
   }
   const data = await res.json();
   await setTokens(data.access, data.refresh ?? refresh);
   logger.debug('Token refresh success');
-  return data.access;
+  return { access: data.access };
 }
 
 /** Extract first user-facing message from DRF-style error body (detail, or any key with string[]). */
@@ -201,10 +215,9 @@ async function request<T>(
   let res = await execute(access ?? undefined);
   if (res.status === 401) {
     logger.debug(`Request ${path} returned 401, attempting token refresh`);
-    const newAccess = await refreshAccessToken();
+    const { access: newAccess, sessionError } = await refreshAccessToken();
     if (!newAccess) {
-      logger.warn('Session expired (refresh failed)');
-      throw new Error('Session expired');
+      throw new Error(sessionError || 'Session expired');
     }
     res = await execute(newAccess);
   }

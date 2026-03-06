@@ -255,51 +255,19 @@ export default function RecordVisitScreen() {
     }, [params.farmerId, userId])
   );
 
-  useEffect(() => {
-    if (!userId) {
-      setPlannedSchedules([]);
-      return;
-    }
-    let cancelled = false;
-    (async () => {
-      try {
-        const startOfToday = new Date();
-        startOfToday.setHours(0, 0, 0, 0);
-        const startTs = startOfToday.getTime();
-        const endTs = startTs + 7 * 24 * 60 * 60 * 1000;
-        const rows = await getPlannedSchedulesDb(userId, startTs, endTs);
-        if (cancelled) return;
-        const list: Schedule[] = rows.map((r) => ({
-          id: r.id,
-          officer: r.officer,
-          officer_email: '',
-          farmer: r.farmer ?? null,
-          farmer_display_name: null,
-          farm: r.farm ?? null,
-          farm_display_name: r.farm_display_name ?? null,
-          scheduled_date: new Date(r.scheduled_date).toISOString().slice(0, 10),
-          notes: r.notes ?? '',
-          status: r.status as 'proposed' | 'accepted' | 'rejected',
-          created_at: undefined,
-        }));
-        setPlannedSchedules(list);
-      } catch {
-        if (!cancelled) setPlannedSchedules([]);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [userId]);
-
   const acceptedSchedules = useMemo(
     () => plannedSchedules.filter((s) => s.status === 'accepted'),
     [plannedSchedules]
   );
 
+  // Only clear selection when we have loaded schedules and the selected one is not in the accepted list.
+  // Do not clear when plannedSchedules is empty (e.g. after a failed load), so user selection is not wiped.
   useEffect(() => {
+    if (plannedSchedules.length === 0) return;
     if (selectedScheduleId && !acceptedSchedules.some((s) => s.id === selectedScheduleId)) {
       setSelectedScheduleId(null);
     }
-  }, [selectedScheduleId, acceptedSchedules]);
+  }, [selectedScheduleId, acceptedSchedules, plannedSchedules.length]);
 
   useEffect(() => {
     if (params.scheduleId && plannedSchedules.length > 0) {
@@ -311,6 +279,9 @@ export default function RecordVisitScreen() {
       }
     }
   }, [params.scheduleId, plannedSchedules]);
+
+  const selectedSchedule = plannedSchedules.find((s) => s.id === selectedScheduleId);
+  const scheduleLockedForFarm = !!selectedScheduleId && selectedSchedule?.status === 'accepted' && selectedSchedule?.farm;
 
   useEffect(() => {
     if (!selectedFarmerId) {
@@ -340,13 +311,17 @@ export default function RecordVisitScreen() {
           created_at: r.created_at ? new Date(r.created_at).toISOString() : undefined,
         }));
         setFarms(list);
-        setSelectedFarmId((prev) => (prev && list.some((f) => f.id === prev) ? prev : null));
+        setSelectedFarmId((prev) => {
+          if (prev && list.some((f) => f.id === prev)) return prev;
+          if (scheduleLockedForFarm && selectedSchedule?.farm) return selectedSchedule.farm;
+          return null;
+        });
       } catch {
         if (!cancelled) setFarms([]);
       }
     })();
     return () => { cancelled = true; };
-  }, [selectedFarmerId]);
+  }, [selectedFarmerId, scheduleLockedForFarm, selectedSchedule?.farm]);
 
   useEffect(() => {
     let cancelled = false;
@@ -426,7 +401,6 @@ export default function RecordVisitScreen() {
   }, []);
 
   const mustSelectSchedule = acceptedSchedules.length > 0 && !selectedScheduleId;
-  const selectedSchedule = plannedSchedules.find((s) => s.id === selectedScheduleId);
   const scheduleLocked = !!selectedScheduleId && selectedSchedule?.status === 'accepted';
   const scheduleIdForSubmit = scheduleLocked ? selectedScheduleId : undefined;
 

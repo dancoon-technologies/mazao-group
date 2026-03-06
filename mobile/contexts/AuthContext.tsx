@@ -1,7 +1,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { AppState, AppStateStatus } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
-import { api } from '@/lib/api';
+import { api, setOnSessionInvalidated } from '@/lib/api';
 import { STORAGE_KEYS } from '@/constants/config';
 import { decodeJwtPayload, getMustChangePasswordFromToken } from '@/lib/jwt';
 
@@ -71,6 +71,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       mounted.current = false;
     };
   }, [checkToken]);
+
+  useEffect(() => {
+    setOnSessionInvalidated(() => {
+      if (mounted.current) {
+        setState({
+          isAuthenticated: false,
+          isLoading: false,
+          userId: null,
+          email: null,
+          displayName: null,
+          role: null,
+          roleDisplay: null,
+          department: null,
+          region: null,
+          mustChangePassword: false,
+        });
+        setIsUnlocked(false);
+      }
+    });
+    return () => setOnSessionInvalidated(null);
+  }, []);
 
   useEffect(() => {
     const sub = AppState.addEventListener('change', (next: AppStateStatus) => {
