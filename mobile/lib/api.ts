@@ -436,6 +436,18 @@ export const api = {
     }
   },
 
+  /** Attempt to refresh the access token. Returns true if successful, false if refresh failed (session invalidated). */
+  async refreshTokenIfNeeded(): Promise<boolean> {
+    const { access } = await refreshAccessToken();
+    return access !== null;
+  },
+
+  /** Get current access token (for checking expiration). */
+  getAccessToken,
+
+  /** Clear all tokens (for manual logout). */
+  clearTokens,
+
   /** Options and app settings (activity_types filtered by user department). Requires auth. */
   async getOptions() {
     return request<OptionsResponse>('/options/');

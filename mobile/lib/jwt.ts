@@ -21,3 +21,16 @@ export function getMustChangePasswordFromToken(token: string | null): boolean {
   const payload = decodeJwtPayload(token);
   return Boolean(payload && payload.must_change_password === true);
 }
+
+/**
+ * Check if a JWT token is expired.
+ * Returns true if expired or invalid, false if still valid.
+ * Adds a small buffer (30 seconds) to account for clock skew.
+ */
+export function isTokenExpired(token: string | null): boolean {
+  const payload = decodeJwtPayload(token);
+  if (!payload || typeof payload.exp !== 'number') return true;
+  const nowSeconds = Math.floor(Date.now() / 1000);
+  const bufferSeconds = 30;
+  return payload.exp < nowSeconds + bufferSeconds;
+}

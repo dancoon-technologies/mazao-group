@@ -3,7 +3,7 @@ import { AppState, AppStateStatus } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 import { api, setOnSessionInvalidated } from '@/lib/api';
 import { STORAGE_KEYS } from '@/constants/config';
-import { decodeJwtPayload, getMustChangePasswordFromToken } from '@/lib/jwt';
+import { decodeJwtPayload, getMustChangePasswordFromToken, isTokenExpired } from '@/lib/jwt';
 
 type AuthState = {
   isAuthenticated: boolean;
@@ -46,11 +46,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const mounted = useRef(true);
 
   const checkToken = useCallback(async () => {
-    const access = await SecureStore.getItemAsync(STORAGE_KEYS.ACCESS_TOKEN);
+    let access = await SecureStore.getItemAsync(STORAGE_KEYS.ACCESS_TOKEN);
     if (!mounted.current) return;
     if (!access) {
       setState({ isAuthenticated: false, isLoading: false, userId: null, email: null, displayName: null, role: null, roleDisplay: null, department: null, region: null, mustChangePassword: false });
       return;
+    }
+    if (isTokenExpired(access)) {
+      const refreshed = await api.refreshTokenIfNeeded();
+      if (!mounted.current) return;
+      if (!refreshed) {
+        setState({ isAuthenticated: false, isLoading: false, userId: null, email: null, displayName: null, role: null, roleDisplay: null, department: null, region: null, mustChangePassword: false });
+        return;
+      }
+      access = await SecureStore.getItemAsync(STORAGE_KEYS.ACCESS_TOKEN);
+      if (!access) {
+        setState({ isAuthenticated: false, isLoading: false, userId: null, email: null, displayName: null, role: null, roleDisplay: null, department: null, region: null, mustChangePassword: false });
+        return;
+      }
     }
     const payload = decodeJwtPayload(access);
     const userId = (payload?.user_id as string) ?? null;
@@ -98,7 +111,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (next === 'background' || next === 'inactive') {
         setIsUnlocked(false);
       } else if (next === 'active' && state.isAuthenticated) {
-        await api.validateSession();
+        const valid = await api.validateSession();
+        if (!valid && mounted.current) {
+          setState({
+            isAuthenticated: false,
+            isLoading: false,
+            userId: null,
+            email: null,
+            displayName: null,
+            role: null,
+            roleDisplay: null,
+            department: null,
+            region: null,
+            mustChangePassword: false,
+          });
+          setIsUnlocked(false);
+        }
       }
     });
     return () => sub.remove();
