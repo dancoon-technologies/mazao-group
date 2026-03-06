@@ -78,6 +78,8 @@ export interface Schedule {
   officer_email: string;
   farmer: string | null;
   farmer_display_name: string | null;
+  farm: string | null;
+  farm_display_name: string | null;
   scheduled_date: string;
   notes: string;
   status: ScheduleStatus;

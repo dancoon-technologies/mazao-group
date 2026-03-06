@@ -1,8 +1,8 @@
 import { useAuth } from '@/contexts/AuthContext';
-import { getFarmers as getFarmersDb, getAllSchedulesForOfficer } from '@/database';
+import { getFarmers as getFarmersDb, getFarms as getFarmsDb, getAllSchedulesForOfficer } from '@/database';
 import { farmerRowToFarmer, scheduleRowToSchedule } from '@/lib/offline-helpers';
 import { enqueueSchedule } from '@/lib/syncWithServer';
-import { api, type Farmer, type Officer, type Schedule } from '@/lib/api';
+import { api, type Farm, type Farmer, type Officer, type Schedule } from '@/lib/api';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useFocusEffect } from 'expo-router';
 import NetInfo from '@react-native-community/netinfo';
@@ -51,6 +51,8 @@ export default function ProposeScheduleScreen() {
   const [error, setError] = useState('');
   const [selectedDate, setSelectedDate] = useState('');
   const [selectedFarmerId, setSelectedFarmerId] = useState<string | null>(null);
+  const [selectedFarmId, setSelectedFarmId] = useState<string | null>(null);
+  const [farms, setFarms] = useState<Farm[]>([]);
   const [selectedOfficerId, setSelectedOfficerId] = useState<string | null>(null);
   const [notes, setNotes] = useState('');
   const [officerMenuOpen, setOfficerMenuOpen] = useState(false);
@@ -134,6 +136,28 @@ export default function ProposeScheduleScreen() {
     }, [searchParams.selectedFarmerId, load])
   );
 
+  useEffect(() => {
+    if (!selectedFarmerId) {
+      setFarms([]);
+      setSelectedFarmId(null);
+      return;
+    }
+    let cancelled = false;
+    const loadFarms = async () => {
+      try {
+        const connected = await NetInfo.fetch().then((s) => s.isConnected ?? false);
+        const list = connected
+          ? await api.getFarms(selectedFarmerId)
+          : (await getFarmsDb(selectedFarmerId)).map((r) => ({ id: r.id, farmer: r.farmer_id, village: r.village, latitude: r.latitude, longitude: r.longitude }));
+        if (!cancelled) setFarms(list);
+      } catch {
+        if (!cancelled) setFarms([]);
+      }
+    };
+    loadFarms();
+    return () => { cancelled = true; };
+  }, [selectedFarmerId]);
+
   const submit = useCallback(async () => {
     const dateStr = selectedDate?.trim() ?? '';
     if (!dateStr) {
@@ -156,6 +180,7 @@ export default function ProposeScheduleScreen() {
       await api.createSchedule({
         officer: assigner ? selectedOfficerId! : (userId ?? undefined),
         farmer: selectedFarmerId || null,
+        farm: selectedFarmId || null,
         scheduled_date: dateStr,
         notes: (notes?.trim() ?? '') || undefined,
       });
@@ -167,6 +192,7 @@ export default function ProposeScheduleScreen() {
           await enqueueSchedule({
             officer: assigner ? selectedOfficerId ?? undefined : (userId ?? undefined),
             farmer: selectedFarmerId || null,
+            farm: selectedFarmId || null,
             scheduled_date: dateStr,
             notes: (notes?.trim() ?? '') || undefined,
           });
@@ -311,6 +337,36 @@ export default function ProposeScheduleScreen() {
             </Button>
           </View>
 
+          {selectedFarmerId && (
+            <>
+              <Text variant="labelLarge" style={styles.label}>Farm (optional)</Text>
+              <View style={styles.chipRow}>
+                <Button
+                  mode={selectedFarmId === null ? 'contained' : 'outlined'}
+                  compact
+                  onPress={() => setSelectedFarmId(null)}
+                  style={styles.chip}
+                >
+                  None
+                </Button>
+                {farms.map((farm) => (
+                  <Button
+                    key={farm.id}
+                    mode={selectedFarmId === farm.id ? 'contained' : 'outlined'}
+                    compact
+                    onPress={() => setSelectedFarmId(farm.id)}
+                    style={styles.chip}
+                  >
+                    {farm.village}
+                  </Button>
+                ))}
+                {farms.length === 0 && (
+                  <Text variant="bodySmall" style={styles.muted}>No farms for this farmer</Text>
+                )}
+              </View>
+            </>
+          )}
+
           <Text variant="labelLarge" style={styles.label}>Notes</Text>
           <TextInput
             label="Notes"
@@ -347,7 +403,7 @@ export default function ProposeScheduleScreen() {
                 key={s.id}
                 avatarLetter={s.farmer_display_name ?? '?'}
                 title={s.farmer_display_name ?? 'No farmer assigned'}
-                subtitle={`${formatDate(s.scheduled_date)} · ${s.status}`}
+                subtitle={`${formatDate(s.scheduled_date)} · Farm: ${s.farm_display_name ?? 'None'} · ${s.status}`}
               />
             ))
           )}

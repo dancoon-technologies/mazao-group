@@ -1,6 +1,6 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import NetInfo from '@react-native-community/netinfo';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   View,
   StyleSheet,
@@ -16,6 +16,7 @@ import { createOrUpdateFarmer, createOrUpdateFarm } from '@/database';
 import { normalizeServerFarmer, normalizeServerFarm } from '@/database/helpers';
 import { enqueueFarmerWithFarm } from '@/lib/syncWithServer';
 import { api } from '@/lib/api';
+import { useKenyaLocation } from '@/hooks/useKenyaLocation';
 
 type LocationState = {
   regions: { id: number; name: string }[];
@@ -52,6 +53,10 @@ export default function AddFarmerScreen() {
   const [farmLon, setFarmLon] = useState('');
   const [plotSize, setPlotSize] = useState('');
   const [farmCropType, setFarmCropType] = useState('');
+  const [useGpsCoordsForFarm, setUseGpsCoordsForFarm] = useState(false);
+  const hasAutoFilledLocation = useRef(false);
+
+  const gpsLocation = useKenyaLocation(true);
 
   const loadLocations = useCallback(async () => {
     try {
@@ -77,6 +82,35 @@ export default function AddFarmerScreen() {
     return () => sub();
   }, []);
 
+  // Auto-fill region, county, subcounty from GPS when locations and detection are ready
+  useEffect(() => {
+    if (!locations || gpsLocation.status !== 'done' || !gpsLocation.detectedRegion || gpsLocation.isOutsideKenya) return;
+    if (hasAutoFilledLocation.current) return;
+    const region = locations.regions.find((r) => r.name === gpsLocation.detectedRegion);
+    if (!region) return;
+    const county = locations.counties.find(
+      (c) => c.name === gpsLocation.detectedCounty && c.region_id === region.id
+    );
+    if (!county) return;
+    hasAutoFilledLocation.current = true;
+    setRegionId(region.id);
+    setCountyId(county.id);
+    if (gpsLocation.detectedSubcounty) {
+      const sub = locations.sub_counties.find(
+        (s) => s.name === gpsLocation.detectedSubcounty && s.county_id === county.id
+      );
+      if (sub) setSubCountyId(sub.id);
+    }
+  }, [locations, gpsLocation.status, gpsLocation.detectedRegion, gpsLocation.detectedCounty, gpsLocation.detectedSubcounty, gpsLocation.isOutsideKenya]);
+
+  // When user taps "Use my location for farm", refresh runs; then sync coords to farm lat/lon
+  useEffect(() => {
+    if (!useGpsCoordsForFarm || !gpsLocation.coords) return;
+    setFarmLat(String(gpsLocation.coords.latitude));
+    setFarmLon(String(gpsLocation.coords.longitude));
+    setUseGpsCoordsForFarm(false);
+  }, [useGpsCoordsForFarm, gpsLocation.coords]);
+
   const getCurrentLocation = useCallback(async (forFarm: boolean) => {
     const { status } = await Location.requestForegroundPermissionsAsync();
     if (status !== 'granted') {
@@ -84,18 +118,18 @@ export default function AddFarmerScreen() {
       return;
     }
     try {
-      const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
       if (forFarm) {
-        setFarmLat(String(loc.coords.latitude));
-        setFarmLon(String(loc.coords.longitude));
+        setUseGpsCoordsForFarm(true);
+        await gpsLocation.refresh();
       } else {
+        const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
         setLat(String(loc.coords.latitude));
         setLon(String(loc.coords.longitude));
       }
     } catch {
       Alert.alert('Error', 'Could not get location.');
     }
-  }, []);
+  }, [gpsLocation.refresh]);
 
   /** Get current device position for farm GPS validation. */
   const getDeviceLocation = useCallback(async (): Promise<{ latitude: number; longitude: number }> => {
@@ -373,8 +407,28 @@ export default function AddFarmerScreen() {
         <Text variant="titleMedium" style={styles.sectionTitle}>
           First farm (required)
         </Text>
+        {(gpsLocation.status === 'locating' || gpsLocation.status === 'geocoding') && (
+          <Banner visible style={styles.banner}>
+            <View style={styles.bannerRow}>
+              <ActivityIndicator size="small" />
+              <Text variant="bodySmall">
+                {gpsLocation.status === 'locating' ? 'Getting GPS…' : 'Identifying your location…'}
+              </Text>
+            </View>
+          </Banner>
+        )}
+        {gpsLocation.status === 'done' && gpsLocation.detectedRegion && !gpsLocation.isOutsideKenya && (
+          <Banner visible style={[styles.banner, { backgroundColor: '#E6F4EA' }]}>
+            <Text variant="bodySmall">Region and county set from your location. Change below if needed.</Text>
+          </Banner>
+        )}
+        {gpsLocation.errorMessage ? (
+          <Banner visible style={[styles.banner, { backgroundColor: '#FEE2E2' }]} actions={[{ label: 'Retry', onPress: gpsLocation.refresh }]}>
+            <Text variant="bodySmall">{gpsLocation.errorMessage}</Text>
+          </Banner>
+        ) : null}
         <Text variant="bodySmall" style={styles.hint}>
-          Select region, then county, then sub-county. At least one farm is required.
+          Select region, then county, then sub-county. Village is required.
         </Text>
         {locations && (
           <>
@@ -507,6 +561,7 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   scroll: { flex: 1 },
   banner: { marginBottom: 12 },
+  bannerRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   scrollContent: { padding: 16, paddingBottom: 32 },
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   sectionTitle: { marginTop: 16, marginBottom: 8 },

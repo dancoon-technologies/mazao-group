@@ -48,6 +48,8 @@ async function initSchema(database: SQLite.SQLiteDatabase): Promise<void> {
       id TEXT PRIMARY KEY NOT NULL,
       officer TEXT NOT NULL,
       farmer TEXT,
+      farm TEXT,
+      farm_display_name TEXT,
       scheduled_date INTEGER NOT NULL,
       notes TEXT,
       status TEXT NOT NULL,
@@ -88,6 +90,17 @@ async function initSchema(database: SQLite.SQLiteDatabase): Promise<void> {
       created_at INTEGER NOT NULL
     );
   `);
+  // Migration: add schedule farm columns for existing DBs
+  try {
+    await database.runAsync('ALTER TABLE schedules ADD COLUMN farm TEXT');
+  } catch {
+    /* column may already exist */
+  }
+  try {
+    await database.runAsync('ALTER TABLE schedules ADD COLUMN farm_display_name TEXT');
+  } catch {
+    /* column may already exist */
+  }
 }
 
 // --- Farmers ---
@@ -150,6 +163,8 @@ export interface ScheduleRow {
   id: string;
   officer: string;
   farmer: string | null;
+  farm: string | null;
+  farm_display_name: string | null;
   scheduled_date: number;
   notes: string | null;
   status: string;
@@ -291,6 +306,8 @@ export async function createOrUpdateSchedule(data: Record<string, unknown>): Pro
   const id = String(data.id);
   const officer = String(data.officer ?? '');
   const farmer = data.farmer != null ? String(data.farmer) : null;
+  const farm = data.farm != null ? String(data.farm) : null;
+  const farm_display_name = data.farm_display_name != null ? String(data.farm_display_name) : null;
   const scheduled_date = Number(data.scheduled_date) || 0;
   const notes = data.notes != null ? String(data.notes) : null;
   const status = String(data.status ?? 'proposed');
@@ -300,12 +317,12 @@ export async function createOrUpdateSchedule(data: Record<string, unknown>): Pro
   const is_deleted = data.is_deleted ? 1 : 0;
 
   await database.runAsync(
-    `INSERT INTO schedules (id, officer, farmer, scheduled_date, notes, status, created_by, approved_by, updated_at, is_deleted)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `INSERT INTO schedules (id, officer, farmer, farm, farm_display_name, scheduled_date, notes, status, created_by, approved_by, updated_at, is_deleted)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(id) DO UPDATE SET
-       officer=?, farmer=?, scheduled_date=?, notes=?, status=?, created_by=?, approved_by=?, updated_at=?, is_deleted=?`,
-    id, officer, farmer, scheduled_date, notes, status, created_by, approved_by, updated_at, is_deleted,
-    officer, farmer, scheduled_date, notes, status, created_by, approved_by, updated_at, is_deleted
+       officer=?, farmer=?, farm=?, farm_display_name=?, scheduled_date=?, notes=?, status=?, created_by=?, approved_by=?, updated_at=?, is_deleted=?`,
+    id, officer, farmer, farm, farm_display_name, scheduled_date, notes, status, created_by, approved_by, updated_at, is_deleted,
+    officer, farmer, farm, farm_display_name, scheduled_date, notes, status, created_by, approved_by, updated_at, is_deleted
   );
 }
 

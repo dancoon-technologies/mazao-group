@@ -158,6 +158,7 @@ export const api = {
   async createSchedule(data: {
     officer?: string;
     farmer?: string | null;
+    farm?: string | null;
     scheduled_date: string;
     notes?: string;
   }): Promise<Schedule> {

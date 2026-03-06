@@ -6,7 +6,7 @@ import { useFormFields } from "@/hooks/useFormFields";
 import { api } from "@/lib/api";
 import { PAGE_BOX_MIN_WIDTH, ROLES_CAN_CREATE_SCHEDULES } from "@/lib/constants";
 import { formatDate, pluralize } from "@/lib/format";
-import type { Farmer, Schedule, StaffUser } from "@/lib/types";
+import type { Farm, Farmer, Schedule, StaffUser } from "@/lib/types";
 import {
   Alert,
   Badge,
@@ -73,6 +73,15 @@ const scheduleColumnsBase: DataTableColumn<Schedule>[] = [
     ),
   },
   {
+    key: "farm_display_name",
+    label: "Farm",
+    render: (s) => (
+      <Text size="sm" c="dimmed">
+        {s.farm_display_name ?? "None"}
+      </Text>
+    ),
+  },
+  {
     key: "status",
     label: "Status",
     render: (s) => (
@@ -96,6 +105,7 @@ const scheduleColumnsBase: DataTableColumn<Schedule>[] = [
 const INITIAL_SCHEDULE_FORM = {
   officer: "",
   farmer: "",
+  farm: "",
   scheduled_date: "",
   notes: "",
 };
@@ -110,6 +120,7 @@ export default function SchedulesPage() {
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [officers, setOfficers] = useState<StaffUser[]>([]);
   const [farmers, setFarmers] = useState<Farmer[]>([]);
+  const [farms, setFarms] = useState<Farm[]>([]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -200,6 +211,25 @@ export default function SchedulesPage() {
     };
   }, [loadData]);
 
+  useEffect(() => {
+    if (!form.farmer) {
+      setFarms([]);
+      return;
+    }
+    let cancelled = false;
+    api
+      .getFarms(form.farmer)
+      .then((list) => {
+        if (!cancelled) setFarms(list);
+      })
+      .catch(() => {
+        if (!cancelled) setFarms([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [form.farmer]);
+
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {
       e.preventDefault();
@@ -220,6 +250,7 @@ export default function SchedulesPage() {
         if (isOfficer) {
           await api.createSchedule({
             farmer: form.farmer || null,
+            farm: form.farm || null,
             scheduled_date: form.scheduled_date,
             notes: form.notes.trim() || undefined,
           });
@@ -227,6 +258,7 @@ export default function SchedulesPage() {
           await api.createSchedule({
             officer: form.officer,
             farmer: form.farmer || null,
+            farm: form.farm || null,
             scheduled_date: form.scheduled_date,
             notes: form.notes.trim() || undefined,
           });
@@ -308,8 +340,25 @@ export default function SchedulesPage() {
                 clearable
                 data={farmerOptions}
                 value={form.farmer || null}
-                onChange={(v) => updateField("farmer", v ?? "")}
+                onChange={(v) => {
+                  updateField("farmer", v ?? "");
+                  updateField("farm", "");
+                }}
               />
+              {form.farmer && (
+                <Select
+                  label="Farm (optional)"
+                  placeholder="None or select farm"
+                  searchable
+                  clearable
+                  data={[
+                    { value: "", label: "— None —" },
+                    ...farms.map((f) => ({ value: f.id, label: f.village })),
+                  ]}
+                  value={form.farm || null}
+                  onChange={(v) => updateField("farm", v ?? "")}
+                />
+              )}
               <DateInput
                 label="Scheduled date"
                 placeholder="Pick date"

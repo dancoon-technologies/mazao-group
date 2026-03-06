@@ -1,7 +1,7 @@
 from rest_framework import serializers
 
 from accounts.models import User
-from farmers.models import Farmer
+from farmers.models import Farm, Farmer
 
 from .models import Schedule
 
@@ -14,6 +14,9 @@ class ScheduleSerializer(serializers.ModelSerializer):
     farmer_display_name = serializers.CharField(
         source="farmer.name", read_only=True, allow_null=True
     )
+    farm = serializers.UUIDField(source="farm_id", read_only=True, allow_null=True)
+    farm_display_name = serializers.SerializerMethodField()
+
     approved_by = serializers.UUIDField(source="approved_by_id", read_only=True, allow_null=True)
 
     class Meta:
@@ -25,6 +28,8 @@ class ScheduleSerializer(serializers.ModelSerializer):
             "officer_email",
             "farmer",
             "farmer_display_name",
+            "farm",
+            "farm_display_name",
             "scheduled_date",
             "notes",
             "status",
@@ -32,9 +37,14 @@ class ScheduleSerializer(serializers.ModelSerializer):
             "created_at",
         )
 
+    def get_farm_display_name(self, obj):
+        if obj.farm_id and getattr(obj, "farm", None):
+            return obj.farm.village
+        return "None"
+
 
 class ScheduleCreateSerializer(serializers.ModelSerializer):
-    """Admin/supervisor: pass officer, farmer, date, notes. Officer: pass farmer, date, notes (officer=self)."""
+    """Admin/supervisor: pass officer, farmer, farm, date, notes. Officer: pass farmer, farm, date, notes (officer=self)."""
 
     officer = serializers.PrimaryKeyRelatedField(
         queryset=User.objects.filter(role=User.Role.OFFICER),
@@ -44,8 +54,20 @@ class ScheduleCreateSerializer(serializers.ModelSerializer):
     farmer = serializers.PrimaryKeyRelatedField(
         queryset=Farmer.objects.all(), required=False, allow_null=True
     )
+    farm = serializers.PrimaryKeyRelatedField(
+        queryset=Farm.objects.all(), required=False, allow_null=True
+    )
 
     class Meta:
         model = Schedule
         extra_kwargs = {"notes": {"max_length": 2000}}
-        fields = ("officer", "farmer", "scheduled_date", "notes")
+        fields = ("officer", "farmer", "farm", "scheduled_date", "notes")
+
+    def validate(self, attrs):
+        farm = attrs.get("farm")
+        farmer = attrs.get("farmer")
+        if farm is not None and (farmer is None or farm.farmer_id != farmer.id):
+            raise serializers.ValidationError(
+                {"farm": "Farm must belong to the selected farmer."}
+            )
+        return attrs

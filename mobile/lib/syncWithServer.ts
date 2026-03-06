@@ -82,8 +82,9 @@ async function pushQueue(accessToken: string): Promise<{ ok: boolean; error?: st
             Authorization: `Bearer ${accessToken}`,
           },
           body: JSON.stringify({
-            ...(payload.officer && { officer: payload.officer }),
+            ...(payload.officer ? { officer: payload.officer } : {}),
             farmer: payload.farmer || null,
+            farm: payload.farm ?? null,
             scheduled_date: payload.scheduled_date,
             notes: payload.notes || '',
           }),
@@ -113,7 +114,8 @@ async function pushQueue(accessToken: string): Promise<{ ok: boolean; error?: st
         })
         if (!farmerRes.ok) {
           const err = await farmerRes.json().catch(() => ({}))
-          return { ok: false, error: (err.detail || (err as Record<string, unknown>).first_name?.[0] || 'Farmer create failed') as string }
+          const errObj = err as { detail?: string; first_name?: string[] };
+          return { ok: false, error: (errObj.detail || errObj.first_name?.[0] || 'Farmer create failed') as string }
         }
         const farmerCreated = (await farmerRes.json()) as { id: string }
         const farmRes = await fetch(`${API_BASE}/farms/`, {
@@ -275,6 +277,7 @@ export async function enqueueVisit(payload: {
 export async function enqueueSchedule(payload: {
   officer?: string
   farmer?: string | null
+  farm?: string | null
   scheduled_date: string
   notes?: string
 }): Promise<void> {

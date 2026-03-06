@@ -24,7 +24,7 @@ class ScheduleListCreateView(generics.ListCreateAPIView):
     def get_queryset(self):
         user = self.request.user
         qs = Schedule.objects.select_related(
-            "created_by", "officer", "officer__department", "farmer", "approved_by"
+            "created_by", "officer", "officer__department", "farmer", "farm", "approved_by"
         ).order_by("-scheduled_date", "-created_at")
         if user.role == "admin":
             return qs
@@ -66,12 +66,13 @@ class ScheduleListCreateView(generics.ListCreateAPIView):
                 created_by=user,
                 officer=officer,
                 farmer=data.get("farmer"),
+                farm=data.get("farm"),
                 scheduled_date=data["scheduled_date"],
                 notes=data.get("notes", ""),
                 status=Schedule.Status.ACCEPTED,
                 approved_by=user,
             )
-            schedule = Schedule.objects.select_related("officer", "farmer", "created_by", "approved_by").get(pk=schedule.pk)
+            schedule = Schedule.objects.select_related("officer", "farmer", "farm", "created_by", "approved_by").get(pk=schedule.pk)
             from django.utils.formats import date_format
 
             from notifications.services import notify_user
@@ -95,11 +96,12 @@ class ScheduleListCreateView(generics.ListCreateAPIView):
                 created_by=user,
                 officer=user,
                 farmer=data.get("farmer"),
+                farm=data.get("farm"),
                 scheduled_date=data["scheduled_date"],
                 notes=data.get("notes", ""),
                 status=Schedule.Status.PROPOSED,
             )
-            schedule = Schedule.objects.select_related("officer", "farmer", "created_by").get(pk=schedule.pk)
+            schedule = Schedule.objects.select_related("officer", "farmer", "farm", "created_by").get(pk=schedule.pk)
             from django.contrib.auth import get_user_model
             from django.utils.formats import date_format
 
@@ -142,7 +144,7 @@ class ScheduleApproveView(generics.GenericAPIView):
 
     def post(self, request, pk):
         try:
-            schedule = Schedule.objects.select_related("officer", "officer__department", "farmer").get(pk=pk)
+            schedule = Schedule.objects.select_related("officer", "officer__department", "farmer", "farm").get(pk=pk)
         except Schedule.DoesNotExist:
             logger.warning("POST /api/schedules/%s/approve schedule not found", pk)
             return Response(

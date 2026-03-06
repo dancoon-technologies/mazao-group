@@ -4,7 +4,7 @@ from django.conf import settings
 from django.core.validators import MaxLengthValidator
 from django.db import models
 
-from farmers.models import Farmer
+from farmers.models import Farm, Farmer
 from mobile_sync.models import MobileSyncModel
 
 NOTES_MAX_LENGTH = 2000
@@ -32,6 +32,13 @@ class Schedule(MobileSyncModel):
     )
     farmer = models.ForeignKey(
         Farmer,
+        on_delete=models.CASCADE,
+        related_name="schedules",
+        null=True,
+        blank=True,
+    )
+    farm = models.ForeignKey(
+        Farm,
         on_delete=models.CASCADE,
         related_name="schedules",
         null=True,

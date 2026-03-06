@@ -36,12 +36,17 @@ class VisitSyncSerializer(serializers.ModelSerializer):
 
 
 class ScheduleSyncSerializer(serializers.ModelSerializer):
+    farm = serializers.UUIDField(source="farm_id", read_only=True, allow_null=True)
+    farm_display_name = serializers.SerializerMethodField()
+
     class Meta:
         model = Schedule
         fields = [
             "id",
             "officer",
             "farmer",
+            "farm",
+            "farm_display_name",
             "scheduled_date",
             "notes",
             "status",
@@ -51,3 +56,8 @@ class ScheduleSyncSerializer(serializers.ModelSerializer):
             "updated_at",
             "is_deleted",
         ]
+
+    def get_farm_display_name(self, obj):
+        if obj.farm_id and getattr(obj, "farm", None):
+            return obj.farm.village
+        return "None"

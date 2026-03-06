@@ -36,6 +36,7 @@ class MobileSyncPushView(APIView):
                     "officer_id": record["officer"],
                     "created_by_id": record.get("created_by") or request.user.pk,
                     "farmer_id": record.get("farmer"),
+                    "farm_id": record.get("farm"),
                     "scheduled_date": record["scheduled_date"],
                     "notes": record.get("notes", ""),
                     "status": record.get("status", Schedule.Status.PROPOSED),
@@ -64,7 +65,7 @@ class MobileSyncPullView(APIView):
         last_sync_dt = parse_datetime(last_sync) if last_sync else None
 
         visits_qs = Visit.objects.filter(officer=request.user).select_related("farmer", "farm", "schedule")
-        schedules_qs = Schedule.objects.filter(officer=request.user).select_related("farmer")
+        schedules_qs = Schedule.objects.filter(officer=request.user).select_related("farmer", "farm")
 
         if last_sync_dt:
             visits_qs = visits_qs.filter(updated_at__gt=last_sync_dt)

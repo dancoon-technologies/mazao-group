@@ -36,6 +36,8 @@ export function normalizeServerSchedule(record: Record<string, unknown>): Record
     id: record.id,
     officer: record.officer ?? '',
     farmer: record.farmer ?? null,
+    farm: record.farm ?? null,
+    farm_display_name: record.farm_display_name ?? null,
     scheduled_date: dateStringToTimestamp(scheduledDate),
     notes: record.notes ?? null,
     status: record.status ?? 'proposed',

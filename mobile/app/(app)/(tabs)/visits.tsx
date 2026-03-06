@@ -110,7 +110,7 @@ function visitStatusColor(verification_status: string): string {
   const s = (verification_status || '').toLowerCase();
   if (s === 'verified') return colors.primary;
   if (s === 'rejected') return colors.error;
-  return colors.yellow; // yellow for pending
+  return colors.warning; // yellow for pending
 }
 
 export default function VisitsScreen() {
@@ -338,7 +338,7 @@ export default function VisitsScreen() {
                         key={s.id}
                         avatarLetter={s.farmer_display_name ?? '?'}
                         title={s.farmer_display_name ?? 'No farmer assigned'}
-                        subtitle={s.notes || 'Scheduled visit'}
+                        subtitle={`${s.notes || 'Scheduled visit'} · Farm: ${s.farm_display_name ?? 'None'}`}
                         right={
                           <View style={styles.upcomingRight}>
                             <View style={[styles.badge, { backgroundColor: scheduleStatusColor(s.status) + '20' }]}>
@@ -408,7 +408,7 @@ export default function VisitsScreen() {
                           key={s.id}
                           avatarLetter={s.farmer_display_name ?? '?'}
                           title={s.farmer_display_name ?? 'No farmer assigned'}
-                          subtitle={s.notes || 'Scheduled visit'}
+                          subtitle={`${s.notes || 'Scheduled visit'} · Farm: ${s.farm_display_name ?? 'None'}`}
                           right={
                             <View style={[styles.badge, { backgroundColor: (recorded ? colors.primary : colors.gray500) + '20' }]}>
                               <Text variant="labelSmall" style={[styles.badgeText, { color: recorded ? colors.primary : colors.gray700 }]}>

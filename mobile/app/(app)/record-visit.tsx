@@ -239,6 +239,8 @@ export default function RecordVisitScreen() {
             officer_email: '',
             farmer: r.farmer ?? null,
             farmer_display_name: null,
+            farm: r.farm ?? null,
+            farm_display_name: r.farm_display_name ?? null,
             scheduled_date: new Date(r.scheduled_date).toISOString().slice(0, 10),
             notes: r.notes ?? '',
             status: r.status as 'proposed' | 'accepted' | 'rejected',
@@ -273,6 +275,8 @@ export default function RecordVisitScreen() {
           officer_email: '',
           farmer: r.farmer ?? null,
           farmer_display_name: null,
+          farm: r.farm ?? null,
+          farm_display_name: r.farm_display_name ?? null,
           scheduled_date: new Date(r.scheduled_date).toISOString().slice(0, 10),
           notes: r.notes ?? '',
           status: r.status as 'proposed' | 'accepted' | 'rejected',
@@ -303,6 +307,7 @@ export default function RecordVisitScreen() {
       if (s?.status === 'accepted' && s?.farmer) {
         setSelectedScheduleId(s.id);
         setSelectedFarmerId(s.farmer);
+        setSelectedFarmId(s.farm ?? null);
       }
     }
   }, [params.scheduleId, plannedSchedules]);
@@ -314,7 +319,6 @@ export default function RecordVisitScreen() {
       return;
     }
     let cancelled = false;
-    setSelectedFarmId(null);
     (async () => {
       try {
         const rows = await getFarmsDb(selectedFarmerId);
@@ -336,6 +340,7 @@ export default function RecordVisitScreen() {
           created_at: r.created_at ? new Date(r.created_at).toISOString() : undefined,
         }));
         setFarms(list);
+        setSelectedFarmId((prev) => (prev && list.some((f) => f.id === prev) ? prev : null));
       } catch {
         if (!cancelled) setFarms([]);
       }
@@ -564,11 +569,12 @@ export default function RecordVisitScreen() {
                       onPress={() => {
                         setSelectedScheduleId(s.id);
                         if (s.farmer) setSelectedFarmerId(s.farmer);
+                        setSelectedFarmId(s.farm ?? null);
                       }}
                       style={styles.scheduleChip}
                       compact
                     >
-                      {dateStr} — {farmerName}
+                      {dateStr} — {farmerName} · Farm: {s.farm_display_name ?? 'None'}
                     </Chip>
                   );
                 })}

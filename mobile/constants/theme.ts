@@ -53,6 +53,12 @@ export const colors = {
   surfaceVariant: '#F3F4F6',
 } as const;
 
+/** Light/dark theme structure for components that need scheme-specific colors (e.g. Collapsible, useThemeColor). */
+export const Colors = {
+  light: { icon: colors.gray900, text: colors.gray900, background: colors.white },
+  dark: { icon: colors.gray100, text: colors.gray100, background: colors.gray900 },
+} as const;
+
 // --- Typography (Inter / system)
 export const typography = {
   headingXL: { fontSize: 24, fontWeight: '700' as const, lineHeight: 32 },

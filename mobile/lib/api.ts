@@ -40,6 +40,8 @@ export interface Schedule {
   officer_email: string;
   farmer: string | null;
   farmer_display_name: string | null;
+  farm: string | null;
+  farm_display_name: string | null;
   scheduled_date: string; // YYYY-MM-DD
   notes: string;
   status: 'proposed' | 'accepted' | 'rejected';
@@ -309,6 +311,7 @@ export const api = {
   async createSchedule(body: {
     officer?: string | null;
     farmer?: string | null;
+    farm?: string | null;
     scheduled_date: string; // YYYY-MM-DD
     notes?: string;
   }) {
@@ -316,6 +319,7 @@ export const api = {
       scheduled_date: String(body.scheduled_date).trim(),
       notes: body.notes?.trim() ?? '',
       farmer: body.farmer ?? null,
+      farm: body.farm ?? null,
     };
     if (body.officer != null && body.officer !== '') payload.officer = body.officer;
     return request<Schedule>('/schedules/', {
