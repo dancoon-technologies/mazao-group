@@ -94,11 +94,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
-    const sub = AppState.addEventListener('change', (next: AppStateStatus) => {
-      if (next === 'background' || next === 'inactive') setIsUnlocked(false);
+    const sub = AppState.addEventListener('change', async (next: AppStateStatus) => {
+      if (next === 'background' || next === 'inactive') {
+        setIsUnlocked(false);
+      } else if (next === 'active' && state.isAuthenticated) {
+        await api.validateSession();
+      }
     });
     return () => sub.remove();
-  }, []);
+  }, [state.isAuthenticated]);
 
   const login = useCallback(async (email: string, password: string) => {
     await api.login(email, password);

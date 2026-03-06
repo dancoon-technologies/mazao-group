@@ -424,6 +424,18 @@ export const api = {
 
   getDashboardStats: () => request<DashboardStats>('/dashboard/stats/'),
 
+  /** Validate current session is still active. Returns true if valid, false if session was invalidated (e.g. logged in elsewhere). */
+  async validateSession(): Promise<boolean> {
+    const access = await getAccessToken();
+    if (!access) return false;
+    try {
+      await request<OptionsResponse>('/options/');
+      return true;
+    } catch {
+      return false;
+    }
+  },
+
   /** Options and app settings (activity_types filtered by user department). Requires auth. */
   async getOptions() {
     return request<OptionsResponse>('/options/');

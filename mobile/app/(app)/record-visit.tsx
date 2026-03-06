@@ -403,10 +403,15 @@ export default function RecordVisitScreen() {
   const mustSelectSchedule = acceptedSchedules.length > 0 && !selectedScheduleId;
   const scheduleLocked = !!selectedScheduleId && selectedSchedule?.status === 'accepted';
   const scheduleIdForSubmit = scheduleLocked ? selectedScheduleId : undefined;
+  const mustSelectFarm = scheduleLocked && !scheduleLockedForFarm && farms.length > 0 && !selectedFarmId;
 
   const submit = useCallback(async () => {
     if (mustSelectSchedule) {
       setError('Select a planned visit (accepted schedule) to record this visit.');
+      return;
+    }
+    if (mustSelectFarm) {
+      setError('Select a farm for this visit. The schedule has no farm assigned.');
       return;
     }
     if (!selectedFarmerId || !photoUri || !location) {
@@ -472,7 +477,7 @@ export default function RecordVisitScreen() {
     } finally {
       setSubmitting(false);
     }
-  }, [mustSelectSchedule, selectedFarmerId, selectedFarmId, selectedScheduleId, scheduleIdForSubmit, photoUri, photoTakenAt, location, selectedFarm, selectedFarmer, activityType, notes, cropStage, germinationPercent, survivalRatePercent, orderValue, harvestKgs, pestsDiseases, farmersFeedback, isOnline, router]);
+  }, [mustSelectSchedule, mustSelectFarm, selectedFarmerId, selectedFarmId, selectedScheduleId, scheduleIdForSubmit, photoUri, photoTakenAt, location, selectedFarm, selectedFarmer, activityType, notes, cropStage, germinationPercent, survivalRatePercent, orderValue, harvestKgs, pestsDiseases, farmersFeedback, isOnline, router]);
 
   const activityLabel =
     activityTypesList.find((a) => a.value === activityType)?.label ??
@@ -636,36 +641,43 @@ export default function RecordVisitScreen() {
             )}
             {selectedFarmerId && farms.length > 0 && (
               <>
-                <Text variant="labelLarge" style={styles.fieldLabel}>Farm (optional)</Text>
-                {scheduleLocked && (
-                  <HelperText type="info" style={styles.lockedHint}>Set by selected planned visit. Change schedule above to change farm.</HelperText>
-                )}
-                {scheduleLocked ? (
-                  <ListItemRow
-                    avatarLetter={selectedFarm ? selectedFarm.village.charAt(0) : '—'}
-                    title={selectedFarm ? selectedFarm.village : 'No specific farm'}
-                    subtitle={selectedFarm ? `${selectedFarm.crop_type ?? '—'} · ${selectedFarm.plot_size ?? '—'}` : undefined}
-                    right={<List.Icon icon="check" color={colors.primary} />}
-                  />
-                ) : (
-                  <View style={styles.farmList}>
+                <Text variant="labelLarge" style={styles.fieldLabel}>Farm {scheduleLocked && !scheduleLockedForFarm ? '*' : '(optional)'}</Text>
+                {scheduleLockedForFarm ? (
+                  <>
+                    <HelperText type="info" style={styles.lockedHint}>Set by selected planned visit. Change schedule above to change farm.</HelperText>
                     <ListItemRow
-                      avatarLetter="—"
-                      title="No specific farm"
-                      right={selectedFarmId === null ? <List.Icon icon="check" color={colors.primary} /> : undefined}
-                      onPress={() => setSelectedFarmId(null)}
+                      avatarLetter={selectedFarm ? selectedFarm.village.charAt(0) : '—'}
+                      title={selectedFarm ? selectedFarm.village : 'No specific farm'}
+                      subtitle={selectedFarm ? `${selectedFarm.crop_type ?? '—'} · ${selectedFarm.plot_size ?? '—'}` : undefined}
+                      right={<List.Icon icon="check" color={colors.primary} />}
                     />
-                    {farms.map((farm) => (
-                      <ListItemRow
-                        key={farm.id}
-                        avatarLetter={farm.village.charAt(0)}
-                        title={farm.village}
-                        subtitle={`${farm.crop_type ?? '—'} · ${farm.plot_size ?? '—'}`}
-                        right={selectedFarmId === farm.id ? <List.Icon icon="check" color={colors.primary} /> : undefined}
-                        onPress={() => setSelectedFarmId(farm.id)}
-                      />
-                    ))}
-                  </View>
+                  </>
+                ) : (
+                  <>
+                    {scheduleLocked && (
+                      <HelperText type="info" style={styles.lockedHint}>Schedule has no farm assigned. Select a farm for this visit.</HelperText>
+                    )}
+                    <View style={styles.farmList}>
+                      {!scheduleLocked && (
+                        <ListItemRow
+                          avatarLetter="—"
+                          title="No specific farm"
+                          right={selectedFarmId === null ? <List.Icon icon="check" color={colors.primary} /> : undefined}
+                          onPress={() => setSelectedFarmId(null)}
+                        />
+                      )}
+                      {farms.map((farm) => (
+                        <ListItemRow
+                          key={farm.id}
+                          avatarLetter={farm.village.charAt(0)}
+                          title={farm.village}
+                          subtitle={`${farm.crop_type ?? '—'} · ${farm.plot_size ?? '—'}`}
+                          right={selectedFarmId === farm.id ? <List.Icon icon="check" color={colors.primary} /> : undefined}
+                          onPress={() => setSelectedFarmId(farm.id)}
+                        />
+                      ))}
+                    </View>
+                  </>
                 )}
               </>
             )}

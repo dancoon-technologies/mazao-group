@@ -417,9 +417,9 @@ export default function AddFarmerScreen() {
             </View>
           </Banner>
         )}
-        {gpsLocation.status === 'done' && gpsLocation.detectedRegion && !gpsLocation.isOutsideKenya && (
+        {gpsLocation.status === 'done' && gpsLocation.detectedRegion && !gpsLocation.isOutsideKenya && hasAutoFilledLocation.current && (
           <Banner visible style={[styles.banner, { backgroundColor: '#E6F4EA' }]}>
-            <Text variant="bodySmall">Region and county set from your location. Change below if needed.</Text>
+            <Text variant="bodySmall">Region, county, and sub-county set from your GPS location and cannot be changed.</Text>
           </Banner>
         )}
         {gpsLocation.errorMessage ? (
@@ -440,11 +440,13 @@ export default function AddFarmerScreen() {
                   mode={regionId === r.id ? 'contained' : 'outlined'}
                   compact
                   onPress={() => {
+                    if (hasAutoFilledLocation.current) return;
                     setRegionId(r.id);
                     setCountyId(null);
                     setSubCountyId(null);
                   }}
                   style={styles.chip}
+                  disabled={hasAutoFilledLocation.current && regionId !== r.id}
                 >
                   {r.name}
                 </Button>
@@ -460,10 +462,12 @@ export default function AddFarmerScreen() {
                       mode={countyId === c.id ? 'contained' : 'outlined'}
                       compact
                       onPress={() => {
+                        if (hasAutoFilledLocation.current) return;
                         setCountyId(c.id);
                         setSubCountyId(null);
                       }}
                       style={styles.chip}
+                      disabled={hasAutoFilledLocation.current && countyId !== c.id}
                     >
                       {c.name}
                     </Button>
@@ -480,8 +484,12 @@ export default function AddFarmerScreen() {
                       key={s.id}
                       mode={subCountyId === s.id ? 'contained' : 'outlined'}
                       compact
-                      onPress={() => setSubCountyId(s.id)}
+                      onPress={() => {
+                        if (hasAutoFilledLocation.current) return;
+                        setSubCountyId(s.id);
+                      }}
                       style={styles.chip}
+                      disabled={hasAutoFilledLocation.current && subCountyId !== s.id}
                     >
                       {s.name}
                     </Button>
