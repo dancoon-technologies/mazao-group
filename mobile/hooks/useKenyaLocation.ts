@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import * as Location from 'expo-location';
-import { fuzzyMatchCounty } from '@/lib/kenyaAdminData';
+import { fuzzyMatchCounty, fuzzyMatchSubcounty } from '@/lib/kenyaAdminData';
 
 const NOMINATIM_URL = 'https://nominatim.openstreetmap.org/reverse';
 
@@ -79,14 +79,21 @@ export function useKenyaLocation(autoRun = true): UseKenyaLocationResult {
       if (match) {
         setDetectedRegion(match.region);
         setDetectedCounty(match.county);
-        const rawSuburb = (addr.suburb || addr.quarter || addr.neighbourhood || '').trim();
-        if (rawSuburb && match.subcounties.length) {
-          const matchedSub = match.subcounties.find(
-            (sc) =>
-              sc.toLowerCase().includes(rawSuburb.toLowerCase()) ||
-              rawSuburb.toLowerCase().includes(sc.toLowerCase())
-          );
-          if (matchedSub) setDetectedSubcounty(matchedSub);
+        const subcountyCandidates = [
+          addr.district,
+          addr.suburb,
+          addr.quarter,
+          addr.neighbourhood,
+          addr.village,
+          addr.municipality,
+          addr.state_district,
+        ].filter(Boolean) as string[];
+        for (const raw of subcountyCandidates) {
+          const matchedSub = fuzzyMatchSubcounty(raw, match.subcounties);
+          if (matchedSub) {
+            setDetectedSubcounty(matchedSub);
+            break;
+          }
         }
       }
 

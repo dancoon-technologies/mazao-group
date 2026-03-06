@@ -77,6 +77,37 @@ COUNTY_LIST.forEach(({ region, county, subcounties }) => {
   if (withApostrophe !== county && !_MAP.has(norm(withApostrophe))) _MAP.set(norm(withApostrophe), { region, county, subcounties });
 });
 
+/** Normalize for subcounty match: lowercase, remove common suffixes */
+function normSub(s: string): string {
+  return (s || '')
+    .toLowerCase()
+    .replace(/\s+sub-?county\b/gi, '')
+    .replace(/\s+constituency\b/gi, '')
+    .replace(/\s+ward\b/gi, '')
+    .trim();
+}
+
+/** Match a raw string (from Nominatim) to one of the known subcounty names. Returns the canonical subcounty name or null. */
+export function fuzzyMatchSubcounty(rawString: string | undefined, subcounties: string[]): string | null {
+  if (!rawString || !subcounties.length) return null;
+  const normalized = normSub(rawString);
+  if (!normalized) return null;
+  const normalizedList = subcounties.map((sc) => ({ original: sc, norm: normSub(sc) }));
+  const exact = normalizedList.find(({ norm }) => norm === normalized);
+  if (exact) return exact.original;
+  const contains = normalizedList.find(
+    ({ norm }) => norm.includes(normalized) || normalized.includes(norm)
+  );
+  if (contains) return contains.original;
+  const wordMatch = normalizedList.find(({ norm }) => {
+    const rawWords = normalized.split(/\s+/);
+    const subWords = norm.split(/\s+/);
+    return rawWords.some((w) => w.length > 2 && (norm.startsWith(w) || subWords.some((sw) => sw.startsWith(w) || w.startsWith(sw))));
+  });
+  if (wordMatch) return wordMatch.original;
+  return null;
+}
+
 /** Direct and fuzzy lookup: "Nairobi City County" / "Kiambu" -> { region, county, subcounties } */
 export function fuzzyMatchCounty(detectedString: string | undefined): CountyMatch | null {
   if (!detectedString) return null;
