@@ -14,7 +14,7 @@ import {
 import { Appbar, Banner, Button, Text, TextInput, ActivityIndicator } from 'react-native-paper';
 import * as Location from 'expo-location';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { keyboardAvoidOffset, scrollPaddingKeyboard } from '@/constants/theme';
+import { appbarHeight, scrollPaddingKeyboard } from '@/constants/theme';
 
 type LocationState = {
   regions: { id: number; name: string }[];
@@ -80,6 +80,16 @@ export default function AddFarmScreen() {
     }
   }, []);
 
+  /** Get current device position for GPS validation (officer must be at farm). */
+  const getDeviceLocation = useCallback(async (): Promise<{ latitude: number; longitude: number }> => {
+    const { status } = await Location.requestForegroundPermissionsAsync();
+    if (status !== 'granted') {
+      throw new Error('Location permission is required to add a farm.');
+    }
+    const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+    return { latitude: loc.coords.latitude, longitude: loc.coords.longitude };
+  }, []);
+
   const submit = useCallback(async () => {
     if (!farmerId) {
       setError('Farmer not found.');
@@ -107,13 +117,25 @@ export default function AddFarmScreen() {
       setError('Longitude must be between -180 and 180.');
       return;
     }
+    setSubmitting(true);
+    setError('');
+    let deviceLat: number | undefined;
+    let deviceLon: number | undefined;
+    try {
+      const device = await getDeviceLocation();
+      deviceLat = device.latitude;
+      deviceLon = device.longitude;
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not get your location.');
+      setSubmitting(false);
+      return;
+    }
     if (isOnline === false) {
       if (!locations) {
         setError('Connect to load locations first, then you can add a farm offline.');
+        setSubmitting(false);
         return;
       }
-      setSubmitting(true);
-      setError('');
       try {
         await enqueueFarm({
           farmer_id: farmerId,
@@ -125,6 +147,8 @@ export default function AddFarmScreen() {
           longitude: farmLonNum,
           plot_size: plotSize.trim() || undefined,
           crop_type: farmCropType.trim() || undefined,
+          device_latitude: deviceLat,
+          device_longitude: deviceLon,
         });
         Alert.alert('Saved offline', 'Farm will sync when you are back online.', [
           { text: 'OK', onPress: () => router.back() },
@@ -136,9 +160,10 @@ export default function AddFarmScreen() {
       }
       return;
     }
-    if (!locations) return;
-    setSubmitting(true);
-    setError('');
+    if (!locations) {
+      setSubmitting(false);
+      return;
+    }
     try {
       await api.createFarm({
         farmer_id: farmerId,
@@ -150,6 +175,8 @@ export default function AddFarmScreen() {
         longitude: farmLonNum,
         plot_size: plotSize.trim() || undefined,
         crop_type: farmCropType.trim() || undefined,
+        device_latitude: deviceLat,
+        device_longitude: deviceLon,
       });
       Alert.alert('Success', 'Farm added.', [
         { text: 'OK', onPress: () => router.back() },
@@ -172,6 +199,7 @@ export default function AddFarmScreen() {
     farmCropType,
     router,
     isOnline,
+    getDeviceLocation,
   ]);
 
   const counties = locations ? locations.counties.filter((c) => c.region_id === regionId) : [];
@@ -202,12 +230,13 @@ export default function AddFarmScreen() {
       <KeyboardAvoidingView
         style={styles.container}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={keyboardAvoidOffset}
+        keyboardVerticalOffset={insets.top + appbarHeight}
       >
         <ScrollView
           style={styles.scroll}
-          contentContainerStyle={[styles.scrollContent, { paddingBottom: scrollPaddingKeyboard + Math.max(insets.bottom, 24) }]}
+          contentContainerStyle={[styles.scrollContent, { paddingBottom: scrollPaddingKeyboard + Math.max(insets.bottom, 24), flexGrow: 1 }]}
           keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
         >
           {isOnline === false && (
             <Banner visible style={styles.banner}>

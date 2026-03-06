@@ -7,6 +7,29 @@ from farmers.models import Farm, Farmer
 from mobile_sync.models import MobileSyncModel
 
 
+class ActivityTypeConfig(models.Model):
+    """
+    Activity types for visits, configurable in admin. Linked to departments via FK:
+    empty departments = visible to all; otherwise only to listed departments.
+    """
+
+    value = models.SlugField(max_length=50, unique=True)
+    label = models.CharField(max_length=255)
+    departments = models.ManyToManyField(
+        "accounts.Department",
+        blank=True,
+        related_name="activity_type_configs",
+        help_text="Leave empty = visible to all departments; otherwise only these.",
+    )
+    order = models.PositiveIntegerField(default=0, help_text="Display order in mobile")
+
+    class Meta:
+        ordering = ["order", "label"]
+
+    def __str__(self):
+        return self.label
+
+
 class Visit(MobileSyncModel):
     class VerificationStatus(models.TextChoices):
         VERIFIED = "verified", "Verified"
@@ -72,6 +95,21 @@ class Visit(MobileSyncModel):
     latitude = models.DecimalField(max_digits=10, decimal_places=7)
     longitude = models.DecimalField(max_digits=10, decimal_places=7)
     photo = models.ImageField(upload_to="visits/%Y/%m/", blank=True)
+    photo_taken_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="Device timestamp when the photo was captured (ISO from mobile).",
+    )
+    photo_device_info = models.CharField(
+        max_length=255,
+        blank=True,
+        help_text="Device model and OS (e.g. iPhone 14, iOS 17).",
+    )
+    photo_place_name = models.CharField(
+        max_length=255,
+        blank=True,
+        help_text="Place label (e.g. farm village or 'Farmer location').",
+    )
     notes = models.TextField(blank=True)
     distance_from_farmer = models.FloatField(null=True, blank=True)
     verification_status = models.CharField(
@@ -81,8 +119,8 @@ class Visit(MobileSyncModel):
     )
     activity_type = models.CharField(
         max_length=50,
-        choices=ActivityType.choices,
         default=ActivityType.FARM_TO_FARM_VISITS,
+        help_text="Value from ActivityTypeConfig (filtered by officer department).",
     )
     crop_stage = models.CharField(max_length=100, blank=True)
     germination_percent = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)

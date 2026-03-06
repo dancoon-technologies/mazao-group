@@ -4,6 +4,10 @@ from django.db.models import Q
 from rest_framework import generics, status
 from rest_framework.response import Response
 
+from .geo_validation import (
+    validate_device_in_admin_area,
+    validate_device_near_farm,
+)
 from .models import Farm, Farmer
 from .serializers import (
     FarmCreateSerializer,
@@ -108,6 +112,8 @@ class FarmListCreateView(generics.ListCreateAPIView):
         region_id = serializer.validated_data.pop("region_id")
         county_id = serializer.validated_data.pop("county_id")
         sub_county_id = serializer.validated_data.pop("sub_county_id")
+        device_lat = serializer.validated_data.pop("device_latitude", None)
+        device_lon = serializer.validated_data.pop("device_longitude", None)
         user = request.user
         try:
             farmer = Farmer.objects.get(pk=farmer_id)
@@ -125,6 +131,25 @@ class FarmListCreateView(generics.ListCreateAPIView):
             from rest_framework.exceptions import PermissionDenied
 
             raise PermissionDenied("You can only add farms for farmers assigned to you.")
+
+        # Extension officers must be at the farm location (GPS validation)
+        if user.role == "officer":
+            if device_lat is None or device_lon is None:
+                return Response(
+                    {"detail": "Device location is required. Enable location and try again."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            farm_lat = float(serializer.validated_data["latitude"])
+            farm_lon = float(serializer.validated_data["longitude"])
+            ok, err = validate_device_near_farm(device_lat, device_lon, farm_lat, farm_lon)
+            if not ok:
+                return Response({"detail": err}, status=status.HTTP_400_BAD_REQUEST)
+            ok, err = validate_device_in_admin_area(
+                device_lat, device_lon, region_id.name, county_id.name
+            )
+            if not ok:
+                return Response({"detail": err}, status=status.HTTP_400_BAD_REQUEST)
+
         farm = serializer.save(
             farmer=farmer, region_id=region_id, county_id=county_id, sub_county_id=sub_county_id
         )

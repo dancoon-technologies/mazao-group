@@ -102,6 +102,8 @@ class FarmCreateSerializer(serializers.ModelSerializer):
         queryset=SubCounty.objects.all(),
         required=True,
     )
+    device_latitude = serializers.FloatField(required=False, allow_null=True)
+    device_longitude = serializers.FloatField(required=False, allow_null=True)
 
     class Meta:
         model = Farm
@@ -115,4 +117,6 @@ class FarmCreateSerializer(serializers.ModelSerializer):
             "longitude",
             "plot_size",
             "crop_type",
+            "device_latitude",
+            "device_longitude",
         )

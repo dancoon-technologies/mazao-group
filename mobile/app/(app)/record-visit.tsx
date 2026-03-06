@@ -4,10 +4,11 @@ import {
   getPlannedSchedules as getPlannedSchedulesDb,
 } from '@/database/sqlite';
 import { useAuth } from '@/contexts/AuthContext';
-import { api, type Farm, type Farmer, type Schedule, type VisitSettings } from '@/lib/api';
+import { api, type ActivityTypeOption, type Farm, type Farmer, type Schedule, type VisitSettings } from '@/lib/api';
 import { ACTIVITY_TYPES, DEFAULT_ACTIVITY_TYPE } from '@/lib/constants/activityTypes';
 import { enqueueVisit, syncWithServer } from '@/lib/syncWithServer';
 import NetInfo from '@react-native-community/netinfo';
+import Constants from 'expo-constants';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as Location from 'expo-location';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
@@ -39,7 +40,8 @@ import {
   useTheme
 } from 'react-native-paper';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colors, cardShadow, cardStyle, keyboardAvoidOffset, scrollPaddingKeyboard } from '@/constants/theme';
+import { ListItemRow } from '@/components/ListItemRow';
+import { colors, formHeaderHeight, radius, scrollPaddingKeyboard, spacing } from '@/constants/theme';
 
 function haversineDistance(
   lat1: number,
@@ -59,6 +61,14 @@ function haversineDistance(
   return R * c;
 }
 
+/** Device + OS string for photo metadata (e.g. "iPhone 14, iOS 17" or "Pixel 6, Android 14"). */
+function getPhotoDeviceInfo(): string {
+  const deviceName = Constants.deviceName ?? Platform.OS;
+  const osVersion = Platform.Version != null ? String(Platform.Version) : '';
+  const part = Platform.OS === 'ios' ? `iOS ${osVersion}` : `Android ${osVersion}`;
+  return [deviceName, part].filter(Boolean).join(', ') || 'Mobile device';
+}
+
 export default function RecordVisitScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -69,6 +79,7 @@ export default function RecordVisitScreen() {
   const [location, setLocation] = useState<Location.LocationObject | null>(null);
   const [locationError, setLocationError] = useState('');
   const [photoUri, setPhotoUri] = useState<string | null>(null);
+  const [photoTakenAt, setPhotoTakenAt] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [farmers, setFarmers] = useState<Farmer[]>([]);
@@ -78,6 +89,7 @@ export default function RecordVisitScreen() {
   const [selectedFarmerId, setSelectedFarmerId] = useState<string | null>(params.farmerId ?? null);
   const [selectedFarmId, setSelectedFarmId] = useState<string | null>(null);
   const [activityType, setActivityType] = useState(DEFAULT_ACTIVITY_TYPE);
+  const [activityTypesList, setActivityTypesList] = useState<ActivityTypeOption[]>([]);
   const [farmerMenuOpen, setFarmerMenuOpen] = useState(false);
   const [activityMenuOpen, setActivityMenuOpen] = useState(false);
   const [accordionExpanded, setAccordionExpanded] = useState(false);
@@ -130,7 +142,24 @@ export default function RecordVisitScreen() {
   }, []);
 
   useEffect(() => {
-    api.getOptions().then((o) => setVisitSettings(o.visit_settings)).catch(() => setVisitSettings(null));
+    api
+      .getOptions()
+      .then((o) => {
+        setVisitSettings(o.visit_settings);
+        if (o.activity_types?.length) {
+          setActivityTypesList(o.activity_types);
+          setActivityType((prev) => {
+            const allowed = o.activity_types!.map((a) => a.value);
+            return allowed.includes(prev) ? prev : (o.activity_types![0]?.value ?? prev);
+          });
+        } else {
+          setActivityTypesList(ACTIVITY_TYPES.map((a) => ({ value: a.value, label: a.label })));
+        }
+      })
+      .catch(() => {
+        setVisitSettings(null);
+        setActivityTypesList(ACTIVITY_TYPES.map((a) => ({ value: a.value, label: a.label })));
+      });
   }, []);
 
   useEffect(() => {
@@ -341,15 +370,29 @@ export default function RecordVisitScreen() {
   const takePhoto = useCallback(async () => {
     if (!cameraRef.current || !permission?.granted) return;
     try {
-      const photo = await cameraRef.current.takePictureAsync({ quality: 0.8, base64: false });
+      const takenAt = new Date().toISOString();
+      const photo = await cameraRef.current.takePictureAsync({
+        quality: 0.8,
+        base64: false,
+        exif: true,
+        ...(location?.coords && {
+          additionalExif: {
+            GPSLatitude: location.coords.latitude,
+            GPSLongitude: location.coords.longitude,
+            GPSAltitude: location.coords.altitude ?? 0,
+            DateTimeOriginal: takenAt.replace(/\.\d{3}Z$/, ''),
+          },
+        }),
+      });
       if (photo?.uri) {
         setPhotoUri(photo.uri);
+        setPhotoTakenAt(takenAt);
         setCameraModalVisible(false);
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to take photo');
     }
-  }, [permission?.granted]);
+  }, [permission?.granted, location?.coords]);
 
   const openCameraModal = useCallback(() => {
     if (!permission?.granted) {
@@ -386,6 +429,7 @@ export default function RecordVisitScreen() {
     setError('');
     try {
       if (isOnline === true) {
+        const photoPlaceName = selectedFarm?.village ?? selectedFarmer?.display_name ?? 'Visit location';
         await api.createVisit({
           farmer_id: selectedFarmerId,
           farm_id: selectedFarmId || undefined,
@@ -393,20 +437,24 @@ export default function RecordVisitScreen() {
           latitude: location.coords.latitude,
           longitude: location.coords.longitude,
           photo: { uri: photoUri, type: 'image/jpeg', name: 'visit.jpg' },
+          photo_taken_at: photoTakenAt ?? new Date().toISOString(),
+          photo_device_info: getPhotoDeviceInfo(),
+          photo_place_name: photoPlaceName,
           activity_type: activityType,
           notes: notes || undefined,
           crop_stage: cropStage || undefined,
-            germination_percent: germinationPercent ? parseFloat(germinationPercent) : undefined,
-            survival_rate: survivalRatePercent || undefined,
-            pests_diseases: pestsDiseases || undefined,
-            order_value: orderValue ? parseFloat(orderValue) : undefined,
-            harvest_kgs: harvestKgs ? parseFloat(harvestKgs) : undefined,
-            farmers_feedback: farmersFeedback || undefined,
+          germination_percent: germinationPercent ? parseFloat(germinationPercent) : undefined,
+          survival_rate: survivalRatePercent || undefined,
+          pests_diseases: pestsDiseases || undefined,
+          order_value: orderValue ? parseFloat(orderValue) : undefined,
+          harvest_kgs: harvestKgs ? parseFloat(harvestKgs) : undefined,
+          farmers_feedback: farmersFeedback || undefined,
         });
         setDialogSuccess(true);
         setDialogVisible(true);
         return;
       }
+      const photoPlaceName = selectedFarm?.village ?? selectedFarmer?.display_name ?? 'Visit location';
       await enqueueVisit({
         farmer_id: selectedFarmerId,
         farm_id: selectedFarmId || undefined,
@@ -414,6 +462,9 @@ export default function RecordVisitScreen() {
         latitude: location.coords.latitude,
         longitude: location.coords.longitude,
         photo_uri: photoUri,
+        photo_taken_at: photoTakenAt ?? new Date().toISOString(),
+        photo_device_info: getPhotoDeviceInfo(),
+        photo_place_name: photoPlaceName,
         notes: notes || undefined,
         activity_type: activityType,
         crop_stage: cropStage || undefined,
@@ -433,9 +484,12 @@ export default function RecordVisitScreen() {
     } finally {
       setSubmitting(false);
     }
-  }, [selectedFarmerId, selectedFarmId, selectedScheduleId, scheduleIdForSubmit, photoUri, location, activityType, notes, cropStage, germinationPercent, survivalRatePercent, orderValue, harvestKgs, pestsDiseases, farmersFeedback, isOnline, router]);
+  }, [selectedFarmerId, selectedFarmId, selectedScheduleId, scheduleIdForSubmit, photoUri, photoTakenAt, location, selectedFarm, selectedFarmer, activityType, notes, cropStage, germinationPercent, survivalRatePercent, orderValue, harvestKgs, pestsDiseases, farmersFeedback, isOnline, router]);
 
-  const activityLabel = ACTIVITY_TYPES.find((a) => a.value === activityType)?.label ?? activityType;
+  const activityLabel =
+    activityTypesList.find((a) => a.value === activityType)?.label ??
+    ACTIVITY_TYPES.find((a) => a.value === activityType)?.label ??
+    activityType;
   const selectedSchedule = plannedSchedules.find((s) => s.id === selectedScheduleId);
   const scheduleLocked = !!selectedScheduleId && selectedSchedule?.status === 'accepted';
   const scheduleIdForSubmit = scheduleLocked ? selectedScheduleId : undefined;
@@ -473,11 +527,12 @@ export default function RecordVisitScreen() {
       <KeyboardAvoidingView
         style={styles.container}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={keyboardAvoidOffset}
+        keyboardVerticalOffset={formHeaderHeight}
       >
         <ScrollView
-          contentContainerStyle={[styles.scrollContent, { paddingBottom: scrollPaddingKeyboard }]}
+          contentContainerStyle={[styles.scrollContent, { paddingBottom: scrollPaddingKeyboard, flexGrow: 1 }]}
           keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
           showsVerticalScrollIndicator={true}
         >
           {!isOnline && isOnline !== null && (
@@ -599,32 +654,33 @@ export default function RecordVisitScreen() {
                 {scheduleLocked && (
                   <HelperText type="info" style={styles.lockedHint}>Set by selected planned visit. Change schedule above to change farm.</HelperText>
                 )}
-                <Card
-                  mode={selectedFarmId === null ? 'contained' : 'outlined'}
-                  style={[styles.farmCard, scheduleLocked && styles.farmCardLocked]}
-                  elevation={0}
-                  onPress={scheduleLocked ? undefined : () => setSelectedFarmId(null)}
-                  disabled={scheduleLocked}
-                >
-                  <Card.Content>
-                    <Text variant="bodyMedium">No specific farm</Text>
-                  </Card.Content>
-                </Card>
-                {farms.map((farm) => (
-                  <Card
-                    key={farm.id}
-                    mode={selectedFarmId === farm.id ? 'contained' : 'outlined'}
-                    style={[styles.farmCard, scheduleLocked && styles.farmCardLocked]}
-                    elevation={0}
-                    onPress={scheduleLocked ? undefined : () => setSelectedFarmId(farm.id)}
-                    disabled={scheduleLocked}
-                  >
-                    <Card.Title title={farm.village} titleVariant="titleSmall" />
-                    <Card.Content>
-                      <Text variant="bodySmall">Crop: {farm.crop_type ?? '—'} · {farm.plot_size ?? '—'}</Text>
-                    </Card.Content>
-                  </Card>
-                ))}
+                {scheduleLocked ? (
+                  <ListItemRow
+                    avatarLetter={selectedFarm ? selectedFarm.village.charAt(0) : '—'}
+                    title={selectedFarm ? selectedFarm.village : 'No specific farm'}
+                    subtitle={selectedFarm ? `${selectedFarm.crop_type ?? '—'} · ${selectedFarm.plot_size ?? '—'}` : undefined}
+                    right={<List.Icon icon="check" color={colors.primary} />}
+                  />
+                ) : (
+                  <View style={styles.farmList}>
+                    <ListItemRow
+                      avatarLetter="—"
+                      title="No specific farm"
+                      right={selectedFarmId === null ? <List.Icon icon="check" color={colors.primary} /> : undefined}
+                      onPress={() => setSelectedFarmId(null)}
+                    />
+                    {farms.map((farm) => (
+                      <ListItemRow
+                        key={farm.id}
+                        avatarLetter={farm.village.charAt(0)}
+                        title={farm.village}
+                        subtitle={`${farm.crop_type ?? '—'} · ${farm.plot_size ?? '—'}`}
+                        right={selectedFarmId === farm.id ? <List.Icon icon="check" color={colors.primary} /> : undefined}
+                        onPress={() => setSelectedFarmId(farm.id)}
+                      />
+                    ))}
+                  </View>
+                )}
               </>
             )}
           </Surface>
@@ -699,7 +755,7 @@ export default function RecordVisitScreen() {
                 />
               }
             >
-              {ACTIVITY_TYPES.map((a) => (
+              {(activityTypesList.length ? activityTypesList : ACTIVITY_TYPES.map((a) => ({ value: a.value, label: a.label }))).map((a) => (
                 <Menu.Item
                   key={a.value}
                   onPress={() => {
@@ -888,58 +944,62 @@ const styles = StyleSheet.create({
   snackbarTop: { marginHorizontal: 0 },
   snackbarGreen: { backgroundColor: colors.primary },
   container: { flex: 1 },
-  scrollContent: { padding: 12, paddingBottom: 24 },
+  scrollContent: { padding: spacing.lg, paddingBottom: spacing.xl },
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 },
   topBtn: { marginTop: 16 },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingTop: 8,
-    paddingBottom: 4,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.xs,
   },
-  headerTitle: { fontWeight: '600' },
-  headerClose: { padding: 8 },
-  headerCloseText: { fontSize: 28, lineHeight: 32, opacity: 0.9 },
-  offlineChip: { marginBottom: 8 },
-  section: { padding: 12, marginBottom: 4, borderRadius: 8 },
+  headerTitle: { fontWeight: '700', color: colors.gray900 },
+  headerClose: { padding: spacing.sm },
+  headerCloseText: { fontSize: 28, lineHeight: 32, opacity: 0.85, color: colors.gray700 },
+  offlineChip: { marginBottom: spacing.md },
+  section: {
+    padding: spacing.lg,
+    marginBottom: spacing.sm,
+    borderRadius: radius.card,
+    backgroundColor: colors.surfaceVariant,
+  },
   locationBox: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: 'rgba(0,0,0,0.06)',
-    borderRadius: 8,
-    padding: 12,
+    backgroundColor: colors.gray100,
+    borderRadius: radius.card,
+    padding: spacing.md,
   },
   locationBoxLeft: { flexDirection: 'row', alignItems: 'center', flex: 1 },
-  locationIcon: { margin: 0, marginRight: 12 },
+  locationIcon: { margin: 0, marginRight: spacing.md },
   locationStatus: { opacity: 0.85 },
   locationStatusError: { color: '#b00020' },
-  photoEvidenceRow: { flexDirection: 'row', gap: 12, marginBottom: 8 },
+  photoEvidenceRow: { flexDirection: 'row', gap: spacing.md, marginBottom: spacing.md },
   photoEvidenceBtn: { flex: 1 },
-  photoPreviewWrap: { marginTop: 8, alignItems: 'center' },
-  sectionTitle: { marginBottom: 6 },
-  fieldLabel: { marginTop: 6, marginBottom: 4 },
-  hint: { marginTop: 2, opacity: 0.85 },
-  input: { marginBottom: 8 },
-  inputHalf: { flex: 1, marginBottom: 8 },
-  twoColRow: { flexDirection: 'row', gap: 12, marginBottom: 0 },
+  photoPreviewWrap: { marginTop: spacing.md, alignItems: 'center' },
+  sectionTitle: { marginBottom: spacing.md },
+  fieldLabel: { marginTop: spacing.xs, marginBottom: spacing.xs, fontWeight: '600', color: colors.gray700 },
+  hint: { marginTop: spacing.xs, opacity: 0.85 },
+  input: { marginBottom: spacing.md },
+  inputHalf: { flex: 1, marginBottom: spacing.md },
+  twoColRow: { flexDirection: 'row', gap: spacing.md, marginBottom: 0 },
   addFarmerBtn: { marginTop: -2, marginBottom: 2 },
-  farmCard: { marginBottom: 4, ...cardStyle, ...cardShadow },
-  farmCardLocked: { opacity: 0.85 },
+  farmList: { marginTop: spacing.xs },
   lockedHint: { marginTop: 2, marginBottom: 4 },
-  scheduleChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 6 },
+  scheduleChips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginTop: spacing.sm },
   scheduleChip: { marginBottom: 0 },
-  card: { marginBottom: 8 },
-  divider: { marginVertical: 4 },
-  progressBar: { height: 6, borderRadius: 2, marginVertical: 4 },
-  chip: { alignSelf: 'flex-start', marginTop: 2 },
-  locationLoading: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  card: { marginBottom: spacing.md },
+  divider: { marginVertical: spacing.xs },
+  progressBar: { height: 6, borderRadius: radius.sm, marginVertical: spacing.xs },
+  chip: { alignSelf: 'flex-start', marginTop: spacing.xs },
+  locationLoading: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   locationLoadingText: { opacity: 0.8 },
   photoContent: { alignItems: 'center', overflow: 'hidden' },
-  previewImg: { width: '100%', height: 200, borderRadius: 8, marginBottom: 8 },
-  retakeBtn: { marginTop: 4 },
+  previewImg: { width: '100%', height: 200, borderRadius: radius.card, marginBottom: spacing.md },
+  retakeBtn: { marginTop: spacing.xs },
   takePhotoBtn: { minWidth: 160 },
   cameraModal: { flex: 1, backgroundColor: '#000' },
   cameraModalHeader: {

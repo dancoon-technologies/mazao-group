@@ -23,7 +23,7 @@ type LocationState = {
   sub_counties: { id: number; county_id: number; name: string }[];
 };
 
-import { keyboardAvoidOffset, scrollPaddingKeyboard } from '@/constants/theme';
+import { scrollPaddingKeyboard } from '@/constants/theme';
 
 export default function AddFarmerScreen() {
   const router = useRouter();
@@ -97,6 +97,16 @@ export default function AddFarmerScreen() {
     }
   }, []);
 
+  /** Get current device position for farm GPS validation. */
+  const getDeviceLocation = useCallback(async (): Promise<{ latitude: number; longitude: number }> => {
+    const { status } = await Location.requestForegroundPermissionsAsync();
+    if (status !== 'granted') {
+      throw new Error('Location permission is required to add a farm.');
+    }
+    const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+    return { latitude: loc.coords.latitude, longitude: loc.coords.longitude };
+  }, []);
+
   const submit = useCallback(async () => {
     if (!firstName.trim() || !lastName.trim()) {
       setError('First name and last name are required.');
@@ -124,13 +134,25 @@ export default function AddFarmerScreen() {
       setError('Farm longitude must be between -180 and 180.');
       return;
     }
+    setSubmitting(true);
+    setError('');
+    let deviceLat: number | undefined;
+    let deviceLon: number | undefined;
+    try {
+      const device = await getDeviceLocation();
+      deviceLat = device.latitude;
+      deviceLon = device.longitude;
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not get your location.');
+      setSubmitting(false);
+      return;
+    }
     if (isOnline === false) {
       if (!locations) {
         setError('Connect to load locations first, then you can add farmer and farm offline.');
+        setSubmitting(false);
         return;
       }
-      setSubmitting(true);
-      setError('');
       try {
         const farmerLatNum = lat ? parseFloat(lat) : 0;
         const farmerLonNum = lon ? parseFloat(lon) : 0;
@@ -153,6 +175,8 @@ export default function AddFarmerScreen() {
             longitude: farmLonNum,
             plot_size: plotSize.trim() || undefined,
             crop_type: farmCropType.trim() || undefined,
+            device_latitude: deviceLat,
+            device_longitude: deviceLon,
           },
         });
         Alert.alert('Saved offline', 'Farmer and farm will sync when you are back online.', [
@@ -166,9 +190,10 @@ export default function AddFarmerScreen() {
       return;
     }
 
-    if (!locations) return;
-    setSubmitting(true);
-    setError('');
+    if (!locations) {
+      setSubmitting(false);
+      return;
+    }
     try {
       const farmerLatNum = lat ? parseFloat(lat) : 0;
       const farmerLonNum = lon ? parseFloat(lon) : 0;
@@ -198,6 +223,8 @@ export default function AddFarmerScreen() {
         longitude: farmLonNum,
         plot_size: plotSize.trim() || undefined,
         crop_type: farmCropType.trim() || undefined,
+        device_latitude: deviceLat,
+        device_longitude: deviceLon,
       });
 
       if (returnTo === 'record-visit') {
@@ -233,6 +260,7 @@ export default function AddFarmerScreen() {
     farmLat,
     farmLon,
     lat,
+    getDeviceLocation,
     lon,
     middleName,
     phone,
@@ -268,13 +296,14 @@ export default function AddFarmerScreen() {
       <KeyboardAvoidingView
         style={styles.container}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={keyboardAvoidOffset}
+        keyboardVerticalOffset={insets.top}
       >
-      <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={[styles.scrollContent, { paddingBottom: scrollPaddingBottom }]}
-        keyboardShouldPersistTaps="handled"
-      >
+        <ScrollView
+          style={styles.scroll}
+          contentContainerStyle={[styles.scrollContent, { paddingBottom: scrollPaddingBottom, flexGrow: 1 }]}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+        >
         {isOnline === false && (
           <Banner visible style={styles.banner}>
             Offline — farmer and farm will sync when back online.

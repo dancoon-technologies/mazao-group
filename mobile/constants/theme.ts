@@ -100,7 +100,13 @@ export const scrollPaddingKeyboard = 120;
 /** Keyboard-avoiding: scroll bottom for short auth screens (login, change-password). */
 export const scrollPaddingKeyboardShort = 100;
 
-/** KeyboardAvoidingView vertical offset for in-app forms (below header). */
+/** Height of custom form header (e.g. "Record Visit" bar). Use as keyboardVerticalOffset when KAV is directly under it. */
+export const formHeaderHeight = 52;
+
+/** Height of Appbar.Header. Use with insets.top for keyboardVerticalOffset on screens with Appbar. */
+export const appbarHeight = 56;
+
+/** @deprecated Use formHeaderHeight or insets.top + appbarHeight per screen. */
 export const keyboardAvoidOffset = 80;
 
 /** Min touch target (accessibility) */

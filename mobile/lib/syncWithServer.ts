@@ -54,6 +54,9 @@ async function pushQueue(accessToken: string): Promise<{ ok: boolean; error?: st
         if (payload.order_value != null) form.append('order_value', String(payload.order_value))
         if (payload.harvest_kgs != null) form.append('harvest_kgs', String(payload.harvest_kgs))
         if (payload.farmers_feedback) form.append('farmers_feedback', String(payload.farmers_feedback))
+        if (payload.photo_taken_at) form.append('photo_taken_at', String(payload.photo_taken_at))
+        if (payload.photo_device_info) form.append('photo_device_info', String(payload.photo_device_info))
+        if (payload.photo_place_name) form.append('photo_place_name', String(payload.photo_place_name))
         const photoUri = payload.photo_uri as string | undefined
         if (photoUri) {
           form.append('photo', {
@@ -129,6 +132,8 @@ async function pushQueue(accessToken: string): Promise<{ ok: boolean; error?: st
             longitude: farmPayload.longitude,
             plot_size: farmPayload.plot_size ?? undefined,
             crop_type: farmPayload.crop_type ?? undefined,
+            device_latitude: farmPayload.device_latitude,
+            device_longitude: farmPayload.device_longitude,
           }),
         })
         if (!farmRes.ok) {
@@ -152,6 +157,8 @@ async function pushQueue(accessToken: string): Promise<{ ok: boolean; error?: st
             longitude: payload.longitude,
             plot_size: payload.plot_size ?? undefined,
             crop_type: payload.crop_type ?? undefined,
+            device_latitude: payload.device_latitude,
+            device_longitude: payload.device_longitude,
           }),
         })
         if (!res.ok) {
@@ -248,6 +255,9 @@ export async function enqueueVisit(payload: {
   latitude: number
   longitude: number
   photo_uri: string
+  photo_taken_at?: string
+  photo_device_info?: string
+  photo_place_name?: string
   notes?: string
   activity_type?: string
   crop_stage?: string
@@ -291,6 +301,8 @@ export async function enqueueFarmerWithFarm(payload: {
     longitude: number
     plot_size?: string
     crop_type?: string
+    device_latitude?: number
+    device_longitude?: number
   }
 }): Promise<void> {
   await enqueueSyncItem('farmer_with_farm', 'CREATE', payload)
@@ -307,6 +319,8 @@ export async function enqueueFarm(payload: {
   longitude: number
   plot_size?: string
   crop_type?: string
+  device_latitude?: number
+  device_longitude?: number
 }): Promise<void> {
   await enqueueSyncItem('farm', 'CREATE', payload)
 }

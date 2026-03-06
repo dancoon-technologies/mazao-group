@@ -101,10 +101,16 @@ export interface VisitSettings {
   warning_distance_meters: number;
 }
 
+export interface ActivityTypeOption {
+  value: string;
+  label: string;
+}
+
 export interface OptionsResponse {
   departments: { value: string; label: string }[];
   staff_roles: { value: string; label: string }[];
   visit_settings: VisitSettings;
+  activity_types?: ActivityTypeOption[];
 }
 
 // --- Helpers ---
@@ -279,6 +285,8 @@ export const api = {
     longitude: number;
     plot_size?: string;
     crop_type?: string;
+    device_latitude?: number;
+    device_longitude?: number;
   }) {
     return request<Farm>('/farms/', {
       method: 'POST',
@@ -333,6 +341,9 @@ export const api = {
     longitude: number;
     notes?: string;
     photo: { uri: string; type?: string; name?: string };
+    photo_taken_at?: string;
+    photo_device_info?: string;
+    photo_place_name?: string;
     activity_type?: string;
     crop_stage?: string;
     germination_percent?: number | null;
@@ -357,6 +368,9 @@ export const api = {
       type: params.photo.type ?? 'image/jpeg',
       name: params.photo.name ?? 'photo.jpg',
     } as unknown as Blob);
+    if (params.photo_taken_at) form.append('photo_taken_at', params.photo_taken_at);
+    if (params.photo_device_info) form.append('photo_device_info', params.photo_device_info);
+    if (params.photo_place_name) form.append('photo_place_name', params.photo_place_name);
     form.append('activity_type', params.activity_type ?? 'farm_to_farm_visits');
     if (params.crop_stage) form.append('crop_stage', params.crop_stage);
     if (params.germination_percent != null) form.append('germination_percent', String(params.germination_percent));
@@ -393,11 +407,9 @@ export const api = {
 
   getDashboardStats: () => request<DashboardStats>('/dashboard/stats/'),
 
-  /** Options and app settings (no auth required for GET). */
+  /** Options and app settings (activity_types filtered by user department). Requires auth. */
   async getOptions() {
-    const res = await fetch(`${API_BASE}/options/`);
-    if (!res.ok) throw new Error('Failed to load options');
-    return res.json() as Promise<OptionsResponse>;
+    return request<OptionsResponse>('/options/');
   },
 
   async getFarmers(params?: { search?: string }) {

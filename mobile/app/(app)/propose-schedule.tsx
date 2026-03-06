@@ -26,7 +26,7 @@ import {
 } from 'react-native-paper';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ListItemRow } from '@/components/ListItemRow';
-import { cardShadow, cardStyle, colors, keyboardAvoidOffset, scrollPaddingKeyboard } from '@/constants/theme';
+import { appbarHeight, cardShadow, cardStyle, colors, scrollPaddingKeyboard } from '@/constants/theme';
 
 function formatDate(iso: string) {
   try {
@@ -218,12 +218,13 @@ export default function ProposeScheduleScreen() {
       <KeyboardAvoidingView
         style={styles.container}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={keyboardAvoidOffset}
+        keyboardVerticalOffset={insets.top + appbarHeight}
       >
         <ScrollView
           style={styles.scroll}
-          contentContainerStyle={[styles.content, { paddingBottom: scrollPaddingKeyboard + Math.max(insets.bottom, 24) }]}
+          contentContainerStyle={[styles.content, { paddingBottom: scrollPaddingKeyboard + Math.max(insets.bottom, 24), flexGrow: 1 }]}
           keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
         >
           <Text variant="bodyMedium" style={styles.hint}>
             {assigner

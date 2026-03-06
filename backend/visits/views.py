@@ -8,9 +8,21 @@ from rest_framework.response import Response
 from farmers.models import Farm, Farmer
 from schedules.models import Schedule
 
-from .models import Visit
+from .models import ActivityTypeConfig, Visit
 from .serializers import VisitCreateSerializer, VisitSerializer
 from .utils import haversine_meters
+
+
+def _allowed_activity_type_values(user):
+    """Return set of activity_type values allowed for this user's department."""
+    user_dept_slug = getattr(user, "department", None) or ""
+    allowed = set()
+    for at in ActivityTypeConfig.objects.prefetch_related("departments"):
+        if not at.departments.exists():
+            allowed.add(at.value)
+        elif user_dept_slug and at.departments.filter(slug=user_dept_slug).exists():
+            allowed.add(at.value)
+    return allowed if allowed else {Visit.ActivityType.FARM_TO_FARM_VISITS}
 
 logger = logging.getLogger(__name__)
 
@@ -92,6 +104,19 @@ class VisitListCreateView(generics.ListCreateAPIView):
             return Response({"farmer_id": ["Farmer not found."]}, status=status.HTTP_404_NOT_FOUND)
 
         user = request.user
+        allowed_activities = _allowed_activity_type_values(user)
+        activity_type = data.get("activity_type") or Visit.ActivityType.FARM_TO_FARM_VISITS
+        if activity_type not in allowed_activities:
+            logger.warning(
+                "POST /api/visits/ activity_type=%s not allowed for user=%s department=%s",
+                activity_type,
+                user.id,
+                getattr(user, "department", ""),
+            )
+            return Response(
+                {"activity_type": ["This activity type is not allowed for your department."]},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         if user.role != "admin" and farmer.assigned_officer_id != user.pk:
             logger.warning("POST /api/visits/ forbidden user=%s not assigned to farmer_id=%s", user.id, farmer_id)
             return Response(
@@ -171,9 +196,12 @@ class VisitListCreateView(generics.ListCreateAPIView):
             longitude=lon,
             notes=data.get("notes", ""),
             photo=photo,
+            photo_taken_at=data.get("photo_taken_at"),
+            photo_device_info=data.get("photo_device_info") or "",
+            photo_place_name=data.get("photo_place_name") or "",
             distance_from_farmer=distance,
             verification_status=Visit.VerificationStatus.VERIFIED,
-            activity_type=data.get("activity_type", Visit.ActivityType.FARM_TO_FARM_VISITS),
+            activity_type=activity_type,
             crop_stage=data.get("crop_stage", ""),
             germination_percent=data.get("germination_percent"),
             survival_rate=data.get("survival_rate", ""),

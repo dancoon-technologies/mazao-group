@@ -1,7 +1,7 @@
 import logging
 
 from rest_framework import generics, status
-from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -13,9 +13,9 @@ from .services import resend_staff_credentials
 
 
 class OptionsListView(APIView):
-    """GET: Option sets for forms (departments, staff_roles). Single source of truth from backend."""
+    """GET: Option sets for forms (departments, staff_roles, activity_types by department). Requires auth for activity_types."""
 
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
 
     def get(self, request):
         from django.conf import settings as django_settings
@@ -30,6 +30,20 @@ class OptionsListView(APIView):
         ]
         visit_max_m = getattr(django_settings, "VISIT_MAX_DISTANCE_METERS", 100)
         visit_warning_m = getattr(django_settings, "VISIT_WARNING_DISTANCE_METERS", 80)
+
+        # Activity types: only those for the user's department (empty departments = all)
+        activity_types = []
+        try:
+            from visits.models import ActivityTypeConfig
+            user_dept_slug = getattr(request.user, "department", None) or ""
+            for at in ActivityTypeConfig.objects.prefetch_related("departments"):
+                if not at.departments.exists():
+                    activity_types.append({"value": at.value, "label": at.label})
+                elif user_dept_slug and at.departments.filter(slug=user_dept_slug).exists():
+                    activity_types.append({"value": at.value, "label": at.label})
+        except Exception as e:
+            logger.warning("Options activity_types: %s", e)
+
         return Response(
             {
                 "departments": departments,
@@ -38,6 +52,7 @@ class OptionsListView(APIView):
                     "max_distance_meters": visit_max_m,
                     "warning_distance_meters": visit_warning_m,
                 },
+                "activity_types": activity_types,
             }
         )
 

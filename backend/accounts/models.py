@@ -21,6 +21,19 @@ class UserManager(BaseUserManager):
         return self.create_user(email, password, **extra_fields)
 
 
+class Department(models.Model):
+    """Department (e.g. Mazao na afya, Agritech). Linked from ActivityTypeConfig and optionally from User."""
+
+    slug = models.SlugField(max_length=30, unique=True)
+    name = models.CharField(max_length=80)
+
+    class Meta:
+        ordering = ["name"]
+
+    def __str__(self):
+        return self.name
+
+
 class User(AbstractUser):
     """Custom user: email as identifier, role, department, location (region_id/county_id/sub_county_id), device_id."""
 
