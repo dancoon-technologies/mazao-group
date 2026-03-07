@@ -186,9 +186,10 @@ export default function HomeScreen() {
                 </Chip>
               }
               onPress={() =>
-                s.farmer
-                  ? router.push({ pathname: '/(app)/record-visit', params: { farmerId: s.farmer } })
-                  : router.push('/(app)/record-visit')
+                router.push({
+                  pathname: '/(app)/record-visit',
+                  params: { scheduleId: s.id, ...(s.farmer ? { farmerId: s.farmer } : {}) },
+                })
               }
             />
           ))

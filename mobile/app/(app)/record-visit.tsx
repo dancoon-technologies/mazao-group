@@ -270,11 +270,12 @@ export default function RecordVisitScreen() {
   }, [selectedScheduleId, acceptedSchedules, plannedSchedules.length]);
 
   useEffect(() => {
-    if (params.scheduleId && plannedSchedules.length > 0) {
-      const s = plannedSchedules.find((s) => s.id === params.scheduleId);
-      if (s?.status === 'accepted' && s?.farmer) {
+    const scheduleId = typeof params.scheduleId === 'string' ? params.scheduleId : Array.isArray(params.scheduleId) ? params.scheduleId[0] : undefined;
+    if (scheduleId && plannedSchedules.length > 0) {
+      const s = plannedSchedules.find((sch) => sch.id === scheduleId);
+      if (s?.status === 'accepted') {
         setSelectedScheduleId(s.id);
-        setSelectedFarmerId(s.farmer);
+        setSelectedFarmerId(s.farmer ?? null);
         setSelectedFarmId(s.farm ?? null);
       }
     }

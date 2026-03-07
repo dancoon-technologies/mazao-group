@@ -339,6 +339,12 @@ export default function VisitsScreen() {
                         avatarLetter={s.farmer_display_name ?? '?'}
                         title={s.farmer_display_name ?? 'No farmer assigned'}
                         subtitle={`${s.notes || 'Scheduled visit'} · Farm: ${s.farm_display_name ?? 'None'}`}
+                        onPress={() =>
+                          router.push({
+                            pathname: '/(app)/record-visit',
+                            params: { scheduleId: s.id, ...(s.farmer ? { farmerId: s.farmer } : {}) },
+                          })
+                        }
                         right={
                           <View style={styles.upcomingRight}>
                             <View style={[styles.badge, { backgroundColor: scheduleStatusColor(s.status) + '20' }]}>
@@ -351,11 +357,10 @@ export default function VisitsScreen() {
                               size={22}
                               iconColor={colors.primary}
                               onPress={() =>
-                                router.push(
-                                  s.farmer
-                                    ? { pathname: '/(app)/record-visit', params: { farmerId: s.farmer, scheduleId: s.id } }
-                                    : { pathname: '/(app)/record-visit', params: { scheduleId: s.id } }
-                                )
+                                router.push({
+                                  pathname: '/(app)/record-visit',
+                                  params: { scheduleId: s.id, ...(s.farmer ? { farmerId: s.farmer } : {}) },
+                                })
                               }
                             />
                           </View>
