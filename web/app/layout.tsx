@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { MantineWrapper } from "./MantineWrapper";
 import "@mantine/core/styles.css";
+import '@mantine/charts/styles.css';
 import '@mantine/dates/styles.css';
 import "./globals.css";
 

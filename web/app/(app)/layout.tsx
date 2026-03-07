@@ -108,6 +108,7 @@ export default function AppLayout({
             {filteredNav.map((item) => {
               const Icon = item.icon;
               const active = pathname === item.href;
+              const iconColor = active ? "var(--mantine-color-green-8)" : "var(--mantine-color-gray-7)";
               return (
                 <UnstyledButton
                   key={item.href}
@@ -124,12 +125,12 @@ export default function AppLayout({
                     style={{
                       borderRadius: "var(--mantine-radius-md)",
                       backgroundColor: active ? "var(--mantine-color-green-0)" : "transparent",
-                      color: active ? "var(--mantine-color-green-8)" : "var(--mantine-color-gray-7)",
+                      color: iconColor,
                       fontWeight: active ? 600 : 500,
                     }}
                   >
                     <Box style={{ width: 24, height: 24, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                      <Icon size={22} stroke={1.75} style={{ display: "block" }} />
+                      <Icon size={22} stroke={1.75} color={iconColor} style={{ display: "block", flexShrink: 0 }} />
                     </Box>
                     <Text size="sm">{item.label}</Text>
                   </Group>

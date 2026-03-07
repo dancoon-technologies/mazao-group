@@ -12,10 +12,10 @@ import { DASHBOARD_DAY_OPTIONS, PAGE_BOX_MIN_WIDTH, ROUTES } from "@/lib/constan
 import { formatDateTime, formatActivityType } from "@/lib/format";
 import { useMemo, useState } from "react";
 
-/** Load charts only on client so Recharts ResponsiveContainer gets valid dimensions (fixes invisible charts in Next.js). */
+/** Load charts only on client so chart dimensions resolve correctly. */
 const DashboardChartsClient = dynamic(
-  () => Promise.resolve(DashboardCharts),
-  { ssr: false }
+  () => import("@/components/dashboard/DashboardCharts").then((m) => m.DashboardCharts),
+  { ssr: false, loading: () => <Box style={{ minHeight: 220, display: "flex", alignItems: "center", justifyContent: "center" }}><Text size="sm" c="dimmed">Loading charts…</Text></Box> }
 );
 
 function formatChartDate(iso: string) {
