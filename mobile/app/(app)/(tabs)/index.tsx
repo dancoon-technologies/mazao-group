@@ -7,7 +7,7 @@ import {
 import { ListItemRow } from '@/components/ListItemRow';
 import { cardShadow, cardStyle, colors, spacing } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
-import { getAllSchedulesForOfficer } from '@/database';
+import { getAllSchedulesForOfficer, getScheduleIdsWithRecordedVisits } from '@/database';
 import { formatDate } from '@/lib/format';
 import { farmerRowToFarmer, scheduleRowToSchedule } from '@/lib/offline-helpers';
 import { api, type Farmer, type Schedule } from '@/lib/api';
@@ -40,6 +40,7 @@ export default function HomeScreen() {
   const routerInstance = useRouter();
   const { email, department, userId } = useAuth();
   const [schedules, setSchedules] = useState<Schedule[]>([]);
+  const [scheduleIdsWithRecordedVisits, setScheduleIdsWithRecordedVisits] = useState<Set<string>>(new Set());
   const [farmers, setFarmers] = useState<Farmer[]>([]);
   const [stats, setStats] = useState<{ visits_today: number; visits_this_month: number } | null>(null);
   const [loading, setLoading] = useState(true);
@@ -49,12 +50,14 @@ export default function HomeScreen() {
   const loadFromDb = useCallback(async () => {
     if (!userId) return;
     const { getFarmers } = await import('@/database');
-    const [farmerRows, scheduleRows] = await Promise.all([
+    const [farmerRows, scheduleRows, recordedSet] = await Promise.all([
       getFarmers(),
       getAllSchedulesForOfficer(userId),
+      getScheduleIdsWithRecordedVisits(userId),
     ]);
     setFarmers(farmerRows.map(farmerRowToFarmer));
     setSchedules(scheduleRows.map(scheduleRowToSchedule));
+    setScheduleIdsWithRecordedVisits(recordedSet);
     setStats(null);
     setError('');
   }, [userId]);
@@ -63,14 +66,16 @@ export default function HomeScreen() {
     const connected = await NetInfo.fetch().then((s) => s.isConnected ?? false);
     if (connected) {
       try {
-        const [s, f, statsRes] = await Promise.all([
+        const [s, f, statsRes, recordedSet] = await Promise.all([
           api.getSchedules(),
           api.getFarmers(),
           api.getDashboardStats?.().catch(() => null),
+          userId ? getScheduleIdsWithRecordedVisits(userId) : Promise.resolve(new Set<string>()),
         ]);
         setSchedules(Array.isArray(s) ? s : []);
         setFarmers(Array.isArray(f) ? f : []);
         setStats(statsRes ?? null);
+        if (userId) setScheduleIdsWithRecordedVisits(recordedSet);
         setError('');
       } catch (e) {
         if (userId) {
@@ -118,7 +123,9 @@ export default function HomeScreen() {
   const openFarmer = useCallback((id: string) => routerInstance.push({ pathname: '/farmers/[id]', params: { id } }), [routerInstance]);
 
   const today = new Date().toISOString().slice(0, 10);
-  const todaySchedules = schedules.filter((s) => s.scheduled_date === today);
+  const todaySchedules = schedules.filter(
+    (s) => s.scheduled_date === today && !scheduleIdsWithRecordedVisits.has(s.id)
+  );
   const recentFarmers = farmers.slice(0, 5);
   const visitsToday = stats?.visits_today ?? 0;
   const visitsThisMonth = stats?.visits_this_month ?? 0;

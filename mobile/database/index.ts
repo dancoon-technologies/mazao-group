@@ -11,6 +11,7 @@ export {
   getPlannedSchedules,
   getAllSchedulesForOfficer,
   getVisitsForOfficer,
+  getScheduleIdsWithRecordedVisits,
   getPendingSyncQueue,
   enqueueSyncItem,
   markSyncItemSynced,

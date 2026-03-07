@@ -2,6 +2,7 @@ import {
   getFarmers as getFarmersDb,
   getFarms as getFarmsDb,
   getPlannedSchedules as getPlannedSchedulesDb,
+  getScheduleIdsWithRecordedVisits,
 } from '@/database/sqlite';
 import { useAuth } from '@/contexts/AuthContext';
 import { api, type ActivityTypeOption, type Farm, type Farmer, type Schedule, type VisitSettings } from '@/lib/api';
@@ -85,6 +86,7 @@ export default function RecordVisitScreen() {
   const [farmers, setFarmers] = useState<Farmer[]>([]);
   const [farms, setFarms] = useState<Farm[]>([]);
   const [plannedSchedules, setPlannedSchedules] = useState<Schedule[]>([]);
+  const [scheduleIdsWithRecordedVisits, setScheduleIdsWithRecordedVisits] = useState<Set<string>>(new Set());
   const [selectedScheduleId, setSelectedScheduleId] = useState<string | null>(params.scheduleId ?? null);
   const [selectedFarmerId, setSelectedFarmerId] = useState<string | null>(params.farmerId ?? null);
   const [selectedFarmId, setSelectedFarmId] = useState<string | null>(null);
@@ -255,6 +257,8 @@ export default function RecordVisitScreen() {
             created_at: undefined,
           }));
           setPlannedSchedules(scheduleList);
+          const recordedSet = await getScheduleIdsWithRecordedVisits(userId);
+          if (!cancelled) setScheduleIdsWithRecordedVisits(recordedSet);
         } catch {
           if (!cancelled) setPlannedSchedules([]);
         }
@@ -264,8 +268,10 @@ export default function RecordVisitScreen() {
   );
 
   const acceptedSchedules = useMemo(
-    () => plannedSchedules.filter((s) => s.status === 'accepted'),
-    [plannedSchedules]
+    () => plannedSchedules.filter(
+      (s) => s.status === 'accepted' && !scheduleIdsWithRecordedVisits.has(s.id)
+    ),
+    [plannedSchedules, scheduleIdsWithRecordedVisits]
   );
 
   // Only clear selection when we have loaded schedules and the selected one is not in the accepted list.
@@ -452,6 +458,9 @@ export default function RecordVisitScreen() {
           harvest_kgs: harvestKgs ? parseFloat(harvestKgs) : undefined,
           farmers_feedback: farmersFeedback || undefined,
         });
+        if (scheduleIdForSubmit) {
+          setScheduleIdsWithRecordedVisits((prev) => new Set(prev).add(scheduleIdForSubmit));
+        }
         setDialogSuccess(true);
         setDialogVisible(true);
         return;
@@ -477,6 +486,9 @@ export default function RecordVisitScreen() {
         harvest_kgs: harvestKgs ? parseFloat(harvestKgs) : undefined,
         farmers_feedback: farmersFeedback || undefined,
       });
+      if (scheduleIdForSubmit) {
+        setScheduleIdsWithRecordedVisits((prev) => new Set(prev).add(scheduleIdForSubmit));
+      }
       setSnackbarMsg('Saved for sync when online.');
       setTimeout(() => router.back(), 1500);
     } catch (e) {

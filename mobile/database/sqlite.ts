@@ -33,6 +33,7 @@ async function initSchema(database: SQLite.SQLiteDatabase): Promise<void> {
       officer TEXT NOT NULL,
       farmer TEXT NOT NULL,
       farm TEXT,
+      schedule_id TEXT,
       latitude REAL NOT NULL,
       longitude REAL NOT NULL,
       photo_uri TEXT,
@@ -98,6 +99,11 @@ async function initSchema(database: SQLite.SQLiteDatabase): Promise<void> {
   }
   try {
     await database.runAsync('ALTER TABLE schedules ADD COLUMN farm_display_name TEXT');
+  } catch {
+    /* column may already exist */
+  }
+  try {
+    await database.runAsync('ALTER TABLE visits ADD COLUMN schedule_id TEXT');
   } catch {
     /* column may already exist */
   }
@@ -202,6 +208,7 @@ export interface VisitRow {
   officer: string;
   farmer: string;
   farm: string | null;
+  schedule_id: string | null;
   latitude: number;
   longitude: number;
   photo_uri: string | null;
@@ -221,6 +228,20 @@ export async function getVisitsForOfficer(officerId: string): Promise<VisitRow[]
     officerId
   );
   return rows ?? [];
+}
+
+/** Schedule IDs that already have a recorded visit (for filtering record-visit options). */
+export async function getScheduleIdsWithRecordedVisits(officerId: string): Promise<Set<string>> {
+  const database = await getDb();
+  const rows = await database.getAllAsync<{ schedule_id: string | null }>(
+    'SELECT schedule_id FROM visits WHERE officer = ? AND is_deleted = 0 AND schedule_id IS NOT NULL',
+    officerId
+  );
+  const set = new Set<string>();
+  for (const r of rows ?? []) {
+    if (r.schedule_id) set.add(r.schedule_id);
+  }
+  return set;
 }
 
 // --- Sync queue ---
@@ -280,6 +301,7 @@ export async function createOrUpdateVisit(data: Record<string, unknown>): Promis
   const officer = String(data.officer ?? '');
   const farmer = String(data.farmer ?? '');
   const farm = data.farm != null ? String(data.farm) : null;
+  const schedule_id = data.schedule_id != null ? String(data.schedule_id) : null;
   const latitude = Number(data.latitude) || 0;
   const longitude = Number(data.longitude) || 0;
   const photo_uri = data.photo_uri != null ? String(data.photo_uri) : null;
@@ -291,13 +313,13 @@ export async function createOrUpdateVisit(data: Record<string, unknown>): Promis
   const is_deleted = data.is_deleted ? 1 : 0;
 
   await database.runAsync(
-    `INSERT INTO visits (id, officer, farmer, farm, latitude, longitude, photo_uri, notes, activity_type, verification_status, created_at, updated_at, is_deleted)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `INSERT INTO visits (id, officer, farmer, farm, schedule_id, latitude, longitude, photo_uri, notes, activity_type, verification_status, created_at, updated_at, is_deleted)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(id) DO UPDATE SET
-       officer=?, farmer=?, farm=?, latitude=?, longitude=?, photo_uri=?, notes=?, activity_type=?, verification_status=?,
+       officer=?, farmer=?, farm=?, schedule_id=?, latitude=?, longitude=?, photo_uri=?, notes=?, activity_type=?, verification_status=?,
        created_at=?, updated_at=?, is_deleted=?`,
-    id, officer, farmer, farm, latitude, longitude, photo_uri, notes, activity_type, verification_status, created_at, updated_at, is_deleted,
-    officer, farmer, farm, latitude, longitude, photo_uri, notes, activity_type, verification_status, created_at, updated_at, is_deleted
+    id, officer, farmer, farm, schedule_id, latitude, longitude, photo_uri, notes, activity_type, verification_status, created_at, updated_at, is_deleted,
+    officer, farmer, farm, schedule_id, latitude, longitude, photo_uri, notes, activity_type, verification_status, created_at, updated_at, is_deleted
   );
 }
 

@@ -12,11 +12,13 @@ function dateStringToTimestamp(dateStr: string | null | undefined): number {
 
 /** Normalize server visit to local schema (ids, timestamps) */
 export function normalizeServerVisit(record: Record<string, unknown>): Record<string, unknown> {
+  const schedule = record.schedule ?? record.schedule_id ?? null;
   return {
     id: record.id,
     officer: record.officer ?? '',
     farmer: record.farmer ?? '',
     farm: record.farm ?? null,
+    schedule_id: schedule != null ? String(schedule) : null,
     latitude: Number(record.latitude) || 0,
     longitude: Number(record.longitude) || 0,
     photo_uri: record.photo ? String(record.photo) : null,

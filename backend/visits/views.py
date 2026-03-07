@@ -1,6 +1,7 @@
 import logging
 
 from django.conf import settings as django_settings
+from django.utils import timezone
 from rest_framework import generics, status
 from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.response import Response
@@ -170,6 +171,17 @@ class VisitListCreateView(generics.ListCreateAPIView):
                 logger.warning("POST /api/visits/ schedule_id=%s not found", schedule_id)
                 return Response(
                     {"schedule_id": ["Schedule not found."]},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            today = timezone.now().date()
+            if schedule.scheduled_date != today:
+                return Response(
+                    {"schedule_id": ["You can only record a visit for a schedule on its scheduled date."]},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            if Visit.objects.filter(schedule=schedule).exists():
+                return Response(
+                    {"schedule_id": ["A visit has already been recorded for this schedule."]},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 

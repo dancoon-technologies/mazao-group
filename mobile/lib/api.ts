@@ -311,9 +311,20 @@ export const api = {
 
   getLocations: () => request<LocationData>('/locations/'),
 
+  /** Fetches all schedules (all pages) so supervisor-assigned schedules are included. */
   async getSchedules() {
-    const data = await request<Schedule[] | { results: Schedule[] }>('/schedules/');
-    return ensureArray(data);
+    const all: Schedule[] = [];
+    let page = 1;
+    type PageResponse = { results?: Schedule[]; next?: string | null };
+    while (true) {
+      const data = await request<Schedule[] | PageResponse>(`/schedules/?page=${page}`);
+      const batch = ensureArray(Array.isArray(data) ? data : (data as PageResponse).results);
+      all.push(...batch);
+      const hasNext = !Array.isArray(data) && data != null && typeof data === 'object' && (data as PageResponse).next;
+      if (!hasNext || batch.length === 0) break;
+      page += 1;
+    }
+    return all;
   },
 
   async getOfficers() {
