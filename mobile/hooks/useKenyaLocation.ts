@@ -87,6 +87,12 @@ export function useKenyaLocation(autoRun = true): UseKenyaLocationResult {
           addr.village,
           addr.municipality,
           addr.state_district,
+          addr.locality,
+          addr.hamlet,
+          addr.admin_6,
+          addr.admin_5,
+          addr.town,
+          addr.city,
         ].filter(Boolean) as string[];
         for (const raw of subcountyCandidates) {
           const matchedSub = fuzzyMatchSubcounty(raw, match.subcounties);

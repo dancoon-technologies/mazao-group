@@ -419,7 +419,11 @@ export default function AddFarmerScreen() {
         )}
         {gpsLocation.status === 'done' && gpsLocation.detectedRegion && !gpsLocation.isOutsideKenya && hasAutoFilledLocation.current && (
           <Banner visible style={[styles.banner, { backgroundColor: '#E6F4EA' }]}>
-            <Text variant="bodySmall">Region, county, and sub-county set from your GPS location and cannot be changed.</Text>
+            <Text variant="bodySmall">
+              {gpsLocation.detectedSubcounty
+                ? 'Region, county, and sub-county set from your GPS location and cannot be changed.'
+                : 'Region and county set from your GPS location. Select sub-county below if not detected.'}
+            </Text>
           </Banner>
         )}
         {gpsLocation.errorMessage ? (
@@ -479,21 +483,24 @@ export default function AddFarmerScreen() {
               <>
                 <Text variant="labelMedium" style={styles.label}>Sub-county</Text>
                 <View style={styles.chipRow}>
-                  {subCounties.map((s) => (
-                    <Button
-                      key={s.id}
-                      mode={subCountyId === s.id ? 'contained' : 'outlined'}
-                      compact
-                      onPress={() => {
-                        if (hasAutoFilledLocation.current) return;
-                        setSubCountyId(s.id);
-                      }}
-                      style={styles.chip}
-                      disabled={hasAutoFilledLocation.current && subCountyId !== s.id}
-                    >
-                      {s.name}
-                    </Button>
-                  ))}
+                  {subCounties.map((s) => {
+                    const subcountyLockedByGps = hasAutoFilledLocation.current && !!gpsLocation.detectedSubcounty;
+                    return (
+                      <Button
+                        key={s.id}
+                        mode={subCountyId === s.id ? 'contained' : 'outlined'}
+                        compact
+                        onPress={() => {
+                          if (subcountyLockedByGps) return;
+                          setSubCountyId(s.id);
+                        }}
+                        style={styles.chip}
+                        disabled={subcountyLockedByGps && subCountyId !== s.id}
+                      >
+                        {s.name}
+                      </Button>
+                    );
+                  })}
                 </View>
               </>
             )}

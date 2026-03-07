@@ -1,12 +1,12 @@
-import { getFarmers as getFarmersDb, getFarms as getFarmsDb } from '@/database';
-import { farmRowToFarm, farmerRowToFarmer } from '@/lib/offline-helpers';
-import { api, type Farmer, type Farm } from '@/lib/api';
 import { colors, radius, spacing } from '@/constants/theme';
+import { getFarmers as getFarmersDb, getFarms as getFarmsDb } from '@/database';
+import { api, type Farm, type Farmer } from '@/lib/api';
+import { farmRowToFarm, farmerRowToFarmer } from '@/lib/offline-helpers';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useLocalSearchParams, useRouter } from 'expo-router';
 import NetInfo from '@react-native-community/netinfo';
-import React, { useCallback, useEffect, useState } from 'react';
 import { useIsFocused } from '@react-navigation/native';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import React, { useCallback, useEffect, useState } from 'react';
 import { RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { Appbar, Button, Card, Text } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -73,8 +73,6 @@ export default function FarmerDetailScreen() {
   }, [load]);
 
   const openAddFarm = () => router.push({ pathname: '/farmers/[id]/add-farm', params: { id: id! } });
-  const openRecordVisit = () =>
-    router.push({ pathname: '/(app)/record-visit', params: { farmerId: id ?? undefined } });
 
   return (
     <SafeAreaView style={styles.safe} edges={['bottom']}>
@@ -130,14 +128,6 @@ export default function FarmerDetailScreen() {
                   ) : null}
                 </View>
               )}
-              <Button
-                mode="contained"
-                icon="calendar-check"
-                onPress={openRecordVisit}
-                style={styles.recordVisitBtn}
-              >
-                Record visit
-              </Button>
             </View>
 
             <View style={styles.section}>
