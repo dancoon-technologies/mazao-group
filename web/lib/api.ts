@@ -177,9 +177,13 @@ export const api = {
   async getDashboardStats(options?: { signal?: AbortSignal }): Promise<DashboardStats> {
     const res = await authFetch(`${API_BASE}/api/dashboard/stats`, { signal: options?.signal });
     if (!res.ok) {
+      if (res.status === 401)
+        throw new Error("Session expired. Please log in again.");
       if (res.status === 403)
         throw new Error("Dashboard is for admin and supervisor only.");
-      throw new Error("Failed to fetch dashboard stats");
+      const err = await res.json().catch(() => ({})) as { detail?: string };
+      const msg = typeof err?.detail === "string" ? err.detail : "Failed to fetch dashboard stats";
+      throw new Error(msg);
     }
     return res.json();
   },

@@ -8,7 +8,16 @@ export async function GET(request: Request) {
   const daysParam = parseDaysParam(searchParams.get("days"));
   const days = daysParam ?? 14;
 
-  const res = await proxyGet(`/dashboard/visits-by-day/?days=${days}`, auth.token);
+  let res: Response;
+  try {
+    res = await proxyGet(`/dashboard/visits-by-day/?days=${days}`, auth.token);
+  } catch (e) {
+    const message = e instanceof Error ? e.message : "Backend request failed";
+    return Response.json(
+      { detail: `Visits by day unavailable: ${message}. Is the backend running?` },
+      { status: 502 }
+    );
+  }
 
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));

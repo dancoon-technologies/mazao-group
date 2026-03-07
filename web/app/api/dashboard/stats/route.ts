@@ -4,7 +4,16 @@ export async function GET() {
   const auth = await requireAuth();
   if (auth instanceof Response) return auth;
 
-  const res = await proxyGet("/dashboard/stats/", auth.token);
+  let res: Response;
+  try {
+    res = await proxyGet("/dashboard/stats/", auth.token);
+  } catch (e) {
+    const message = e instanceof Error ? e.message : "Backend request failed";
+    return Response.json(
+      { detail: `Dashboard stats unavailable: ${message}. Is the backend running?` },
+      { status: 502 }
+    );
+  }
 
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
