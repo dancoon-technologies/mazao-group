@@ -3,6 +3,7 @@ import type {
   Farm,
   Visit,
   DashboardStats,
+  DashboardVisitsByDayItem,
   UserRole,
   Schedule,
   StaffUser,
@@ -16,19 +17,49 @@ const API_BASE = "";
 
 const defaultCredentials: RequestCredentials = "include";
 
+/** Default request timeout (ms). Prevents hung requests in production. */
+const REQUEST_TIMEOUT_MS = 30000;
+
 /** Support both DRF paginated ({ results: T[] }) and raw list responses. */
 function unwrapList<T>(data: { results?: T[] } | T[]): T[] {
   return Array.isArray(data) ? data : (data.results ?? []);
 }
 
+/** Create an AbortSignal that fires after ms. Call abort() on cleanup to avoid leaks. */
+function createTimeoutSignal(ms: number): { signal: AbortSignal; abort: () => void } {
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), ms);
+  return {
+    signal: controller.signal,
+    abort: () => {
+      clearTimeout(id);
+      controller.abort();
+    },
+  };
+}
+
+/**
+ * Authenticated fetch with timeout and optional abort signal.
+ * Enterprise: fail fast, no unbounded waits.
+ */
 async function authFetch(
   url: string,
-  options: RequestInit = {}
+  options: RequestInit & { signal?: AbortSignal | null } = {}
 ): Promise<Response> {
-  return fetch(url, {
-    ...options,
-    credentials: options.credentials ?? defaultCredentials,
-  });
+  const { signal: userSignal, ...rest } = options;
+  const timeout = createTimeoutSignal(REQUEST_TIMEOUT_MS);
+  const ac = new AbortController();
+  timeout.signal.addEventListener("abort", () => ac.abort());
+  userSignal?.addEventListener?.("abort", () => ac.abort());
+  try {
+    return await fetch(url, {
+      ...rest,
+      credentials: rest.credentials ?? defaultCredentials,
+      signal: ac.signal,
+    });
+  } finally {
+    timeout.abort();
+  }
 }
 
 export interface AuthUser {
@@ -62,8 +93,8 @@ export const api = {
     return res.json();
   },
 
-  async getFarmers(): Promise<Farmer[]> {
-    const res = await authFetch(`${API_BASE}/api/farmers`);
+  async getFarmers(options?: { signal?: AbortSignal }): Promise<Farmer[]> {
+    const res = await authFetch(`${API_BASE}/api/farmers`, { signal: options?.signal });
     if (!res.ok) throw new Error("Failed to fetch farmers");
     return unwrapList(await res.json());
   },
@@ -128,24 +159,43 @@ export const api = {
     return res.json();
   },
 
-  async getVisits(params?: { officer?: string; date?: string; department?: string }): Promise<Visit[]> {
+  async getVisits(
+    params?: { officer?: string; date?: string; department?: string },
+    options?: { signal?: AbortSignal }
+  ): Promise<Visit[]> {
     const search = new URLSearchParams();
     if (params?.officer) search.set("officer", params.officer);
     if (params?.date) search.set("date", params.date);
     if (params?.department) search.set("department", params.department);
     const qs = search.toString();
     const url = qs ? `${API_BASE}/api/visits?${qs}` : `${API_BASE}/api/visits`;
-    const res = await authFetch(url);
+    const res = await authFetch(url, { signal: options?.signal });
     if (!res.ok) throw new Error("Failed to fetch visits");
     return unwrapList(await res.json());
   },
 
-  async getDashboardStats(): Promise<DashboardStats> {
-    const res = await authFetch(`${API_BASE}/api/dashboard/stats`);
+  async getDashboardStats(options?: { signal?: AbortSignal }): Promise<DashboardStats> {
+    const res = await authFetch(`${API_BASE}/api/dashboard/stats`, { signal: options?.signal });
     if (!res.ok) {
       if (res.status === 403)
         throw new Error("Dashboard is for admin and supervisor only.");
       throw new Error("Failed to fetch dashboard stats");
+    }
+    return res.json();
+  },
+
+  async getDashboardVisitsByDay(
+    days = 14,
+    options?: { signal?: AbortSignal }
+  ): Promise<DashboardVisitsByDayItem[]> {
+    const res = await authFetch(
+      `${API_BASE}/api/dashboard/visits-by-day?days=${encodeURIComponent(String(days))}`,
+      { signal: options?.signal }
+    );
+    if (!res.ok) {
+      if (res.status === 403)
+        throw new Error("Dashboard is for admin and supervisor only.");
+      throw new Error("Failed to fetch visits by day");
     }
     return res.json();
   },
@@ -181,28 +231,28 @@ export const api = {
     return res.json();
   },
 
-  async getOfficers(): Promise<StaffUser[]> {
-    const res = await authFetch(`${API_BASE}/api/officers`);
+  async getOfficers(options?: { signal?: AbortSignal }): Promise<StaffUser[]> {
+    const res = await authFetch(`${API_BASE}/api/officers`, { signal: options?.signal });
     if (!res.ok) throw new Error("Failed to fetch officers");
     return unwrapList(await res.json());
   },
 
   /** Kenya locations (regions, counties, sub_counties). Optimized: one fetch, cache on client. */
-  async getLocations(): Promise<LocationsResponse> {
-    const res = await authFetch(`${API_BASE}/api/locations`);
+  async getLocations(options?: { signal?: AbortSignal }): Promise<LocationsResponse> {
+    const res = await authFetch(`${API_BASE}/api/locations`, { signal: options?.signal });
     if (!res.ok) throw new Error("Failed to fetch locations");
     return res.json();
   },
 
   /** Option sets for forms (departments, staff_roles). Single source of truth from backend. */
-  async getOptions(): Promise<OptionsResponse> {
-    const res = await authFetch(`${API_BASE}/api/options`);
+  async getOptions(options?: { signal?: AbortSignal }): Promise<OptionsResponse> {
+    const res = await authFetch(`${API_BASE}/api/options`, { signal: options?.signal });
     if (!res.ok) throw new Error("Failed to fetch options");
     return res.json();
   },
 
-  async getStaff(): Promise<StaffUser[]> {
-    const res = await authFetch(`${API_BASE}/api/staff`);
+  async getStaff(options?: { signal?: AbortSignal }): Promise<StaffUser[]> {
+    const res = await authFetch(`${API_BASE}/api/staff`, { signal: options?.signal });
     if (!res.ok) throw new Error("Failed to fetch staff");
     return unwrapList(await res.json());
   },

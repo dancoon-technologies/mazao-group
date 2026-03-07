@@ -1,50 +1,24 @@
 import { ListItemRow } from '@/components/ListItemRow';
 import { useAuth } from '@/contexts/AuthContext';
 import { getVisitsForOfficer } from '@/database';
+import { formatDateTime, visitStatusColor, visitStatusLabel } from '@/lib/format';
 import { visitRowToVisit } from '@/lib/offline-helpers';
 import { api, type Visit } from '@/lib/api';
 import { useFocusEffect, useRouter } from 'expo-router';
 import NetInfo from '@react-native-community/netinfo';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useCallback, useEffect, useState } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { FlatList, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ActivityIndicator, Card, Text, Button } from 'react-native-paper';
 import { colors, cardShadow, cardStyle, radius, spacing } from '@/constants/theme';
-
-function formatDateTime(iso: string) {
-  try {
-    return new Date(iso).toLocaleString(undefined, {
-      weekday: 'short',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  } catch {
-    return iso;
-  }
-}
-
-function visitStatusColor(verification_status: string): string {
-  const s = (verification_status || '').toLowerCase();
-  if (s === 'verified') return colors.primary;
-  if (s === 'rejected') return colors.error;
-  return colors.accent;
-}
-
-function visitStatusLabel(v: Visit): string {
-  const s = (v.verification_status || '').toLowerCase();
-  if (s === 'verified') return 'Verified';
-  if (s === 'rejected') return 'Rejected';
-  return 'Pending';
-}
 
 export default function HistoryScreen() {
   const router = useRouter();
   const { userId } = useAuth();
   const [visits, setVisits] = useState<Visit[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [forbidden, setForbidden] = useState(false);
 
@@ -56,8 +30,9 @@ export default function HistoryScreen() {
     setForbidden(false);
   }, [userId]);
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async (isRefresh = false) => {
+    if (!isRefresh) setLoading(true);
+    else setRefreshing(true);
     setError(null);
     setForbidden(false);
     const connected = await NetInfo.fetch().then((s) => s.isConnected ?? false);
@@ -84,7 +59,10 @@ export default function HistoryScreen() {
       await loadFromDb();
     }
     setLoading(false);
+    setRefreshing(false);
   }, [userId, loadFromDb]);
+
+  const onRefresh = useCallback(() => load(true), [load]);
 
   useEffect(() => {
     load();
@@ -94,7 +72,37 @@ export default function HistoryScreen() {
     load();
   }, [load]));
 
-  if (loading) {
+  const openVisit = useCallback(
+    (id: string) => router.push({ pathname: '/(app)/visits/[id]', params: { id } }),
+    [router]
+  );
+
+  const renderVisitItem = useCallback(
+    ({ item: v }: { item: Visit }) => {
+      const status = v.verification_status || '';
+      const activityLabel = (v.activity_type || '').replace(/_/g, ' ');
+      const subtitle = [activityLabel, formatDateTime(v.created_at)].filter(Boolean).join(' · ');
+      return (
+        <ListItemRow
+          avatarLetter={(v.farmer_display_name || v.farmer || '?').toString()}
+          title={v.farmer_display_name ?? v.farmer ?? 'Unknown'}
+          subtitle={subtitle}
+          right={
+            <View style={[styles.badge, { backgroundColor: visitStatusColor(status) + '20' }]}>
+              <Text variant="labelSmall" style={[styles.badgeText, { color: visitStatusColor(status) }]}>
+                {visitStatusLabel(status)}
+              </Text>
+              <MaterialCommunityIcons name="chevron-right" size={14} color={visitStatusColor(status)} />
+            </View>
+          }
+          onPress={() => openVisit(v.id)}
+        />
+      );
+    },
+    [openVisit]
+  );
+
+  if (loading && visits.length === 0) {
     return (
       <View style={styles.centered}>
         <ActivityIndicator size="large" />
@@ -126,7 +134,7 @@ export default function HistoryScreen() {
         <Card style={styles.card} elevation={0}>
           <Card.Content>
             <Text variant="bodyMedium" style={styles.error}>{error}</Text>
-            <Button onPress={load}>Retry</Button>
+            <Button onPress={() => load()}>Retry</Button>
           </Card.Content>
         </Card>
       </ScrollView>
@@ -153,29 +161,21 @@ export default function HistoryScreen() {
 
   return (
     <SafeAreaView style={styles.safe} edges={['bottom']}>
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      {visits.map((v) => {
-        const activityLabel = (v.activity_type || '').replace(/_/g, ' ');
-        const subtitle = [activityLabel, formatDateTime(v.created_at)].filter(Boolean).join(' · ');
-        return (
-          <ListItemRow
-            key={v.id}
-            avatarLetter={(v.farmer_display_name || v.farmer || '?').toString()}
-            title={v.farmer_display_name ?? v.farmer ?? 'Unknown'}
-            subtitle={subtitle}
-            right={
-              <View style={[styles.badge, { backgroundColor: visitStatusColor(v.verification_status || '') + '20' }]}>
-                <Text variant="labelSmall" style={[styles.badgeText, { color: visitStatusColor(v.verification_status || '') }]}>
-                  {visitStatusLabel(v)}
-                </Text>
-                <MaterialCommunityIcons name="chevron-right" size={14} color={visitStatusColor(v.verification_status || '')} />
-              </View>
-            }
-            onPress={() => router.push({ pathname: '/(app)/visits/[id]', params: { id: v.id } })}
-          />
-        );
-      })}
-    </ScrollView>
+      <FlatList
+        data={visits}
+        keyExtractor={(item) => item.id}
+        renderItem={renderVisitItem}
+        initialNumToRender={12}
+        maxToRenderPerBatch={10}
+        windowSize={5}
+        removeClippedSubviews={true}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
+        style={styles.container}
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
+      />
     </SafeAreaView>
   );
 }

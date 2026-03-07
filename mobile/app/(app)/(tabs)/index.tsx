@@ -8,9 +8,10 @@ import { ListItemRow } from '@/components/ListItemRow';
 import { cardShadow, cardStyle, colors, spacing } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
 import { getAllSchedulesForOfficer } from '@/database';
+import { formatDate } from '@/lib/format';
 import { farmerRowToFarmer, scheduleRowToSchedule } from '@/lib/offline-helpers';
 import { api, type Farmer, type Schedule } from '@/lib/api';
-import { router, useFocusEffect } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import NetInfo from '@react-native-community/netinfo';
 import { useCallback, useEffect, useState } from 'react';
 import {
@@ -28,15 +29,6 @@ import {
 } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-function formatDate(iso: string) {
-  try {
-    const d = new Date(iso);
-    return d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
-  } catch {
-    return iso;
-  }
-}
-
 const STAT_ICONS = {
   today: 'clipboard-text-outline',
   month: 'chart-line',
@@ -45,6 +37,7 @@ const STAT_ICONS = {
 } as const;
 
 export default function HomeScreen() {
+  const routerInstance = useRouter();
   const { email, department, userId } = useAuth();
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [farmers, setFarmers] = useState<Farmer[]>([]);
@@ -106,6 +99,24 @@ export default function HomeScreen() {
     load();
   }, [load]);
 
+  const openRecordVisit = useCallback(
+    (s?: Schedule) => {
+      if (s) {
+        routerInstance.push({
+          pathname: '/(app)/record-visit',
+          params: { scheduleId: s.id, ...(s.farmer ? { farmerId: s.farmer } : {}) },
+        });
+      } else {
+        routerInstance.push('/(app)/record-visit');
+      }
+    },
+    [routerInstance]
+  );
+  const openAddFarmer = useCallback(() => routerInstance.push('/(app)/add-farmer'), [routerInstance]);
+  const openProposeSchedule = useCallback(() => routerInstance.push('/(app)/propose-schedule'), [routerInstance]);
+  const openFarmersTab = useCallback(() => routerInstance.push('/(app)/(tabs)/farmers'), [routerInstance]);
+  const openFarmer = useCallback((id: string) => routerInstance.push({ pathname: '/farmers/[id]', params: { id } }), [routerInstance]);
+
   const today = new Date().toISOString().slice(0, 10);
   const todaySchedules = schedules.filter((s) => s.scheduled_date === today);
   const recentFarmers = farmers.slice(0, 5);
@@ -149,17 +160,17 @@ export default function HomeScreen() {
             icon="camera"
             label="Record Visit"
             variant="primary"
-            onPress={() => router.push('/(app)/record-visit')}
+            onPress={() => openRecordVisit()}
           />
           <ActionCard
             icon="account-plus"
             label="Add Farmer"
-            onPress={() => router.push('/(app)/add-farmer')}
+            onPress={openAddFarmer}
           />
           <ActionCard
             icon="calendar"
             label="Schedule"
-            onPress={() => router.push('/(app)/propose-schedule')}
+            onPress={openProposeSchedule}
           />
         </View>
 
@@ -185,12 +196,7 @@ export default function HomeScreen() {
                   {s.status}
                 </Chip>
               }
-              onPress={() =>
-                router.push({
-                  pathname: '/(app)/record-visit',
-                  params: { scheduleId: s.id, ...(s.farmer ? { farmerId: s.farmer } : {}) },
-                })
-              }
+              onPress={() => openRecordVisit(s)}
             />
           ))
         )}
@@ -198,7 +204,7 @@ export default function HomeScreen() {
         <SectionHeader
           title="Recent Farmers"
           rightLabel="View all"
-          onRightPress={() => router.push('/(app)/(tabs)/farmers')}
+          onRightPress={openFarmersTab}
         />
         {recentFarmers.length === 0 ? (
           <EmptyStateCard message="No farmers yet" />
@@ -209,7 +215,7 @@ export default function HomeScreen() {
               avatarLetter={f.display_name}
               title={f.display_name}
               subtitle={f.phone || '—'}
-              onPress={() => router.push('/(app)/(tabs)/farmers')}
+              onPress={() => openFarmer(f.id)}
             />
           ))
         )}

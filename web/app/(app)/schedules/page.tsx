@@ -216,7 +216,7 @@ export default function SchedulesPage() {
     };
   }, [loadData]);
   const { data: optionsData } = useAsyncData(
-    () => (isAdmin ? api.getOptions() : Promise.resolve({ departments: [], staff_roles: [] })),
+    (signal) => (isAdmin ? api.getOptions({ signal }) : Promise.resolve({ departments: [], staff_roles: [] })),
     [isAdmin]
   );
   const departmentOptions = useMemo(

@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { useRouter } from 'expo-router';
+import * as SplashScreen from 'expo-splash-screen';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -9,15 +10,19 @@ export default function IndexScreen() {
 
   useEffect(() => {
     if (isLoading) return;
-    if (!isAuthenticated) {
-      router.replace('/login');
-      return;
-    }
-    if (mustChangePassword) {
-      router.replace('/change-password');
-    } else {
-      router.replace('/(app)');
-    }
+    const navigate = async () => {
+      await SplashScreen.hideAsync();
+      if (!isAuthenticated) {
+        router.replace('/login');
+        return;
+      }
+      if (mustChangePassword) {
+        router.replace('/change-password');
+      } else {
+        router.replace('/(app)');
+      }
+    };
+    navigate();
   }, [isAuthenticated, isLoading, mustChangePassword, router]);
 
   return (

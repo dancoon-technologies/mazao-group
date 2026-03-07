@@ -1,4 +1,5 @@
 import { Stack } from 'expo-router';
+import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { PaperProvider } from 'react-native-paper';
@@ -6,6 +7,9 @@ import 'react-native-reanimated';
 
 import { AuthProvider } from '@/contexts/AuthContext';
 import { paperTheme } from '@/lib/paper-theme';
+
+// Keep native splash visible until we hide it after auth is ready
+SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
   return (

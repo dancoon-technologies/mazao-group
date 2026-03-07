@@ -41,8 +41,8 @@ export default function AddFarmScreen() {
   const [farmLon, setFarmLon] = useState('');
   const [plotSize, setPlotSize] = useState('');
   const [farmCropType, setFarmCropType] = useState('');
-  const [useGpsCoordsForFarm, setUseGpsCoordsForFarm] = useState(false);
   const hasAutoFilledLocation = useRef(false);
+  const hasAutoFilledCoords = useRef(false);
 
   const gpsLocation = useKenyaLocation(true);
 
@@ -91,27 +91,13 @@ export default function AddFarmScreen() {
     }
   }, [locations, gpsLocation.status, gpsLocation.detectedRegion, gpsLocation.detectedCounty, gpsLocation.detectedSubcounty, gpsLocation.isOutsideKenya]);
 
-  // When user taps "Use my location", refresh runs; then sync coords to farm lat/lon
+  // Auto-fill farm latitude and longitude from GPS when coords are available
   useEffect(() => {
-    if (!useGpsCoordsForFarm || !gpsLocation.coords) return;
+    if (hasAutoFilledCoords.current || !gpsLocation.coords) return;
+    hasAutoFilledCoords.current = true;
     setFarmLat(String(gpsLocation.coords.latitude));
     setFarmLon(String(gpsLocation.coords.longitude));
-    setUseGpsCoordsForFarm(false);
-  }, [useGpsCoordsForFarm, gpsLocation.coords]);
-
-  const getCurrentLocation = useCallback(async () => {
-    const { status } = await Location.requestForegroundPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('Permission', 'Location permission is required.');
-      return;
-    }
-    try {
-      setUseGpsCoordsForFarm(true);
-      await gpsLocation.refresh();
-    } catch {
-      Alert.alert('Error', 'Could not get location.');
-    }
-  }, [gpsLocation.refresh]);
+  }, [gpsLocation.coords]);
 
   /** Get current device position for GPS validation (officer must be at farm). */
   const getDeviceLocation = useCallback(async (): Promise<{ latitude: number; longitude: number }> => {
@@ -402,9 +388,6 @@ export default function AddFarmScreen() {
               style={[styles.input, styles.flex]}
             />
           </View>
-          <Button mode="outlined" onPress={getCurrentLocation} style={styles.locationBtn}>
-            Use my location
-          </Button>
           <TextInput
             label="Plot size"
             value={plotSize}

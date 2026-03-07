@@ -8,6 +8,7 @@ import { useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { APP_NAV, filterNavByRole } from "@/config/navigation";
 import { ROUTES } from "@/lib/constants";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { LoadingScreen } from "@/components/ui";
 import { NotificationBell } from "@/components/NotificationBell";
 
@@ -142,7 +143,9 @@ export default function AppLayout({
         </AppShell.Section>
       </AppShell.Navbar>
 
-      <AppShell.Main className="bg-stone-100">{children}</AppShell.Main>
+      <AppShell.Main className="bg-stone-100">
+        <ErrorBoundary>{children}</ErrorBoundary>
+      </AppShell.Main>
     </AppShell>
   );
 }

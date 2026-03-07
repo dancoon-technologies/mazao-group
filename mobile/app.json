@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "mazao-group",
+    "name": "Mazao Group",
     "slug": "mazao-group",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -47,6 +47,8 @@
         "expo-build-properties",
         {
           "android": {
+            "enableMinifyInReleaseBuilds": true,
+            "enableShrinkResourcesInReleaseBuilds": true,
             "packagingOptions": {
               "pickFirst": [
                 "**/libc++_shared.so"

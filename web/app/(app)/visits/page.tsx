@@ -12,7 +12,7 @@ import {
   Text,
   TextInput,
 } from "@mantine/core";
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import * as XLSX from "xlsx";
 import { useAsyncData } from "@/hooks/useAsyncData";
 import { api, photoUrl } from "@/lib/api";
@@ -85,25 +85,28 @@ export default function VisitsPage() {
   const [selectedVisit, setSelectedVisit] = useState<Visit | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
 
-  const fetchVisits = useMemo(
-    () => () =>
-      api.getVisits({
-        ...(dateFilter ? { date: dateFilter } : {}),
-        ...(officerFilter ? { officer: officerFilter } : {}),
-        ...(isAdmin && departmentFilter ? { department: departmentFilter } : {}),
-      }),
+  const fetchVisits = useCallback(
+    (signal: AbortSignal) =>
+      api.getVisits(
+        {
+          ...(dateFilter ? { date: dateFilter } : {}),
+          ...(officerFilter ? { officer: officerFilter } : {}),
+          ...(isAdmin && departmentFilter ? { department: departmentFilter } : {}),
+        },
+        { signal }
+      ),
     [dateFilter, officerFilter, departmentFilter, isAdmin]
   );
   const { data: visitsData, error, loading } = useAsyncData(fetchVisits, [dateFilter, officerFilter, departmentFilter, isAdmin]);
 
   const { data: officersData } = useAsyncData(
-    () => (isAdminOrSupervisor ? api.getOfficers() : Promise.resolve([])),
+    (signal) => (isAdminOrSupervisor ? api.getOfficers({ signal }) : Promise.resolve([])),
     [isAdminOrSupervisor]
   );
   const officers = useMemo(() => officersData ?? [], [officersData]);
 
   const { data: optionsData } = useAsyncData(
-    () => (isAdmin ? api.getOptions() : Promise.resolve({ departments: [], staff_roles: [] })),
+    (signal) => (isAdmin ? api.getOptions({ signal }) : Promise.resolve({ departments: [], staff_roles: [] })),
     [isAdmin]
   );
   const departmentOptions = useMemo(

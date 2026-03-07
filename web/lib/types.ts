@@ -58,6 +58,11 @@ export interface DashboardStats {
   active_officers: number;
 }
 
+export interface DashboardVisitsByDayItem {
+  date: string;
+  count: number;
+}
+
 export interface LoginResponse {
   access: string;
   refresh: string;

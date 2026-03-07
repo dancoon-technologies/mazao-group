@@ -57,3 +57,15 @@ export const ROLES_STAFF: readonly UserRole[] = [
   ROLES.SUPERVISOR,
   ROLES.OFFICER,
 ];
+
+/** Dashboard chart: visits-by-day allowed range and default */
+export const DASHBOARD_VISITS_DAYS_MIN = 7;
+export const DASHBOARD_VISITS_DAYS_MAX = 90;
+export const DASHBOARD_VISITS_DAYS_DEFAULT = 14;
+
+/** Dashboard chart: day range options for the selector */
+export const DASHBOARD_DAY_OPTIONS = [
+  { value: "7", label: "7 days" },
+  { value: "14", label: "14 days" },
+  { value: "30", label: "30 days" },
+] as const;

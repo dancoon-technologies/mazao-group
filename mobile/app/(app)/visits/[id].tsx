@@ -5,7 +5,8 @@ import { api, type Schedule } from '@/lib/api';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import NetInfo from '@react-native-community/netinfo';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { View, StyleSheet, TouchableOpacity, Image, Alert } from 'react-native';
+import { Image } from 'expo-image';
+import { View, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import { Button, Text, ActivityIndicator } from 'react-native-paper';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as Location from 'expo-location';
@@ -192,7 +193,7 @@ export default function RecordVisitScreen() {
       <View style={styles.cameraWrap}>
         {photoUri ? (
           <View style={styles.preview}>
-            <Image source={{ uri: photoUri }} style={styles.previewImg} />
+            <Image source={{ uri: photoUri }} style={styles.previewImg} contentFit="cover" />
             <Button mode="outlined" onPress={() => setPhotoUri(null)}>
               Retake photo
             </Button>

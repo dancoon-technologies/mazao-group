@@ -13,8 +13,8 @@ import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as Location from 'expo-location';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Image } from 'expo-image';
 import {
-  Image,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -161,6 +161,14 @@ export default function RecordVisitScreen() {
         setActivityTypesList(ACTIVITY_TYPES.map((a) => ({ value: a.value, label: a.label })));
       });
   }, []);
+
+  const activityTypeOptions = useMemo(
+    () =>
+      activityTypesList.length
+        ? activityTypesList
+        : ACTIVITY_TYPES.map((a) => ({ value: a.value, label: a.label })),
+    [activityTypesList]
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -505,7 +513,7 @@ export default function RecordVisitScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.safe} edges={['bottom']}>
+    <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
       <View style={styles.header}>
         <Text variant="headlineSmall" style={styles.headerTitle}>
           Record Visit
@@ -729,7 +737,7 @@ export default function RecordVisitScreen() {
             </View>
             {photoUri ? (
               <View style={styles.photoPreviewWrap}>
-                <Image source={{ uri: photoUri }} style={styles.previewImg} />
+                <Image source={{ uri: photoUri }} style={styles.previewImg} contentFit="cover" />
                 <Button mode="text" compact onPress={() => { setPhotoUri(null); openCameraModal(); }}>
                   Retake photo
                 </Button>
@@ -754,7 +762,7 @@ export default function RecordVisitScreen() {
                 />
               }
             >
-              {(activityTypesList.length ? activityTypesList : ACTIVITY_TYPES.map((a) => ({ value: a.value, label: a.label }))).map((a) => (
+              {activityTypeOptions.map((a) => (
                 <Menu.Item
                   key={a.value}
                   onPress={() => {

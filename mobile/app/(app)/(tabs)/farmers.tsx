@@ -7,8 +7,8 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import NetInfo from '@react-native-community/netinfo';
 import React, { useCallback, useMemo, useState } from 'react';
 import {
+  FlatList,
   RefreshControl,
-  ScrollView,
   StyleSheet,
   TextInput,
   View,
@@ -110,7 +110,54 @@ export default function FarmersScreen() {
     );
   }, [farmers, search]);
 
-  const openAddFarmer = () => router.push('/(app)/add-farmer');
+  const openAddFarmer = useCallback(() => router.push('/(app)/add-farmer'), [router]);
+  const openFarmer = useCallback((id: string) => router.push({ pathname: '/farmers/[id]', params: { id } }), [router]);
+
+  const renderFarmerItem = useCallback(
+    ({ item: farmer }: { item: Farmer }) => {
+      const farms = farmsByFarmer[farmer.id] ?? [];
+      const farmCount = farms.length;
+      const locations = formatFarmLocations(farms);
+      const subtitle = [
+        farmer.phone ? farmer.phone : null,
+        farmCount === 1 ? '1 Farm' : `${farmCount} Farms`,
+        locations ? locations : null,
+      ]
+        .filter(Boolean)
+        .join(' · ');
+      return (
+        <ListItemRow
+          avatarLetter={farmer.display_name}
+          title={farmer.display_name}
+          subtitle={subtitle || '—'}
+          onPress={() => openFarmer(farmer.id)}
+        />
+      );
+    },
+    [farmsByFarmer, openFarmer]
+  );
+
+  const listEmptyComponent = useMemo(
+    () => (
+      <Card style={styles.card} elevation={0}>
+        <Card.Content>
+          <Text variant="bodyMedium">
+            {search.trim() ? 'No farmers match your search.' : 'No farmers'}
+          </Text>
+          {!search.trim() && (
+            <Button
+              mode="contained"
+              onPress={openAddFarmer}
+              style={styles.addBtn}
+            >
+              Add Farmer
+            </Button>
+          )}
+        </Card.Content>
+      </Card>
+    ),
+    [search.trim(), openAddFarmer]
+  );
 
   return (
     <View style={styles.container}>
@@ -141,74 +188,37 @@ export default function FarmersScreen() {
         />
       </View>
 
-      <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={styles.content}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        }
-      >
-        {loading ? (
-          <ActivityIndicator size="large" style={styles.loader} />
-        ) : error ? (
-          <Card style={styles.card} elevation={0}>
-            <Card.Content>
-              <Text variant="bodyMedium" style={styles.error}>
-                {error}
-              </Text>
-              <Button mode="outlined" onPress={() => load()}>
-                Retry
-              </Button>
-            </Card.Content>
-          </Card>
-        ) : filteredFarmers.length === 0 ? (
-          <Card style={styles.card} elevation={0}>
-            <Card.Content>
-              <Text variant="bodyMedium">
-                {search.trim() ? 'No farmers match your search.' : 'No farmers'}
-              </Text>
-              {!search.trim() && (
-                <Button
-                  mode="contained"
-                  onPress={openAddFarmer}
-                  style={styles.addBtn}
-                >
-                  Add Farmer
-                </Button>
-              )}
-            </Card.Content>
-          </Card>
-        ) : (
-          <View style={styles.cardList}>
-            {filteredFarmers.map((farmer) => {
-              const farms = farmsByFarmer[farmer.id] ?? [];
-              const farmCount = farms.length;
-              const locations = formatFarmLocations(farms);
-              const subtitle = [
-                farmer.phone ? farmer.phone : null,
-                farmCount === 1 ? '1 Farm' : `${farmCount} Farms`,
-                locations ? locations : null,
-              ]
-                .filter(Boolean)
-                .join(' · ');
-              return (
-                <ListItemRow
-                  key={farmer.id}
-                  avatarLetter={farmer.display_name}
-                  title={farmer.display_name}
-                  subtitle={subtitle || '—'}
-                  onPress={() =>
-                    router.push({
-                      pathname: '/farmers/[id]',
-                      params: { id: farmer.id },
-                    })
-                  }
-                />
-              );
-            })}
-          </View>
-        )}
-      </ScrollView>
+      {loading ? (
+        <ActivityIndicator size="large" style={styles.loader} />
+      ) : error ? (
+        <Card style={styles.card} elevation={0}>
+          <Card.Content>
+            <Text variant="bodyMedium" style={styles.error}>
+              {error}
+            </Text>
+            <Button mode="outlined" onPress={() => load()}>
+              Retry
+            </Button>
+          </Card.Content>
+        </Card>
+      ) : (
+        <FlatList
+          data={filteredFarmers}
+          keyExtractor={(item) => item.id}
+          renderItem={renderFarmerItem}
+          ListEmptyComponent={listEmptyComponent}
+          initialNumToRender={12}
+          maxToRenderPerBatch={10}
+          windowSize={5}
+          removeClippedSubviews={true}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          }
+          style={styles.scroll}
+          contentContainerStyle={styles.content}
+          keyboardShouldPersistTaps="handled"
+        />
+      )}
     </SafeAreaView>
       <View
         style={[
@@ -220,7 +230,7 @@ export default function FarmersScreen() {
         pointerEvents="box-none"
       >
         <FAB
-          icon="plus"
+          icon="account-plus"
           onPress={openAddFarmer}
           mode="elevated"
           label="Add Farmer"

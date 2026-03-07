@@ -1,4 +1,5 @@
-import { colors, cardShadow, cardStyle, radius, spacing } from '@/constants/theme';
+import { cardShadow, cardStyle, colors, spacing } from '@/constants/theme';
+import { memo } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { Text } from 'react-native-paper';
 
@@ -10,7 +11,7 @@ type ListItemRowProps = {
   onPress?: () => void;
 };
 
-export function ListItemRow({
+export const ListItemRow = memo(function ListItemRow({
   avatarLetter,
   title,
   subtitle,
@@ -50,7 +51,7 @@ export function ListItemRow({
   }
 
   return <View style={styles.card}>{content}</View>;
-}
+});
 
 const styles = StyleSheet.create({
   card: {

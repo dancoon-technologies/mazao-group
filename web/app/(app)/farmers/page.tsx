@@ -71,7 +71,7 @@ const INITIAL_FARMER_FORM = {
 
 export default function FarmersPage() {
   const { data: farmersData, error, loading, refetch } = useAsyncData(
-    () => api.getFarmers(),
+    (signal) => api.getFarmers({ signal }),
     []
   );
   const farmers = farmersData ?? [];

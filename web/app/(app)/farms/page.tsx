@@ -74,7 +74,7 @@ export default function FarmsPage() {
   }, []);
 
   const { data: locationsData } = useAsyncData(
-    () => (api.getLocations()),
+    (signal) => api.getLocations({ signal }),
     []
   );
   const locations = locationsData ?? { regions: [], counties: [], sub_counties: [] };

@@ -9,7 +9,7 @@ import {
   Platform,
   Alert,
 } from 'react-native';
-import { Banner, Button, Text, TextInput, ActivityIndicator } from 'react-native-paper';
+import { Banner, Button, Dialog, Portal, Snackbar, Text, TextInput, ActivityIndicator, useTheme } from 'react-native-paper';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Location from 'expo-location';
 import { createOrUpdateFarmer, createOrUpdateFarm } from '@/database';
@@ -29,6 +29,7 @@ import { scrollPaddingKeyboard } from '@/constants/theme';
 export default function AddFarmerScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const theme = useTheme();
   const params = useLocalSearchParams<{ returnTo?: string }>();
   const returnTo = params.returnTo;
   const [locations, setLocations] = useState<LocationState | null>(null);
@@ -36,6 +37,10 @@ export default function AddFarmerScreen() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [isOnline, setIsOnline] = useState<boolean | null>(null);
+  const [dialogVisible, setDialogVisible] = useState(false);
+  const [dialogSuccess, setDialogSuccess] = useState(true);
+  const [submitError, setSubmitError] = useState('');
+  const [snackbarMsg, setSnackbarMsg] = useState('');
 
   const [firstName, setFirstName] = useState('');
   const [middleName, setMiddleName] = useState('');
@@ -53,8 +58,8 @@ export default function AddFarmerScreen() {
   const [farmLon, setFarmLon] = useState('');
   const [plotSize, setPlotSize] = useState('');
   const [farmCropType, setFarmCropType] = useState('');
-  const [useGpsCoordsForFarm, setUseGpsCoordsForFarm] = useState(false);
   const hasAutoFilledLocation = useRef(false);
+  const hasAutoFilledFarmCoords = useRef(false);
 
   const gpsLocation = useKenyaLocation(true);
 
@@ -103,33 +108,28 @@ export default function AddFarmerScreen() {
     }
   }, [locations, gpsLocation.status, gpsLocation.detectedRegion, gpsLocation.detectedCounty, gpsLocation.detectedSubcounty, gpsLocation.isOutsideKenya]);
 
-  // When user taps "Use my location for farm", refresh runs; then sync coords to farm lat/lon
+  // Auto-fill farm latitude and longitude from GPS when coords are available
   useEffect(() => {
-    if (!useGpsCoordsForFarm || !gpsLocation.coords) return;
+    if (hasAutoFilledFarmCoords.current || !gpsLocation.coords) return;
+    hasAutoFilledFarmCoords.current = true;
     setFarmLat(String(gpsLocation.coords.latitude));
     setFarmLon(String(gpsLocation.coords.longitude));
-    setUseGpsCoordsForFarm(false);
-  }, [useGpsCoordsForFarm, gpsLocation.coords]);
+  }, [gpsLocation.coords]);
 
-  const getCurrentLocation = useCallback(async (forFarm: boolean) => {
+  const getCurrentLocation = useCallback(async () => {
     const { status } = await Location.requestForegroundPermissionsAsync();
     if (status !== 'granted') {
       Alert.alert('Permission', 'Location permission is required.');
       return;
     }
     try {
-      if (forFarm) {
-        setUseGpsCoordsForFarm(true);
-        await gpsLocation.refresh();
-      } else {
-        const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-        setLat(String(loc.coords.latitude));
-        setLon(String(loc.coords.longitude));
-      }
+      const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      setLat(String(loc.coords.latitude));
+      setLon(String(loc.coords.longitude));
     } catch {
       Alert.alert('Error', 'Could not get location.');
     }
-  }, [gpsLocation.refresh]);
+  }, []);
 
   /** Get current device position for farm GPS validation. */
   const getDeviceLocation = useCallback(async (): Promise<{ latitude: number; longitude: number }> => {
@@ -213,9 +213,8 @@ export default function AddFarmerScreen() {
             device_longitude: deviceLon,
           },
         });
-        Alert.alert('Saved offline', 'Farmer and farm will sync when you are back online.', [
-          { text: 'OK', onPress: () => router.back() },
-        ]);
+        setSnackbarMsg('Saved for sync when online.');
+        setTimeout(() => router.back(), 1500);
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Failed to save for sync');
       } finally {
@@ -275,11 +274,12 @@ export default function AddFarmerScreen() {
         return;
       }
 
-      Alert.alert('Success', 'Farmer and farm added.', [
-        { text: 'OK', onPress: () => router.back() },
-      ]);
+      setDialogSuccess(true);
+      setDialogVisible(true);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to add farmer');
+      setSubmitError(e instanceof Error ? e.message : 'Failed to add farmer');
+      setDialogSuccess(false);
+      setDialogVisible(true);
     } finally {
       setSubmitting(false);
     }
@@ -400,7 +400,7 @@ export default function AddFarmerScreen() {
             style={[styles.input, styles.flex]}
           />
         </View>
-        <Button mode="outlined" onPress={() => getCurrentLocation(false)} style={styles.locationBtn}>
+        <Button mode="outlined" onPress={getCurrentLocation} style={styles.locationBtn}>
           Use my location
         </Button>
 
@@ -531,9 +531,6 @@ export default function AddFarmerScreen() {
             style={[styles.input, styles.flex]}
           />
         </View>
-        <Button mode="outlined" onPress={() => getCurrentLocation(true)} style={styles.locationBtn}>
-          Use my location for farm
-        </Button>
         <TextInput
           label="Plot size"
           value={plotSize}
@@ -567,12 +564,37 @@ export default function AddFarmerScreen() {
         </View>
       </ScrollView>
       </KeyboardAvoidingView>
+
+      <Portal>
+        <Dialog visible={dialogVisible} onDismiss={() => { setDialogVisible(false); setSubmitError(''); router.back(); }}>
+          <Dialog.Icon icon={dialogSuccess ? 'check-circle' : 'alert'} color={dialogSuccess ? theme.colors.primary : theme.colors.error} />
+          <Dialog.Title>{dialogSuccess ? 'Success' : 'Error'}</Dialog.Title>
+          <Dialog.Content>
+            <Text variant="bodyMedium">
+              {dialogSuccess ? 'Farmer and farm added.' : (submitError || 'Failed to add farmer.')}
+            </Text>
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button onPress={() => { setDialogVisible(false); setSubmitError(''); router.back(); }}>OK</Button>
+          </Dialog.Actions>
+        </Dialog>
+      </Portal>
+
+      <Snackbar
+        visible={!!snackbarMsg}
+        onDismiss={() => setSnackbarMsg('')}
+        duration={4000}
+        wrapperStyle={[styles.snackbarWrapper, { top: insets.top }]}
+      >
+        {snackbarMsg}
+      </Snackbar>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   safe: { flex: 1 },
+  snackbarWrapper: { position: 'absolute', left: 0, right: 0 },
   container: { flex: 1 },
   scroll: { flex: 1 },
   banner: { marginBottom: 12 },

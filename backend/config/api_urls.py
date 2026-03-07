@@ -19,7 +19,7 @@ from notifications.views import (
     NotificationUnreadCountView,
 )
 from schedules.views import ScheduleApproveView, ScheduleListCreateView
-from visits.dashboard_views import DashboardStatsView
+from visits.dashboard_views import DashboardStatsView, DashboardVisitsByDayView
 from visits.views import VisitListCreateView
 
 urlpatterns = [
@@ -30,6 +30,7 @@ urlpatterns = [
     path("farms/", FarmListCreateView.as_view(), name="farm-list-create"),
     path("visits/", VisitListCreateView.as_view(), name="visit-list-create"),
     path("dashboard/stats/", DashboardStatsView.as_view(), name="dashboard-stats"),
+    path("dashboard/visits-by-day/", DashboardVisitsByDayView.as_view(), name="dashboard-visits-by-day"),
     path("schedules/", ScheduleListCreateView.as_view(), name="schedule-list-create"),
     path("schedules/<uuid:pk>/approve/", ScheduleApproveView.as_view(), name="schedule-approve"),
     path("staff/<uuid:pk>/", StaffUpdateView.as_view(), name="staff-update"),

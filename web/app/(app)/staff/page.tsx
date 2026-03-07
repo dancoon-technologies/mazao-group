@@ -94,15 +94,15 @@ export default function StaffPage() {
   const isAdmin = role === ROLES.ADMIN;
 
   const { data: staffData, error, loading, refetch } = useAsyncData(
-    () => (isAdmin ? api.getStaff() : Promise.resolve([])),
+    (signal) => (isAdmin ? api.getStaff({ signal }) : Promise.resolve([])),
     [isAdmin]
   );
   const { data: locationsData } = useAsyncData(
-    () => (isAdmin ? api.getLocations() : Promise.resolve({ regions: [], counties: [], sub_counties: [] })),
+    (signal) => (isAdmin ? api.getLocations({ signal }) : Promise.resolve({ regions: [], counties: [], sub_counties: [] })),
     [isAdmin]
   );
   const { data: optionsData } = useAsyncData(
-    () => (isAdmin ? api.getOptions() : Promise.resolve({ departments: [], staff_roles: [] })),
+    (signal) => (isAdmin ? api.getOptions({ signal }) : Promise.resolve({ departments: [], staff_roles: [] })),
     [isAdmin]
   );
   const locations = locationsData ?? { regions: [], counties: [], sub_counties: [] };

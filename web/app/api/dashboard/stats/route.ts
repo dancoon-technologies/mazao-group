@@ -1,15 +1,10 @@
-import { getAccessToken } from "@/lib/auth-server";
-import { BACKEND_API } from "@/lib/auth-server";
+import { requireAuth, proxyGet } from "@/lib/api-proxy";
 
 export async function GET() {
-  const access = await getAccessToken();
-  if (!access) {
-    return Response.json({ detail: "Not authenticated" }, { status: 401 });
-  }
+  const auth = await requireAuth();
+  if (auth instanceof Response) return auth;
 
-  const res = await fetch(`${BACKEND_API}/dashboard/stats/`, {
-    headers: { Authorization: `Bearer ${access}` },
-  });
+  const res = await proxyGet("/dashboard/stats/", auth.token);
 
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));

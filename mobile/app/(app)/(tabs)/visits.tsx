@@ -1,10 +1,10 @@
 import { ListItemRow } from '@/components/ListItemRow';
 import { colors, cardShadow, cardStyle, radius, spacing } from '@/constants/theme';
 import { getAllSchedulesForOfficer, getVisitsForOfficer } from '@/database';
-import { useAuth } from '@/contexts/AuthContext';
+import { formatDateHeader, scheduleStatusColor, scheduleStatusLabel, visitStatusColor } from '@/lib/format';
 import { scheduleRowToSchedule, visitRowToVisit } from '@/lib/offline-helpers';
+import { useAuth } from '@/contexts/AuthContext';
 import { api, type Schedule, type Visit } from '@/lib/api';
-import { ACTIVITY_TYPES } from '@/lib/constants/activityTypes';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import NetInfo from '@react-native-community/netinfo';
@@ -29,39 +29,6 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const TAB_BAR_HEIGHT = 56;
-
-function formatDateHeader(iso: string) {
-  try {
-    const d = new Date(iso);
-    return d.toLocaleDateString(undefined, {
-      weekday: 'short',
-      month: 'long',
-      day: 'numeric',
-      year: 'numeric',
-    });
-  } catch {
-    return iso;
-  }
-}
-
-function formatDateShort(iso: string) {
-  try {
-    const d = new Date(iso);
-    return d.toLocaleDateString(undefined, {
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  } catch {
-    return iso;
-  }
-}
-
-function getActivityLabel(value: string): string {
-  const found = ACTIVITY_TYPES.find((a) => a.value === value);
-  return found?.label ?? value.replace(/_/g, ' ');
-}
 
 type TabKey = 'upcoming' | 'history';
 
@@ -98,19 +65,6 @@ function groupVisitsByDate(visits: Visit[]): { date: string; items: Visit[] }[] 
     byDate.set(date, list);
   }
   return Array.from(byDate.entries()).map(([date, items]) => ({ date, items }));
-}
-
-function scheduleStatusColor(status: Schedule['status']): string {
-  if (status === 'accepted') return colors.primary;
-  if (status === 'rejected') return colors.error;
-  return colors.warning; // yellow for proposed
-}
-
-function visitStatusColor(verification_status: string): string {
-  const s = (verification_status || '').toLowerCase();
-  if (s === 'verified') return colors.primary;
-  if (s === 'rejected') return colors.error;
-  return colors.warning; // yellow for pending
 }
 
 export default function VisitsScreen() {
@@ -193,12 +147,23 @@ export default function VisitsScreen() {
     load();
   }, [load]));
 
+  const scheduleIdToVisit = useMemo(() => {
+    const map: Record<string, Visit> = {};
+    for (const v of visits) {
+      if (v.schedule) map[v.schedule] = v;
+    }
+    return map;
+  }, [visits]);
+
   const upcomingSchedules = useMemo(() => {
     const today = new Date().toISOString().slice(0, 10);
     return schedules.filter(
-      (s) => s.status === 'accepted' && s.scheduled_date >= today
+      (s) =>
+        s.status === 'accepted' &&
+        s.scheduled_date >= today &&
+        !scheduleIdToVisit[s.id]
     );
-  }, [schedules]);
+  }, [schedules, scheduleIdToVisit]);
 
   const schedulesByDate = useMemo(
     () => groupSchedulesByDate(upcomingSchedules),
@@ -208,9 +173,11 @@ export default function VisitsScreen() {
   const pastSchedules = useMemo(() => {
     const today = new Date().toISOString().slice(0, 10);
     return schedules.filter(
-      (s) => s.status === 'accepted' && s.scheduled_date < today
+      (s) =>
+        s.status === 'accepted' &&
+        (s.scheduled_date < today || !!scheduleIdToVisit[s.id])
     );
-  }, [schedules]);
+  }, [schedules, scheduleIdToVisit]);
 
   const filteredPastSchedules = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -226,14 +193,6 @@ export default function VisitsScreen() {
     () => groupPastSchedulesByDate(filteredPastSchedules),
     [filteredPastSchedules]
   );
-
-  const scheduleIdToVisit = useMemo(() => {
-    const map: Record<string, Visit> = {};
-    for (const v of visits) {
-      if (v.schedule) map[v.schedule] = v;
-    }
-    return map;
-  }, [visits]);
 
   const filteredVisits = useMemo(() => {
     let list = visits;
@@ -253,17 +212,19 @@ export default function VisitsScreen() {
 
   const visitsByDate = useMemo(() => groupVisitsByDate(filteredVisits), [filteredVisits]);
 
-  const openProposeSchedule = () => router.push('/(app)/propose-schedule');
+  const openProposeSchedule = useCallback(() => router.push('/(app)/propose-schedule'), [router]);
 
-  const scheduleStatusLabel = (s: Schedule) =>
-    s.status.charAt(0).toUpperCase() + s.status.slice(1);
+  const openRecordVisit = useCallback(
+    (s: Schedule) => {
+      router.push({
+        pathname: '/(app)/record-visit',
+        params: { scheduleId: s.id, ...(s.farmer ? { farmerId: s.farmer } : {}) },
+      });
+    },
+    [router]
+  );
 
-  const visitStatusLabel = (v: Visit) => {
-    const s = (v.verification_status || '').toLowerCase();
-    if (s === 'verified') return 'Verified';
-    if (s === 'rejected') return 'Rejected';
-    return 'Pending';
-  };
+  const openVisit = useCallback((id: string) => router.push({ pathname: '/(app)/visits/[id]', params: { id } }), [router]);
 
   return (
     <View style={styles.pageWrap}>
@@ -339,29 +300,19 @@ export default function VisitsScreen() {
                         avatarLetter={s.farmer_display_name ?? '?'}
                         title={s.farmer_display_name ?? 'No farmer assigned'}
                         subtitle={`${s.notes || 'Scheduled visit'} · Farm: ${s.farm_display_name ?? 'None'}`}
-                        onPress={() =>
-                          router.push({
-                            pathname: '/(app)/record-visit',
-                            params: { scheduleId: s.id, ...(s.farmer ? { farmerId: s.farmer } : {}) },
-                          })
-                        }
+                        onPress={() => openRecordVisit(s)}
                         right={
                           <View style={styles.upcomingRight}>
                             <View style={[styles.badge, { backgroundColor: scheduleStatusColor(s.status) + '20' }]}>
                               <Text variant="labelSmall" style={[styles.badgeText, { color: scheduleStatusColor(s.status) }]}>
-                                {scheduleStatusLabel(s)}
+                                {scheduleStatusLabel(s.status)}
                               </Text>
                             </View>
                             <IconButton
                               icon="pencil"
                               size={22}
                               iconColor={colors.primary}
-                              onPress={() =>
-                                router.push({
-                                  pathname: '/(app)/record-visit',
-                                  params: { scheduleId: s.id, ...(s.farmer ? { farmerId: s.farmer } : {}) },
-                                })
-                              }
+                              onPress={() => openRecordVisit(s)}
                             />
                           </View>
                         }
@@ -422,11 +373,7 @@ export default function VisitsScreen() {
                               <MaterialCommunityIcons name={recorded ? 'check-circle' : 'circle-outline'} size={14} color={recorded ? colors.primary : colors.gray700} />
                             </View>
                           }
-                          onPress={
-                            recorded && visit
-                              ? () => router.push({ pathname: '/(app)/visits/[id]', params: { id: visit.id } })
-                              : undefined
-                          }
+                          onPress={recorded && visit ? () => openVisit(visit.id) : undefined}
                         />
                       );
                     })}
@@ -444,7 +391,7 @@ export default function VisitsScreen() {
         pointerEvents="box-none"
       >
         <FAB
-          icon="plus"
+          icon="calendar-plus"
           onPress={openProposeSchedule}
           style={styles.fab}
           color="#fff"
