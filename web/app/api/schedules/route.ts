@@ -1,13 +1,17 @@
+import { NextRequest } from "next/server";
 import { getAccessToken } from "@/lib/auth-server";
 import { BACKEND_API } from "@/lib/auth-server";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   const access = await getAccessToken();
   if (!access) {
     return Response.json({ detail: "Not authenticated" }, { status: 401 });
   }
 
-  const res = await fetch(`${BACKEND_API}/schedules/`, {
+  const { searchParams } = new URL(request.url);
+  const department = searchParams.get("department");
+  const suffix = department ? `?department=${encodeURIComponent(department)}` : "";
+  const res = await fetch(`${BACKEND_API.replace(/\/$/, "")}/schedules/${suffix}`, {
     headers: { Authorization: `Bearer ${access}` },
   });
 

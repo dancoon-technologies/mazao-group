@@ -2,6 +2,7 @@
 
 import { DataTable, type DataTableColumn, PageError, PageHeader, PageLoading } from "@/components/ui";
 import { useAuth } from "@/contexts/AuthContext";
+import { useAsyncData } from "@/hooks/useAsyncData";
 import { useFormFields } from "@/hooks/useFormFields";
 import { api } from "@/lib/api";
 import { PAGE_BOX_MIN_WIDTH, ROLES_CAN_CREATE_SCHEDULES } from "@/lib/constants";
@@ -127,6 +128,7 @@ export default function SchedulesPage() {
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState("");
   const [approvingId, setApprovingId] = useState<string | null>(null);
+  const [departmentFilter, setDepartmentFilter] = useState<string | null>(null);
   const [form, updateField, resetForm] = useFormFields(INITIAL_SCHEDULE_FORM);
 
   const handleApprove = useCallback(
@@ -183,16 +185,19 @@ export default function SchedulesPage() {
     [canApprove, handleApprove, approvingId]
   );
 
+  const isAdmin = role === "admin";
   const loadData = useCallback(async () => {
     const [scheds, offs, fms] = await Promise.all([
-      api.getSchedules(),
+      api.getSchedules(
+        isAdmin && departmentFilter ? { department: departmentFilter } : undefined
+      ),
       isAdminOrSupervisor ? api.getOfficers() : Promise.resolve([]),
       canCreate ? api.getFarmers() : Promise.resolve([]),
     ]);
     setSchedules(scheds);
     setOfficers(offs);
     setFarmers(fms);
-  }, [canCreate, isAdminOrSupervisor]);
+  }, [canCreate, isAdminOrSupervisor, isAdmin, departmentFilter]);
 
   useEffect(() => {
     let cancelled = false;
@@ -210,6 +215,14 @@ export default function SchedulesPage() {
       cancelled = true;
     };
   }, [loadData]);
+  const { data: optionsData } = useAsyncData(
+    () => (isAdmin ? api.getOptions() : Promise.resolve({ departments: [], staff_roles: [] })),
+    [isAdmin]
+  );
+  const departmentOptions = useMemo(
+    () => (optionsData?.departments ?? []).map((d) => ({ value: d.value, label: d.label })),
+    [optionsData?.departments]
+  );
 
   useEffect(() => {
     if (!form.farmer) {
@@ -297,11 +310,23 @@ export default function SchedulesPage() {
         title="Schedules"
         subtitle={pluralize(schedules.length, "schedule") + " listed"}
         action={
-          canCreate ? (
-            <Button color="green" onClick={() => setShowForm(true)}>
-              {isOfficer ? "Propose schedule" : "New schedule"}
-            </Button>
-          ) : undefined
+          <Group>
+            {isAdmin && (
+              <Select
+                placeholder="All departments"
+                clearable
+                data={departmentOptions}
+                value={departmentFilter}
+                onChange={setDepartmentFilter}
+                style={{ minWidth: 180 }}
+              />
+            )}
+            {canCreate ? (
+              <Button color="green" onClick={() => setShowForm(true)}>
+                {isOfficer ? "Propose schedule" : "New schedule"}
+              </Button>
+            ) : undefined}
+          </Group>
         }
       />
 

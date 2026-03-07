@@ -11,9 +11,11 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const officer = searchParams.get("officer");
   const date = searchParams.get("date");
+  const department = searchParams.get("department");
   const qs = new URLSearchParams();
   if (officer) qs.set("officer", officer);
   if (date) qs.set("date", date);
+  if (department) qs.set("department", department);
   const suffix = qs.toString() ? `?${qs}` : "";
 
   let res: Response;

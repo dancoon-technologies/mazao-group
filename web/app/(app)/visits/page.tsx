@@ -77,9 +77,11 @@ function VisitDetailModal({
 export default function VisitsPage() {
   const { role } = useAuth();
   const isAdminOrSupervisor = role === "admin" || role === "supervisor";
+  const isAdmin = role === "admin";
 
   const [dateFilter, setDateFilter] = useState("");
   const [officerFilter, setOfficerFilter] = useState<string | null>(null);
+  const [departmentFilter, setDepartmentFilter] = useState<string | null>(null);
   const [selectedVisit, setSelectedVisit] = useState<Visit | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
 
@@ -88,16 +90,26 @@ export default function VisitsPage() {
       api.getVisits({
         ...(dateFilter ? { date: dateFilter } : {}),
         ...(officerFilter ? { officer: officerFilter } : {}),
+        ...(isAdmin && departmentFilter ? { department: departmentFilter } : {}),
       }),
-    [dateFilter, officerFilter]
+    [dateFilter, officerFilter, departmentFilter, isAdmin]
   );
-  const { data: visitsData, error, loading } = useAsyncData(fetchVisits, [dateFilter, officerFilter]);
+  const { data: visitsData, error, loading } = useAsyncData(fetchVisits, [dateFilter, officerFilter, departmentFilter, isAdmin]);
 
   const { data: officersData } = useAsyncData(
     () => (isAdminOrSupervisor ? api.getOfficers() : Promise.resolve([])),
     [isAdminOrSupervisor]
   );
   const officers = useMemo(() => officersData ?? [], [officersData]);
+
+  const { data: optionsData } = useAsyncData(
+    () => (isAdmin ? api.getOptions() : Promise.resolve({ departments: [], staff_roles: [] })),
+    [isAdmin]
+  );
+  const departmentOptions = useMemo(
+    () => (optionsData?.departments ?? []).map((d) => ({ value: d.value, label: d.label })),
+    [optionsData?.departments]
+  );
 
   const visits = visitsData ?? [];
 
@@ -297,6 +309,16 @@ export default function VisitsPage() {
         subtitle={pluralize(visits.length, "visit") + " listed"}
         action={
           <Group>
+            {isAdmin && (
+              <Select
+                placeholder="All departments"
+                clearable
+                data={departmentOptions}
+                value={departmentFilter}
+                onChange={setDepartmentFilter}
+                style={{ minWidth: 180 }}
+              />
+            )}
             {isAdminOrSupervisor && (
               <Select
                 placeholder="All officers"

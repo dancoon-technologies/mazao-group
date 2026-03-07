@@ -35,6 +35,19 @@ class ScheduleListCreateView(generics.ListCreateAPIView):
             return qs.none()
         return qs.filter(officer=user)
 
+    def list(self, request, *args, **kwargs):
+        queryset = self.filter_queryset(self.get_queryset())
+        if request.user.role == "admin":
+            department_slug = request.query_params.get("department")
+            if department_slug:
+                queryset = queryset.filter(officer__department__slug=department_slug)
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.list_serializer_class(page, many=True)
+            return self.get_paginated_response(serializer.data)
+        serializer = self.list_serializer_class(queryset, many=True)
+        return Response(serializer.data)
+
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         if not serializer.is_valid():

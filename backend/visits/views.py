@@ -71,6 +71,10 @@ class VisitListCreateView(generics.ListCreateAPIView):
         date_str = request.query_params.get("date")
         if date_str:
             queryset = queryset.filter(created_at__date=date_str)
+        if request.user.role == "admin":
+            department_slug = request.query_params.get("department")
+            if department_slug:
+                queryset = queryset.filter(officer__department__slug=department_slug)
         page = self.paginate_queryset(queryset)
         if page is not None:
             serializer = self.list_serializer_class(page, many=True)

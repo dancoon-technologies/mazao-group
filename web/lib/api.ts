@@ -128,10 +128,11 @@ export const api = {
     return res.json();
   },
 
-  async getVisits(params?: { officer?: string; date?: string }): Promise<Visit[]> {
+  async getVisits(params?: { officer?: string; date?: string; department?: string }): Promise<Visit[]> {
     const search = new URLSearchParams();
     if (params?.officer) search.set("officer", params.officer);
     if (params?.date) search.set("date", params.date);
+    if (params?.department) search.set("department", params.department);
     const qs = search.toString();
     const url = qs ? `${API_BASE}/api/visits?${qs}` : `${API_BASE}/api/visits`;
     const res = await authFetch(url);
@@ -149,8 +150,12 @@ export const api = {
     return res.json();
   },
 
-  async getSchedules(): Promise<Schedule[]> {
-    const res = await authFetch(`${API_BASE}/api/schedules`);
+  async getSchedules(params?: { department?: string }): Promise<Schedule[]> {
+    const search = new URLSearchParams();
+    if (params?.department) search.set("department", params.department);
+    const qs = search.toString();
+    const url = qs ? `${API_BASE}/api/schedules?${qs}` : `${API_BASE}/api/schedules`;
+    const res = await authFetch(url);
     if (!res.ok) throw new Error("Failed to fetch schedules");
     return unwrapList(await res.json());
   },
