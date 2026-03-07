@@ -48,18 +48,18 @@ function LoginForm() {
   }
 
   return (
-    <Center mih="100dvh" p="md">
-      <Paper w="100%" maw={400} p="xl" radius="lg" shadow="sm" withBorder>
-        <Title order={1} size="h3" ta="center">
+    <Center mih="100dvh" p="md" style={{ background: "linear-gradient(180deg, #f0f9f4 0%, #e8f5ec 50%, #f8faf8 100%)" }}>
+      <Paper w="100%" maw={400} p="xl" radius="lg" shadow="md" withBorder>
+        <Title order={1} size="h2" ta="center" c="green.8">
           Mazao Group
         </Title>
         <Text size="sm" c="dimmed" ta="center" mt="xs">
-          Sign in to continue
+          Sign in to manage farmers and field visits
         </Text>
         <form method="post" action="/api/auth/login" onSubmit={handleSubmit}>
-          <Stack gap="md" mt="lg">
+          <Stack gap="md" mt="xl">
             {error && (
-              <Alert color="red" title="Error" variant="light">
+              <Alert color="red" title="Sign-in failed" variant="light" radius="md">
                 {error}
               </Alert>
             )}
@@ -80,7 +80,7 @@ function LoginForm() {
               required
               placeholder="••••••••"
             />
-            <Button type="submit" color="green" loading={loading} fullWidth>
+            <Button type="submit" color="green" size="md" loading={loading} fullWidth mt="sm">
               {loading ? "Signing in…" : "Sign in"}
             </Button>
           </Stack>

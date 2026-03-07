@@ -11,9 +11,9 @@ interface PageHeaderProps {
 
 export function PageHeader({ title, subtitle, action }: PageHeaderProps) {
   return (
-    <Group justify="space-between" align="flex-end" wrap="wrap" gap="md">
+    <Group justify="space-between" align="flex-end" wrap="wrap" gap="md" mb="md">
       <Box>
-        <Title order={1} size="h2">
+        <Title order={1} size="h2" fw={600}>
           {title}
         </Title>
         {subtitle != null && (

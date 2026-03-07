@@ -1,7 +1,6 @@
 @import "tailwindcss";
 @import "leaflet/dist/leaflet.css";
 
-
 @theme inline {
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
@@ -9,10 +8,18 @@
 
 html {
   overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
 }
 
 body {
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
+  color: var(--mantine-color-dark-7, #1a1a1a);
+}
+
+/* App content area: soft background for depth */
+.app-main-content {
+  min-height: 100%;
+  background: linear-gradient(180deg, #f8faf8 0%, #f1f5f1 100%);
 }
 
 /* MapPicker: ensure Leaflet map fills the container height */

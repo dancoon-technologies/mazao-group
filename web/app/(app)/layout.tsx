@@ -1,6 +1,6 @@
 "use client";
 
-import { AppShell, Burger, Group, Text } from "@mantine/core";
+import { AppShell, Box, Burger, Group, Text, UnstyledButton } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -48,17 +48,27 @@ export default function AppLayout({
 
   return (
     <AppShell
-      header={{ height: 56 }}
+      header={{ height: 60 }}
       navbar={{
-        width: 256,
+        width: 260,
         breakpoint: "md",
         collapsed: { mobile: !opened },
       }}
       padding="md"
+      styles={{
+        header: {
+          borderBottom: "1px solid var(--mantine-color-gray-2)",
+          backgroundColor: "var(--mantine-color-white)",
+        },
+        navbar: {
+          backgroundColor: "var(--mantine-color-gray-0)",
+          borderRight: "1px solid var(--mantine-color-gray-2)",
+        },
+      }}
     >
       <AppShell.Header>
         <Group h="100%" px="md" justify="space-between">
-          <Group>
+          <Group gap="sm">
             <Burger
               opened={opened}
               onClick={toggle}
@@ -69,12 +79,12 @@ export default function AppLayout({
             <Text
               component={Link}
               href={filteredNav[0]?.href ?? ROUTES.FARMERS}
-              fw={600}
+              fw={700}
               size="lg"
               visibleFrom="md"
-              style={{ textDecoration: "none", color: "inherit" }}
+              style={{ textDecoration: "none", color: "var(--mantine-color-green-7)" }}
             >
-              Mazao
+              Mazao Group
             </Text>
           </Group>
           <NotificationBell />
@@ -86,44 +96,53 @@ export default function AppLayout({
           <Text
             component={Link}
             href={filteredNav[0]?.href ?? ROUTES.FARMERS}
-            fw={600}
+            fw={700}
             size="lg"
             hiddenFrom="md"
-            style={{ textDecoration: "none", color: "inherit" }}
+            style={{ textDecoration: "none", color: "var(--mantine-color-green-7)" }}
             mb="md"
           >
-            Mazao
+            Mazao Group
           </Text>
-          {filteredNav.map((item) => (
-            <Text
-              key={item.href}
-              component={Link}
-              href={item.href}
-              size="sm"
-              fw={pathname === item.href ? 600 : 500}
-              py="xs"
-              px="sm"
-              mt={4}
-              style={{
-                display: "block",
-                textDecoration: "none",
-                color: "inherit",
-                borderRadius: "var(--mantine-radius-md)",
-                backgroundColor:
-                  pathname === item.href
-                    ? "var(--mantine-color-default-hover)"
-                    : "transparent",
-              }}
-            >
-              {item.label}
-            </Text>
-          ))}
+          <Box mt="xs">
+            {filteredNav.map((item) => {
+              const Icon = item.icon;
+              const active = pathname === item.href;
+              return (
+                <UnstyledButton
+                  key={item.href}
+                  component={Link}
+                  href={item.href}
+                  style={{ textDecoration: "none", color: "inherit" }}
+                  w="100%"
+                  mb={4}
+                >
+                  <Group
+                    gap="sm"
+                    py="xs"
+                    px="sm"
+                    style={{
+                      borderRadius: "var(--mantine-radius-md)",
+                      backgroundColor: active ? "var(--mantine-color-green-0)" : "transparent",
+                      color: active ? "var(--mantine-color-green-8)" : "var(--mantine-color-gray-7)",
+                      fontWeight: active ? 600 : 500,
+                    }}
+                  >
+                    <Box style={{ width: 24, height: 24, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                      <Icon size={22} stroke={1.75} style={{ display: "block" }} />
+                    </Box>
+                    <Text size="sm">{item.label}</Text>
+                  </Group>
+                </UnstyledButton>
+              );
+            })}
+          </Box>
         </AppShell.Section>
-        <AppShell.Section>
+        <AppShell.Section style={{ borderTop: "1px solid var(--mantine-color-gray-2)", paddingTop: "var(--mantine-spacing-md)" }}>
           <Text size="xs" c="dimmed" truncate title={email ?? undefined} mb="xs">
             {email}
           </Text>
-          <Text
+          <UnstyledButton
             component="button"
             type="button"
             size="sm"
@@ -135,15 +154,16 @@ export default function AppLayout({
               cursor: "pointer",
               width: "100%",
               textAlign: "left",
+              fontSize: "var(--mantine-font-size-sm)",
             }}
             onClick={() => logout()}
           >
             Log out
-          </Text>
+          </UnstyledButton>
         </AppShell.Section>
       </AppShell.Navbar>
 
-      <AppShell.Main className="bg-stone-100">
+      <AppShell.Main className="app-main-content">
         <ErrorBoundary>{children}</ErrorBoundary>
       </AppShell.Main>
     </AppShell>

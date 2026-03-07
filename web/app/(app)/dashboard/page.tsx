@@ -73,20 +73,20 @@ export default function DashboardPage() {
 
   return (
     <Box style={{ minWidth: PAGE_BOX_MIN_WIDTH }}>
-      <Title order={1} size="h2">
+      <Title order={1} size="h2" fw={600}>
         Dashboard
       </Title>
-      <Text size="sm" c="dimmed" mt="xs">
+      <Text size="sm" c="dimmed" mt="xs" mb="lg">
         Overview of field visit activity
       </Text>
-      <Grid mt="md" gutter="md">
+      <Grid gutter="lg">
         {cards.map((card) => (
           <Grid.Col key={card.label} span={{ base: 12, sm: 4 }}>
-            <Paper p="md" shadow="sm" radius="md" withBorder>
-              <Text size="sm" fw={500} c="dimmed">
+            <Paper p="lg" radius="md" withBorder style={{ transition: "box-shadow 0.2s ease" }}>
+              <Text size="sm" fw={500} c="dimmed" tt="uppercase" lts={0.5}>
                 {card.label}
               </Text>
-              <Text size="xl" fw={600} mt="sm">
+              <Text size="2rem" fw={700} mt="xs" lh={1.2} c="dark.7">
                 {card.value}
               </Text>
             </Paper>

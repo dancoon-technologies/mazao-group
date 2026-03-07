@@ -7,9 +7,9 @@ interface PageErrorProps {
   title?: string;
 }
 
-export function PageError({ message, title = "Error" }: PageErrorProps) {
+export function PageError({ message, title = "Something went wrong" }: PageErrorProps) {
   return (
-    <Alert color="red" title={title} variant="light">
+    <Alert color="red" title={title} variant="light" radius="md">
       {message}
     </Alert>
   );

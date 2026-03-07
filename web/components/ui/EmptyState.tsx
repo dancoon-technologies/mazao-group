@@ -8,8 +8,8 @@ interface EmptyStateProps {
 
 export function EmptyState({ message }: EmptyStateProps) {
   return (
-    <Center py="xl">
-      <Text size="sm" c="dimmed">
+    <Center py="xl" px="md">
+      <Text size="sm" c="dimmed" ta="center" maw={360}>
         {message}
       </Text>
     </Center>
