@@ -11,9 +11,9 @@
   },
   "dependencies": {
     "@mantine/charts": "^8.3.16",
-    "@mantine/core": "^8.3.14",
-    "@mantine/dates": "^8.3.15",
-    "@mantine/hooks": "^8.3.14",
+    "@mantine/core": "^8.3.16",
+    "@mantine/dates": "^8.3.16",
+    "@mantine/hooks": "^8.3.16",
     "@tabler/icons-react": "^3.36.1",
     "dayjs": "^1.11.19",
     "jspdf": "^4.2.0",
