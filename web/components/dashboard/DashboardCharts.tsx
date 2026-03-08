@@ -1,7 +1,7 @@
 "use client";
 
 import { Box, Grid, Paper, Select, Text } from "@mantine/core";
-import { AreaChart, BarChart } from "@mantine/charts";
+import { BarChart, LineChart } from "@mantine/charts";
 import { DASHBOARD_DAY_OPTIONS } from "@/lib/constants";
 
 const CHART_HEIGHT = 220;
@@ -92,7 +92,7 @@ export function DashboardCharts({
             />
           </Box>
           <Box style={{ width: "100%", minWidth: 200, height: CHART_HEIGHT }}>
-            <AreaChart
+            <LineChart
               h={CHART_HEIGHT}
               data={areaData}
               dataKey="date"
