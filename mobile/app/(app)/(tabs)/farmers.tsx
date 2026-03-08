@@ -1,26 +1,19 @@
-import { cardShadow, cardStyle } from '@/constants/theme';
+import { cardShadow, cardStyle, spacing } from '@/constants/theme';
 import { getFarmers as getFarmersDb, getAllFarms } from '@/database';
 import { farmRowToFarm, farmerRowToFarmer } from '@/lib/offline-helpers';
 import { api, type Farm, type Farmer } from '@/lib/api';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import NetInfo from '@react-native-community/netinfo';
 import React, { useCallback, useMemo, useState } from 'react';
-import {
-  FlatList,
-  RefreshControl,
-  StyleSheet,
-  TextInput,
-  View,
-} from 'react-native';
+import { FlatList, RefreshControl, StyleSheet, View } from 'react-native';
 import { ListItemRow } from '@/components/ListItemRow';
 import {
   ActivityIndicator,
   Button,
   Card,
   FAB,
+  Searchbar,
   Text,
-  useTheme,
 } from 'react-native-paper';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -34,7 +27,6 @@ function formatFarmLocations(farms: Farm[]): string {
 }
 
 export default function FarmersScreen() {
-  const theme = useTheme();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [farmers, setFarmers] = useState<Farmer[]>([]);
@@ -170,23 +162,13 @@ export default function FarmersScreen() {
         </View>
       </View>
 
-      <View style={styles.searchWrap}>
-        <MaterialCommunityIcons
-          name="magnify"
-          size={22}
-          color={theme.colors.onSurfaceVariant}
-          style={styles.searchIcon}
-        />
-        <TextInput
-          style={[styles.searchInput, { color: theme.colors.onSurface }]}
-          placeholder="Search by name or phone..."
-          placeholderTextColor={theme.colors.onSurfaceVariant}
-          value={search}
-          onChangeText={setSearch}
-          onSubmitEditing={onSearchSubmit}
-          returnKeyType="search"
-        />
-      </View>
+      <Searchbar
+        placeholder="Search by name or phone..."
+        value={search}
+        onChangeText={setSearch}
+        onSubmitEditing={onSearchSubmit}
+        style={styles.searchbar}
+      />
 
       {loading ? (
         <ActivityIndicator size="large" style={styles.loader} />
@@ -247,9 +229,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingTop: 8,
-    paddingBottom: 12,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.md,
   },
   headerText: { flex: 1 },
   title: { fontWeight: '700' },
@@ -258,30 +240,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 16,
+    paddingHorizontal: spacing.lg,
     paddingVertical: 10,
     borderRadius: 8,
     gap: 6,
   },
   addButtonLabel: { color: '#fff', fontWeight: '600', fontSize: 15 },
-  searchWrap: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginHorizontal: 20,
-    marginBottom: 16,
-    backgroundColor: 'rgba(0,0,0,0.06)',
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    minHeight: 44,
-  },
-  searchIcon: { marginRight: 8 },
-  searchInput: {
-    flex: 1,
-    fontSize: 16,
-    paddingVertical: 8,
+  searchbar: {
+    marginHorizontal: spacing.lg,
+    marginTop: spacing.sm,
+    marginBottom: spacing.md,
   },
   scroll: { flex: 1 },
-  content: { paddingBottom: 24, paddingHorizontal: 20 },
+  content: { paddingBottom: spacing.xl, paddingHorizontal: spacing.lg },
   loader: { marginVertical: 24 },
   card: { ...cardStyle, ...cardShadow, marginBottom: 16 },
   error: { marginBottom: 8 },
