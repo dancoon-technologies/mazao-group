@@ -2,7 +2,6 @@
 
 import { Anchor, Badge, Box, Grid, Paper, Table, Text, Title } from "@mantine/core";
 import Link from "next/link";
-import dynamic from "next/dynamic";
 import { useAsyncData } from "@/hooks/useAsyncData";
 import { api } from "@/lib/api";
 import type { Visit } from "@/lib/types";
@@ -11,12 +10,6 @@ import { DashboardCharts } from "@/components/dashboard/DashboardCharts";
 import { DASHBOARD_DAY_OPTIONS, PAGE_BOX_MIN_WIDTH, ROUTES } from "@/lib/constants";
 import { formatDateTime, formatActivityType } from "@/lib/format";
 import { useMemo, useState } from "react";
-
-/** Load charts only on client so chart dimensions resolve correctly. */
-const DashboardChartsClient = dynamic(
-  () => import("@/components/dashboard/DashboardCharts").then((m) => m.DashboardCharts),
-  { ssr: false, loading: () => <Box style={{ minHeight: 220, display: "flex", alignItems: "center", justifyContent: "center" }}><Text size="sm" c="dimmed">Loading charts…</Text></Box> }
-);
 
 function formatChartDate(iso: string) {
   const d = new Date(iso);
@@ -94,12 +87,14 @@ export default function DashboardPage() {
         ))}
       </Grid>
 
-      <DashboardChartsClient
-        statsChartData={statsChartData}
-        visitsChartData={visitsChartData}
-        days={days}
-        onDaysChange={setDays}
-      />
+      <Box mt="xl" style={{ minHeight: 260 }}>
+        <DashboardCharts
+          statsChartData={statsChartData}
+          visitsChartData={visitsChartData}
+          days={days}
+          onDaysChange={setDays}
+        />
+      </Box>
 
       {recentVisits.length > 0 && (
         <Paper mt="xl" p="md" shadow="sm" radius="md" withBorder>

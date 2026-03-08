@@ -38,22 +38,33 @@ export function DashboardCharts({
   days,
   onDaysChange,
 }: Props) {
+  const hasStatsData = statsChartData.length > 0;
+  const areaData = visitsChartData.length > 0
+    ? visitsChartData
+    : [{ date: "No data", fullDate: "", visits: 0 }];
+
   return (
-    <Grid mt="xl" gutter="md">
+    <Grid gutter="md">
       <Grid.Col span={{ base: 12, md: 6 }}>
         <Paper p="md" shadow="sm" radius="md" withBorder>
           <Text size="md" fw={600} mb="md">
             Key metrics
           </Text>
-          <Box style={{ width: "100%", minWidth: 200 }}>
-            <BarChart
-              h={CHART_HEIGHT}
-              data={statsChartData}
-              dataKey="name"
-              series={STATS_SERIES.map(({ name, color }) => ({ name, color }))}
-              tickLine="y"
-              gridAxis="y"
-            />
+          <Box style={{ width: "100%", minWidth: 200, height: CHART_HEIGHT }}>
+            {hasStatsData ? (
+              <BarChart
+                h={CHART_HEIGHT}
+                data={statsChartData}
+                dataKey="name"
+                series={STATS_SERIES.map(({ name, color }) => ({ name, color }))}
+                tickLine="y"
+                gridAxis="y"
+              />
+            ) : (
+              <Box style={{ height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <Text size="sm" c="dimmed">No metrics yet</Text>
+              </Box>
+            )}
           </Box>
         </Paper>
       </Grid.Col>
@@ -80,10 +91,10 @@ export function DashboardCharts({
               onChange={(v) => v && onDaysChange(v)}
             />
           </Box>
-          <Box style={{ width: "100%", minWidth: 200 }}>
+          <Box style={{ width: "100%", minWidth: 200, height: CHART_HEIGHT }}>
             <AreaChart
               h={CHART_HEIGHT}
-              data={visitsChartData}
+              data={areaData}
               dataKey="date"
               series={[{ name: "visits", color: "green.6" }]}
               curveType="linear"
