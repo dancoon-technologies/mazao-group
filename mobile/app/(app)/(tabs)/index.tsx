@@ -8,6 +8,7 @@ import { ListItemRow } from '@/components/ListItemRow';
 import { cardShadow, cardStyle, colors, spacing } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
 import { getAllSchedulesForOfficer, getScheduleIdsWithRecordedVisits } from '@/database';
+import { syncWithServer } from '@/lib/syncWithServer';
 import { formatDate } from '@/lib/format';
 import { farmerRowToFarmer, scheduleRowToSchedule } from '@/lib/offline-helpers';
 import { api, type Farmer, type Schedule } from '@/lib/api';
@@ -64,18 +65,27 @@ export default function HomeScreen() {
 
   const load = useCallback(async () => {
     const connected = await NetInfo.fetch().then((s) => s.isConnected ?? false);
+    if (connected && userId) {
+      await syncWithServer().catch(() => {});
+    }
     if (connected) {
       try {
-        const [s, f, statsRes, recordedSet] = await Promise.all([
-          api.getSchedules(),
-          api.getFarmers(),
-          api.getDashboardStats?.().catch(() => null),
-          userId ? getScheduleIdsWithRecordedVisits(userId) : Promise.resolve(new Set<string>()),
-        ]);
-        setSchedules(Array.isArray(s) ? s : []);
-        setFarmers(Array.isArray(f) ? f : []);
-        setStats(statsRes ?? null);
-        if (userId) setScheduleIdsWithRecordedVisits(recordedSet);
+        if (userId) {
+          await loadFromDb();
+          const statsRes = await api.getDashboardStats?.().catch(() => null);
+          setStats(statsRes ?? null);
+        } else {
+          const [s, f, statsRes, recordedSet] = await Promise.all([
+            api.getSchedules(),
+            api.getFarmers(),
+            api.getDashboardStats?.().catch(() => null),
+            Promise.resolve(new Set<string>()),
+          ]);
+          setSchedules(Array.isArray(s) ? s : []);
+          setFarmers(Array.isArray(f) ? f : []);
+          setStats(statsRes ?? null);
+          setScheduleIdsWithRecordedVisits(recordedSet);
+        }
         setError('');
       } catch (e) {
         if (userId) {
@@ -124,7 +134,10 @@ export default function HomeScreen() {
 
   const today = new Date().toISOString().slice(0, 10);
   const todaySchedules = schedules.filter(
-    (s) => s.scheduled_date === today && !scheduleIdsWithRecordedVisits.has(s.id)
+    (s) =>
+      s.scheduled_date === today &&
+      s.status === 'accepted' &&
+      !scheduleIdsWithRecordedVisits.has(s.id)
   );
   const recentFarmers = farmers.slice(0, 5);
   const visitsToday = stats?.visits_today ?? 0;

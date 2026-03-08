@@ -2,6 +2,7 @@ import { ListItemRow } from '@/components/ListItemRow';
 import { colors, cardShadow, cardStyle, radius, spacing } from '@/constants/theme';
 import { getAllSchedulesForOfficer, getVisitsForOfficer } from '@/database';
 import { formatDateHeader, scheduleStatusColor, scheduleStatusLabel, visitStatusColor } from '@/lib/format';
+import { syncWithServer } from '@/lib/syncWithServer';
 import { scheduleRowToSchedule, visitRowToVisit } from '@/lib/offline-helpers';
 import { useAuth } from '@/contexts/AuthContext';
 import { api, type Schedule, type Visit } from '@/lib/api';
@@ -99,14 +100,21 @@ export default function VisitsScreen() {
 
   const load = useCallback(async () => {
     const connected = await NetInfo.fetch().then((s) => s.isConnected ?? false);
+    if (connected && userId) {
+      await syncWithServer().catch(() => {});
+    }
     if (connected) {
       try {
-        const [visitsData, schedulesData] = await Promise.all([
-          api.getVisits(),
-          api.getSchedules(),
-        ]);
-        setVisits(Array.isArray(visitsData) ? visitsData : []);
-        setSchedules(Array.isArray(schedulesData) ? schedulesData : []);
+        if (userId) {
+          await loadFromDb();
+        } else {
+          const [visitsData, schedulesData] = await Promise.all([
+            api.getVisits(),
+            api.getSchedules(),
+          ]);
+          setVisits(Array.isArray(visitsData) ? visitsData : []);
+          setSchedules(Array.isArray(schedulesData) ? schedulesData : []);
+        }
         setError('');
       } catch (e) {
         if (userId) {

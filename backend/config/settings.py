@@ -124,9 +124,7 @@ REST_FRAMEWORK = {
 }
 
 SIMPLE_JWT = {
-    # Short access lifetime so that when user logs in on another device, this device gets 401
-    # on next request and refresh will fail (single-device enforcement).
-    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=15),
+    "ACCESS_TOKEN_LIFETIME": timedelta(days=1),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
 }
 

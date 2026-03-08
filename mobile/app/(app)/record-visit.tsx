@@ -237,10 +237,9 @@ export default function RecordVisitScreen() {
         }
         if (!userId) return;
         try {
-          const startOfToday = new Date();
-          startOfToday.setHours(0, 0, 0, 0);
-          const startTs = startOfToday.getTime();
-          const endTs = startTs + 7 * 24 * 60 * 60 * 1000;
+          const todayStr = new Date().toISOString().slice(0, 10);
+          const startTs = new Date(`${todayStr}T00:00:00.000Z`).getTime();
+            const endTs = startTs + 7 * 24 * 60 * 60 * 1000;
           const scheduleRows = await getPlannedSchedulesDb(userId, startTs, endTs);
           if (cancelled) return;
           const scheduleList: Schedule[] = scheduleRows.map((r) => ({

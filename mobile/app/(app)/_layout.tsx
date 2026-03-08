@@ -21,11 +21,19 @@ export default function AppLayout() {
     }
   }, [isAuthenticated, isLoading, mustChangePassword, router]);
 
+  // Run sync immediately on mount when online (avoid stale SQLite when user goes offline later)
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    NetInfo.fetch().then((state) => {
+      if (state.isConnected ?? false) syncWithServer().catch(() => {});
+      wasOffline.current = !(state.isConnected ?? false);
+    });
+  }, [isAuthenticated]);
+
   useEffect(() => {
     if (!isAuthenticated) return;
     const sub = NetInfo.addEventListener((state) => {
       const online = state.isConnected ?? false;
-      // Run sync when coming back online, or when already online on first load (clear stale queue)
       if (online && (wasOffline.current === true || wasOffline.current === null)) {
         syncWithServer().catch(() => {});
       }
