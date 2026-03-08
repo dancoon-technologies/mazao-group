@@ -4,7 +4,6 @@ import {
   Alert,
   Box,
   Button,
-  Center,
   Paper,
   PasswordInput,
   Stack,
@@ -66,7 +65,18 @@ export default function ChangePasswordPage() {
   }
 
   return (
-    <Center mih="100vh" p="md" style={{ background: "var(--mantine-color-gray-0)" }}>
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        background: "var(--mantine-color-gray-0)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: "var(--mantine-spacing-md)",
+        boxSizing: "border-box",
+      }}
+    >
       <Box maw={420} w="100%">
         <Title order={2} mb="xs" ta={"center"}>
           Change password
@@ -112,6 +122,6 @@ export default function ChangePasswordPage() {
           </form>
         </Paper>
       </Box>
-    </Center>
+    </div>
   );
 }

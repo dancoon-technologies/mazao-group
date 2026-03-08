@@ -3,7 +3,6 @@
 import {
   Alert,
   Button,
-  Center,
   Paper,
   PasswordInput,
   Stack,
@@ -48,7 +47,18 @@ function LoginForm() {
   }
 
   return (
-    <Center mih="100dvh" p="md" style={{ background: "linear-gradient(180deg, #f0f9f4 0%, #e8f5ec 50%, #f8faf8 100%)" }}>
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        background: "linear-gradient(180deg, #f0f9f4 0%, #e8f5ec 50%, #f8faf8 100%)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: "var(--mantine-spacing-md)",
+        boxSizing: "border-box",
+      }}
+    >
       <Paper w="100%" maw={400} p="xl" radius="lg" shadow="md" withBorder>
         <Title order={1} size="h2" ta="center" c="green.8">
           Mazao Group
@@ -86,7 +96,7 @@ function LoginForm() {
           </Stack>
         </form>
       </Paper>
-    </Center>
+    </div>
   );
 }
 

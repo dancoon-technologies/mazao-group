@@ -9,16 +9,19 @@
 html {
   overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
+  min-height: 100%;
 }
 
 body {
   font-family: var(--font-geist-sans), system-ui, sans-serif;
   color: var(--mantine-color-dark-7, #1a1a1a);
+  min-height: 100dvh;
+  background: linear-gradient(180deg, #f8faf8 0%, #f1f5f1 100%);
 }
 
-/* App content area: soft background for depth */
+/* App content area: same soft background, fill remaining viewport below header */
 .app-main-content {
-  min-height: 100%;
+  min-height: calc(100dvh - 60px);
   background: linear-gradient(180deg, #f8faf8 0%, #f1f5f1 100%);
 }
 

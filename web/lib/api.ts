@@ -17,49 +17,21 @@ const API_BASE = "";
 
 const defaultCredentials: RequestCredentials = "include";
 
-/** Default request timeout (ms). Prevents hung requests in production. */
-const REQUEST_TIMEOUT_MS = 30000;
-
 /** Support both DRF paginated ({ results: T[] }) and raw list responses. */
 function unwrapList<T>(data: { results?: T[] } | T[]): T[] {
   return Array.isArray(data) ? data : (data.results ?? []);
 }
 
-/** Create an AbortSignal that fires after ms. Call abort() on cleanup to avoid leaks. */
-function createTimeoutSignal(ms: number): { signal: AbortSignal; abort: () => void } {
-  const controller = new AbortController();
-  const id = setTimeout(() => controller.abort(), ms);
-  return {
-    signal: controller.signal,
-    abort: () => {
-      clearTimeout(id);
-      controller.abort();
-    },
-  };
-}
-
-/**
- * Authenticated fetch with timeout and optional abort signal.
- * Enterprise: fail fast, no unbounded waits.
- */
+/** Authenticated fetch. No timeout or abort signal — requests are never aborted. */
 async function authFetch(
   url: string,
   options: RequestInit & { signal?: AbortSignal | null } = {}
 ): Promise<Response> {
-  const { signal: userSignal, ...rest } = options;
-  const timeout = createTimeoutSignal(REQUEST_TIMEOUT_MS);
-  const ac = new AbortController();
-  timeout.signal.addEventListener("abort", () => ac.abort());
-  userSignal?.addEventListener?.("abort", () => ac.abort());
-  try {
-    return await fetch(url, {
-      ...rest,
-      credentials: rest.credentials ?? defaultCredentials,
-      signal: ac.signal,
-    });
-  } finally {
-    timeout.abort();
-  }
+  const { signal: _signal, ...rest } = options;
+  return fetch(url, {
+    ...rest,
+    credentials: rest.credentials ?? defaultCredentials,
+  });
 }
 
 export interface AuthUser {

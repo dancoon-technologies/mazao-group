@@ -47,7 +47,8 @@ export default function LoginScreen() {
         router.replace('/(app)');
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Login failed');
+      const message = e instanceof Error ? e.message : 'Login failed';
+      setError(message === 'The user aborted a request.' ? 'Request was cancelled. Please try again.' : message);
       setSnackbarVisible(true);
     } finally {
       setLoading(false);
