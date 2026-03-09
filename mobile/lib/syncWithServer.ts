@@ -9,15 +9,16 @@ import {
   getPendingSyncQueue,
   markSyncItemSynced,
   enqueueSyncItem,
-} from '@/database/sqlite'
+} from '@/store/database'
 import {
   normalizeServerFarm,
   normalizeServerFarmer,
   normalizeServerSchedule,
   normalizeServerVisit,
-} from '@/database/helpers'
+} from '@/store/helpers'
 import { api } from '@/lib/api'
 import { logger } from '@/lib/logger'
+import { appState$ } from '@/store/observable'
 
 async function getAccessToken(): Promise<string | null> {
   return SecureStore.getItemAsync(STORAGE_KEYS.ACCESS_TOKEN)
@@ -244,8 +245,10 @@ export async function syncWithServer(): Promise<{ success: boolean; error?: stri
   if (!pullResult.ok) return { success: false, error: pullResult.error }
 
   await syncFarmersAndFarms()
+  appState$.lastSyncAt.set(new Date().toISOString())
   return { success: true }
 }
+
 
 export { getLastSync, setLastSync }
 

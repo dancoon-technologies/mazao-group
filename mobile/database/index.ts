@@ -1,10 +1,8 @@
 /**
- * Local database — uses expo-sqlite (Expo-supported).
- * Re-exports from sqlite for convenience.
+ * Local data — Legend State store (replaces SQLite).
+ * Re-exports from store for compatibility.
  */
-
 export {
-  getDb,
   getFarmers,
   getFarms,
   getAllFarms,
@@ -25,4 +23,4 @@ export {
   type ScheduleRow,
   type VisitRow,
   type SyncQueueRow,
-} from './sqlite'
+} from '@/store/database';

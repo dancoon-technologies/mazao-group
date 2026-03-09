@@ -6,6 +6,8 @@ import { PaperProvider } from 'react-native-paper';
 import 'react-native-reanimated';
 
 import { AuthProvider } from '@/contexts/AuthContext';
+// Initialize Legend State persistence (AsyncStorage) before any screens load
+import '@/store/observable';
 import { paperTheme } from '@/lib/paper-theme';
 
 // Keep native splash visible until we hide it after auth is ready

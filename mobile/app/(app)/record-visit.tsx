@@ -3,7 +3,7 @@ import {
   getFarms as getFarmsDb,
   getPlannedSchedules as getPlannedSchedulesDb,
   getScheduleIdsWithRecordedVisits,
-} from '@/database/sqlite';
+} from '@/database';
 import { useAuth } from '@/contexts/AuthContext';
 import { api, type ActivityTypeOption, type Farm, type Farmer, type Schedule, type VisitSettings } from '@/lib/api';
 import { ACTIVITY_TYPES, DEFAULT_ACTIVITY_TYPE } from '@/lib/constants/activityTypes';

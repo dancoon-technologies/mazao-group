@@ -2,7 +2,7 @@
  * Shared mappers from SQLite rows to API types for offline list/detail screens.
  */
 import type { Farmer, Farm, Schedule, Visit } from '@/lib/api';
-import type { FarmerRow, FarmRow, ScheduleRow, VisitRow } from '@/database/sqlite';
+import type { FarmerRow, FarmRow, ScheduleRow, VisitRow } from '@/store/types';
 
 export function farmerRowToFarmer(r: FarmerRow): Farmer {
   return {

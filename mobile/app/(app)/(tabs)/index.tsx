@@ -10,9 +10,11 @@ import { useAppRefresh } from '@/contexts/AppRefreshContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { getAllSchedulesForOfficer, getScheduleIdsWithRecordedVisits } from '@/database';
 import { syncWithServer } from '@/lib/syncWithServer';
+import { appState$ } from '@/store/observable';
 import { formatDate } from '@/lib/format';
 import { farmerRowToFarmer, scheduleRowToSchedule } from '@/lib/offline-helpers';
 import { api, type Farmer, type Schedule } from '@/lib/api';
+import { observer } from '@legendapp/state/react';
 import { useFocusEffect, useRouter } from 'expo-router';
 import NetInfo from '@react-native-community/netinfo';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -38,7 +40,7 @@ const STAT_ICONS = {
   farmers: 'account-group-outline',
 } as const;
 
-export default function HomeScreen() {
+function HomeScreenInner() {
   const routerInstance = useRouter();
   const { email, department, userId } = useAuth();
   const { refreshTrigger } = useAppRefresh();
@@ -77,6 +79,7 @@ export default function HomeScreen() {
           await loadFromDb();
           const statsRes = await api.getDashboardStats?.().catch(() => null);
           setStats(statsRes ?? null);
+          if (statsRes) appState$.cachedStats.set(statsRes);
         } else {
           const [s, f, statsRes, recordedSet] = await Promise.all([
             api.getSchedules(),
@@ -99,6 +102,8 @@ export default function HomeScreen() {
       }
     } else if (userId) {
       await loadFromDb();
+      const cached = appState$.cachedStats.get();
+      if (cached) setStats(cached);
     }
     setLoading(false);
     setRefreshing(false);
@@ -184,6 +189,17 @@ export default function HomeScreen() {
               {department}
             </Chip>
           ) : null}
+          {(() => {
+            const last = appState$.lastSyncAt.get();
+            if (!last) return null;
+            const mins = Math.round((Date.now() - new Date(last).getTime()) / 60000);
+            const label = mins < 1 ? 'Just now' : mins === 1 ? '1 min ago' : `${mins} min ago`;
+            return (
+              <Text variant="bodySmall" style={styles.lastSync}>
+                Last synced {label}
+              </Text>
+            );
+          })()}
         </View>
 
         <View style={styles.actionRow}>
@@ -275,6 +291,7 @@ const styles = StyleSheet.create({
   },
   loadingText: { marginTop: 16 },
   welcome: { marginBottom: spacing.xl },
+  lastSync: { marginTop: 6, color: colors.gray500 },
   welcomeEmail: { marginTop: 0, color: colors.gray700 },
   tag: {
     marginTop: 8,
@@ -298,3 +315,5 @@ const styles = StyleSheet.create({
   errorCard: { ...cardStyle, ...cardShadow, marginTop: spacing.md, borderColor: colors.error },
   errorText: { color: colors.error },
 });
+
+export default observer(HomeScreenInner);

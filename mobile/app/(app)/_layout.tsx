@@ -23,7 +23,7 @@ function AppLayoutInner() {
     }
   }, [isAuthenticated, isLoading, mustChangePassword, router]);
 
-  // Run sync immediately on mount when online (avoid stale SQLite when user goes offline later)
+  // Run sync immediately on mount when online (avoid stale store when user goes offline later)
   useEffect(() => {
     if (!isAuthenticated) return;
     NetInfo.fetch().then((state) => {
@@ -46,7 +46,7 @@ function AppLayoutInner() {
     return () => sub();
   }, [isAuthenticated, triggerRefresh]);
 
-  // When app returns to foreground (e.g. after unlock): sync when online then always trigger so Home/Visits refetch (or reload from SQLite when offline)
+  // When app returns to foreground (e.g. after unlock): sync when online then always trigger so Home/Visits refetch (or reload from store when offline)
   useEffect(() => {
     if (!isAuthenticated) return;
     const handleAppState = (next: AppStateStatus) => {
