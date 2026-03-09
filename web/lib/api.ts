@@ -17,21 +17,31 @@ const API_BASE = "";
 
 const defaultCredentials: RequestCredentials = "include";
 
+/** Called when any authenticated request returns 401 (session expired). AuthContext registers this to clear state and trigger redirect to login. */
+let onSessionExpired: (() => void) | null = null;
+export function setOnSessionExpired(callback: (() => void) | null) {
+  onSessionExpired = callback;
+}
+
 /** Support both DRF paginated ({ results: T[] }) and raw list responses. */
 function unwrapList<T>(data: { results?: T[] } | T[]): T[] {
   return Array.isArray(data) ? data : (data.results ?? []);
 }
 
-/** Authenticated fetch. No timeout or abort signal — requests are never aborted. */
+/** Authenticated fetch. On 401, invokes onSessionExpired so the app can redirect to login. */
 async function authFetch(
   url: string,
   options: RequestInit & { signal?: AbortSignal | null } = {}
 ): Promise<Response> {
   const { signal: _signal, ...rest } = options;
-  return fetch(url, {
+  const res = await fetch(url, {
     ...rest,
     credentials: rest.credentials ?? defaultCredentials,
   });
+  if (res.status === 401) {
+    onSessionExpired?.();
+  }
+  return res;
 }
 
 export interface AuthUser {

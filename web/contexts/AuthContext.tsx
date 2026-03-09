@@ -6,9 +6,10 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
-import { api } from "@/lib/api";
+import { api, setOnSessionExpired } from "@/lib/api";
 import type { UserRole } from "@/lib/types";
 import { ROLES_CAN_ACCESS_DASHBOARD } from "@/lib/constants";
 
@@ -32,14 +33,28 @@ type AuthContextValue = AuthState & {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
+const loggedOutState: AuthState = {
+  email: null,
+  role: null,
+  isAuthenticated: false,
+  isLoading: false,
+  mustChangePassword: false,
+};
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<AuthState>({
-    email: null,
-    role: null,
-    isAuthenticated: false,
+    ...loggedOutState,
     isLoading: true,
-    mustChangePassword: false,
   });
+  const setStateRef = useRef(setState);
+  setStateRef.current = setState;
+
+  useEffect(() => {
+    setOnSessionExpired(() => {
+      setStateRef.current(loggedOutState);
+    });
+    return () => setOnSessionExpired(null);
+  }, []);
 
   useEffect(() => {
     api
