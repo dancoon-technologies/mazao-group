@@ -4,12 +4,13 @@ import { getAllSchedulesForOfficer, getVisitsForOfficer } from '@/database';
 import { formatDateHeader, scheduleStatusColor, scheduleStatusLabel, visitStatusColor } from '@/lib/format';
 import { syncWithServer } from '@/lib/syncWithServer';
 import { scheduleRowToSchedule, visitRowToVisit } from '@/lib/offline-helpers';
+import { useAppRefresh } from '@/contexts/AppRefreshContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { api, type Schedule, type Visit } from '@/lib/api';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import NetInfo from '@react-native-community/netinfo';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Pressable,
   RefreshControl,
@@ -72,6 +73,8 @@ export default function VisitsScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { userId } = useAuth();
+  const { refreshTrigger } = useAppRefresh();
+  const prevRefreshTrigger = useRef(0);
   const [activeTab, setActiveTab] = useState<TabKey>('upcoming');
   const [visits, setVisits] = useState<Visit[]>([]);
   const [schedules, setSchedules] = useState<Schedule[]>([]);
@@ -150,6 +153,14 @@ export default function VisitsScreen() {
   useEffect(() => {
     load();
   }, [load]);
+
+  // Refetch when app returns to foreground and sync completed (e.g. after unlock)
+  useEffect(() => {
+    if (refreshTrigger > 0 && refreshTrigger !== prevRefreshTrigger.current) {
+      prevRefreshTrigger.current = refreshTrigger;
+      load();
+    }
+  }, [refreshTrigger, load]);
 
   useFocusEffect(useCallback(() => {
     load();

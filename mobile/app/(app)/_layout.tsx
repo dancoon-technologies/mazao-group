@@ -1,13 +1,15 @@
+import { AppRefreshProvider, useAppRefresh } from '@/contexts/AppRefreshContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { syncWithServer } from '@/lib/syncWithServer';
-import { Stack, useRouter } from 'expo-router';
 import NetInfo from '@react-native-community/netinfo';
+import { Stack, useRouter } from 'expo-router';
 import { useEffect, useRef } from 'react';
 import { AppState, type AppStateStatus } from 'react-native';
 
-export default function AppLayout() {
+function AppLayoutInner() {
   const router = useRouter();
   const { isAuthenticated, isLoading, mustChangePassword } = useAuth();
+  const { triggerRefresh } = useAppRefresh();
   const wasOffline = useRef<boolean | null>(null);
 
   useEffect(() => {
@@ -25,35 +27,41 @@ export default function AppLayout() {
   useEffect(() => {
     if (!isAuthenticated) return;
     NetInfo.fetch().then((state) => {
-      if (state.isConnected ?? false) syncWithServer().catch(() => {});
+      if (state.isConnected ?? false) {
+        syncWithServer().then(() => triggerRefresh()).catch(() => { });
+      }
       wasOffline.current = !(state.isConnected ?? false);
     });
-  }, [isAuthenticated]);
+  }, [isAuthenticated, triggerRefresh]);
 
   useEffect(() => {
     if (!isAuthenticated) return;
     const sub = NetInfo.addEventListener((state) => {
       const online = state.isConnected ?? false;
       if (online && (wasOffline.current === true || wasOffline.current === null)) {
-        syncWithServer().catch(() => {});
+        syncWithServer().then(() => triggerRefresh()).catch(() => { });
       }
       wasOffline.current = !online;
     });
     return () => sub();
-  }, [isAuthenticated]);
+  }, [isAuthenticated, triggerRefresh]);
 
-  // When app returns to foreground and we're online, run sync so pending queue is pushed
+  // When app returns to foreground (e.g. after unlock): sync when online then always trigger so Home/Visits refetch (or reload from SQLite when offline)
   useEffect(() => {
     if (!isAuthenticated) return;
     const handleAppState = (next: AppStateStatus) => {
       if (next !== 'active') return;
       NetInfo.fetch().then((state) => {
-        if (state.isConnected ?? false) syncWithServer().catch(() => {});
+        if (state.isConnected ?? false) {
+          syncWithServer().then(() => triggerRefresh()).catch(() => triggerRefresh());
+        } else {
+          triggerRefresh();
+        }
       });
     };
     const sub = AppState.addEventListener('change', handleAppState);
     return () => sub.remove();
-  }, [isAuthenticated]);
+  }, [isAuthenticated, triggerRefresh]);
 
   if (!isAuthenticated || mustChangePassword) return null;
 
@@ -66,5 +74,13 @@ export default function AppLayout() {
       <Stack.Screen name="add-farmer" options={{ title: 'Add farmer' }} />
       <Stack.Screen name="propose-schedule" options={{ title: 'Propose schedule' }} />
     </Stack>
+  );
+}
+
+export default function AppLayout() {
+  return (
+    <AppRefreshProvider>
+      <AppLayoutInner />
+    </AppRefreshProvider>
   );
 }

@@ -3,11 +3,13 @@ import { View, StyleSheet } from 'react-native';
 import { Button, Text, useTheme } from 'react-native-paper';
 import * as LocalAuthentication from 'expo-local-authentication';
 import { useRouter } from 'expo-router';
+import { useAppRefresh } from '@/contexts/AppRefreshContext';
 import { useAuth } from '@/contexts/AuthContext';
 
 export default function UnlockScreen() {
   const theme = useTheme();
   const router = useRouter();
+  const { triggerRefresh } = useAppRefresh();
   const { setUnlocked, logout } = useAuth();
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -28,6 +30,7 @@ export default function UnlockScreen() {
       });
       if (result.success) {
         await setUnlocked(true);
+        triggerRefresh();
         router.replace('/(app)/(tabs)');
       } else {
         if (result.error === 'user_cancel') setError('Unlock cancelled.');

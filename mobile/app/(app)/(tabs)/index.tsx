@@ -6,6 +6,7 @@ import {
 } from '@/components/dashboard';
 import { ListItemRow } from '@/components/ListItemRow';
 import { cardShadow, cardStyle, colors, spacing } from '@/constants/theme';
+import { useAppRefresh } from '@/contexts/AppRefreshContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { getAllSchedulesForOfficer, getScheduleIdsWithRecordedVisits } from '@/database';
 import { syncWithServer } from '@/lib/syncWithServer';
@@ -14,7 +15,7 @@ import { farmerRowToFarmer, scheduleRowToSchedule } from '@/lib/offline-helpers'
 import { api, type Farmer, type Schedule } from '@/lib/api';
 import { useFocusEffect, useRouter } from 'expo-router';
 import NetInfo from '@react-native-community/netinfo';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   RefreshControl,
   ScrollView,
@@ -40,6 +41,8 @@ const STAT_ICONS = {
 export default function HomeScreen() {
   const routerInstance = useRouter();
   const { email, department, userId } = useAuth();
+  const { refreshTrigger } = useAppRefresh();
+  const prevRefreshTrigger = useRef(0);
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [scheduleIdsWithRecordedVisits, setScheduleIdsWithRecordedVisits] = useState<Set<string>>(new Set());
   const [farmers, setFarmers] = useState<Farmer[]>([]);
@@ -104,6 +107,14 @@ export default function HomeScreen() {
   useEffect(() => {
     load();
   }, [load]);
+
+  // Refetch when app returns to foreground and sync completed (e.g. after unlock)
+  useEffect(() => {
+    if (refreshTrigger > 0 && refreshTrigger !== prevRefreshTrigger.current) {
+      prevRefreshTrigger.current = refreshTrigger;
+      load();
+    }
+  }, [refreshTrigger, load]);
 
   useFocusEffect(useCallback(() => {
     load();

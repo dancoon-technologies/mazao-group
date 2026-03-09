@@ -2,9 +2,10 @@ import { cardShadow, cardStyle, spacing } from '@/constants/theme';
 import { getFarmers as getFarmersDb, getAllFarms } from '@/database';
 import { farmRowToFarm, farmerRowToFarmer } from '@/lib/offline-helpers';
 import { api, type Farm, type Farmer } from '@/lib/api';
+import { useAppRefresh } from '@/contexts/AppRefreshContext';
 import { useFocusEffect, useRouter } from 'expo-router';
 import NetInfo from '@react-native-community/netinfo';
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FlatList, RefreshControl, StyleSheet, View } from 'react-native';
 import { ListItemRow } from '@/components/ListItemRow';
 import {
@@ -29,6 +30,8 @@ function formatFarmLocations(farms: Farm[]): string {
 export default function FarmersScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { refreshTrigger } = useAppRefresh();
+  const prevRefreshTrigger = useRef(0);
   const [farmers, setFarmers] = useState<Farmer[]>([]);
   const [farmsByFarmer, setFarmsByFarmer] = useState<Record<string, Farm[]>>({});
   const [loading, setLoading] = useState(true);
@@ -77,6 +80,14 @@ export default function FarmersScreen() {
     setLoading(false);
     setRefreshing(false);
   }, [loadFromDb]);
+
+  // Refetch when app returns to foreground and sync completed (e.g. after unlock)
+  useEffect(() => {
+    if (refreshTrigger > 0 && refreshTrigger !== prevRefreshTrigger.current) {
+      prevRefreshTrigger.current = refreshTrigger;
+      load(search.trim() || undefined);
+    }
+  }, [refreshTrigger, load, search]);
 
   useFocusEffect(useCallback(() => {
     load(search.trim() || undefined);
