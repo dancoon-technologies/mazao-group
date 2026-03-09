@@ -12,6 +12,10 @@ export const STORAGE_KEYS = {
   ACCESS_TOKEN: 'access_token',
   REFRESH_TOKEN: 'refresh_token',
   BIOMETRIC_UNLOCKED: 'biometric_unlocked',
+  /** Stored after successful online login for offline login. */
+  OFFLINE_EMAIL: 'offline_email',
+  OFFLINE_PASSWORD_HASH: 'offline_password_hash',
+  CACHED_AUTH_PAYLOAD: 'cached_auth_payload',
 } as const
 
 export const LAST_SYNC_KEY = 'mazao_last_sync'

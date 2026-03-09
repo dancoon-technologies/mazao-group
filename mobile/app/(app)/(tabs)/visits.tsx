@@ -1,12 +1,13 @@
 import { ListItemRow } from '@/components/ListItemRow';
 import { colors, cardShadow, cardStyle, radius, spacing } from '@/constants/theme';
-import { getAllSchedulesForOfficer, getVisitsForOfficer } from '@/database';
-import { formatDateHeader, scheduleStatusColor, scheduleStatusLabel, visitStatusColor } from '@/lib/format';
+import { formatDateHeader, scheduleStatusColor, scheduleStatusLabel } from '@/lib/format';
 import { syncWithServer } from '@/lib/syncWithServer';
 import { scheduleRowToSchedule, visitRowToVisit } from '@/lib/offline-helpers';
 import { useAppRefresh } from '@/contexts/AppRefreshContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { api, type Schedule, type Visit } from '@/lib/api';
+import { schedules$, visits$ } from '@/store/observable';
+import { useSelector } from '@legendapp/state/react';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import NetInfo from '@react-native-community/netinfo';
@@ -76,69 +77,43 @@ export default function VisitsScreen() {
   const { refreshTrigger } = useAppRefresh();
   const prevRefreshTrigger = useRef(0);
   const [activeTab, setActiveTab] = useState<TabKey>('upcoming');
-  const [visits, setVisits] = useState<Visit[]>([]);
-  const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
   const [isOnline, setIsOnline] = useState<boolean | null>(null);
 
-  const loadFromDb = useCallback(async () => {
-    if (!userId) return;
-    try {
-      const [visitRows, scheduleRows] = await Promise.all([
-        getVisitsForOfficer(userId),
-        getAllSchedulesForOfficer(userId),
-      ]);
-      setVisits(visitRows.map(visitRowToVisit));
-      setSchedules(scheduleRows.map(scheduleRowToSchedule));
-      setError('');
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load offline data');
-      setVisits([]);
-      setSchedules([]);
-    }
-  }, [userId]);
+  /** Reactive read from store — updates when rehydration or sync populates visits$/schedules$. */
+  const visits = useSelector<Visit[]>(() => {
+    if (!userId) return [];
+    const list = visits$.get() ?? [];
+    return list
+      .filter((v) => v.officer === userId && v.is_deleted === 0)
+      .sort((a, b) => b.created_at - a.created_at)
+      .map(visitRowToVisit);
+  });
+  const schedules = useSelector<Schedule[]>(() => {
+    if (!userId) return [];
+    const list = schedules$.get() ?? [];
+    return list
+      .filter((s) => s.officer === userId && s.is_deleted === 0)
+      .sort((a, b) => b.scheduled_date - a.scheduled_date)
+      .map(scheduleRowToSchedule);
+  });
 
   const load = useCallback(async () => {
     const connected = await NetInfo.fetch().then((s) => s.isConnected ?? false);
     if (connected && userId) {
-      await syncWithServer().catch(() => {});
-    }
-    if (connected) {
       try {
-        if (userId) {
-          await loadFromDb();
-        } else {
-          const [visitsData, schedulesData] = await Promise.all([
-            api.getVisits(),
-            api.getSchedules(),
-          ]);
-          setVisits(Array.isArray(visitsData) ? visitsData : []);
-          setSchedules(Array.isArray(schedulesData) ? schedulesData : []);
-        }
+        await syncWithServer();
         setError('');
-      } catch (e) {
-        if (userId) {
-          await loadFromDb();
-          setError('');
-        } else {
-          setError(e instanceof Error ? e.message : 'Failed to load');
-          setVisits([]);
-          setSchedules([]);
-        }
+      } catch {
+        setError('');
       }
-    } else if (userId) {
-      await loadFromDb();
-    } else {
-      setVisits([]);
-      setSchedules([]);
-      setError('');
     }
     setLoading(false);
     setRefreshing(false);
-  }, [userId, loadFromDb]);
+  }, [userId]);
 
   useEffect(() => {
     const sub = NetInfo.addEventListener((state) => setIsOnline(state.isConnected ?? false));

@@ -8,13 +8,12 @@ import { ListItemRow } from '@/components/ListItemRow';
 import { cardShadow, cardStyle, colors, spacing } from '@/constants/theme';
 import { useAppRefresh } from '@/contexts/AppRefreshContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { getAllSchedulesForOfficer, getScheduleIdsWithRecordedVisits } from '@/database';
 import { syncWithServer } from '@/lib/syncWithServer';
-import { appMeta$ } from '@/store/observable';
+import { appMeta$, farmers$, schedules$, visits$ } from '@/store/observable';
 import { formatDate } from '@/lib/format';
 import { farmerRowToFarmer, scheduleRowToSchedule } from '@/lib/offline-helpers';
 import { api, type Farmer, type Schedule } from '@/lib/api';
-import { observer } from '@legendapp/state/react';
+import { observer, useSelector } from '@legendapp/state/react';
 import { useFocusEffect, useRouter } from 'expo-router';
 import NetInfo from '@react-native-community/netinfo';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -45,28 +44,35 @@ function HomeScreenInner() {
   const { email, department, userId } = useAuth();
   const { refreshTrigger } = useAppRefresh();
   const prevRefreshTrigger = useRef(0);
-  const [schedules, setSchedules] = useState<Schedule[]>([]);
-  const [scheduleIdsWithRecordedVisits, setScheduleIdsWithRecordedVisits] = useState<Set<string>>(new Set());
-  const [farmers, setFarmers] = useState<Farmer[]>([]);
   const [stats, setStats] = useState<{ visits_today: number; visits_this_month: number } | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
 
-  const loadFromDb = useCallback(async () => {
-    if (!userId) return;
-    const { getFarmers } = await import('@/database');
-    const [farmerRows, scheduleRows, recordedSet] = await Promise.all([
-      getFarmers(),
-      getAllSchedulesForOfficer(userId),
-      getScheduleIdsWithRecordedVisits(userId),
-    ]);
-    setFarmers(farmerRows.map(farmerRowToFarmer));
-    setSchedules(scheduleRows.map(scheduleRowToSchedule));
-    setScheduleIdsWithRecordedVisits(recordedSet);
-    setStats(null);
-    setError('');
-  }, [userId]);
+  /** Reactive read from store — updates when rehydration or sync populates store. */
+  const farmers = useSelector<Farmer[]>(() => {
+    const list = farmers$.get() ?? [];
+    return [...list]
+      .sort((a, b) => (a.display_name || a.first_name).localeCompare(b.display_name || b.first_name))
+      .map(farmerRowToFarmer);
+  });
+  const schedules = useSelector<Schedule[]>(() => {
+    if (!userId) return [];
+    const list = schedules$.get() ?? [];
+    return list
+      .filter((s) => s.officer === userId && s.is_deleted === 0)
+      .sort((a, b) => b.scheduled_date - a.scheduled_date)
+      .map(scheduleRowToSchedule);
+  });
+  const scheduleIdsWithRecordedVisits = useSelector<Set<string>>(() => {
+    if (!userId) return new Set();
+    const list = visits$.get() ?? [];
+    const set = new Set<string>();
+    for (const v of list) {
+      if (v.officer === userId && v.is_deleted === 0 && v.schedule_id) set.add(v.schedule_id);
+    }
+    return set;
+  });
 
   const load = useCallback(async (forceSync?: boolean) => {
     const connected = await NetInfo.fetch().then((s) => s.isConnected ?? false);
@@ -78,41 +84,22 @@ function HomeScreenInner() {
         Date.now() - new Date(lastSync).getTime() < 60_000;
       if (!skipSync) await syncWithServer().catch(() => {});
     }
-    if (connected) {
+    if (connected && userId) {
       try {
-        if (userId) {
-          await loadFromDb();
-          const statsRes = await api.getDashboardStats?.().catch(() => null);
-          setStats(statsRes ?? null);
-          if (statsRes) appMeta$.cachedStats.set(statsRes);
-        } else {
-          const [s, f, statsRes, recordedSet] = await Promise.all([
-            api.getSchedules(),
-            api.getFarmers(),
-            api.getDashboardStats?.().catch(() => null),
-            Promise.resolve(new Set<string>()),
-          ]);
-          setSchedules(Array.isArray(s) ? s : []);
-          setFarmers(Array.isArray(f) ? f : []);
-          setStats(statsRes ?? null);
-          setScheduleIdsWithRecordedVisits(recordedSet);
-        }
+        const statsRes = await api.getDashboardStats?.().catch(() => null);
+        setStats(statsRes ?? null);
+        if (statsRes) appMeta$.cachedStats.set(statsRes);
         setError('');
       } catch (e) {
-        if (userId) {
-          await loadFromDb();
-        } else {
-          setError(e instanceof Error ? e.message : 'Failed to load');
-        }
+        setError(e instanceof Error ? e.message : 'Failed to load');
       }
     } else if (userId) {
-      await loadFromDb();
       const cached = appMeta$.cachedStats.get();
       if (cached) setStats(cached);
     }
     setLoading(false);
     setRefreshing(false);
-  }, [userId, loadFromDb]);
+  }, [userId]);
 
   useEffect(() => {
     load();
