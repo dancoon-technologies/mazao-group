@@ -29,6 +29,19 @@ type AuthContextValue = AuthState & {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
+const clearAuthState: AuthState = {
+  isAuthenticated: false,
+  isLoading: false,
+  userId: null,
+  email: null,
+  displayName: null,
+  role: null,
+  roleDisplay: null,
+  department: null,
+  region: null,
+  mustChangePassword: false,
+};
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<AuthState>({
     isAuthenticated: false,
@@ -49,19 +62,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     let access = await SecureStore.getItemAsync(STORAGE_KEYS.ACCESS_TOKEN);
     if (!mounted.current) return;
     if (!access) {
-      setState({ isAuthenticated: false, isLoading: false, userId: null, email: null, displayName: null, role: null, roleDisplay: null, department: null, region: null, mustChangePassword: false });
+      setState(clearAuthState);
       return;
     }
     if (isTokenExpired(access)) {
       const refreshed = await api.refreshTokenIfNeeded();
       if (!mounted.current) return;
       if (!refreshed) {
-        setState({ isAuthenticated: false, isLoading: false, userId: null, email: null, displayName: null, role: null, roleDisplay: null, department: null, region: null, mustChangePassword: false });
+        setState(clearAuthState);
         return;
       }
       access = await SecureStore.getItemAsync(STORAGE_KEYS.ACCESS_TOKEN);
       if (!access) {
-        setState({ isAuthenticated: false, isLoading: false, userId: null, email: null, displayName: null, role: null, roleDisplay: null, department: null, region: null, mustChangePassword: false });
+        setState(clearAuthState);
         return;
       }
     }
@@ -88,18 +101,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     setOnSessionInvalidated(() => {
       if (mounted.current) {
-        setState({
-          isAuthenticated: false,
-          isLoading: false,
-          userId: null,
-          email: null,
-          displayName: null,
-          role: null,
-          roleDisplay: null,
-          department: null,
-          region: null,
-          mustChangePassword: false,
-        });
+        setState(clearAuthState);
         setIsUnlocked(false);
       }
     });
@@ -113,18 +115,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } else if (next === 'active' && state.isAuthenticated) {
         const valid = await api.validateSession();
         if (!valid && mounted.current) {
-          setState({
-            isAuthenticated: false,
-            isLoading: false,
-            userId: null,
-            email: null,
-            displayName: null,
-            role: null,
-            roleDisplay: null,
-            department: null,
-            region: null,
-            mustChangePassword: false,
-          });
+          setState(clearAuthState);
           setIsUnlocked(false);
         }
       }
@@ -136,6 +127,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await api.login(email, password);
     if (!mounted.current) return { mustChangePassword: false };
     const access = await SecureStore.getItemAsync(STORAGE_KEYS.ACCESS_TOKEN);
+    if (!access) {
+      setState(clearAuthState);
+      return { mustChangePassword: false };
+    }
     const payload = decodeJwtPayload(access);
     const userId = (payload?.user_id as string) ?? null;
     const displayName = (payload?.display_name as string) ?? null;
@@ -151,7 +146,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logout = useCallback(async () => {
     await api.logout();
     if (!mounted.current) return;
-    setState({ isAuthenticated: false, isLoading: false, userId: null, email: null, displayName: null, role: null, roleDisplay: null, department: null, region: null, mustChangePassword: false });
+    setState(clearAuthState);
     setIsUnlocked(false);
   }, []);
 
@@ -163,6 +158,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setIsUnlocked(unlocked);
   }, []);
 
+  /** Current snapshot of isUnlocked only; does not re-check biometrics. */
   const checkUnlocked = useCallback(() => Promise.resolve(isUnlocked), [isUnlocked]);
 
   const value: AuthContextValue = {

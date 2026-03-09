@@ -68,10 +68,15 @@ function HomeScreenInner() {
     setError('');
   }, [userId]);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (forceSync?: boolean) => {
     const connected = await NetInfo.fetch().then((s) => s.isConnected ?? false);
     if (connected && userId) {
-      await syncWithServer().catch(() => {});
+      const lastSync = appMeta$.lastSyncAt.get();
+      const skipSync =
+        !forceSync &&
+        lastSync &&
+        Date.now() - new Date(lastSync).getTime() < 60_000;
+      if (!skipSync) await syncWithServer().catch(() => {});
     }
     if (connected) {
       try {
@@ -127,7 +132,7 @@ function HomeScreenInner() {
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
-    load();
+    load(true);
   }, [load]);
 
   const openRecordVisit = useCallback(

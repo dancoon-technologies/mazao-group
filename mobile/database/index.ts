@@ -1,6 +1,7 @@
 /**
  * Local data — Legend State store (replaces SQLite).
- * Re-exports from store for compatibility.
+ * Standard import for screens: use `@/database` for getFarmers, getFarms, createOrUpdate*, etc.
+ * Re-exports from @/store/database.
  */
 export {
   getFarmers,

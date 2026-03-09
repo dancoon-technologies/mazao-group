@@ -443,9 +443,10 @@ export default function RecordVisitScreen() {
     setSubmitting(true);
     setError('');
     try {
-      if (isOnline === true) {
+      if (isOnline !== false) {
         const photoPlaceName = selectedFarm?.village ?? selectedFarmer?.display_name ?? 'Visit location';
-        await api.createVisit({
+        try {
+          await api.createVisit({
           farmer_id: selectedFarmerId,
           farm_id: selectedFarmId || undefined,
           schedule_id: scheduleIdForSubmit ?? undefined,
@@ -465,12 +466,15 @@ export default function RecordVisitScreen() {
           harvest_kgs: harvestKgs ? parseFloat(harvestKgs) : undefined,
           farmers_feedback: farmersFeedback || undefined,
         });
-        if (scheduleIdForSubmit) {
-          setScheduleIdsWithRecordedVisits((prev) => new Set(prev).add(scheduleIdForSubmit));
+          if (scheduleIdForSubmit) {
+            setScheduleIdsWithRecordedVisits((prev) => new Set(prev).add(scheduleIdForSubmit));
+          }
+          setDialogSuccess(true);
+          setDialogVisible(true);
+          return;
+        } catch {
+          setSnackbarMsg('Offline or server error — saving for sync.');
         }
-        setDialogSuccess(true);
-        setDialogVisible(true);
-        return;
       }
       const photoPlaceName = selectedFarm?.village ?? selectedFarmer?.display_name ?? 'Visit location';
       await enqueueVisit({

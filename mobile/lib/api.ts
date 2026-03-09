@@ -453,12 +453,18 @@ export const api = {
 
   getDashboardStats: () => request<DashboardStats>('/dashboard/stats/'),
 
-  /** Validate current session is still active. Returns true if valid, false if session was invalidated (e.g. logged in elsewhere). */
+  /** Validate current session is still active. Returns true if valid, false if invalid or timeout (5s). */
   async validateSession(): Promise<boolean> {
     const access = await getAccessToken();
     if (!access) return false;
+    const timeoutMs = 5000;
     try {
-      await request<OptionsResponse>('/options/');
+      await Promise.race([
+        request<OptionsResponse>('/options/'),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('validateSession timeout')), timeoutMs)
+        ),
+      ]);
       return true;
     } catch {
       return false;

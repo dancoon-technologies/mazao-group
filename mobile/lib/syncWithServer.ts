@@ -32,8 +32,7 @@ async function setLastSync(iso: string): Promise<void> {
   await SecureStore.setItemAsync(LAST_SYNC_KEY, iso)
 }
 
-/** Push pending sync queue items to the server. Returns ok, optional error, and ids of successfully pushed items.
- * Caller should only mark those ids as synced after pull succeeds, so we don't lose local state if pull fails. */
+/** Push pending sync queue items to the server. Fail fast: on first item error returns immediately (remaining items stay pending for next sync). */
 async function pushQueue(accessToken: string): Promise<{ ok: boolean; error?: string; pushedIds: string[] }> {
   const toSync = await getPendingSyncQueue()
   const pushedIds: string[] = []
@@ -145,7 +144,7 @@ async function pushQueue(accessToken: string): Promise<{ ok: boolean; error?: st
         })
         if (!farmRes.ok) {
           const err = await farmRes.json().catch(() => ({}))
-          return { ok: false, error: (err.detail || 'Farm create failed') as string }
+          return { ok: false, error: (err.detail || 'Farm create failed') as string, pushedIds }
         }
       } else if (item.entity === 'farm') {
         const res = await fetch(`${API_BASE}/farms/`, {
@@ -213,8 +212,8 @@ async function pullFromServer(accessToken: string): Promise<{ ok: boolean; error
   return { ok: true, serverTime }
 }
 
-/** Pull farmers and farms from API and upsert into local DB (for offline farmer select). */
-async function syncFarmersAndFarms(): Promise<void> {
+/** Pull farmers and farms from API and upsert into local store. Returns error message if failed. */
+async function syncFarmersAndFarms(): Promise<string | undefined> {
   try {
     const [farmers, farms] = await Promise.all([api.getFarmers(), api.getFarms()])
     for (const f of farmers) {
@@ -226,8 +225,11 @@ async function syncFarmersAndFarms(): Promise<void> {
       await createOrUpdateFarm(normalized)
     }
     logger.info(`syncFarmersAndFarms: upserted ${farmers.length} farmers, ${farms.length} farms`)
+    return undefined
   } catch (e) {
-    logger.warn('syncFarmersAndFarms failed', e instanceof Error ? e.message : e)
+    const msg = e instanceof Error ? e.message : 'Farmers/farms sync failed'
+    logger.warn('syncFarmersAndFarms failed', msg)
+    return msg
   }
 }
 
@@ -255,7 +257,7 @@ export async function syncWithServer(): Promise<{ success: boolean; error?: stri
       await markSyncItemSynced(id)
     }
 
-    const farmerFarmError = await syncFarmersAndFarms()
+    const farmerFarmError: string | undefined = await syncFarmersAndFarms()
     appMeta$.lastSyncAt.set(new Date().toISOString())
     if (farmerFarmError) return { success: true, warning: farmerFarmError }
     return { success: true }

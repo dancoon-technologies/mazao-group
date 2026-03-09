@@ -4,6 +4,7 @@ import { View, StyleSheet, KeyboardAvoidingView, Platform, ScrollView } from 're
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TextInput, Button, Text, HelperText } from 'react-native-paper';
 import { useAuth } from '@/contexts/AuthContext';
+import { api } from '@/lib/api';
 import { spacing, scrollPaddingKeyboardShort } from '@/constants/theme';
 
 export default function ChangePasswordScreen() {
@@ -38,7 +39,6 @@ export default function ChangePasswordScreen() {
     }
     setLoading(true);
     try {
-      const { api } = await import('@/lib/api');
       await api.changePassword(currentPassword, newPassword);
       clearMustChangePassword();
       router.replace('/(app)');

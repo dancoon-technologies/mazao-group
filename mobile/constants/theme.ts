@@ -128,3 +128,6 @@ export const inputHeight = 56;
 export const DEFAULT_MAX_DISTANCE_METERS = 100;
 /** Visit location: default warning distance (m) when server settings not loaded. */
 export const DEFAULT_WARNING_DISTANCE_METERS = 80;
+
+/** Login screen background. */
+export const loginBackground = '#F2FFF2';

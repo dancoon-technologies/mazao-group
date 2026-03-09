@@ -1,4 +1,4 @@
-import { colors, cardShadow, cardStyle, radius, scrollPaddingKeyboardShort, spacing } from '@/constants/theme';
+import { colors, cardShadow, cardStyle, loginBackground, radius, scrollPaddingKeyboardShort, spacing } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -19,7 +19,6 @@ import {
 } from 'react-native-paper';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
-const LOGIN_BG = '#F2FFF2';
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -147,7 +146,7 @@ export default function LoginScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: LOGIN_BG },
+  safe: { flex: 1, backgroundColor: loginBackground },
   container: { flex: 1 },
   scrollContent: {
     flexGrow: 1,
