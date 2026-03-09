@@ -86,8 +86,7 @@
         {
           "faceIDPermission": "Use Face ID or fingerprint to unlock the app."
         }
-      ],
-      "expo-sqlite"
+      ]
     ],
     "experiments": {
       "typedRoutes": true,
