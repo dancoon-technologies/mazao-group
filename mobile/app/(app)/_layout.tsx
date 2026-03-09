@@ -1,6 +1,7 @@
 import { AppRefreshProvider, useAppRefresh } from '@/contexts/AppRefreshContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { syncWithServer } from '@/lib/syncWithServer';
+import { appMeta$ } from '@/store/observable';
+import { getLastSync, syncWithServer } from '@/lib/syncWithServer';
 import NetInfo from '@react-native-community/netinfo';
 import { Stack, useRouter } from 'expo-router';
 import { useEffect, useRef } from 'react';
@@ -22,6 +23,14 @@ function AppLayoutInner() {
       router.replace('/change-password');
     }
   }, [isAuthenticated, isLoading, mustChangePassword, router]);
+
+  // Hydrate "Last synced" from SecureStore so UI shows previous session's sync time
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    getLastSync().then((iso) => {
+      if (iso) appMeta$.lastSyncAt.set(iso);
+    });
+  }, [isAuthenticated]);
 
   // Run sync immediately on mount when online (avoid stale store when user goes offline later)
   useEffect(() => {

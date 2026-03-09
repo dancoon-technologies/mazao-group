@@ -8,6 +8,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Image } from 'expo-image';
 import { View, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import { Button, Text, ActivityIndicator } from 'react-native-paper';
+import { colors } from '@/constants/theme';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as Location from 'expo-location';
 
@@ -302,7 +303,7 @@ const styles = StyleSheet.create({
     resizeMode: 'contain',
   },
   error: {
-    color: '#b00020',
+    color: colors.error,
     marginVertical: 8,
   },
   actions: {

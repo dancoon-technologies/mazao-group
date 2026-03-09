@@ -10,7 +10,7 @@ import { useAppRefresh } from '@/contexts/AppRefreshContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { getAllSchedulesForOfficer, getScheduleIdsWithRecordedVisits } from '@/database';
 import { syncWithServer } from '@/lib/syncWithServer';
-import { appState$ } from '@/store/observable';
+import { appMeta$ } from '@/store/observable';
 import { formatDate } from '@/lib/format';
 import { farmerRowToFarmer, scheduleRowToSchedule } from '@/lib/offline-helpers';
 import { api, type Farmer, type Schedule } from '@/lib/api';
@@ -79,7 +79,7 @@ function HomeScreenInner() {
           await loadFromDb();
           const statsRes = await api.getDashboardStats?.().catch(() => null);
           setStats(statsRes ?? null);
-          if (statsRes) appState$.cachedStats.set(statsRes);
+          if (statsRes) appMeta$.cachedStats.set(statsRes);
         } else {
           const [s, f, statsRes, recordedSet] = await Promise.all([
             api.getSchedules(),
@@ -102,7 +102,7 @@ function HomeScreenInner() {
       }
     } else if (userId) {
       await loadFromDb();
-      const cached = appState$.cachedStats.get();
+      const cached = appMeta$.cachedStats.get();
       if (cached) setStats(cached);
     }
     setLoading(false);
@@ -190,7 +190,7 @@ function HomeScreenInner() {
             </Chip>
           ) : null}
           {(() => {
-            const last = appState$.lastSyncAt.get();
+            const last = appMeta$.lastSyncAt.get();
             if (!last) return null;
             const mins = Math.round((Date.now() - new Date(last).getTime()) / 60000);
             const label = mins < 1 ? 'Just now' : mins === 1 ? '1 min ago' : `${mins} min ago`;

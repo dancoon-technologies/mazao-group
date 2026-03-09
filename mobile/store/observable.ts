@@ -1,6 +1,6 @@
 /**
- * Legend State store — single source of truth (replaces SQLite).
- * Persisted to AsyncStorage for offline-first.
+ * Legend State store — split by key to avoid single large blob and stay under AsyncStorage limits.
+ * Each slice has its own persist key.
  */
 
 import { observable } from '@legendapp/state';
@@ -21,17 +21,31 @@ configureObservablePersistence({
   },
 });
 
-/** Full app store (farmers, farms, schedules, visits, sync queue, app meta). */
-export const appState$ = observable({
+/** App meta (last sync time, cached dashboard stats). */
+export const appMeta$ = observable({
   lastSyncAt: null as string | null,
   cachedStats: null as { visits_today: number; visits_this_month: number } | null,
-  farmers: [] as FarmerRow[],
-  farms: [] as FarmRow[],
-  schedules: [] as ScheduleRow[],
-  visits: [] as VisitRow[],
-  syncQueue: [] as SyncQueueRow[],
 });
+persistObservable(appMeta$, { local: 'mazao_meta' });
 
-persistObservable(appState$, {
-  local: 'mazao_store',
-});
+/** Farmers list. */
+export const farmers$ = observable<FarmerRow[]>([]);
+persistObservable(farmers$, { local: 'mazao_farmers' });
+
+/** Farms list. */
+export const farms$ = observable<FarmRow[]>([]);
+persistObservable(farms$, { local: 'mazao_farms' });
+
+/** Schedules list (capped when writing). */
+export const schedules$ = observable<ScheduleRow[]>([]);
+persistObservable(schedules$, { local: 'mazao_schedules' });
+
+/** Visits list (capped when writing). */
+export const visits$ = observable<VisitRow[]>([]);
+persistObservable(visits$, { local: 'mazao_visits' });
+
+/** Pending sync queue. */
+export const syncQueue$ = observable<SyncQueueRow[]>([]);
+persistObservable(syncQueue$, { local: 'mazao_sync_queue' });
+
+/** Rehydration: persist loads from AsyncStorage asynchronously. Avoid critical reads before first paint if you need guaranteed hydrated data; otherwise reads return last in-memory value (may be []). */

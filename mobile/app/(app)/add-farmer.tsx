@@ -24,7 +24,7 @@ type LocationState = {
   sub_counties: { id: number; county_id: number; name: string }[];
 };
 
-import { scrollPaddingKeyboard } from '@/constants/theme';
+import { colors, scrollPaddingKeyboard } from '@/constants/theme';
 
 export default function AddFarmerScreen() {
   const router = useRouter();
@@ -610,6 +610,6 @@ const styles = StyleSheet.create({
   locationBtn: { marginBottom: 8 },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 8 },
   chip: { margin: 0 },
-  error: { color: '#b00020', marginVertical: 8 },
+  error: { color: colors.error, marginVertical: 8 },
   actions: { gap: 8, marginTop: 16 },
 });

@@ -42,7 +42,15 @@ import {
 } from 'react-native-paper';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ListItemRow } from '@/components/ListItemRow';
-import { colors, formHeaderHeight, radius, scrollPaddingKeyboard, spacing } from '@/constants/theme';
+import {
+  colors,
+  DEFAULT_MAX_DISTANCE_METERS,
+  DEFAULT_WARNING_DISTANCE_METERS,
+  formHeaderHeight,
+  radius,
+  scrollPaddingKeyboard,
+  spacing,
+} from '@/constants/theme';
 
 function haversineDistance(
   lat1: number,
@@ -994,7 +1002,7 @@ const styles = StyleSheet.create({
   locationBoxLeft: { flexDirection: 'row', alignItems: 'center', flex: 1 },
   locationIcon: { margin: 0, marginRight: spacing.md },
   locationStatus: { opacity: 0.85 },
-  locationStatusError: { color: '#b00020' },
+  locationStatusError: { color: colors.error },
   photoEvidenceRow: { flexDirection: 'row', gap: spacing.md, marginBottom: spacing.md },
   photoEvidenceBtn: { flex: 1 },
   photoPreviewWrap: { marginTop: spacing.md, alignItems: 'center' },

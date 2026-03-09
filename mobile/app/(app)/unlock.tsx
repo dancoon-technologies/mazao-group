@@ -5,6 +5,7 @@ import * as LocalAuthentication from 'expo-local-authentication';
 import { useRouter } from 'expo-router';
 import { useAppRefresh } from '@/contexts/AppRefreshContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { colors } from '@/constants/theme';
 
 export default function UnlockScreen() {
   const theme = useTheme();
@@ -82,7 +83,7 @@ const styles = StyleSheet.create({
     opacity: 0.8,
   },
   error: {
-    color: '#b00020',
+    color: colors.error,
     marginBottom: 16,
     textAlign: 'center',
   },

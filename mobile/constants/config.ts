@@ -1,4 +1,8 @@
-export const API_BASE = process.env.EXPO_PUBLIC_API_URL as string;
+const envUrl = process.env.EXPO_PUBLIC_API_URL;
+if (typeof envUrl !== 'string' || !envUrl.trim()) {
+  throw new Error('EXPO_PUBLIC_API_URL is required. Set it in .env or app config.');
+}
+export const API_BASE = envUrl.trim();
 
 /** Base URL for API including /api; sync pull/push use API_BASE + 'mobile/sync/' */
 export const SYNC_PULL_PATH = 'mobile/sync/pull/'

@@ -3,8 +3,8 @@ import { API_BASE, LAST_SYNC_KEY, STORAGE_KEYS, SYNC_PULL_PATH } from '@/constan
 import {
   createOrUpdateFarm,
   createOrUpdateFarmer,
-  createOrUpdateSchedule,
-  createOrUpdateVisit,
+  createOrUpdateSchedulesBatch,
+  createOrUpdateVisitsBatch,
   getPendingSyncCount as getPendingSyncCountDb,
   getPendingSyncQueue,
   markSyncItemSynced,
@@ -18,7 +18,7 @@ import {
 } from '@/store/helpers'
 import { api } from '@/lib/api'
 import { logger } from '@/lib/logger'
-import { appState$ } from '@/store/observable'
+import { appMeta$ } from '@/store/observable'
 
 async function getAccessToken(): Promise<string | null> {
   return SecureStore.getItemAsync(STORAGE_KEYS.ACCESS_TOKEN)
@@ -32,9 +32,11 @@ async function setLastSync(iso: string): Promise<void> {
   await SecureStore.setItemAsync(LAST_SYNC_KEY, iso)
 }
 
-/** Push pending sync queue items to the server (visits via multipart, schedules via JSON) */
-async function pushQueue(accessToken: string): Promise<{ ok: boolean; error?: string }> {
+/** Push pending sync queue items to the server. Returns ok, optional error, and ids of successfully pushed items.
+ * Caller should only mark those ids as synced after pull succeeds, so we don't lose local state if pull fails. */
+async function pushQueue(accessToken: string): Promise<{ ok: boolean; error?: string; pushedIds: string[] }> {
   const toSync = await getPendingSyncQueue()
+  const pushedIds: string[] = []
 
   for (const item of toSync) {
     try {
@@ -73,8 +75,9 @@ async function pushQueue(accessToken: string): Promise<{ ok: boolean; error?: st
         })
         if (!res.ok) {
           const err = await res.json().catch(() => ({}))
-          return { ok: false, error: (err.detail || err.photo?.[0] || 'Visit upload failed') as string }
+          return { ok: false, error: (err.detail || err.photo?.[0] || 'Visit upload failed') as string, pushedIds }
         }
+        pushedIds.push(item.id)
       } else if (item.entity === 'schedule') {
         const res = await fetch(`${API_BASE}/schedules/`, {
           method: 'POST',
@@ -92,8 +95,9 @@ async function pushQueue(accessToken: string): Promise<{ ok: boolean; error?: st
         })
         if (!res.ok) {
           const err = await res.json().catch(() => ({}))
-          return { ok: false, error: (err.detail || 'Schedule upload failed') as string }
+          return { ok: false, error: (err.detail || 'Schedule upload failed') as string, pushedIds }
         }
+        pushedIds.push(item.id)
       } else if (item.entity === 'farmer_with_farm') {
         const farmerPayload = payload.farmer as Record<string, unknown>
         const farmPayload = payload.farm as Record<string, unknown>
@@ -116,7 +120,7 @@ async function pushQueue(accessToken: string): Promise<{ ok: boolean; error?: st
         if (!farmerRes.ok) {
           const err = await farmerRes.json().catch(() => ({}))
           const errObj = err as { detail?: string; first_name?: string[] };
-          return { ok: false, error: (errObj.detail || errObj.first_name?.[0] || 'Farmer create failed') as string }
+          return { ok: false, error: (errObj.detail || errObj.first_name?.[0] || 'Farmer create failed') as string, pushedIds }
         }
         const farmerCreated = (await farmerRes.json()) as { id: string }
         const farmRes = await fetch(`${API_BASE}/farms/`, {
@@ -166,22 +170,24 @@ async function pushQueue(accessToken: string): Promise<{ ok: boolean; error?: st
         })
         if (!res.ok) {
           const err = await res.json().catch(() => ({}))
-          return { ok: false, error: (err.detail || 'Farm create failed') as string }
+          return { ok: false, error: (err.detail || 'Farm create failed') as string, pushedIds }
         }
+        pushedIds.push(item.id)
       }
 
-      await markSyncItemSynced(item.id)
+      // Don't mark synced here; caller marks only after pull succeeds
     } catch (e) {
       return {
         ok: false,
         error: e instanceof Error ? e.message : 'Sync queue item failed',
+        pushedIds,
       }
     }
   }
-  return { ok: true }
+  return { ok: true, pushedIds }
 }
 
-/** Pull visits and schedules from server and merge into local DB */
+/** Pull visits and schedules from server and merge into local store (batch update). */
 async function pullFromServer(accessToken: string): Promise<{ ok: boolean; error?: string; serverTime?: string }> {
   const lastSync = await getLastSync()
   const base = `${API_BASE}/${SYNC_PULL_PATH.replace(/^\//, '')}`
@@ -199,14 +205,10 @@ async function pullFromServer(accessToken: string): Promise<{ ok: boolean; error
     server_time: string
   }
   const serverTime = data.server_time
-  for (const v of data.visits ?? []) {
-    const normalized = normalizeServerVisit(v)
-    await createOrUpdateVisit(normalized)
-  }
-  for (const s of data.schedules ?? []) {
-    const normalized = normalizeServerSchedule(s)
-    await createOrUpdateSchedule(normalized)
-  }
+  const visitsNorm = (data.visits ?? []).map((v) => normalizeServerVisit(v))
+  const schedulesNorm = (data.schedules ?? []).map((s) => normalizeServerSchedule(s))
+  await createOrUpdateVisitsBatch(visitsNorm)
+  await createOrUpdateSchedulesBatch(schedulesNorm)
   if (serverTime) await setLastSync(serverTime)
   return { ok: true, serverTime }
 }
@@ -229,24 +231,37 @@ async function syncFarmersAndFarms(): Promise<void> {
   }
 }
 
+let syncing = false
+
 /**
- * Full sync: push pending queue (visits as multipart, schedules as JSON), then pull from server,
- * then sync farmers/farms for offline use.
- * Requires auth. Returns { success, error? }.
+ * Full sync: push pending queue (fail fast on first queue item error), then pull, then mark pushed
+ * items synced, then sync farmers/farms. Only one sync runs at a time.
+ * Returns { success, error?, warning? }. warning is set if farmers/farms sync failed but push+pull succeeded.
  */
-export async function syncWithServer(): Promise<{ success: boolean; error?: string }> {
+export async function syncWithServer(): Promise<{ success: boolean; error?: string; warning?: string }> {
+  if (syncing) return { success: false, error: 'Sync already in progress' }
   const accessToken = await getAccessToken()
   if (!accessToken) return { success: false, error: 'Not authenticated' }
 
-  const pushResult = await pushQueue(accessToken)
-  if (!pushResult.ok) return { success: false, error: pushResult.error }
+  syncing = true
+  try {
+    const pushResult = await pushQueue(accessToken)
+    if (!pushResult.ok) return { success: false, error: pushResult.error }
 
-  const pullResult = await pullFromServer(accessToken)
-  if (!pullResult.ok) return { success: false, error: pullResult.error }
+    const pullResult = await pullFromServer(accessToken)
+    if (!pullResult.ok) return { success: false, error: pullResult.error }
 
-  await syncFarmersAndFarms()
-  appState$.lastSyncAt.set(new Date().toISOString())
-  return { success: true }
+    for (const id of pushResult.pushedIds ?? []) {
+      await markSyncItemSynced(id)
+    }
+
+    const farmerFarmError = await syncFarmersAndFarms()
+    appMeta$.lastSyncAt.set(new Date().toISOString())
+    if (farmerFarmError) return { success: true, warning: farmerFarmError }
+    return { success: true }
+  } finally {
+    syncing = false
+  }
 }
 
 

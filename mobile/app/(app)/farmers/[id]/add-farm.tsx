@@ -14,7 +14,7 @@ import {
 import { Appbar, Banner, Button, Text, TextInput, ActivityIndicator } from 'react-native-paper';
 import * as Location from 'expo-location';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { appbarHeight, scrollPaddingKeyboard } from '@/constants/theme';
+import { appbarHeight, colors, scrollPaddingKeyboard } from '@/constants/theme';
 import { useKenyaLocation } from '@/hooks/useKenyaLocation';
 
 type LocationState = {
@@ -447,6 +447,6 @@ const styles = StyleSheet.create({
   locationBtn: { marginBottom: 12 },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 },
   chip: { margin: 0 },
-  errorText: { color: '#b00020', marginVertical: 8 },
+  errorText: { color: colors.error, marginVertical: 8 },
   actions: { gap: 8, marginTop: 20 },
 });

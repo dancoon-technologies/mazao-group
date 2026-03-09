@@ -416,11 +416,21 @@ export const api = {
     if (params.harvest_kgs != null) form.append('harvest_kgs', String(params.harvest_kgs));
     if (params.farmers_feedback) form.append('farmers_feedback', params.farmers_feedback);
 
-    const res = await fetch(`${API_BASE}/visits/`, {
+    let res = await fetch(`${API_BASE}/visits/`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${access}` },
       body: form,
     });
+    if (res.status === 401) {
+      const { access: newAccess } = await refreshAccessToken();
+      if (newAccess) {
+        res = await fetch(`${API_BASE}/visits/`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${newAccess}` },
+          body: form,
+        });
+      }
+    }
 
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {

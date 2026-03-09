@@ -1,7 +1,9 @@
 /**
  * Database API — reads/writes Legend State store. Same async API as former SQLite layer.
+ * Uses split observables and applies caps to visits/schedules to limit storage size.
  */
-import { appState$ } from './observable';
+import { farmers$, farms$, schedules$, syncQueue$, visits$ } from './observable';
+import { MAX_SCHEDULES, MAX_VISITS } from './constants';
 import type { FarmerRow, FarmRow, ScheduleRow, SyncQueueRow, VisitRow } from './types';
 
 export type { FarmerRow, FarmRow, ScheduleRow, VisitRow, SyncQueueRow } from './types';
@@ -18,18 +20,30 @@ function upsertById<T extends { id: string }>(arr: T[], item: T): T[] {
   return next;
 }
 
+/** Keep only the most recent N visits by created_at. */
+function capVisits(list: VisitRow[]): VisitRow[] {
+  if (list.length <= MAX_VISITS) return list;
+  return [...list].sort((a, b) => b.created_at - a.created_at).slice(0, MAX_VISITS);
+}
+
+/** Keep only the most recent N schedules by scheduled_date. */
+function capSchedules(list: ScheduleRow[]): ScheduleRow[] {
+  if (list.length <= MAX_SCHEDULES) return list;
+  return [...list].sort((a, b) => b.scheduled_date - a.scheduled_date).slice(0, MAX_SCHEDULES);
+}
+
 export async function getFarmers(): Promise<FarmerRow[]> {
-  const list = appState$.farmers.get() ?? [];
+  const list = farmers$.get() ?? [];
   return [...list].sort((a, b) => (a.display_name || a.first_name).localeCompare(b.display_name || b.first_name));
 }
 
 export async function getFarms(farmerId: string): Promise<FarmRow[]> {
-  const list = appState$.farms.get() ?? [];
+  const list = farms$.get() ?? [];
   return list.filter((f) => f.farmer_id === farmerId).sort((a, b) => a.village.localeCompare(b.village));
 }
 
 export async function getAllFarms(): Promise<FarmRow[]> {
-  const list = appState$.farms.get() ?? [];
+  const list = farms$.get() ?? [];
   return [...list].sort((a, b) => a.farmer_id.localeCompare(b.farmer_id) || a.village.localeCompare(b.village));
 }
 
@@ -38,7 +52,7 @@ export async function getPlannedSchedules(
   startTs: number,
   endTs: number
 ): Promise<ScheduleRow[]> {
-  const list = appState$.schedules.get() ?? [];
+  const list = schedules$.get() ?? [];
   return list
     .filter(
       (s) =>
@@ -51,21 +65,21 @@ export async function getPlannedSchedules(
 }
 
 export async function getAllSchedulesForOfficer(officerId: string): Promise<ScheduleRow[]> {
-  const list = appState$.schedules.get() ?? [];
+  const list = schedules$.get() ?? [];
   return list
     .filter((s) => s.officer === officerId && s.is_deleted === 0)
     .sort((a, b) => b.scheduled_date - a.scheduled_date);
 }
 
 export async function getVisitsForOfficer(officerId: string): Promise<VisitRow[]> {
-  const list = appState$.visits.get() ?? [];
+  const list = visits$.get() ?? [];
   return list
     .filter((v) => v.officer === officerId && v.is_deleted === 0)
     .sort((a, b) => b.created_at - a.created_at);
 }
 
 export async function getScheduleIdsWithRecordedVisits(officerId: string): Promise<Set<string>> {
-  const list = appState$.visits.get() ?? [];
+  const list = visits$.get() ?? [];
   const set = new Set<string>();
   for (const v of list) {
     if (v.officer === officerId && v.is_deleted === 0 && v.schedule_id) set.add(v.schedule_id);
@@ -74,7 +88,7 @@ export async function getScheduleIdsWithRecordedVisits(officerId: string): Promi
 }
 
 export async function getPendingSyncQueue(): Promise<SyncQueueRow[]> {
-  const list = appState$.syncQueue.get() ?? [];
+  const list = syncQueue$.get() ?? [];
   return list.filter((q) => q.status === 'pending').sort((a, b) => a.timestamp - b.timestamp);
 }
 
@@ -92,17 +106,17 @@ export async function enqueueSyncItem(
     status: 'pending',
     timestamp: Date.now(),
   };
-  appState$.syncQueue.set((prev) => [...(prev ?? []), row]);
+  syncQueue$.set((prev) => [...(prev ?? []), row]);
 }
 
 export async function markSyncItemSynced(id: string): Promise<void> {
-  appState$.syncQueue.set((prev) =>
+  syncQueue$.set((prev) =>
     (prev ?? []).map((q) => (q.id === id ? { ...q, status: 'synced' as const } : q))
   );
 }
 
 export async function getPendingSyncCount(): Promise<number> {
-  const list = appState$.syncQueue.get() ?? [];
+  const list = syncQueue$.get() ?? [];
   return list.filter((q) => q.status === 'pending').length;
 }
 
@@ -179,20 +193,40 @@ function toFarmRow(data: Record<string, unknown>): FarmRow {
 
 export async function createOrUpdateVisit(data: Record<string, unknown>): Promise<void> {
   const row = toVisitRow(data);
-  appState$.visits.set((prev) => upsertById(prev ?? [], row));
+  visits$.set((prev) => capVisits(upsertById(prev ?? [], row)));
+}
+
+/** Batch upsert visits (e.g. after pull). Single set for performance. */
+export async function createOrUpdateVisitsBatch(data: Record<string, unknown>[]): Promise<void> {
+  const rows = data.map((d) => toVisitRow(d));
+  visits$.set((prev) => {
+    let next = prev ?? [];
+    for (const row of rows) next = upsertById(next, row);
+    return capVisits(next);
+  });
 }
 
 export async function createOrUpdateSchedule(data: Record<string, unknown>): Promise<void> {
   const row = toScheduleRow(data);
-  appState$.schedules.set((prev) => upsertById(prev ?? [], row));
+  schedules$.set((prev) => capSchedules(upsertById(prev ?? [], row)));
+}
+
+/** Batch upsert schedules (e.g. after pull). Single set for performance. */
+export async function createOrUpdateSchedulesBatch(data: Record<string, unknown>[]): Promise<void> {
+  const rows = data.map((d) => toScheduleRow(d));
+  schedules$.set((prev) => {
+    let next = prev ?? [];
+    for (const row of rows) next = upsertById(next, row);
+    return capSchedules(next);
+  });
 }
 
 export async function createOrUpdateFarmer(data: Record<string, unknown>): Promise<void> {
   const row = toFarmerRow(data);
-  appState$.farmers.set((prev) => upsertById(prev ?? [], row));
+  farmers$.set((prev) => upsertById(prev ?? [], row));
 }
 
 export async function createOrUpdateFarm(data: Record<string, unknown>): Promise<void> {
   const row = toFarmRow(data);
-  appState$.farms.set((prev) => upsertById(prev ?? [], row));
+  farms$.set((prev) => upsertById(prev ?? [], row));
 }

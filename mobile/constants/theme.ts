@@ -123,3 +123,8 @@ export const buttonHeight = 2;
 
 /** Input height (spec) */
 export const inputHeight = 56;
+
+/** Visit location: default max distance (m) when server settings not loaded. */
+export const DEFAULT_MAX_DISTANCE_METERS = 100;
+/** Visit location: default warning distance (m) when server settings not loaded. */
+export const DEFAULT_WARNING_DISTANCE_METERS = 80;
