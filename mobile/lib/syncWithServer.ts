@@ -199,9 +199,9 @@ async function pullFromServer(accessToken: string): Promise<{ ok: boolean; error
     return { ok: false, error: `Pull failed: ${res.status}` }
   }
   const data = (await res.json()) as {
-    visits: Record<string, unknown>[]
-    schedules: Record<string, unknown>[]
-    server_time: string
+    visits?: Record<string, unknown>[]
+    schedules?: Record<string, unknown>[]
+    server_time?: string
   }
   const serverTime = data.server_time
   const visitsNorm = (data.visits ?? []).map((v) => normalizeServerVisit(v))
@@ -209,6 +209,28 @@ async function pullFromServer(accessToken: string): Promise<{ ok: boolean; error
   await createOrUpdateVisitsBatch(visitsNorm)
   await createOrUpdateSchedulesBatch(schedulesNorm)
   if (serverTime) await setLastSync(serverTime)
+
+  if (visitsNorm.length === 0 && schedulesNorm.length === 0) {
+    try {
+      const [apiVisits, apiSchedules] = await Promise.all([
+        api.getVisits(),
+        api.getSchedules(),
+      ])
+      const vNorm = (Array.isArray(apiVisits) ? apiVisits : []).map((v) =>
+        normalizeServerVisit(v as unknown as Record<string, unknown>)
+      )
+      const sNorm = (Array.isArray(apiSchedules) ? apiSchedules : []).map((s) =>
+        normalizeServerSchedule(s as unknown as Record<string, unknown>)
+      )
+      if (vNorm.length > 0 || sNorm.length > 0) {
+        await createOrUpdateVisitsBatch(vNorm)
+        await createOrUpdateSchedulesBatch(sNorm)
+        logger.info('Sync fallback: merged visits=%s schedules=%s from list API', vNorm.length, sNorm.length)
+      }
+    } catch (e) {
+      logger.warn('Sync fallback fetch failed', e instanceof Error ? e.message : e)
+    }
+  }
   return { ok: true, serverTime }
 }
 

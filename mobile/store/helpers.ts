@@ -16,8 +16,8 @@ export function normalizeServerVisit(record: Record<string, unknown>): Record<st
   const schedule = record.schedule ?? record.schedule_id ?? null;
   return {
     id: record.id,
-    officer: record.officer ?? '',
-    farmer: record.farmer ?? '',
+    officer: record.officer != null ? String(record.officer) : '',
+    farmer: record.farmer != null ? String(record.farmer) : '',
     farm: record.farm ?? null,
     schedule_id: schedule != null ? String(schedule) : null,
     latitude: Number(record.latitude) || 0,
@@ -35,9 +35,9 @@ export function normalizeServerVisit(record: Record<string, unknown>): Record<st
 export function normalizeServerSchedule(record: Record<string, unknown>): Record<string, unknown> {
   return {
     id: record.id,
-    officer: record.officer ?? '',
-    farmer: record.farmer ?? null,
-    farm: record.farm ?? null,
+    officer: record.officer != null ? String(record.officer) : '',
+    farmer: record.farmer != null ? String(record.farmer) : null,
+    farm: record.farm != null ? String(record.farm) : null,
     farm_display_name: record.farm_display_name ?? null,
     scheduled_date: dateStringToTimestamp(record.scheduled_date as string),
     notes: record.notes ?? null,

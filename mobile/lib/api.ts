@@ -365,7 +365,8 @@ export const api = {
     if (params?.officer) q.set('officer', params.officer);
     if (params?.date) q.set('date', params.date);
     const query = q.toString();
-    const data = await request<Visit[] | { results: Visit[] }>(`/visits/${query ? `?${query}` : ''}`);
+    const path = query ? `/visits/?${query}` : '/visits/';
+    const data = await request<Visit[] | { results: Visit[] }>(path);
     return Array.isArray(data) ? data : (data?.results ?? []);
   },
 

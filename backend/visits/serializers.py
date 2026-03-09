@@ -43,6 +43,7 @@ class VisitSerializer(serializers.ModelSerializer):
             "harvest_kgs",
             "farmers_feedback",
             "created_at",
+            "updated_at",
         )
         read_only_fields = (
             "officer",
