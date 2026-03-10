@@ -73,11 +73,8 @@ export default function DashboardPage() {
     [visitsByDay]
   );
 
-  if (loading) return <PageLoading message="Loading dashboard…" />;
-  if (error) return <PageError message={error} />;
-  if (!stats) return null;
-
   const cards = useMemo(() => {
+    if (!stats) return [];
     const base: { label: string; value: number | string }[] = [
       { label: "Visits today", value: stats.visits_today },
       { label: "Visits this month", value: stats.visits_this_month },
@@ -97,6 +94,10 @@ export default function DashboardPage() {
     }
     return base;
   }, [stats, isAdmin]);
+
+  if (loading) return <PageLoading message="Loading dashboard…" />;
+  if (error) return <PageError message={error} />;
+  if (!stats) return null;
 
   return (
     <Box style={{ minWidth: PAGE_BOX_MIN_WIDTH }}>
