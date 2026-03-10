@@ -3,6 +3,7 @@
 import { AppShell, Box, Burger, Group, Text, UnstyledButton } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -10,7 +11,12 @@ import { APP_NAV, filterNavByRole } from "@/config/navigation";
 import { ROUTES } from "@/lib/constants";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { LoadingScreen } from "@/components/ui";
-import { NotificationBell } from "@/components/NotificationBell";
+
+// Load only on client so notifications API is never hit during SSR; avoids crashes if backend is down or missing.
+const NotificationBell = dynamic(
+  () => import("@/components/NotificationBell").then((m) => ({ default: m.NotificationBell })),
+  { ssr: false }
+);
 
 export default function AppLayout({
   children,

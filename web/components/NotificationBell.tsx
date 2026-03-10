@@ -61,7 +61,8 @@ export function NotificationBell() {
     if (unreadCount === 0) return;
     setMarkingAll(true);
     try {
-      const { marked_count } = await api.markAllNotificationsRead();
+      const res = await api.markAllNotificationsRead();
+      const marked_count = typeof (res as { marked_count?: number })?.marked_count === "number" ? (res as { marked_count: number }).marked_count : 0;
       setNotifications((prev) =>
         prev.map((n) => ({ ...n, read_at: n.read_at ?? new Date().toISOString() }))
       );
@@ -158,43 +159,45 @@ export function NotificationBell() {
               No notifications
             </Text>
           ) : (
-            notifications.map((n) => (
-              <Menu.Item
-                key={n.id}
-                onClick={() => !n.read_at && markRead(n.id)}
-                bg={n.read_at ? undefined : "var(--mantine-color-green-0)"}
-                style={{
-                  whiteSpace: "normal",
-                  borderLeft: n.read_at
-                    ? undefined
-                    : "3px solid var(--mantine-color-green-6)",
-                }}
-              >
-                <Group wrap="nowrap" justify="space-between" align="flex-start" gap="xs">
-                  <Box style={{ flex: 1, minWidth: 0 }}>
-                    <Text size="sm" fw={n.read_at ? 400 : 600}>
-                      {n.title}
-                    </Text>
-                    <Text size="xs" c="dimmed" lineClamp={2} mt={2}>
-                      {n.message}
-                    </Text>
-                    <Text size="xs" c="dimmed" mt={4}>
-                      {n.created_at ? formatDateTime(n.created_at) : "—"}
-                    </Text>
-                  </Box>
-                  <ActionIcon
-                    variant="subtle"
-                    color="gray"
-                    size="sm"
-                    aria-label="Archive"
-                    loading={archivingId === n.id}
-                    onClick={(e) => archive(n.id, e)}
-                  >
-                    <IconArchive size={14} />
-                  </ActionIcon>
-                </Group>
-              </Menu.Item>
-            ))
+            notifications
+              .filter((n): n is Notification & { id: string } => n != null && typeof n.id === "string")
+              .map((n) => (
+                <Menu.Item
+                  key={n.id}
+                  onClick={() => !n.read_at && markRead(n.id)}
+                  bg={n.read_at ? undefined : "var(--mantine-color-green-0)"}
+                  style={{
+                    whiteSpace: "normal",
+                    borderLeft: n.read_at
+                      ? undefined
+                      : "3px solid var(--mantine-color-green-6)",
+                  }}
+                >
+                  <Group wrap="nowrap" justify="space-between" align="flex-start" gap="xs">
+                    <Box style={{ flex: 1, minWidth: 0 }}>
+                      <Text size="sm" fw={n.read_at ? 400 : 600}>
+                        {n?.title ?? "—"}
+                      </Text>
+                      <Text size="xs" c="dimmed" lineClamp={2} mt={2}>
+                        {n?.message ?? ""}
+                      </Text>
+                      <Text size="xs" c="dimmed" mt={4}>
+                        {n?.created_at ? formatDateTime(n.created_at) : "—"}
+                      </Text>
+                    </Box>
+                    <ActionIcon
+                      variant="subtle"
+                      color="gray"
+                      size="sm"
+                      aria-label="Archive"
+                      loading={archivingId === n.id}
+                      onClick={(e) => archive(n.id, e)}
+                    >
+                      <IconArchive size={14} />
+                    </ActionIcon>
+                  </Group>
+                </Menu.Item>
+              ))
           )}
         </ScrollArea.Autosize>
       </Menu.Dropdown>
