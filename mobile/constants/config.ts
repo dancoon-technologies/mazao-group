@@ -1,8 +1,7 @@
-const envUrl = process.env.EXPO_PUBLIC_API_URL;
-if (typeof envUrl !== 'string' || !envUrl.trim()) {
-  throw new Error('EXPO_PUBLIC_API_URL is required. Set it in .env or app config.');
-}
-export const API_BASE = envUrl.trim();
+const envUrl = typeof process.env.EXPO_PUBLIC_API_URL === 'string' ? process.env.EXPO_PUBLIC_API_URL.trim() : '';
+/** True when API base URL is set (avoids crash on missing env in production builds). */
+export const hasValidApiBase = envUrl.length > 0;
+export const API_BASE = envUrl;
 
 /** Base URL for API including /api; sync pull/push use API_BASE + 'mobile/sync/' */
 export const SYNC_PULL_PATH = 'mobile/sync/pull/'

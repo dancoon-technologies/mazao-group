@@ -74,21 +74,32 @@ function AppLayoutInner() {
     return () => sub.remove();
   }, [isAuthenticated, triggerRefresh]);
 
-  // Register for push notifications when authenticated
+  // Register for push notifications when authenticated (defer slightly so native module is ready)
   useEffect(() => {
     if (!isAuthenticated) return;
-    registerForPushNotificationsAsync().catch(() => {});
+    const t = setTimeout(() => {
+      registerForPushNotificationsAsync().catch(() => {});
+    }, 500);
+    return () => clearTimeout(t);
   }, [isAuthenticated]);
 
   // When user taps a push notification, open the notifications screen
   const notificationResponseListener = useRef<Notifications.EventSubscription | null>(null);
   useEffect(() => {
-    notificationResponseListener.current = Notifications.addNotificationResponseReceivedListener(() => {
-      router.push('/(app)/notifications' as never);
-    });
+    try {
+      notificationResponseListener.current = Notifications.addNotificationResponseReceivedListener(() => {
+        router.push('/(app)/notifications' as never);
+      });
+    } catch {
+      // Native notifications may be unavailable (e.g. emulator); avoid crash
+    }
     return () => {
-      if (notificationResponseListener.current) {
-        Notifications.removeNotificationSubscription(notificationResponseListener.current);
+      try {
+        if (notificationResponseListener.current) {
+          Notifications.removeNotificationSubscription(notificationResponseListener.current);
+        }
+      } catch {
+        // ignore
       }
     };
   }, [router]);

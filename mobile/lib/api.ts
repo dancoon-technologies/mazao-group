@@ -242,19 +242,20 @@ async function request<T>(
 
 export const api = {
   async login(email: string, password: string) {
+    const normalizedEmail = (email ?? '').trim().toLowerCase();
     try {
       const res = await fetch(`${API_BASE}/auth/login/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email: normalizedEmail, password }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        logger.warn(`Login failed for email=${email}: ${data.detail || res.status}`);
+        logger.warn(`Login failed for email=${normalizedEmail}: ${data.detail || res.status}`);
         throw new Error(data.detail || 'Login failed');
       }
       await setTokens(data.access, data.refresh);
-      logger.info(`Login success email=${email}`);
+      logger.info(`Login success email=${normalizedEmail}`);
       return data;
     } catch (e) {
       const isAbort = e instanceof Error && (e.name === 'AbortError' || e.message === 'The user aborted a request.');

@@ -17,61 +17,72 @@ function getProjectId(): string | undefined {
   );
 }
 
-// Show notifications when app is in foreground (optional: set to false to only show in background)
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-  }),
-});
+// Show notifications when app is in foreground. Wrap in try/catch so native module init failure doesn't crash the app.
+try {
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldShowAlert: true,
+      shouldShowBanner: true,
+      shouldShowList: true,
+      shouldPlaySound: true,
+      shouldSetBadge: true,
+    }),
+  });
+} catch {
+  // Native notifications module may not be ready yet (e.g. on some devices/emulators)
+}
 
 export async function registerForPushNotificationsAsync(): Promise<string | null> {
-  if (!Device.isDevice) {
-    logger.info('Push notifications require a physical device');
-    return null;
-  }
-
-  const { status: existingStatus } = await Notifications.getPermissionsAsync();
-  let finalStatus = existingStatus;
-
-  if (existingStatus !== 'granted') {
-    const { status } = await Notifications.requestPermissionsAsync();
-    finalStatus = status;
-    if (finalStatus !== 'granted') {
-      logger.info('Push permission not granted');
+  try {
+    if (!Device.isDevice) {
+      logger.info('Push notifications require a physical device');
       return null;
     }
-  }
 
-  const projectId = getProjectId();
-  if (!projectId) {
-    logger.warn('Expo projectId not found; push tokens require extra.eas.projectId in app config');
-    return null;
-  }
+    const { status: existingStatus } = await Notifications.getPermissionsAsync();
+    let finalStatus = existingStatus;
 
-  const tokenData = await Notifications.getExpoPushTokenAsync({
-    projectId,
-  });
-  const token = tokenData?.data ?? null;
-  if (!token) {
-    logger.warn('Could not get Expo push token');
-    return null;
-  }
+    if (existingStatus !== 'granted') {
+      const { status } = await Notifications.requestPermissionsAsync();
+      finalStatus = status;
+      if (finalStatus !== 'granted') {
+        logger.info('Push permission not granted');
+        return null;
+      }
+    }
 
-  if (Platform.OS === 'android') {
-    await Notifications.setNotificationChannelAsync('default', {
-      name: 'Default',
-      importance: Notifications.AndroidImportance.MAX,
+    const projectId = getProjectId();
+    if (!projectId) {
+      logger.warn('Expo projectId not found; push tokens require extra.eas.projectId in app config');
+      return null;
+    }
+
+    const tokenData = await Notifications.getExpoPushTokenAsync({
+      projectId,
     });
-  }
+    const token = tokenData?.data ?? null;
+    if (!token) {
+      logger.warn('Could not get Expo push token');
+      return null;
+    }
 
-  try {
-    await api.registerPushToken(token, Device.modelName ?? undefined);
-    logger.info('Push token registered with backend');
+    if (Platform.OS === 'android') {
+      await Notifications.setNotificationChannelAsync('default', {
+        name: 'Default',
+        importance: Notifications.AndroidImportance.MAX,
+      });
+    }
+
+    try {
+      await api.registerPushToken(token, Device.modelName ?? undefined);
+      logger.info('Push token registered with backend');
+    } catch (e) {
+      logger.warn('Failed to register push token with backend', e instanceof Error ? e.message : e);
+    }
+
+    return token;
   } catch (e) {
-    logger.warn('Failed to register push token with backend', e instanceof Error ? e.message : e);
+    logger.warn('Push registration failed', e instanceof Error ? e.message : e);
+    return null;
   }
-
-  return token;
 }

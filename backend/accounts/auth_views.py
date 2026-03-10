@@ -11,7 +11,8 @@ User = get_user_model()
 
 
 class EmailTokenObtainPairSerializer(TokenObtainPairSerializer):
-    """Accept 'email' instead of 'username' for login. Enforces one device: save refresh jti on user."""
+    """Accept 'email' instead of 'username' for login. Enforces one device: save refresh jti on user.
+    Normalizes email (strip + Django normalize_email) so login works regardless of casing/spaces."""
 
     username_field = "email"
 
@@ -30,6 +31,13 @@ class EmailTokenObtainPairSerializer(TokenObtainPairSerializer):
         return token
 
     def validate(self, attrs):
+        # Normalize email and match case-insensitively so login works regardless of casing/spaces
+        # (fixes mobile "no account with given credentials" when account exists).
+        raw = (attrs.get("email") or "").strip()
+        if raw:
+            normalized = User.objects.normalize_email(raw)
+            user = User.objects.filter(email__iexact=normalized).first()
+            attrs = {**attrs, "email": user.email if user else normalized}
         data = super().validate(attrs)
         # Single device: only this refresh token is valid until next login.
         refresh = self.get_token(self.user)
