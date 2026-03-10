@@ -23,6 +23,8 @@ from schedules.views import ScheduleApproveView, ScheduleListCreateView, Schedul
 from visits.dashboard_views import (
     DashboardStatsByDepartmentView,
     DashboardStatsView,
+    DashboardSchedulesSummaryView,
+    DashboardTopOfficersView,
     DashboardVisitsByActivityView,
     DashboardVisitsByDayView,
 )
@@ -39,6 +41,8 @@ urlpatterns = [
     path("dashboard/stats-by-department/", DashboardStatsByDepartmentView.as_view(), name="dashboard-stats-by-department"),
     path("dashboard/visits-by-day/", DashboardVisitsByDayView.as_view(), name="dashboard-visits-by-day"),
     path("dashboard/visits-by-activity/", DashboardVisitsByActivityView.as_view(), name="dashboard-visits-by-activity"),
+    path("dashboard/top-officers/", DashboardTopOfficersView.as_view(), name="dashboard-top-officers"),
+    path("dashboard/schedules-summary/", DashboardSchedulesSummaryView.as_view(), name="dashboard-schedules-summary"),
     path("schedules/", ScheduleListCreateView.as_view(), name="schedule-list-create"),
     path("schedules/<uuid:pk>/", ScheduleUpdateView.as_view(), name="schedule-update"),
     path("schedules/<uuid:pk>/approve/", ScheduleApproveView.as_view(), name="schedule-approve"),

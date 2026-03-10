@@ -1,15 +1,16 @@
 "use client";
 
-import { Anchor, Badge, Box, Grid, Paper, Table, Text, Title } from "@mantine/core";
+import { Anchor, Badge, Box, Grid, Paper, Table, Tabs, Text, Title } from "@mantine/core";
 import Link from "next/link";
 import { useAsyncData } from "@/hooks/useAsyncData";
 import { api } from "@/lib/api";
 import type { Visit } from "@/lib/types";
 import { PageLoading, PageError } from "@/components/ui";
-import { DashboardCharts } from "@/components/dashboard/DashboardCharts";
+import { DashboardCharts, type DashboardChartSection } from "@/components/dashboard/DashboardCharts";
 import { DASHBOARD_DAY_OPTIONS, PAGE_BOX_MIN_WIDTH, ROUTES } from "@/lib/constants";
 import { formatDateTime, formatActivityType } from "@/lib/format";
 import { useMemo, useState } from "react";
+import { useAuth } from "@/contexts/AuthContext";
 
 function formatChartDate(iso: string) {
   const d = new Date(iso);
@@ -17,6 +18,8 @@ function formatChartDate(iso: string) {
 }
 
 export default function DashboardPage() {
+  const { role } = useAuth();
+  const isAdmin = role === "admin";
   const [days, setDays] = useState<string>(DASHBOARD_DAY_OPTIONS[1].value);
   const { data: stats, error, loading } = useAsyncData(
     (signal) => api.getDashboardStats({ signal }),
@@ -32,6 +35,14 @@ export default function DashboardPage() {
   );
   const { data: visitsByActivity = [] } = useAsyncData(
     (signal) => api.getDashboardVisitsByActivity({ signal }),
+    []
+  );
+  const { data: topOfficers = [] } = useAsyncData(
+    (signal) => api.getDashboardTopOfficers({ limit: 10 }, { signal }),
+    []
+  );
+  const { data: schedulesSummary } = useAsyncData(
+    (signal) => api.getDashboardSchedulesSummary({ signal }),
     []
   );
   const { data: recentVisitsData } = useAsyncData(
@@ -66,11 +77,26 @@ export default function DashboardPage() {
   if (error) return <PageError message={error} />;
   if (!stats) return null;
 
-  const cards = [
-    { label: "Visits today", value: stats.visits_today },
-    { label: "Visits this month", value: stats.visits_this_month },
-    { label: "Active officers", value: stats.active_officers },
-  ];
+  const cards = useMemo(() => {
+    const base: { label: string; value: number | string }[] = [
+      { label: "Visits today", value: stats.visits_today },
+      { label: "Visits this month", value: stats.visits_this_month },
+      { label: "Active officers", value: stats.active_officers },
+    ];
+    if (stats.verification_rate_pct != null) {
+      base.push({
+        label: "Verification rate",
+        value: `${stats.verification_rate_pct}%`,
+      });
+    }
+    if (isAdmin && stats.total_farmers != null) {
+      base.push({ label: "Total farmers", value: stats.total_farmers });
+    }
+    if (isAdmin && stats.total_farms != null) {
+      base.push({ label: "Total farms", value: stats.total_farms });
+    }
+    return base;
+  }, [stats, isAdmin]);
 
   return (
     <Box style={{ minWidth: PAGE_BOX_MIN_WIDTH }}>
@@ -80,84 +106,142 @@ export default function DashboardPage() {
       <Text size="sm" c="dimmed" mt="xs" mb="lg">
         Overview of field visit activity
       </Text>
-      <Grid gutter="lg">
-        {cards.map((card) => (
-          <Grid.Col key={card.label} span={{ base: 12, sm: 4 }}>
-            <Paper p="lg" radius="md" withBorder style={{ transition: "box-shadow 0.2s ease" }}>
-              <Text size="sm" fw={500} c="dimmed" tt="uppercase" lts={0.5}>
-                {card.label}
+
+      <Tabs defaultValue="overview">
+        <Tabs.List>
+          <Tabs.Tab value="overview">Overview</Tabs.Tab>
+          <Tabs.Tab value="visits">Visits & quality</Tabs.Tab>
+          <Tabs.Tab value="performance">Performance</Tabs.Tab>
+        </Tabs.List>
+
+        <Tabs.Panel value="overview" pt="lg">
+          <Grid gutter="lg">
+            {cards.map((card) => (
+              <Grid.Col key={card.label} span={{ base: 12, sm: 4, md: 2 }}>
+                <Paper p="lg" radius="md" withBorder style={{ transition: "box-shadow 0.2s ease" }}>
+                  <Text size="sm" fw={500} c="dimmed" tt="uppercase" lts={0.5}>
+                    {card.label}
+                  </Text>
+                  <Text size="2rem" fw={700} mt="xs" lh={1.2} c="dark.7">
+                    {card.value}
+                  </Text>
+                </Paper>
+              </Grid.Col>
+            ))}
+          </Grid>
+          {schedulesSummary && (
+            <Paper p="md" mt="lg" radius="md" withBorder>
+              <Text size="md" fw={600} mb="sm">
+                Schedules pipeline (this month)
               </Text>
-              <Text size="2rem" fw={700} mt="xs" lh={1.2} c="dark.7">
-                {card.value}
+              <Grid gutter="md">
+                <Grid.Col span={{ base: 6, sm: 3 }}>
+                  <Text size="xs" c="dimmed">Proposed</Text>
+                  <Text size="lg" fw={600}>{schedulesSummary.schedules_proposed_this_month}</Text>
+                </Grid.Col>
+                <Grid.Col span={{ base: 6, sm: 3 }}>
+                  <Text size="xs" c="dimmed">Accepted</Text>
+                  <Text size="lg" fw={600}>{schedulesSummary.schedules_accepted_this_month}</Text>
+                </Grid.Col>
+                <Grid.Col span={{ base: 6, sm: 3 }}>
+                  <Text size="xs" c="dimmed">Scheduled today</Text>
+                  <Text size="lg" fw={600}>{schedulesSummary.schedules_scheduled_today}</Text>
+                </Grid.Col>
+                <Grid.Col span={{ base: 6, sm: 3 }}>
+                  <Text size="xs" c="dimmed">Recorded today</Text>
+                  <Text size="lg" fw={600}>{schedulesSummary.visits_recorded_today}</Text>
+                </Grid.Col>
+              </Grid>
+            </Paper>
+          )}
+        </Tabs.Panel>
+
+        <Tabs.Panel value="visits" pt="lg">
+          <Box style={{ minHeight: 260 }}>
+            <DashboardCharts
+              statsChartData={[]}
+              visitsChartData={visitsChartData}
+              days={days}
+              onDaysChange={setDays}
+              statsByDepartment={[]}
+              visitsByActivity={visitsByActivity ?? []}
+              verificationData={
+                stats.visits_verified != null && stats.visits_rejected != null
+                  ? { verified: stats.visits_verified, rejected: stats.visits_rejected }
+                  : undefined
+              }
+              sections={["visitsOverTime", "byActivity", "verification"] as DashboardChartSection[]}
+            />
+          </Box>
+          {recentVisits.length > 0 && (
+            <Paper mt="xl" p="md" shadow="sm" radius="md" withBorder>
+              <Text size="md" fw={600} mb="sm">
+                Recent visits
+              </Text>
+              <Table.ScrollContainer minWidth={400}>
+                <Table striped highlightOnHover>
+                  <Table.Thead>
+                    <Table.Tr>
+                      <Table.Th>Date</Table.Th>
+                      <Table.Th>Farmer</Table.Th>
+                      <Table.Th>Activity</Table.Th>
+                      <Table.Th>Status</Table.Th>
+                    </Table.Tr>
+                  </Table.Thead>
+                  <Table.Tbody>
+                    {recentVisits.map((v) => (
+                      <Table.Tr key={v.id}>
+                        <Table.Td>
+                          <Text size="sm" c="dimmed">
+                            {formatDateTime(v.created_at)}
+                          </Text>
+                        </Table.Td>
+                        <Table.Td>
+                          <Text size="sm">{v.farmer_display_name ?? v.farmer}</Text>
+                        </Table.Td>
+                        <Table.Td>
+                          <Text size="sm" c="dimmed">
+                            {formatActivityType(v.activity_type ?? "")}
+                          </Text>
+                        </Table.Td>
+                        <Table.Td>
+                          <Badge
+                            color={v.verification_status === "verified" ? "green" : "red"}
+                            variant="light"
+                            size="sm"
+                          >
+                            {v.verification_status}
+                          </Badge>
+                        </Table.Td>
+                      </Table.Tr>
+                    ))}
+                  </Table.Tbody>
+                </Table>
+              </Table.ScrollContainer>
+              <Text size="sm" mt="sm">
+                <Anchor component={Link} href={ROUTES.VISITS}>
+                  View all visits →
+                </Anchor>
               </Text>
             </Paper>
-          </Grid.Col>
-        ))}
-      </Grid>
+          )}
+        </Tabs.Panel>
 
-      <Box mt="xl" style={{ minHeight: 260 }}>
-        <DashboardCharts
-          statsChartData={statsChartData}
-          visitsChartData={visitsChartData}
-          days={days}
-          onDaysChange={setDays}
-          statsByDepartment={statsByDepartment ?? []}
-          visitsByActivity={visitsByActivity ?? []}
-        />
-      </Box>
-
-      {recentVisits.length > 0 && (
-        <Paper mt="xl" p="md" shadow="sm" radius="md" withBorder>
-          <Text size="md" fw={600} mb="sm">
-            Recent visits
-          </Text>
-          <Table.ScrollContainer minWidth={400}>
-            <Table striped highlightOnHover>
-              <Table.Thead>
-                <Table.Tr>
-                  <Table.Th>Date</Table.Th>
-                  <Table.Th>Farmer</Table.Th>
-                  <Table.Th>Activity</Table.Th>
-                  <Table.Th>Status</Table.Th>
-                </Table.Tr>
-              </Table.Thead>
-              <Table.Tbody>
-                {recentVisits.map((v) => (
-                  <Table.Tr key={v.id}>
-                    <Table.Td>
-                      <Text size="sm" c="dimmed">
-                        {formatDateTime(v.created_at)}
-                      </Text>
-                    </Table.Td>
-                    <Table.Td>
-                      <Text size="sm">{v.farmer_display_name ?? v.farmer}</Text>
-                    </Table.Td>
-                    <Table.Td>
-                      <Text size="sm" c="dimmed">
-                        {formatActivityType(v.activity_type ?? "")}
-                      </Text>
-                    </Table.Td>
-                    <Table.Td>
-                      <Badge
-                        color={v.verification_status === "verified" ? "green" : "red"}
-                        variant="light"
-                        size="sm"
-                      >
-                        {v.verification_status}
-                      </Badge>
-                    </Table.Td>
-                  </Table.Tr>
-                ))}
-              </Table.Tbody>
-            </Table>
-          </Table.ScrollContainer>
-          <Text size="sm" mt="sm">
-            <Anchor component={Link} href={ROUTES.VISITS}>
-              View all visits →
-            </Anchor>
-          </Text>
-        </Paper>
-      )}
+        <Tabs.Panel value="performance" pt="lg">
+          <Box style={{ minHeight: 260 }}>
+            <DashboardCharts
+              statsChartData={statsChartData}
+              visitsChartData={[]}
+              days={days}
+              onDaysChange={setDays}
+              statsByDepartment={statsByDepartment ?? []}
+              visitsByActivity={[]}
+              topOfficers={topOfficers ?? []}
+              sections={["keyMetrics", "byDepartment", "topOfficers"] as DashboardChartSection[]}
+            />
+          </Box>
+        </Tabs.Panel>
+      </Tabs>
     </Box>
   );
 }

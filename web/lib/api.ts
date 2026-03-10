@@ -6,6 +6,8 @@ import type {
   DashboardStatsByDepartmentItem,
   DashboardVisitsByDayItem,
   DashboardVisitsByActivityItem,
+  DashboardTopOfficerItem,
+  DashboardSchedulesSummary,
   UserRole,
   Schedule,
   StaffUser,
@@ -207,6 +209,33 @@ export const api = {
       if (res.status === 403)
         throw new Error("Dashboard is for admin and supervisor only.");
       throw new Error("Failed to fetch visits by activity");
+    }
+    return res.json();
+  },
+
+  async getDashboardTopOfficers(
+    params?: { limit?: number },
+    options?: { signal?: AbortSignal }
+  ): Promise<DashboardTopOfficerItem[]> {
+    const limit = params?.limit ?? 10;
+    const res = await authFetch(
+      `${API_BASE}/api/dashboard/top-officers?limit=${encodeURIComponent(String(limit))}`,
+      { signal: options?.signal }
+    );
+    if (!res.ok) {
+      if (res.status === 403)
+        throw new Error("Dashboard is for admin and supervisor only.");
+      throw new Error("Failed to fetch top officers");
+    }
+    return res.json();
+  },
+
+  async getDashboardSchedulesSummary(options?: { signal?: AbortSignal }): Promise<DashboardSchedulesSummary> {
+    const res = await authFetch(`${API_BASE}/api/dashboard/schedules-summary`, { signal: options?.signal });
+    if (!res.ok) {
+      if (res.status === 403)
+        throw new Error("Dashboard is for admin and supervisor only.");
+      throw new Error("Failed to fetch schedules summary");
     }
     return res.json();
   },

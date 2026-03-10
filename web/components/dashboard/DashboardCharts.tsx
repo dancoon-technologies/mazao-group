@@ -4,7 +4,11 @@ import { Box, Grid, Paper, Select, Text } from "@mantine/core";
 import { BarChart, LineChart } from "@mantine/charts";
 import { DASHBOARD_DAY_OPTIONS } from "@/lib/constants";
 import { formatActivityType } from "@/lib/format";
-import type { DashboardStatsByDepartmentItem, DashboardVisitsByActivityItem } from "@/lib/types";
+import type {
+  DashboardStatsByDepartmentItem,
+  DashboardTopOfficerItem,
+  DashboardVisitsByActivityItem,
+} from "@/lib/types";
 
 const CHART_HEIGHT = 220;
 
@@ -33,6 +37,14 @@ export type VisitsByDayDatum = {
   visits: number;
 };
 
+export type DashboardChartSection =
+  | "keyMetrics"
+  | "visitsOverTime"
+  | "byDepartment"
+  | "byActivity"
+  | "verification"
+  | "topOfficers";
+
 type Props = {
   statsChartData: StatsChartDatum[];
   visitsChartData: VisitsByDayDatum[];
@@ -42,7 +54,18 @@ type Props = {
   statsByDepartment?: DashboardStatsByDepartmentItem[];
   /** Visits count per activity_type. Shown as bar chart. */
   visitsByActivity?: DashboardVisitsByActivityItem[];
+  /** Verified vs rejected counts for verification status chart. */
+  verificationData?: { verified: number; rejected: number };
+  /** Top officers by visits this month (for admin/supervisor). */
+  topOfficers?: DashboardTopOfficerItem[];
+  /** If set, only render these sections. Otherwise render all that have data. */
+  sections?: DashboardChartSection[];
 };
+
+function showSection(sections: DashboardChartSection[] | undefined, key: DashboardChartSection): boolean {
+  if (!sections || sections.length === 0) return true;
+  return sections.includes(key);
+}
 
 export function DashboardCharts({
   statsChartData,
@@ -51,11 +74,27 @@ export function DashboardCharts({
   onDaysChange,
   statsByDepartment = [],
   visitsByActivity = [],
+  verificationData,
+  topOfficers = [],
+  sections,
 }: Props) {
   const hasStatsData = statsChartData.length > 0;
   const areaData = visitsChartData.length > 0
     ? visitsChartData
     : [{ date: "No data", fullDate: "", visits: 0 }];
+
+  const verificationChartData =
+    verificationData && (verificationData.verified > 0 || verificationData.rejected > 0)
+      ? [
+          { status: "Verified", verified: verificationData.verified, rejected: 0 },
+          { status: "Rejected", verified: 0, rejected: verificationData.rejected },
+        ]
+      : [];
+
+  const topOfficersChartData = topOfficers.map((o) => ({
+    name: o.display_name || o.officer_email || "—",
+    visits: o.visits_count,
+  }));
 
   const departmentChartData = statsByDepartment.map((d) => ({
     department_name: d.department_name,
@@ -71,6 +110,7 @@ export function DashboardCharts({
 
   return (
     <Grid gutter="md">
+      {showSection(sections, "keyMetrics") && (
       <Grid.Col span={{ base: 12, md: 6 }}>
         <Paper p="md" shadow="sm" radius="md" withBorder>
           <Text size="md" fw={600} mb="md">
@@ -94,6 +134,8 @@ export function DashboardCharts({
           </Box>
         </Paper>
       </Grid.Col>
+      )}
+      {showSection(sections, "visitsOverTime") && (
       <Grid.Col span={{ base: 12, md: 6 }}>
         <Paper p="md" shadow="sm" radius="md" withBorder>
           <Box
@@ -128,8 +170,9 @@ export function DashboardCharts({
           </Box>
         </Paper>
       </Grid.Col>
+      )}
 
-      {departmentChartData.length > 0 && (
+      {showSection(sections, "byDepartment") && departmentChartData.length > 0 && (
         <Grid.Col span={{ base: 12, md: 6 }}>
           <Paper p="md" shadow="sm" radius="md" withBorder>
             <Text size="md" fw={600} mb="md">
@@ -149,7 +192,7 @@ export function DashboardCharts({
         </Grid.Col>
       )}
 
-      {activityChartData.length > 0 && (
+      {showSection(sections, "byActivity") && activityChartData.length > 0 && (
         <Grid.Col span={{ base: 12, md: 6 }}>
           <Paper p="md" shadow="sm" radius="md" withBorder>
             <Text size="md" fw={600} mb="md">
@@ -161,6 +204,55 @@ export function DashboardCharts({
                 data={activityChartData}
                 dataKey="activity_label"
                 series={[{ name: "count", color: "violet.6" }]}
+                tickLine="y"
+                gridAxis="y"
+              />
+            </Box>
+          </Paper>
+        </Grid.Col>
+      )}
+
+      {showSection(sections, "verification") && verificationChartData.length > 0 && (
+        <Grid.Col span={{ base: 12, md: 6 }}>
+          <Paper p="md" shadow="sm" radius="md" withBorder>
+            <Text size="md" fw={600} mb="md">
+              Visit verification status
+            </Text>
+            <Text size="xs" c="dimmed" mb="sm">
+              All-time verified vs rejected (quality of field submissions)
+            </Text>
+            <Box style={{ width: "100%", minWidth: 200, height: CHART_HEIGHT }}>
+              <BarChart
+                h={CHART_HEIGHT}
+                data={verificationChartData}
+                dataKey="status"
+                series={[
+                  { name: "verified", color: "green.6" },
+                  { name: "rejected", color: "red.6" },
+                ]}
+                tickLine="y"
+                gridAxis="y"
+              />
+            </Box>
+          </Paper>
+        </Grid.Col>
+      )}
+
+      {showSection(sections, "topOfficers") && topOfficersChartData.length > 0 && (
+        <Grid.Col span={{ base: 12, md: 6 }}>
+          <Paper p="md" shadow="sm" radius="md" withBorder>
+            <Text size="md" fw={600} mb="md">
+              Top officers this month
+            </Text>
+            <Text size="xs" c="dimmed" mb="sm">
+              By number of visits recorded (for recognition and support)
+            </Text>
+            <Box style={{ width: "100%", minWidth: 200, height: CHART_HEIGHT }}>
+              <BarChart
+                h={CHART_HEIGHT}
+                data={topOfficersChartData}
+                dataKey="name"
+                series={[{ name: "visits", color: "blue.6" }]}
                 tickLine="y"
                 gridAxis="y"
               />

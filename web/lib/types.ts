@@ -56,6 +56,16 @@ export interface DashboardStats {
   visits_today: number;
   visits_this_month: number;
   active_officers: number;
+  /** Verified visit count (all time in scope). */
+  visits_verified?: number;
+  /** Rejected visit count (all time in scope). */
+  visits_rejected?: number;
+  /** Percentage of visits verified, or null if no visits. */
+  verification_rate_pct?: number | null;
+  /** Total farmers (admin only). */
+  total_farmers?: number;
+  /** Total farms (admin only). */
+  total_farms?: number;
 }
 
 export interface DashboardVisitsByDayItem {
@@ -74,6 +84,20 @@ export interface DashboardStatsByDepartmentItem {
 export interface DashboardVisitsByActivityItem {
   activity_type: string;
   count: number;
+}
+
+export interface DashboardTopOfficerItem {
+  officer_id: string;
+  officer_email: string;
+  display_name: string;
+  visits_count: number;
+}
+
+export interface DashboardSchedulesSummary {
+  schedules_proposed_this_month: number;
+  schedules_accepted_this_month: number;
+  schedules_scheduled_today: number;
+  visits_recorded_today: number;
 }
 
 export interface LoginResponse {
