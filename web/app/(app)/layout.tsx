@@ -87,7 +87,9 @@ export default function AppLayout({
               Mazao Group
             </Text>
           </Group>
-          <NotificationBell />
+          <ErrorBoundary fallback={null}>
+            <NotificationBell />
+          </ErrorBoundary>
         </Group>
       </AppShell.Header>
 

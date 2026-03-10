@@ -25,18 +25,19 @@ export function NotificationBell() {
   const fetchNotifications = useCallback(async () => {
     if (!mountedRef.current) return;
     try {
-      const [list, { unread_count }] = await Promise.all([
+      const [list, countRes] = await Promise.all([
         api.getNotifications(),
         api.getNotificationUnreadCount(),
       ]);
       if (!mountedRef.current) return;
+      const unread_count = typeof countRes?.unread_count === "number" ? countRes.unread_count : 0;
       const prev = prevUnreadRef.current;
       prevUnreadRef.current = unread_count;
-      setNotifications(list);
+      setNotifications(Array.isArray(list) ? list : []);
       setUnreadCount(unread_count);
       if (hasFetchedOnceRef.current && unread_count > prev && list.length > 0) {
         const latest = list[0];
-        toast.info(latest.title, { description: latest.message });
+        toast.info(latest?.title ?? "Notification", { description: latest?.message ?? "" });
       }
       hasFetchedOnceRef.current = true;
     } catch {
@@ -178,7 +179,7 @@ export function NotificationBell() {
                       {n.message}
                     </Text>
                     <Text size="xs" c="dimmed" mt={4}>
-                      {formatDateTime(n.created_at)}
+                      {n.created_at ? formatDateTime(n.created_at) : "—"}
                     </Text>
                   </Box>
                   <ActionIcon

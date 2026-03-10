@@ -30,14 +30,14 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo): void {
-    if (typeof process !== "undefined" && process.env.NODE_ENV === "development") {
-      console.error("ErrorBoundary caught:", error, errorInfo);
-    }
+    // Always log so it's visible in browser console (dev and production)
+    console.error("[ErrorBoundary]", error?.message ?? error, errorInfo?.componentStack ?? "");
   }
 
   render(): ReactNode {
     if (this.state.hasError && this.state.error) {
       if (this.props.fallback) return this.props.fallback;
+      const msg = this.state.error?.message ?? "An unexpected error occurred.";
       return (
         <Box p="xl" maw={500} mx="auto">
           <Title order={3} mb="sm">
@@ -45,6 +45,9 @@ export class ErrorBoundary extends Component<Props, State> {
           </Title>
           <Text size="sm" c="dimmed" mb="md">
             An unexpected error occurred. Please try again or return to the dashboard.
+          </Text>
+          <Text size="xs" c="dimmed" mb="md" style={{ fontFamily: "monospace", wordBreak: "break-word" }}>
+            {msg}
           </Text>
           <Button component="a" href={ROUTES.DASHBOARD} variant="light">
             Go to dashboard
