@@ -238,6 +238,7 @@ export default function StaffDetailPage() {
           columns={visitColumns}
           minWidth={600}
           emptyMessage="No visits recorded for this staff member."
+          pageSize={15}
         />
       </Paper>
     </Box>

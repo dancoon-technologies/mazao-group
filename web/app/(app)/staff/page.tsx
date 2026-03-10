@@ -629,6 +629,7 @@ export default function StaffPage() {
         columns={staffColumns}
         minWidth={400}
         emptyMessage="No staff registered yet"
+        pageSize={15}
       />
         </Tabs.Panel>
 
@@ -643,6 +644,7 @@ export default function StaffPage() {
               columns={performanceColumns}
               minWidth={500}
               emptyMessage="No staff performance data"
+              pageSize={15}
             />
           </Paper>
         </Tabs.Panel>

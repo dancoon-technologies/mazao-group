@@ -588,6 +588,7 @@ export default function SchedulesPage() {
         columns={scheduleColumns}
         minWidth={500}
         emptyMessage="No schedules found"
+        pageSize={15}
       />
     </Box>
   );

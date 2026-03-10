@@ -276,6 +276,7 @@ export default function FarmsPage() {
         columns={farmColumns(farmers)}
         minWidth={500}
         emptyMessage="No farms found"
+        pageSize={15}
       />
     </Box>
   );

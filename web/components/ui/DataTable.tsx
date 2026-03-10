@@ -1,6 +1,7 @@
 "use client";
 
-import { Paper, Table } from "@mantine/core";
+import { Paper, Table, Text, Pagination, Group } from "@mantine/core";
+import { useState, useEffect } from "react";
 import type { ReactNode } from "react";
 import { EmptyState } from "./EmptyState";
 
@@ -24,6 +25,8 @@ export interface DataTableProps<T> {
   minWidth?: number;
   /** Message when data is empty */
   emptyMessage: string;
+  /** Rows per page; omit to show all rows without pagination */
+  pageSize?: number;
 }
 
 export function DataTable<T extends object>({
@@ -32,7 +35,19 @@ export function DataTable<T extends object>({
   columns,
   minWidth = 400,
   emptyMessage,
+  pageSize = 0,
 }: DataTableProps<T>) {
+  const size = pageSize > 0 ? pageSize : data.length || 1;
+  const totalPages = Math.ceil(data.length / size);
+  const [page, setPage] = useState(1);
+
+  useEffect(() => {
+    if (page > totalPages && totalPages > 0) setPage(1);
+  }, [data.length, size, totalPages, page]);
+
+  const start = (page - 1) * size;
+  const paginatedData = pageSize > 0 ? data.slice(start, start + size) : data;
+
   return (
     <Paper
       mt="md"
@@ -56,7 +71,7 @@ export function DataTable<T extends object>({
             </Table.Tr>
           </Table.Thead>
           <Table.Tbody>
-            {data.map((row) => (
+            {paginatedData.map((row) => (
               <Table.Tr key={String(row[rowKey])}>
                 {columns.map((col) => (
                   <Table.Td key={col.key} visibleFrom={col.visibleFrom}>
@@ -69,6 +84,20 @@ export function DataTable<T extends object>({
         </Table>
       </Table.ScrollContainer>
       {data.length === 0 && <EmptyState message={emptyMessage} />}
+      {pageSize > 0 && data.length > 0 && (
+        <Group justify="space-between" p="sm" wrap="nowrap" gap="md">
+          <Text size="sm" c="dimmed">
+            Showing {start + 1}–{Math.min(start + size, data.length)} of {data.length}
+          </Text>
+          <Pagination
+            total={totalPages}
+            value={page}
+            onChange={setPage}
+            size="sm"
+            withEdges
+          />
+        </Group>
+      )}
     </Paper>
   );
 }

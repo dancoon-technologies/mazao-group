@@ -436,6 +436,7 @@ export default function VisitsPage() {
         columns={columns}
         minWidth={500}
         emptyMessage="No visits found"
+        pageSize={15}
       />
 
       <VisitDetailModal
