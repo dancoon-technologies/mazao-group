@@ -1,6 +1,10 @@
 # Dependencies (EAS installs fresh)
 node_modules/
 
+# Use Prebuild/CNG: let EAS generate android/ and ios/ from app.json so config stays in sync
+android/
+ios/
+
 # Expo
 .expo/
 dist/

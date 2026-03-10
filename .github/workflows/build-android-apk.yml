@@ -40,10 +40,19 @@ jobs:
 
       # EAS Build (local): EXPO_TOKEN authenticates to EAS so credentials (e.g. FCM for push)
       # are fetched and embedded in the APK. projectId is in app.json extra.eas.projectId.
+      # NODE_ENV required by Expo CLI when bundling.
+      # Retry once on failure (Gradle sometimes gets 502 from Google Maven).
       - name: Build APK locally
         working-directory: mobile
-        run: npx eas build --platform android --profile preview --local --non-interactive --output ./build/app.apk
+        run: |
+          for i in 1 2; do
+            npx eas build --platform android --profile preview --local --non-interactive --output ./build/app.apk && exit 0
+            echo "Build attempt $i failed, retrying in 30s..."
+            sleep 30
+          done
+          exit 1
         env:
+          NODE_ENV: production
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
           EXPO_PUBLIC_API_URL: ${{ secrets.EXPO_PUBLIC_API_URL }}
 

@@ -18,7 +18,6 @@
     },
     "android": {
       "softwareKeyboardLayoutMode": "resize",
-      "usesCleartextTraffic": true,
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -48,6 +47,7 @@
         "expo-build-properties",
         {
           "android": {
+            "usesCleartextTraffic": true,
             "enableMinifyInReleaseBuilds": true,
             "enableShrinkResourcesInReleaseBuilds": true,
             "packagingOptions": {
