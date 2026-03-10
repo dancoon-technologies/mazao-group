@@ -13,6 +13,7 @@ import {
   TextInput,
 } from "@mantine/core";
 import { useCallback, useMemo, useState } from "react";
+import { toast } from "sonner";
 import * as XLSX from "xlsx";
 import { useAsyncData } from "@/hooks/useAsyncData";
 import { api, photoUrl } from "@/lib/api";
@@ -52,11 +53,16 @@ function VisitDetailModal({
   visit,
   opened,
   onClose,
+  canVerify,
+  onVerify,
 }: {
   visit: Visit | null;
   opened: boolean;
   onClose: () => void;
+  canVerify: boolean;
+  onVerify: (visitId: string, action: "accept" | "reject") => Promise<void>;
 }) {
+  const [verifying, setVerifying] = useState<"accept" | "reject" | null>(null);
   if (!visit) return null;
   const row = (label: string, value: React.ReactNode) => (
     <Group justify="space-between" wrap="nowrap" key={label}>
@@ -68,6 +74,15 @@ function VisitDetailModal({
       </Text>
     </Group>
   );
+  const handleVerify = async (action: "accept" | "reject") => {
+    setVerifying(action);
+    try {
+      await onVerify(visit.id, action);
+      onClose();
+    } finally {
+      setVerifying(null);
+    }
+  };
   return (
     <Modal opened={opened} onClose={onClose} title="Visit details" size="md">
       <Stack gap="sm">
@@ -95,6 +110,30 @@ function VisitDetailModal({
             View photo
           </Anchor>
         ) : null}
+        {canVerify && (
+          <Group mt="md" gap="xs">
+            <Button
+              color="green"
+              variant="light"
+              size="sm"
+              loading={verifying === "accept"}
+              disabled={verifying !== null}
+              onClick={() => handleVerify("accept")}
+            >
+              Accept record
+            </Button>
+            <Button
+              color="red"
+              variant="light"
+              size="sm"
+              loading={verifying === "reject"}
+              disabled={verifying !== null}
+              onClick={() => handleVerify("reject")}
+            >
+              Reject record
+            </Button>
+          </Group>
+        )}
       </Stack>
     </Modal>
   );
@@ -132,7 +171,7 @@ export default function VisitsPage() {
     (signal: AbortSignal) => api.getVisits(visitParams, { signal }),
     [visitParams]
   );
-  const { data: visitsData, error, loading } = useAsyncData(fetchVisits, [visitParams]);
+  const { data: visitsData, error, loading, refetch } = useAsyncData(fetchVisits, [visitParams]);
 
   const { data: officersData } = useAsyncData(
     (signal) => (isAdminOrSupervisor ? api.getOfficers({ signal }) : Promise.resolve([])),
@@ -255,10 +294,81 @@ export default function VisitsPage() {
     doc.save(`${exportFilenameBase}.pdf`);
   };
 
+  const handleExportDetailedPdf = async () => {
+    const [{ jsPDF }, { default: autoTable }] = await Promise.all([
+      import("jspdf"),
+      import("jspdf-autotable"),
+    ]);
+    const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+    const verified = visits.filter((v) => v.verification_status === "verified").length;
+    const rejected = visits.filter((v) => v.verification_status === "rejected").length;
+    doc.setFontSize(16);
+    doc.text("Detailed Visit Report", 14, 12);
+    doc.setFontSize(10);
+    doc.text(reportPeriodLabel, 14, 18);
+    doc.text(`Generated ${formatDateTime(new Date().toISOString())}`, 14, 24);
+    doc.text(`Total: ${visits.length} visit(s)  •  Verified: ${verified}  •  Rejected: ${rejected}`, 14, 30);
+    const head = [
+      "Date",
+      "Officer",
+      "Farmer",
+      "Farm",
+      "Activity",
+      "Status",
+      "Distance (m)",
+      "Crop stage",
+      "Germination %",
+      "Survival",
+      "Pests/diseases",
+      "Order value",
+      "Harvest (kg)",
+      "Farmers feedback",
+      "Notes",
+    ];
+    const body = visits.map((v) => [
+      formatDateTime(v.created_at),
+      (v.officer_email ?? v.officer) ?? "",
+      (v.farmer_display_name ?? v.farmer) ?? "",
+      v.farm_display_name ?? "",
+      formatActivityType(v.activity_type ?? ""),
+      v.verification_status ?? "",
+      v.distance_from_farmer != null ? String(Math.round(v.distance_from_farmer)) : "",
+      v.crop_stage ?? "",
+      v.germination_percent != null ? String(v.germination_percent) : "",
+      v.survival_rate ?? "",
+      v.pests_diseases ?? "",
+      v.order_value != null ? String(v.order_value) : "",
+      v.harvest_kgs != null ? String(v.harvest_kgs) : "",
+      v.farmers_feedback ?? "",
+      v.notes ?? "",
+    ]);
+    autoTable(doc, {
+      head: [head],
+      body,
+      startY: 36,
+      styles: { fontSize: 6, cellPadding: 1.5 },
+      margin: { left: 14, right: 14 },
+      columnStyles: {
+        "Farmers feedback": { cellWidth: 35 },
+        Notes: { cellWidth: 40 },
+      },
+    });
+    doc.save(`${exportFilenameBase}-detailed.pdf`);
+  };
+
   const openDetail = (v: Visit) => {
     setSelectedVisit(v);
     setDetailOpen(true);
   };
+
+  const handleVerify = useCallback(
+    async (visitId: string, action: "accept" | "reject") => {
+      await api.verifyVisit(visitId, action);
+      await refetch();
+      toast.success(action === "accept" ? "Visit record accepted." : "Visit record rejected.");
+    },
+    [refetch]
+  );
 
   const columns: DataTableColumn<Visit>[] = useMemo(
     () => [
@@ -425,6 +535,9 @@ export default function VisitsPage() {
               <Button variant="light" color="green" size="sm" onClick={handleExportPdf}>
                 Generate PDF
               </Button>
+              <Button variant="light" color="teal" size="sm" onClick={handleExportDetailedPdf}>
+                Detailed report (PDF)
+              </Button>
             </Group>
           </Group>
         }
@@ -443,6 +556,15 @@ export default function VisitsPage() {
         visit={selectedVisit}
         opened={detailOpen}
         onClose={() => setDetailOpen(false)}
+        canVerify={isAdminOrSupervisor}
+        onVerify={async (visitId, action) => {
+          try {
+            await handleVerify(visitId, action);
+          } catch (e) {
+            toast.error(e instanceof Error ? e.message : "Failed to update visit");
+            throw e;
+          }
+        }}
       />
     </Box>
   );

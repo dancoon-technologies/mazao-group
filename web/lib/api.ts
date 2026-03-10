@@ -163,6 +163,26 @@ export const api = {
     return unwrapList(await res.json());
   },
 
+  /** Supervisor or admin only. Accept or reject a visit record (sets verification_status). */
+  async verifyVisit(
+    visitId: string,
+    action: "accept" | "reject"
+  ): Promise<Visit> {
+    const res = await authFetch(`${API_BASE}/api/visits/${encodeURIComponent(visitId)}/verify`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action }),
+    });
+    if (!res.ok) {
+      if (res.status === 403) throw new Error("Only supervisors and admins can accept or reject visit records.");
+      if (res.status === 404) throw new Error("Visit not found.");
+      const err = await res.json().catch(() => ({})) as { action?: string[]; detail?: string };
+      const msg = err?.detail ?? (Array.isArray(err?.action) ? err.action[0] : "Failed to update visit");
+      throw new Error(msg);
+    }
+    return res.json();
+  },
+
   async getDashboardStats(options?: { signal?: AbortSignal }): Promise<DashboardStats> {
     const res = await authFetch(`${API_BASE}/api/dashboard/stats`, { signal: options?.signal });
     if (!res.ok) {

@@ -3,8 +3,10 @@ import logging
 from django.conf import settings as django_settings
 from django.utils import timezone
 from rest_framework import generics, status
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.response import Response
+from rest_framework.views import APIView
 
 from farmers.models import Farm, Farmer
 from schedules.models import Schedule
@@ -266,3 +268,63 @@ class VisitListCreateView(generics.ListCreateAPIView):
         ).get(pk=visit.pk)
         out_serializer = VisitSerializer(visit)
         return Response(out_serializer.data, status=status.HTTP_201_CREATED)
+
+
+class VisitVerifyView(APIView):
+    """POST with {"action": "accept" | "reject"}. Supervisor or admin only. Sets visit verification_status."""
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        try:
+            visit = Visit.objects.select_related("officer", "officer__department", "farmer", "schedule").get(pk=pk)
+        except Visit.DoesNotExist:
+            return Response(
+                {"detail": "Visit not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        user = request.user
+        if user.role not in ("admin", "supervisor"):
+            return Response(
+                {"detail": "Only supervisors and admins can accept or reject visit records."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        if user.role == "supervisor":
+            if not user.department_id or visit.officer.department_id != user.department_id:
+                return Response(
+                    {"detail": "Visit is not in your department."},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+        action = (request.data.get("action") or "").strip().lower()
+        if action == "accept":
+            visit.verification_status = Visit.VerificationStatus.VERIFIED
+            visit.save(update_fields=["verification_status"])
+            logger.info("POST /api/visits/%s/verify accepted by user=%s", pk, user.id)
+            from django.utils.formats import date_format
+            from notifications.services import notify_user
+            date_str = date_format(visit.created_at, use_l10n=True)
+            notify_user(
+                visit.officer,
+                title="Visit verified",
+                message=f"Your visit record from {date_str} (Farmer: {visit.farmer.name}) has been accepted.",
+                channels=["in_app", "push"],
+            )
+            return Response(VisitSerializer(visit).data)
+        if action == "reject":
+            visit.verification_status = Visit.VerificationStatus.REJECTED
+            visit.save(update_fields=["verification_status"])
+            logger.info("POST /api/visits/%s/verify rejected by user=%s", pk, user.id)
+            from django.utils.formats import date_format
+            from notifications.services import notify_user
+            date_str = date_format(visit.created_at, use_l10n=True)
+            notify_user(
+                visit.officer,
+                title="Visit rejected",
+                message=f"Your visit record from {date_str} has been rejected. Please check and resubmit if needed.",
+                channels=["in_app", "push"],
+            )
+            return Response(VisitSerializer(visit).data)
+        return Response(
+            {"action": ["Must be 'accept' or 'reject'."]},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
