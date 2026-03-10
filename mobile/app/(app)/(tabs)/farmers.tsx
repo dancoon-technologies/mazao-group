@@ -1,4 +1,4 @@
-import { cardShadow, cardStyle, spacing } from '@/constants/theme';
+import { cardShadow, cardStyle, colors, spacing } from '@/constants/theme';
 import { getFarmers as getFarmersDb, getAllFarms } from '@/database';
 import { farmRowToFarm, farmerRowToFarmer } from '@/lib/offline-helpers';
 import { api, type Farm, type Farmer } from '@/lib/api';
@@ -214,19 +214,14 @@ export default function FarmersScreen() {
       )}
     </SafeAreaView>
       <View
-        style={[
-          styles.fabWrap,
-          {
-            paddingBottom: insets.bottom + TAB_BAR_HEIGHT + 4,
-          },
-        ]}
+        style={[styles.fabWrap, { bottom: insets.bottom + TAB_BAR_HEIGHT + 4 }]}
         pointerEvents="box-none"
       >
         <FAB
           icon="account-plus"
           onPress={openAddFarmer}
-          mode="elevated"
-          label="Add Farmer"
+          style={styles.fab}
+          color="#fff"
         />
       </View>
     </View>
@@ -273,8 +268,10 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 0,
     right: 0,
-    bottom: 0,
     alignItems: 'flex-end',
     paddingHorizontal: 16,
+  },
+  fab: {
+    backgroundColor: colors.primary,
   },
 });

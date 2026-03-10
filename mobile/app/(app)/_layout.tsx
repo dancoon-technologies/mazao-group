@@ -114,6 +114,7 @@ function AppLayoutInner() {
       <Stack.Screen name="record-visit" options={{ title: 'Record visit' }} />
       <Stack.Screen name="add-farmer" options={{ title: 'Add farmer' }} />
       <Stack.Screen name="propose-schedule" options={{ title: 'Propose schedule' }} />
+      <Stack.Screen name="edit-schedule/[id]" options={{ title: 'Edit schedule' }} />
       <Stack.Screen name="notifications" options={{ title: 'Notifications' }} />
     </Stack>
   );

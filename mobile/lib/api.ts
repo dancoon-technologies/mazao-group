@@ -369,6 +369,22 @@ export const api = {
     });
   },
 
+  /** PATCH proposed schedule (allowed only if scheduled date is not within 1 day). Officers can edit own proposed only. */
+  async updateSchedule(
+    id: string,
+    body: { scheduled_date?: string; farmer?: string | null; farm?: string | null; notes?: string }
+  ) {
+    const payload: Record<string, unknown> = {};
+    if (body.scheduled_date != null) payload.scheduled_date = String(body.scheduled_date).trim();
+    if (body.farmer !== undefined) payload.farmer = body.farmer;
+    if (body.farm !== undefined) payload.farm = body.farm;
+    if (body.notes !== undefined) payload.notes = body.notes?.trim() ?? '';
+    return request<Schedule>(`/schedules/${id}/`, {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    });
+  },
+
   getVisits: async (params?: { officer?: string; date?: string }) => {
     const q = new URLSearchParams();
     if (params?.officer) q.set('officer', params.officer);

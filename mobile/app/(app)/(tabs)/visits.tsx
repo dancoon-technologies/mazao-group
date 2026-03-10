@@ -1,6 +1,6 @@
 import { ListItemRow } from '@/components/ListItemRow';
 import { colors, cardShadow, cardStyle, radius, spacing } from '@/constants/theme';
-import { formatDateHeader, scheduleStatusColor, scheduleStatusLabel } from '@/lib/format';
+import { formatDateHeader, isScheduleEditableByDate, scheduleStatusColor, scheduleStatusLabel } from '@/lib/format';
 import { syncWithServer } from '@/lib/syncWithServer';
 import { farmerRowToFarmer, scheduleRowToSchedule, visitRowToVisit } from '@/lib/offline-helpers';
 import { useAppRefresh } from '@/contexts/AppRefreshContext';
@@ -228,6 +228,14 @@ export default function VisitsScreen() {
     [router]
   );
 
+  const openEditSchedule = useCallback(
+    (s: Schedule) => {
+      // Route exists at (app)/edit-schedule/[id].tsx; typed routes may not include it until regenerated
+      router.push({ pathname: '/(app)/edit-schedule/[id]', params: { id: s.id } } as never);
+    },
+    [router]
+  );
+
   const openVisit = useCallback((id: string) => router.push({ pathname: '/(app)/visits/[id]', params: { id } }), [router]);
 
   return (
@@ -298,30 +306,44 @@ export default function VisitsScreen() {
                     <Text variant="labelLarge" style={styles.dateHeader}>
                       {formatDateHeader(date)}
                     </Text>
-                    {items.map((s) => (
-                      <ListItemRow
-                        key={s.id}
-                        avatarLetter={(farmerDisplayName(s) || '?').charAt(0)}
-                        title={farmerDisplayName(s)}
-                        subtitle={`${s.notes || 'Scheduled visit'} · Farm: ${s.farm_display_name ?? 'None'}`}
-                        onPress={() => openRecordVisit(s)}
-                        right={
-                          <View style={styles.upcomingRight}>
-                            <View style={[styles.badge, { backgroundColor: scheduleStatusColor(s.status) + '20' }]}>
-                              <Text variant="labelSmall" style={[styles.badgeText, { color: scheduleStatusColor(s.status) }]}>
-                                {scheduleStatusLabel(s.status)}
-                              </Text>
+                    {items.map((s) => {
+                      const proposedEditable = s.status === 'proposed' && isScheduleEditableByDate(s.scheduled_date);
+                      const rowPress = s.status === 'accepted' ? () => openRecordVisit(s) : proposedEditable ? () => openEditSchedule(s) : undefined;
+                      return (
+                        <ListItemRow
+                          key={s.id}
+                          avatarLetter={(farmerDisplayName(s) || '?').charAt(0)}
+                          title={farmerDisplayName(s)}
+                          subtitle={`${s.notes || 'Scheduled visit'} · Farm: ${s.farm_display_name ?? 'None'}`}
+                          onPress={rowPress}
+                          right={
+                            <View style={styles.upcomingRight}>
+                              <View style={[styles.badge, { backgroundColor: scheduleStatusColor(s.status) + '20' }]}>
+                                <Text variant="labelSmall" style={[styles.badgeText, { color: scheduleStatusColor(s.status) }]}>
+                                  {scheduleStatusLabel(s.status)}
+                                </Text>
+                              </View>
+                              {proposedEditable && (
+                                <IconButton
+                                  icon="pencil"
+                                  size={22}
+                                  iconColor={colors.primary}
+                                  onPress={() => openEditSchedule(s)}
+                                />
+                              )}
+                              {s.status === 'accepted' && (
+                                <IconButton
+                                  icon="pencil"
+                                  size={22}
+                                  iconColor={colors.primary}
+                                  onPress={() => openRecordVisit(s)}
+                                />
+                              )}
                             </View>
-                            <IconButton
-                              icon="pencil"
-                              size={22}
-                              iconColor={colors.primary}
-                              onPress={() => openRecordVisit(s)}
-                            />
-                          </View>
-                        }
-                      />
-                    ))}
+                          }
+                        />
+                      );
+                    })}
                   </View>
                 ))
               )}

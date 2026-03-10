@@ -450,7 +450,11 @@ export default function RecordVisitScreen() {
     setSubmitting(true);
     setError('');
     try {
-      if (isOnline !== false) {
+      // Re-check connectivity at submit time — NetInfo listener can be stale, so user may be online even if UI said offline
+      const netState = await NetInfo.fetch();
+      const connected = netState.isConnected === true;
+
+      if (connected) {
         const photoPlaceName = selectedFarm?.village ?? selectedFarmer?.display_name ?? 'Visit location';
         try {
           await api.createVisit({
@@ -512,6 +516,8 @@ export default function RecordVisitScreen() {
         setScheduleIdsWithRecordedVisits((prev) => new Set(prev).add(scheduleIdForSubmit));
       }
       setSnackbarMsg('Saved for sync when online.');
+      // Try sync once so if we're actually online (stale NetInfo), the visit uploads immediately
+      syncWithServer().catch(() => {});
       setTimeout(() => router.back(), 1500);
     } catch (e) {
       setSubmitError(e instanceof Error ? e.message : 'Failed to submit visit.');
@@ -520,7 +526,7 @@ export default function RecordVisitScreen() {
     } finally {
       setSubmitting(false);
     }
-  }, [mustSelectSchedule, mustSelectFarm, acceptedSchedules.length, selectedFarmerId, selectedFarmId, selectedScheduleId, scheduleIdForSubmit, photoUri, photoTakenAt, location, selectedFarm, selectedFarmer, activityType, notes, cropStage, germinationPercent, survivalRatePercent, orderValue, harvestKgs, pestsDiseases, farmersFeedback, isOnline, router]);
+  }, [mustSelectSchedule, mustSelectFarm, acceptedSchedules.length, selectedFarmerId, selectedFarmId, selectedScheduleId, scheduleIdForSubmit, photoUri, photoTakenAt, location, selectedFarm, selectedFarmer, activityType, notes, cropStage, germinationPercent, survivalRatePercent, orderValue, harvestKgs, pestsDiseases, farmersFeedback, router]);
 
   const activityLabel =
     activityTypesList.find((a) => a.value === activityType)?.label ??
