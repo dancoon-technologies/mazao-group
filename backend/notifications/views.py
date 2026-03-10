@@ -2,9 +2,11 @@ import logging
 
 from rest_framework import generics, status
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.request import Request
 from rest_framework.response import Response
+from rest_framework.views import APIView
 
-from .models import Notification
+from .models import Notification, PushToken
 from .serializers import NotificationSerializer
 
 logger = logging.getLogger(__name__)
@@ -109,3 +111,24 @@ class NotificationArchiveView(generics.GenericAPIView):
         notification.save(update_fields=["archived_at"])
         logger.debug("POST /api/notifications/%s/archive user=%s", pk, request.user.id)
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class RegisterPushTokenView(APIView):
+    """Register or update Expo push token for the current user (mobile)."""
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request: Request):
+        token = (request.data.get("expo_push_token") or request.data.get("token") or "").strip()
+        if not token or not token.startswith("ExponentPushToken["):
+            return Response(
+                {"detail": "Valid expo_push_token (ExponentPushToken[...]) is required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        device_id = (request.data.get("device_id") or "").strip() or None
+        PushToken.objects.update_or_create(
+            token=token,
+            defaults={"user": request.user, "device_id": device_id or ""},
+        )
+        logger.debug("POST /api/notifications/register-device/ user=%s token_prefix=%s", request.user.id, token[:30])
+        return Response({"status": "ok"})

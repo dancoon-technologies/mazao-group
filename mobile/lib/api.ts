@@ -82,6 +82,14 @@ export interface LocationData {
   sub_counties: { id: number; county_id: number; name: string }[];
 }
 
+export interface Notification {
+  id: string;
+  title: string;
+  message: string;
+  created_at: string;
+  read_at: string | null;
+}
+
 export interface DashboardStats {
   visits_today: number;
   visits_this_month: number;
@@ -493,5 +501,34 @@ export const api = {
     const q = params?.search?.trim() ? `?search=${encodeURIComponent(params.search.trim())}` : '';
     const data = await request<Farmer[] | { results: Farmer[] }>(`/farmers/${q}`);
     return ensureArray(data);
+  },
+
+  // Notifications (in-app + push token registration)
+  async getNotifications() {
+    const data = await request<Notification[] | { results: Notification[] }>('/notifications/');
+    return ensureArray(data);
+  },
+
+  async getNotificationUnreadCount() {
+    return request<{ unread_count: number }>('/notifications/unread-count/');
+  },
+
+  async markNotificationRead(id: string) {
+    return request<Notification>(`/notifications/${id}/read/`, { method: 'PATCH' });
+  },
+
+  async markAllNotificationsRead() {
+    return request<{ marked_count: number }>('/notifications/mark-all-read/', { method: 'POST' });
+  },
+
+  async archiveNotification(id: string) {
+    await request(`/notifications/${id}/archive/`, { method: 'POST' });
+  },
+
+  async registerPushToken(expo_push_token: string, device_id?: string) {
+    return request<{ status: string }>('/notifications/register-device/', {
+      method: 'POST',
+      body: JSON.stringify({ expo_push_token: expo_push_token, device_id: device_id ?? '' }),
+    });
   },
 };

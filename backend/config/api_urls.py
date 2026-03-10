@@ -18,6 +18,7 @@ from notifications.views import (
     NotificationMarkAllReadView,
     NotificationMarkReadView,
     NotificationUnreadCountView,
+    RegisterPushTokenView,
 )
 from schedules.views import ScheduleApproveView, ScheduleListCreateView, ScheduleUpdateView
 from visits.dashboard_views import (
@@ -78,5 +79,10 @@ urlpatterns = [
         "notifications/<uuid:pk>/archive/",
         NotificationArchiveView.as_view(),
         name="notification-archive",
+    ),
+    path(
+        "notifications/register-device/",
+        RegisterPushTokenView.as_view(),
+        name="notification-register-device",
     ),
 ]

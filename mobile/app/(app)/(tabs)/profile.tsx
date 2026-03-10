@@ -1,11 +1,12 @@
 import { colors, radius, spacing } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
+import { api } from '@/lib/api';
 import { getPendingSyncCount, syncWithServer } from '@/lib/syncWithServer';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import NetInfo from '@react-native-community/netinfo';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Button, Card, Divider, Snackbar, Text } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -51,6 +52,7 @@ export default function ProfileScreen() {
   const [pendingCount, setPendingCount] = useState(0);
   const [syncError, setSyncError] = useState<string | null>(null);
   const [snackbarVisible, setSnackbarVisible] = useState(false);
+  const [unreadNotifications, setUnreadNotifications] = useState(0);
 
   useEffect(() => {
     const sub = NetInfo.addEventListener((state) => setIsOnline(state.isConnected ?? false));
@@ -62,10 +64,20 @@ export default function ProfileScreen() {
     setPendingCount(n);
   }, []);
 
+  const refreshUnread = useCallback(async () => {
+    try {
+      const { unread_count } = await api.getNotificationUnreadCount();
+      setUnreadNotifications(unread_count);
+    } catch {
+      setUnreadNotifications(0);
+    }
+  }, []);
+
   useFocusEffect(
     useCallback(() => {
       refreshPending();
-    }, [refreshPending])
+      refreshUnread();
+    }, [refreshPending, refreshUnread])
   );
 
   const handleSync = useCallback(async () => {
@@ -134,6 +146,32 @@ export default function ProfileScreen() {
           Account Information
         </Text>
         <Card style={styles.card} elevation={0}>
+          <Pressable
+            onPress={() => router.push('/(app)/notifications')}
+            style={({ pressed }) => [pressed && styles.pressed]}
+          >
+            <Card.Content style={styles.infoCardContent}>
+              <InfoRow
+                icon="bell-outline"
+                iconColor={colors.primary}
+                label="Notifications"
+                valueComponent={
+                  <View style={styles.notifRow}>
+                    <Text variant="bodyLarge" style={styles.infoValue}>
+                      {unreadNotifications > 0 ? `${unreadNotifications} unread` : 'View all'}
+                    </Text>
+                    {unreadNotifications > 0 && (
+                      <View style={styles.badge}>
+                        <Text variant="labelSmall" style={styles.badgeText}>{unreadNotifications}</Text>
+                      </View>
+                    )}
+                    <MaterialCommunityIcons name="chevron-right" size={22} color={colors.gray500} />
+                  </View>
+                }
+              />
+            </Card.Content>
+          </Pressable>
+          <Divider style={styles.divider} />
           <Card.Content style={styles.infoCardContent}>
             <InfoRow
               icon="account-outline"
@@ -262,4 +300,16 @@ const styles = StyleSheet.create({
   syncBtn: { marginTop: spacing.sm },
   logoutWrap: { marginTop: spacing.xl },
   logout: { borderColor: colors.error, color: colors.error },
+  pressed: { opacity: 0.7 },
+  notifRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  badge: {
+    backgroundColor: colors.primary,
+    borderRadius: radius.full,
+    minWidth: 22,
+    height: 22,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 6,
+  },
+  badgeText: { color: colors.white, fontWeight: '700' },
 });

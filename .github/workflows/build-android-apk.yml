@@ -1,5 +1,8 @@
 name: Build Android APK
 
+# Push notifications: ensure Android FCM credentials are configured in your EAS project
+# (Dashboard → Project → Credentials, or `eas credentials`). EAS Build uses them when
+# building so the APK can receive Expo push notifications.
 on:
   push:
     branches: [main]
@@ -35,12 +38,13 @@ jobs:
           pwd
           npm install
 
+      # EAS Build (local): EXPO_TOKEN authenticates to EAS so credentials (e.g. FCM for push)
+      # are fetched and embedded in the APK. projectId is in app.json extra.eas.projectId.
       - name: Build APK locally
         working-directory: mobile
         run: npx eas build --platform android --profile preview --local --non-interactive --output ./build/app.apk
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-          # Inlined into the app at build time (Expo EXPO_PUBLIC_*)
           EXPO_PUBLIC_API_URL: ${{ secrets.EXPO_PUBLIC_API_URL }}
 
       - name: Upload APK artifact

@@ -1,8 +1,10 @@
 import { AppRefreshProvider, useAppRefresh } from '@/contexts/AppRefreshContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { appMeta$ } from '@/store/observable';
+import { registerForPushNotificationsAsync } from '@/lib/pushNotifications';
 import { getLastSync, syncWithServer } from '@/lib/syncWithServer';
 import NetInfo from '@react-native-community/netinfo';
+import * as Notifications from 'expo-notifications';
 import { Stack, useRouter } from 'expo-router';
 import { useEffect, useRef } from 'react';
 import { AppState, type AppStateStatus } from 'react-native';
@@ -72,6 +74,25 @@ function AppLayoutInner() {
     return () => sub.remove();
   }, [isAuthenticated, triggerRefresh]);
 
+  // Register for push notifications when authenticated
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    registerForPushNotificationsAsync().catch(() => {});
+  }, [isAuthenticated]);
+
+  // When user taps a push notification, open the notifications screen
+  const notificationResponseListener = useRef<Notifications.EventSubscription | null>(null);
+  useEffect(() => {
+    notificationResponseListener.current = Notifications.addNotificationResponseReceivedListener(() => {
+      router.push('/(app)/notifications' as never);
+    });
+    return () => {
+      if (notificationResponseListener.current) {
+        Notifications.removeNotificationSubscription(notificationResponseListener.current);
+      }
+    };
+  }, [router]);
+
   if (!isAuthenticated || mustChangePassword) return null;
 
   return (
@@ -82,6 +103,7 @@ function AppLayoutInner() {
       <Stack.Screen name="record-visit" options={{ title: 'Record visit' }} />
       <Stack.Screen name="add-farmer" options={{ title: 'Add farmer' }} />
       <Stack.Screen name="propose-schedule" options={{ title: 'Propose schedule' }} />
+      <Stack.Screen name="notifications" options={{ title: 'Notifications' }} />
     </Stack>
   );
 }
