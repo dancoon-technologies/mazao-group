@@ -408,6 +408,13 @@ export default function SchedulesPage() {
         }
       />
 
+      {canApprove && (
+        <Alert color="blue" variant="light" mt="md" mb="xs">
+          Officers can edit proposed schedules when the date is more than one day away. Accept or reject a proposed
+          schedule to confirm the current proposal; once accepted, it is reflected for the officer.
+        </Alert>
+      )}
+
       {canCreate && showForm && (
         <Paper mt="md" p="md" radius="md" shadow="sm" withBorder>
           <Text size="lg" fw={600} mb="md">

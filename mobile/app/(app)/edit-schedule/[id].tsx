@@ -11,10 +11,10 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import NetInfo from '@react-native-community/netinfo';
 import { useCallback, useEffect, useState } from 'react';
 import { View, StyleSheet, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
-import { Appbar, Button, Text, TextInput, ActivityIndicator, Banner } from 'react-native-paper';
+import { Appbar, Button, Text, TextInput, ActivityIndicator, Banner, Snackbar } from 'react-native-paper';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { isScheduleEditableByDate } from '@/lib/format';
-import { appbarHeight, scrollPaddingKeyboard } from '@/constants/theme';
+import { appbarHeight, colors, scrollPaddingKeyboard } from '@/constants/theme';
 
 export default function EditScheduleScreen() {
   const router = useRouter();
@@ -32,6 +32,7 @@ export default function EditScheduleScreen() {
   const [selectedFarmerId, setSelectedFarmerId] = useState<string | null>(null);
   const [selectedFarmId, setSelectedFarmId] = useState<string | null>(null);
   const [notes, setNotes] = useState('');
+  const [snackbarVisible, setSnackbarVisible] = useState(false);
 
   const load = useCallback(async () => {
     if (!scheduleId) return;
@@ -134,7 +135,10 @@ export default function EditScheduleScreen() {
         notes: notes.trim() || undefined,
       });
       await syncWithServer().catch(() => {});
-      router.back();
+      setSnackbarVisible(true);
+      setTimeout(() => {
+        router.back();
+      }, 2200);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to update schedule');
     } finally {
@@ -290,6 +294,16 @@ export default function EditScheduleScreen() {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      <Snackbar
+        visible={snackbarVisible}
+        onDismiss={() => setSnackbarVisible(false)}
+        duration={2000}
+        wrapperStyle={{ position: 'absolute', left: 0, right: 0, top: insets.top }}
+        style={{ backgroundColor: colors.primary }}
+      >
+        Changes saved. Your supervisor must accept the schedule for it to take effect.
+      </Snackbar>
     </SafeAreaView>
   );
 }
