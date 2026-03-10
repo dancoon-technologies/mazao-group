@@ -30,12 +30,11 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
-      # Use npm (not pnpm) so node_modules is flat and react-native-reanimated finds
-      # react-native-worklets' libworklets.so in one place; pnpm's layout breaks the native link.
+      # Use npm only; remove other lock files so expo doctor sees a single lock file.
       - name: Install dependencies
         working-directory: mobile
         run: |
-          pwd
+          rm -f pnpm-lock.yaml yarn.lock
           npm install
 
       # EAS Build (local): EXPO_TOKEN authenticates to EAS so credentials (e.g. FCM for push)

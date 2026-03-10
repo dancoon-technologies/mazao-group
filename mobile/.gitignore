@@ -2,6 +2,9 @@
 
 # dependencies
 node_modules/
+# Use npm only so EAS/Expo doctor sees a single lock file
+pnpm-lock.yaml
+yarn.lock
 
 # Expo
 .expo/
