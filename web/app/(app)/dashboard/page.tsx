@@ -26,6 +26,14 @@ export default function DashboardPage() {
     (signal) => api.getDashboardVisitsByDay(parseInt(days, 10), { signal }),
     [days]
   );
+  const { data: statsByDepartment = [] } = useAsyncData(
+    (signal) => api.getDashboardStatsByDepartment({ signal }),
+    []
+  );
+  const { data: visitsByActivity = [] } = useAsyncData(
+    (signal) => api.getDashboardVisitsByActivity({ signal }),
+    []
+  );
   const { data: recentVisitsData } = useAsyncData(
     (signal) => api.getVisits(undefined, { signal }),
     []
@@ -93,6 +101,8 @@ export default function DashboardPage() {
           visitsChartData={visitsChartData}
           days={days}
           onDaysChange={setDays}
+          statsByDepartment={statsByDepartment ?? []}
+          visitsByActivity={visitsByActivity ?? []}
         />
       </Box>
 

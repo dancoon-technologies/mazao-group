@@ -22,6 +22,32 @@ import { formatDateTime, formatActivityType, pluralize } from "@/lib/format";
 import { DataTable, type DataTableColumn, PageLoading, PageError, PageHeader } from "@/components/ui";
 import { PAGE_BOX_MIN_WIDTH } from "@/lib/constants";
 
+type ReportPeriod = "daily" | "weekly" | "monthly";
+
+function getWeekBounds(dateStr: string): { from: string; to: string } {
+  const d = new Date(dateStr + "T12:00:00");
+  const day = d.getDay();
+  const diffToMonday = day === 0 ? 6 : day - 1;
+  d.setDate(d.getDate() - diffToMonday);
+  const from = d.toISOString().slice(0, 10);
+  d.setDate(d.getDate() + 6);
+  const to = d.toISOString().slice(0, 10);
+  return { from, to };
+}
+
+function getMonthBounds(ym: string): { from: string; to: string } {
+  const from = ym + "-01";
+  const d = new Date(ym + "-01T12:00:00");
+  d.setMonth(d.getMonth() + 1);
+  d.setDate(0);
+  const to = d.toISOString().slice(0, 10);
+  return { from, to };
+}
+
+function todayISO(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
 function VisitDetailModal({
   visit,
   opened,
@@ -79,25 +105,34 @@ export default function VisitsPage() {
   const isAdminOrSupervisor = role === "admin" || role === "supervisor";
   const isAdmin = role === "admin";
 
-  const [dateFilter, setDateFilter] = useState("");
+  const [reportPeriod, setReportPeriod] = useState<ReportPeriod>("daily");
+  const [reportDate, setReportDate] = useState(() => todayISO());
   const [officerFilter, setOfficerFilter] = useState<string | null>(null);
   const [departmentFilter, setDepartmentFilter] = useState<string | null>(null);
   const [selectedVisit, setSelectedVisit] = useState<Visit | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
 
+  const visitParams = useMemo(() => {
+    const base: Parameters<typeof api.getVisits>[0] = {
+      ...(officerFilter ? { officer: officerFilter } : {}),
+      ...(isAdmin && departmentFilter ? { department: departmentFilter } : {}),
+    };
+    if (reportPeriod === "daily") {
+      return { ...base, date: reportDate };
+    }
+    if (reportPeriod === "weekly") {
+      const { from, to } = getWeekBounds(reportDate);
+      return { ...base, date_from: from, date_to: to };
+    }
+    const { from, to } = getMonthBounds(reportDate.slice(0, 7));
+    return { ...base, date_from: from, date_to: to };
+  }, [reportPeriod, reportDate, officerFilter, departmentFilter, isAdmin]);
+
   const fetchVisits = useCallback(
-    (signal: AbortSignal) =>
-      api.getVisits(
-        {
-          ...(dateFilter ? { date: dateFilter } : {}),
-          ...(officerFilter ? { officer: officerFilter } : {}),
-          ...(isAdmin && departmentFilter ? { department: departmentFilter } : {}),
-        },
-        { signal }
-      ),
-    [dateFilter, officerFilter, departmentFilter, isAdmin]
+    (signal: AbortSignal) => api.getVisits(visitParams, { signal }),
+    [visitParams]
   );
-  const { data: visitsData, error, loading } = useAsyncData(fetchVisits, [dateFilter, officerFilter, departmentFilter, isAdmin]);
+  const { data: visitsData, error, loading } = useAsyncData(fetchVisits, [visitParams]);
 
   const { data: officersData } = useAsyncData(
     (signal) => (isAdminOrSupervisor ? api.getOfficers({ signal }) : Promise.resolve([])),
@@ -116,10 +151,30 @@ export default function VisitsPage() {
 
   const visits = visitsData ?? [];
 
+  const reportPeriodLabel = useMemo(() => {
+    if (reportPeriod === "daily") return `Daily report — ${reportDate}`;
+    if (reportPeriod === "weekly") {
+      const { from, to } = getWeekBounds(reportDate);
+      return `Weekly report — ${from} to ${to}`;
+    }
+    const [y, m] = reportDate.slice(0, 7).split("-");
+    const monthName = new Date(Number(y), Number(m) - 1, 1).toLocaleString("default", { month: "long" });
+    return `Monthly report — ${monthName} ${y}`;
+  }, [reportPeriod, reportDate]);
+
   const officerOptions = useMemo(
     () => officers.map((o) => ({ value: o.id, label: o.display_name ? `${o.display_name} (${o.email})` : o.email })),
     [officers]
   );
+
+  const exportFilenameBase = useMemo(() => {
+    if (reportPeriod === "daily") return `visits-daily-${reportDate}`;
+    if (reportPeriod === "weekly") {
+      const { from, to } = getWeekBounds(reportDate);
+      return `visits-weekly-${from}-to-${to}`;
+    }
+    return `visits-monthly-${reportDate.slice(0, 7)}`;
+  }, [reportPeriod, reportDate]);
 
   const handleExportExcel = () => {
     const rows = visits.map((v) => ({
@@ -143,7 +198,7 @@ export default function VisitsPage() {
     const ws = XLSX.utils.json_to_sheet(rows);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Visits");
-    XLSX.writeFile(wb, `visits-export-${new Date().toISOString().slice(0, 10)}.xlsx`);
+    XLSX.writeFile(wb, `${exportFilenameBase}.xlsx`);
   };
 
   const handleExportPdf = async () => {
@@ -187,7 +242,7 @@ export default function VisitsPage() {
       v.verification_status ?? "",
     ]);
     doc.setFontSize(14);
-    doc.text("Visit / Farmer Report", 14, 12);
+    doc.text(reportPeriodLabel, 14, 12);
     doc.setFontSize(10);
     doc.text(`Generated ${formatDateTime(new Date().toISOString())} — ${visits.length} visit(s)`, 14, 18);
     autoTable(doc, {
@@ -197,7 +252,7 @@ export default function VisitsPage() {
       styles: { fontSize: 7 },
       margin: { left: 14, right: 14 },
     });
-    doc.save(`visits-export-${new Date().toISOString().slice(0, 10)}.pdf`);
+    doc.save(`${exportFilenameBase}.pdf`);
   };
 
   const openDetail = (v: Visit) => {
@@ -309,9 +364,38 @@ export default function VisitsPage() {
     <Box style={{ minWidth: PAGE_BOX_MIN_WIDTH }}>
       <PageHeader
         title="Visits"
-        subtitle={pluralize(visits.length, "visit") + " listed"}
+        subtitle={reportPeriodLabel + " — " + pluralize(visits.length, "visit")}
         action={
-          <Group>
+          <Group wrap="wrap" align="flex-end">
+            <Select
+              label="Report period"
+              size="sm"
+              data={[
+                { value: "daily", label: "Daily" },
+                { value: "weekly", label: "Weekly" },
+                { value: "monthly", label: "Monthly" },
+              ]}
+              value={reportPeriod}
+              onChange={(v) => v && setReportPeriod(v as ReportPeriod)}
+              style={{ minWidth: 120 }}
+            />
+            {reportPeriod === "monthly" ? (
+              <TextInput
+                type="month"
+                label="Month"
+                size="sm"
+                value={reportDate.slice(0, 7)}
+                onChange={(e) => setReportDate((e.target.value || reportDate.slice(0, 7)) + "-01")}
+              />
+            ) : (
+              <TextInput
+                type="date"
+                label={reportPeriod === "weekly" ? "Week of" : "Date"}
+                size="sm"
+                value={reportDate}
+                onChange={(e) => setReportDate(e.target.value || todayISO())}
+              />
+            )}
             {isAdmin && (
               <Select
                 placeholder="All departments"
@@ -320,6 +404,7 @@ export default function VisitsPage() {
                 value={departmentFilter}
                 onChange={setDepartmentFilter}
                 style={{ minWidth: 180 }}
+                size="sm"
               />
             )}
             {isAdminOrSupervisor && (
@@ -330,24 +415,17 @@ export default function VisitsPage() {
                 value={officerFilter}
                 onChange={setOfficerFilter}
                 style={{ minWidth: 180 }}
+                size="sm"
               />
             )}
-            <TextInput
-              type="date"
-              value={dateFilter}
-              onChange={(e) => setDateFilter(e.target.value)}
-              placeholder="Filter by date"
-            />
-            {visits.length > 0 && (
-              <>
-                <Button variant="light" color="green" onClick={handleExportExcel}>
-                  Export Excel
-                </Button>
-                <Button variant="light" color="green" onClick={handleExportPdf}>
-                  Export PDF
-                </Button>
-              </>
-            )}
+            <Group gap="xs">
+              <Button variant="light" color="green" size="sm" onClick={handleExportExcel}>
+                Generate Excel
+              </Button>
+              <Button variant="light" color="green" size="sm" onClick={handleExportPdf}>
+                Generate PDF
+              </Button>
+            </Group>
           </Group>
         }
       />

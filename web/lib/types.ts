@@ -63,6 +63,19 @@ export interface DashboardVisitsByDayItem {
   count: number;
 }
 
+export interface DashboardStatsByDepartmentItem {
+  department_slug: string;
+  department_name: string;
+  visits_today: number;
+  visits_this_month: number;
+  active_officers: number;
+}
+
+export interface DashboardVisitsByActivityItem {
+  activity_type: string;
+  count: number;
+}
+
 export interface LoginResponse {
   access: string;
   refresh: string;
@@ -140,6 +153,13 @@ export interface StaffUser {
   county_id: number | null;
   sub_county_id: number | null;
   is_active: boolean;
+}
+
+/** Staff user with visit counts (from GET /api/staff/performance). */
+export interface StaffPerformanceUser extends StaffUser {
+  visits_today: number;
+  visits_this_month: number;
+  visits_total: number;
 }
 
 export interface Notification {

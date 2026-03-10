@@ -71,3 +71,33 @@ class ScheduleCreateSerializer(serializers.ModelSerializer):
                 {"farm": "Farm must belong to the selected farmer."}
             )
         return attrs
+
+
+class ScheduleUpdateSerializer(serializers.ModelSerializer):
+    """Partial update for proposed schedules: scheduled_date, farmer, farm, notes; supervisor may set officer."""
+
+    officer = serializers.PrimaryKeyRelatedField(
+        queryset=User.objects.filter(role=User.Role.OFFICER),
+        required=False,
+        allow_null=True,
+    )
+    farmer = serializers.PrimaryKeyRelatedField(
+        queryset=Farmer.objects.all(), required=False, allow_null=True
+    )
+    farm = serializers.PrimaryKeyRelatedField(
+        queryset=Farm.objects.all(), required=False, allow_null=True
+    )
+
+    class Meta:
+        model = Schedule
+        extra_kwargs = {"notes": {"max_length": 2000}}
+        fields = ("officer", "farmer", "farm", "scheduled_date", "notes")
+
+    def validate(self, attrs):
+        farm = attrs.get("farm")
+        farmer = attrs.get("farmer")
+        if farm is not None and farmer is not None and farm.farmer_id != farmer.id:
+            raise serializers.ValidationError(
+                {"farm": "Farm must belong to the selected farmer."}
+            )
+        return attrs

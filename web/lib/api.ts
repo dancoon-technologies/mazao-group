@@ -3,10 +3,13 @@ import type {
   Farm,
   Visit,
   DashboardStats,
+  DashboardStatsByDepartmentItem,
   DashboardVisitsByDayItem,
+  DashboardVisitsByActivityItem,
   UserRole,
   Schedule,
   StaffUser,
+  StaffPerformanceUser,
   Notification,
   LocationsResponse,
   OptionsResponse,
@@ -142,12 +145,14 @@ export const api = {
   },
 
   async getVisits(
-    params?: { officer?: string; date?: string; department?: string },
+    params?: { officer?: string; date?: string; date_from?: string; date_to?: string; department?: string },
     options?: { signal?: AbortSignal }
   ): Promise<Visit[]> {
     const search = new URLSearchParams();
     if (params?.officer) search.set("officer", params.officer);
     if (params?.date) search.set("date", params.date);
+    if (params?.date_from) search.set("date_from", params.date_from);
+    if (params?.date_to) search.set("date_to", params.date_to);
     if (params?.department) search.set("department", params.department);
     const qs = search.toString();
     const url = qs ? `${API_BASE}/api/visits?${qs}` : `${API_BASE}/api/visits`;
@@ -186,6 +191,26 @@ export const api = {
     return res.json();
   },
 
+  async getDashboardStatsByDepartment(options?: { signal?: AbortSignal }): Promise<DashboardStatsByDepartmentItem[]> {
+    const res = await authFetch(`${API_BASE}/api/dashboard/stats-by-department`, { signal: options?.signal });
+    if (!res.ok) {
+      if (res.status === 403)
+        throw new Error("Dashboard is for admin and supervisor only.");
+      throw new Error("Failed to fetch stats by department");
+    }
+    return res.json();
+  },
+
+  async getDashboardVisitsByActivity(options?: { signal?: AbortSignal }): Promise<DashboardVisitsByActivityItem[]> {
+    const res = await authFetch(`${API_BASE}/api/dashboard/visits-by-activity`, { signal: options?.signal });
+    if (!res.ok) {
+      if (res.status === 403)
+        throw new Error("Dashboard is for admin and supervisor only.");
+      throw new Error("Failed to fetch visits by activity");
+    }
+    return res.json();
+  },
+
   async getSchedules(params?: { department?: string }): Promise<Schedule[]> {
     const search = new URLSearchParams();
     if (params?.department) search.set("department", params.department);
@@ -217,6 +242,30 @@ export const api = {
     return res.json();
   },
 
+  async updateSchedule(
+    scheduleId: string,
+    data: {
+      officer?: string;
+      farmer?: string | null;
+      farm?: string | null;
+      scheduled_date?: string;
+      notes?: string;
+    }
+  ): Promise<Schedule> {
+    const res = await authFetch(`${API_BASE}/api/schedules/${scheduleId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(
+        parseApiError(err, "Failed to update schedule", ["detail", "scheduled_date", "officer"])
+      );
+    }
+    return res.json();
+  },
+
   async getOfficers(options?: { signal?: AbortSignal }): Promise<StaffUser[]> {
     const res = await authFetch(`${API_BASE}/api/officers`, { signal: options?.signal });
     if (!res.ok) throw new Error("Failed to fetch officers");
@@ -241,6 +290,26 @@ export const api = {
     const res = await authFetch(`${API_BASE}/api/staff`, { signal: options?.signal });
     if (!res.ok) throw new Error("Failed to fetch staff");
     return unwrapList(await res.json());
+  },
+
+  async getStaffById(staffId: string, options?: { signal?: AbortSignal }): Promise<StaffUser> {
+    const res = await authFetch(`${API_BASE}/api/staff/${encodeURIComponent(staffId)}`, { signal: options?.signal });
+    if (!res.ok) {
+      if (res.status === 403) throw new Error("Only admins can view staff details.");
+      if (res.status === 404) throw new Error("Staff member not found.");
+      throw new Error("Failed to fetch staff");
+    }
+    return res.json();
+  },
+
+  async getStaffPerformance(options?: { signal?: AbortSignal }): Promise<StaffPerformanceUser[]> {
+    const res = await authFetch(`${API_BASE}/api/staff/performance`, { signal: options?.signal });
+    if (!res.ok) {
+      if (res.status === 403) throw new Error("Only admins can view staff performance.");
+      throw new Error("Failed to fetch staff performance");
+    }
+    const data = await res.json();
+    return Array.isArray(data) ? data : [];
   },
 
   async registerStaff(data: {

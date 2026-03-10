@@ -70,7 +70,14 @@ class VisitListCreateView(generics.ListCreateAPIView):
         if officer_id:
             queryset = queryset.filter(officer_id=officer_id)
         date_str = request.query_params.get("date")
-        if date_str:
+        date_from = request.query_params.get("date_from")
+        date_to = request.query_params.get("date_to")
+        if date_from and date_to:
+            queryset = queryset.filter(
+                created_at__date__gte=date_from,
+                created_at__date__lte=date_to,
+            )
+        elif date_str:
             queryset = queryset.filter(created_at__date=date_str)
         if request.user.role == "admin":
             department_slug = request.query_params.get("department")
@@ -91,7 +98,7 @@ class VisitListCreateView(generics.ListCreateAPIView):
         data = serializer.validated_data
         farmer_id = data["farmer_id"]
         farm_id = data.get("farm_id")
-        schedule_id = data.get("schedule_id")
+        schedule_id = data["schedule_id"]
         lat = float(data["latitude"])
         lon = float(data["longitude"])
         photo = request.FILES.get("photo")
@@ -152,38 +159,41 @@ class VisitListCreateView(generics.ListCreateAPIView):
         if ref_lat is None:
             ref_lat, ref_lon = float(farmer.latitude), float(farmer.longitude)
 
-        schedule = None
-        if schedule_id:
-            try:
-                schedule = Schedule.objects.select_related("officer", "farmer").get(pk=schedule_id)
-                if schedule.officer_id != user.pk:
-                    logger.warning("POST /api/visits/ schedule_id=%s officer mismatch user=%s", schedule_id, user.id)
-                    return Response(
-                        {"schedule_id": ["This schedule is not assigned to you."]},
-                        status=status.HTTP_400_BAD_REQUEST,
-                    )
-                if schedule.farmer_id and schedule.farmer_id != farmer_id:
-                    return Response(
-                        {"schedule_id": ["Schedule is for a different farmer."]},
-                        status=status.HTTP_400_BAD_REQUEST,
-                    )
-            except Schedule.DoesNotExist:
-                logger.warning("POST /api/visits/ schedule_id=%s not found", schedule_id)
-                return Response(
-                    {"schedule_id": ["Schedule not found."]},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-            today = timezone.now().date()
-            if schedule.scheduled_date != today:
-                return Response(
-                    {"schedule_id": ["You can only record a visit for a schedule on its scheduled date."]},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-            if Visit.objects.filter(schedule=schedule).exists():
-                return Response(
-                    {"schedule_id": ["A visit has already been recorded for this schedule."]},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
+        try:
+            schedule = Schedule.objects.select_related("officer", "farmer").get(pk=schedule_id)
+        except Schedule.DoesNotExist:
+            logger.warning("POST /api/visits/ schedule_id=%s not found", schedule_id)
+            return Response(
+                {"schedule_id": ["Schedule not found."]},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if schedule.status != Schedule.Status.ACCEPTED:
+            return Response(
+                {"schedule_id": ["Only accepted (planned) schedules can have visits recorded."]},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if schedule.officer_id != user.pk:
+            logger.warning("POST /api/visits/ schedule_id=%s officer mismatch user=%s", schedule_id, user.id)
+            return Response(
+                {"schedule_id": ["This schedule is not assigned to you."]},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if schedule.farmer_id and schedule.farmer_id != farmer_id:
+            return Response(
+                {"schedule_id": ["Schedule is for a different farmer."]},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        today = timezone.now().date()
+        if schedule.scheduled_date != today:
+            return Response(
+                {"schedule_id": ["You can only record a visit for a schedule on its scheduled date."]},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if Visit.objects.filter(schedule=schedule).exists():
+            return Response(
+                {"schedule_id": ["A visit has already been recorded for this schedule."]},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         max_m = getattr(django_settings, "VISIT_MAX_DISTANCE_METERS", 100)
         distance = haversine_meters(lat, lon, ref_lat, ref_lon)

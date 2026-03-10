@@ -6,6 +6,7 @@ from accounts.views import (
     OfficersListView,
     OptionsListView,
     StaffListCreateView,
+    StaffPerformanceView,
     StaffResendCredentialsView,
     StaffUpdateView,
 )
@@ -18,8 +19,13 @@ from notifications.views import (
     NotificationMarkReadView,
     NotificationUnreadCountView,
 )
-from schedules.views import ScheduleApproveView, ScheduleListCreateView
-from visits.dashboard_views import DashboardStatsView, DashboardVisitsByDayView
+from schedules.views import ScheduleApproveView, ScheduleListCreateView, ScheduleUpdateView
+from visits.dashboard_views import (
+    DashboardStatsByDepartmentView,
+    DashboardStatsView,
+    DashboardVisitsByActivityView,
+    DashboardVisitsByDayView,
+)
 from visits.views import VisitListCreateView
 
 urlpatterns = [
@@ -30,9 +36,13 @@ urlpatterns = [
     path("farms/", FarmListCreateView.as_view(), name="farm-list-create"),
     path("visits/", VisitListCreateView.as_view(), name="visit-list-create"),
     path("dashboard/stats/", DashboardStatsView.as_view(), name="dashboard-stats"),
+    path("dashboard/stats-by-department/", DashboardStatsByDepartmentView.as_view(), name="dashboard-stats-by-department"),
     path("dashboard/visits-by-day/", DashboardVisitsByDayView.as_view(), name="dashboard-visits-by-day"),
+    path("dashboard/visits-by-activity/", DashboardVisitsByActivityView.as_view(), name="dashboard-visits-by-activity"),
     path("schedules/", ScheduleListCreateView.as_view(), name="schedule-list-create"),
+    path("schedules/<uuid:pk>/", ScheduleUpdateView.as_view(), name="schedule-update"),
     path("schedules/<uuid:pk>/approve/", ScheduleApproveView.as_view(), name="schedule-approve"),
+    path("staff/performance/", StaffPerformanceView.as_view(), name="staff-performance"),
     path("staff/<uuid:pk>/", StaffUpdateView.as_view(), name="staff-update"),
     path("staff/<uuid:pk>", StaffUpdateView.as_view(), name="staff-update-no-slash"),
     path(

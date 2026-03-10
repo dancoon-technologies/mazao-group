@@ -1,12 +1,14 @@
 import logging
+from datetime import timedelta
 
 from django.db.models import Q
+from django.utils import timezone
 from rest_framework import generics, status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from .models import Schedule
-from .serializers import ScheduleCreateSerializer, ScheduleSerializer
+from .serializers import ScheduleCreateSerializer, ScheduleSerializer, ScheduleUpdateSerializer
 
 logger = logging.getLogger(__name__)
 
@@ -224,3 +226,102 @@ class ScheduleApproveView(generics.GenericAPIView):
             {"action": ["Must be 'accept' or 'reject'."]},
             status=status.HTTP_400_BAD_REQUEST,
         )
+
+
+def _schedule_editable_by_date(scheduled_date):
+    """Proposed schedule is editable only if scheduled date is more than one day from today."""
+    today = timezone.now().date()
+    return scheduled_date >= today + timedelta(days=2)
+
+
+class ScheduleUpdateView(generics.UpdateAPIView):
+    """PATCH schedule: supervisors and officers may request change of proposed schedule if not within one day of date."""
+
+    permission_classes = [IsAuthenticated]
+    serializer_class = ScheduleUpdateSerializer
+    http_method_names = ["patch", "options", "head"]
+
+    def get_queryset(self):
+        user = self.request.user
+        qs = Schedule.objects.select_related(
+            "created_by", "officer", "officer__department", "farmer", "farm", "approved_by"
+        )
+        if user.role == "admin":
+            return qs
+        if user.role == "supervisor":
+            if user.department_id:
+                return qs.filter(officer__department=user.department)
+            return qs.none()
+        if user.role == "officer":
+            return qs.filter(officer=user)
+        return qs.none()
+
+    def check_can_edit(self, schedule, user):
+        if user.role not in ("supervisor", "officer"):
+            return False, "Only supervisors and field extension officers can request schedule changes."
+        if schedule.status != Schedule.Status.PROPOSED:
+            return False, "Only proposed schedules can be edited."
+        if not _schedule_editable_by_date(schedule.scheduled_date):
+            return False, "Schedule cannot be edited when it is within one day of the proposed date."
+        if user.role == "officer" and schedule.officer_id != user.id:
+            return False, "You can only edit your own proposed schedules."
+        if user.role == "supervisor" and user.department_id and schedule.officer.department_id != user.department_id:
+            return False, "Schedule is not in your department."
+        return True, None
+
+    def patch(self, request, *args, **kwargs):
+        instance = self.get_object()
+        user = request.user
+        can_edit, err_msg = self.check_can_edit(instance, user)
+        if not can_edit:
+            # 403: role, ownership, department; 400: not proposed, date too close
+            is_forbidden = err_msg in (
+                "Only supervisors and field extension officers can request schedule changes.",
+                "You can only edit your own proposed schedules.",
+                "Schedule is not in your department.",
+            )
+            return Response(
+                {"detail": err_msg},
+                status=status.HTTP_403_FORBIDDEN if is_forbidden else status.HTTP_400_BAD_REQUEST,
+            )
+        # If new scheduled_date is provided, it must also be at least 2 days from today
+        new_date = request.data.get("scheduled_date")
+        if new_date:
+            try:
+                from datetime import datetime
+                if isinstance(new_date, str):
+                    parsed = datetime.strptime(new_date[:10], "%Y-%m-%d").date()
+                else:
+                    parsed = new_date
+                if not _schedule_editable_by_date(parsed):
+                    return Response(
+                        {"scheduled_date": ["New date must be at least two days from today."]},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+            except (ValueError, TypeError):
+                pass  # Let serializer validate format
+        serializer = self.get_serializer(instance, data=request.data, partial=True)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        data = serializer.validated_data
+        # Officer cannot change the assigned officer
+        if user.role == "officer" and "officer" in data:
+            data = {k: v for k, v in data.items() if k != "officer"}
+        if user.role == "supervisor" and "officer" in data:
+            new_officer = data.get("officer")
+            if new_officer and getattr(user, "department", None) and new_officer.department != user.department:
+                return Response(
+                    {"officer": ["You can only assign officers in your department."]},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+        for attr, value in data.items():
+            setattr(instance, attr, value)
+        instance.save(update_fields=[f for f in data.keys() if hasattr(instance, f)])
+        instance.refresh_from_db()
+        instance = Schedule.objects.select_related("officer", "farmer", "farm", "created_by", "approved_by").get(pk=instance.pk)
+        logger.info(
+            "PATCH /api/schedules/%s by user=%s",
+            instance.id,
+            user.id,
+        )
+        return Response(ScheduleSerializer(instance).data)

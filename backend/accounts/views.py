@@ -1,5 +1,6 @@
 import logging
-
+from django.db.models import Count, Q
+from django.utils import timezone
 from rest_framework import generics, status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -128,10 +129,30 @@ class StaffListCreateView(generics.ListCreateAPIView):
 
 
 class StaffUpdateView(generics.GenericAPIView):
-    """PATCH staff by id. Admin only. Allow is_active, department, location IDs (deactivate / assign-reassign)."""
+    """GET: fetch one staff by id. PATCH: update staff. Admin only."""
 
     permission_classes = [IsAuthenticated]
     serializer_class = StaffPatchSerializer
+
+    def get(self, request, pk):
+        if request.user.role != "admin":
+            return Response(
+                {"detail": "Only admins can view staff details."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        try:
+            user = User.objects.select_related("department", "region_id", "county_id", "sub_county_id").get(pk=pk)
+        except User.DoesNotExist:
+            return Response(
+                {"detail": "Staff member not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        if user.role not in (User.Role.SUPERVISOR, User.Role.OFFICER):
+            return Response(
+                {"detail": "User is not staff."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        return Response(UserSerializer(user).data)
 
     def patch(self, request, pk):
         if request.user.role != "admin":
@@ -162,6 +183,40 @@ class StaffUpdateView(generics.GenericAPIView):
         user.refresh_from_db()
         logger.info("PATCH /api/staff/%s updated by admin=%s", pk, request.user.id)
         return Response(UserSerializer(user).data)
+
+
+class StaffPerformanceView(APIView):
+    """GET /api/staff/performance/ — list staff with visit counts (visits_today, visits_this_month, visits_total). Admin only."""
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        if request.user.role != "admin":
+            return Response(
+                {"detail": "Only admins can view staff performance."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        today = timezone.now().date()
+        start_of_month = today.replace(day=1)
+        qs = (
+            User.objects.filter(role__in=(User.Role.SUPERVISOR, User.Role.OFFICER))
+            .select_related("department", "region_id", "county_id", "sub_county_id")
+            .annotate(
+                visits_today=Count("visits", filter=Q(visits__created_at__date=today)),
+                visits_this_month=Count("visits", filter=Q(visits__created_at__date__gte=start_of_month)),
+                visits_total=Count("visits"),
+            )
+            .order_by("role", "email")
+        )
+        out = []
+        for user in qs:
+            data = UserSerializer(user).data
+            data["visits_today"] = getattr(user, "visits_today", 0) or 0
+            data["visits_this_month"] = getattr(user, "visits_this_month", 0) or 0
+            data["visits_total"] = getattr(user, "visits_total", 0) or 0
+            out.append(data)
+        logger.info("GET /api/staff/performance/ admin=%s count=%s", request.user.id, len(out))
+        return Response(out)
 
 
 class ChangePasswordView(generics.GenericAPIView):

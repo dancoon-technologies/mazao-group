@@ -14,6 +14,7 @@ import {
   Box,
   Button,
   Group,
+  Modal,
   Paper,
   Select,
   Stack,
@@ -47,6 +48,16 @@ function scheduleStatusLabel(status: string): string {
     default:
       return status;
   }
+}
+
+/** Proposed schedule is editable only if the scheduled date is more than one day from today (at least 2 days ahead). */
+function isScheduleEditable(schedule: Schedule): boolean {
+  if (schedule.status !== "proposed") return false;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const d = new Date(schedule.scheduled_date + "T00:00:00");
+  const diffDays = Math.floor((d.getTime() - today.getTime()) / (24 * 60 * 60 * 1000));
+  return diffDays >= 2;
 }
 
 const scheduleColumnsBase: DataTableColumn<Schedule>[] = [
@@ -115,6 +126,7 @@ export default function SchedulesPage() {
   const { role } = useAuth();
   const canCreate = role !== null && ROLES_CAN_CREATE_SCHEDULES.includes(role);
   const canApprove = role === "admin" || role === "supervisor";
+  const canEditSchedule = role === "supervisor" || role === "officer";
   const isOfficer = role === "officer";
   const isAdminOrSupervisor = role === "admin" || role === "supervisor";
 
@@ -125,6 +137,7 @@ export default function SchedulesPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
+  const [editingSchedule, setEditingSchedule] = useState<Schedule | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState("");
   const [approvingId, setApprovingId] = useState<string | null>(null);
@@ -148,41 +161,106 @@ export default function SchedulesPage() {
     []
   );
 
+  const openEdit = useCallback(
+    (s: Schedule) => {
+      setEditingSchedule(s);
+      updateField("scheduled_date", s.scheduled_date);
+      updateField("farmer", s.farmer ?? "");
+      updateField("farm", s.farm ?? "");
+      updateField("notes", s.notes ?? "");
+      updateField("officer", s.officer ?? "");
+    },
+    [updateField]
+  );
+
+  const closeEditModal = useCallback(() => {
+    setEditingSchedule(null);
+    resetForm();
+  }, [resetForm]);
+
+  const handleEditSubmit = useCallback(
+    async (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!editingSchedule) return;
+      setFormError("");
+      if (!form.scheduled_date) {
+        setFormError("Date is required.");
+        return;
+      }
+      setSubmitting(true);
+      try {
+        const payload: Parameters<typeof api.updateSchedule>[1] = {
+          farmer: form.farmer || null,
+          farm: form.farm || null,
+          scheduled_date: form.scheduled_date,
+          notes: form.notes.trim() || undefined,
+        };
+        if (isAdminOrSupervisor && form.officer) payload.officer = form.officer;
+        const updated = await api.updateSchedule(editingSchedule.id, payload);
+        setSchedules((prev) =>
+          prev.map((s) => (s.id === updated.id ? updated : s))
+        );
+        closeEditModal();
+      } catch (err) {
+        setFormError(
+          err instanceof Error ? err.message : "Failed to update schedule"
+        );
+      } finally {
+        setSubmitting(false);
+      }
+    },
+    [editingSchedule, form, isAdminOrSupervisor, closeEditModal]
+  );
+
   const scheduleColumns = useMemo<DataTableColumn<Schedule>[]>(
     () =>
-      canApprove
+      canApprove || canEditSchedule
         ? [
-          ...scheduleColumnsBase,
-          {
-            key: "actions",
-            label: "Actions",
-            render: (s) =>
-              s.status === "proposed" ? (
-                <Group gap="xs">
-                  <Button
-                    size="xs"
-                    variant="light"
-                    color="green"
-                    loading={approvingId === s.id}
-                    onClick={() => handleApprove(s.id, "accept")}
-                  >
-                    Accept
-                  </Button>
-                  <Button
-                    size="xs"
-                    variant="light"
-                    color="red"
-                    loading={approvingId === s.id}
-                    onClick={() => handleApprove(s.id, "reject")}
-                  >
-                    Decline
-                  </Button>
-                </Group>
-              ) : null,
-          },
-        ]
+            ...scheduleColumnsBase,
+            {
+              key: "actions",
+              label: "Actions",
+              render: (s) =>
+                s.status === "proposed" ? (
+                  <Group gap="xs">
+                    {canApprove && (
+                      <>
+                        <Button
+                          size="xs"
+                          variant="light"
+                          color="green"
+                          loading={approvingId === s.id}
+                          onClick={() => handleApprove(s.id, "accept")}
+                        >
+                          Accept
+                        </Button>
+                        <Button
+                          size="xs"
+                          variant="light"
+                          color="red"
+                          loading={approvingId === s.id}
+                          onClick={() => handleApprove(s.id, "reject")}
+                        >
+                          Decline
+                        </Button>
+                      </>
+                    )}
+                    {canEditSchedule && isScheduleEditable(s) && (
+                      <Button
+                        size="xs"
+                        variant="light"
+                        color="blue"
+                        onClick={() => openEdit(s)}
+                      >
+                        Request change
+                      </Button>
+                    )}
+                  </Group>
+                ) : null,
+            },
+          ]
         : scheduleColumnsBase,
-    [canApprove, handleApprove, approvingId]
+    [canApprove, canEditSchedule, handleApprove, approvingId, openEdit]
   );
 
   const isAdmin = role === "admin";
@@ -421,6 +499,88 @@ export default function SchedulesPage() {
           </form>
         </Paper>
       )}
+
+      <Modal
+        opened={editingSchedule !== null}
+        onClose={closeEditModal}
+        title="Request schedule change"
+        size="md"
+      >
+        {editingSchedule && (
+          <Text size="sm" c="dimmed" mb="md">
+            You can change the proposed visit only when it is more than one day away.
+          </Text>
+        )}
+        <form onSubmit={handleEditSubmit}>
+          <Stack gap="md">
+            {formError && (
+              <Alert color="red" variant="light">
+                {formError}
+              </Alert>
+            )}
+            {isAdminOrSupervisor && editingSchedule && (
+              <Select
+                label="Extension officer"
+                placeholder="Select officer"
+                data={officerOptions}
+                value={form.officer || null}
+                onChange={(v) => updateField("officer", v ?? "")}
+              />
+            )}
+            <Select
+              label="Farmer (optional)"
+              placeholder="Select farmer"
+              searchable
+              clearable
+              data={farmerOptions}
+              value={form.farmer || null}
+              onChange={(v) => {
+                updateField("farmer", v ?? "");
+                updateField("farm", "");
+              }}
+            />
+            {form.farmer && (
+              <Select
+                label="Farm (optional)"
+                placeholder="None or select farm"
+                searchable
+                clearable
+                data={[
+                  { value: "", label: "— None —" },
+                  ...farms.map((f) => ({ value: f.id, label: f.village })),
+                ]}
+                value={form.farm || null}
+                onChange={(v) => updateField("farm", v ?? "")}
+              />
+            )}
+            <DateInput
+              label="Scheduled date"
+              placeholder="Pick date"
+              value={form.scheduled_date || null}
+              onChange={(value) =>
+                updateField("scheduled_date", value ?? "")
+              }
+              valueFormat="YYYY-MM-DD"
+              required
+              clearable
+            />
+            <Textarea
+              label="Notes"
+              placeholder="Optional notes"
+              value={form.notes}
+              onChange={(e) => updateField("notes", e.target.value)}
+            />
+            <Group>
+              <Button type="submit" color="blue" loading={submitting}>
+                {submitting ? "Saving…" : "Save changes"}
+              </Button>
+              <Button type="button" variant="default" onClick={closeEditModal}>
+                Cancel
+              </Button>
+            </Group>
+          </Stack>
+        </form>
+      </Modal>
 
       <DataTable
         data={schedules}

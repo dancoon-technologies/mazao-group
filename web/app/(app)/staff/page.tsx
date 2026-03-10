@@ -9,14 +9,16 @@ import {
   Paper,
   Select,
   Stack,
+  Tabs,
   Text,
   TextInput,
 } from "@mantine/core";
+import Link from "next/link";
 import { useCallback, useMemo, useState } from "react";
 import { useAsyncData } from "@/hooks/useAsyncData";
 import { useFormFields } from "@/hooks/useFormFields";
 import { api } from "@/lib/api";
-import type { StaffUser } from "@/lib/types";
+import type { StaffUser, StaffPerformanceUser } from "@/lib/types";
 import { useAuth } from "@/contexts/AuthContext";
 import { DataTable, type DataTableColumn, PageLoading, PageError, PageHeader } from "@/components/ui";
 import { PAGE_BOX_MIN_WIDTH, ROLES } from "@/lib/constants";
@@ -76,6 +78,57 @@ function buildStaffColumns(
   ];
 }
 
+function buildPerformanceColumns(
+  departmentLabelMap: Record<string, string>,
+  roleLabelMap: Record<string, string>
+): DataTableColumn<StaffPerformanceUser>[] {
+  return [
+    {
+      key: "display_name",
+      label: "Name",
+      render: (u) => (
+        <Text size="sm" fw={500} component={Link} href={`/staff/${u.id}`} style={{ textDecoration: "none", color: "var(--mantine-color-blue-6)" }}>
+          {u.display_name || u.email || "—"}
+        </Text>
+      ),
+    },
+    {
+      key: "email",
+      label: "Email",
+      render: (u) => <Text size="sm" c="dimmed">{u.email}</Text>,
+    },
+    {
+      key: "role",
+      label: "Role",
+      render: (u) => <Text size="sm">{roleLabelMap[u.role] ?? u.role}</Text>,
+    },
+    {
+      key: "department",
+      label: "Department",
+      render: (u) => (
+        <Text size="sm" c="dimmed">
+          {u.department ? (departmentLabelMap[u.department] ?? u.department) : "—"}
+        </Text>
+      ),
+    },
+    {
+      key: "visits_today",
+      label: "Visits today",
+      render: (u) => <Text size="sm" fw={500}>{u.visits_today ?? 0}</Text>,
+    },
+    {
+      key: "visits_this_month",
+      label: "Visits this month",
+      render: (u) => <Text size="sm" fw={500}>{u.visits_this_month ?? 0}</Text>,
+    },
+    {
+      key: "visits_total",
+      label: "Total visits",
+      render: (u) => <Text size="sm" c="dimmed">{u.visits_total ?? 0}</Text>,
+    },
+  ];
+}
+
 const INITIAL_STAFF_FORM = {
   email: "",
   role: "" as "" | typeof ROLES.SUPERVISOR | typeof ROLES.OFFICER,
@@ -103,6 +156,10 @@ export default function StaffPage() {
   );
   const { data: optionsData } = useAsyncData(
     (signal) => (isAdmin ? api.getOptions({ signal }) : Promise.resolve({ departments: [], staff_roles: [] })),
+    [isAdmin]
+  );
+  const { data: performanceData = [] } = useAsyncData(
+    (signal) => (isAdmin ? api.getStaffPerformance({ signal }) : Promise.resolve([])),
     [isAdmin]
   );
   const locations = locationsData ?? { regions: [], counties: [], sub_counties: [] };
@@ -249,6 +306,14 @@ export default function StaffPage() {
             <Button
               size="xs"
               variant="light"
+              component={Link}
+              href={`/staff/${u.id}`}
+            >
+              View
+            </Button>
+            <Button
+              size="xs"
+              variant="light"
               color="blue"
               onClick={() => openAssignModal(u)}
             >
@@ -285,6 +350,16 @@ export default function StaffPage() {
       resendingId,
       deactivatingId,
     ]
+  );
+
+  const performanceColumns = useMemo<DataTableColumn<StaffPerformanceUser>[]>(
+    () => buildPerformanceColumns(departmentLabelMap, roleLabelMap),
+    [departmentLabelMap, roleLabelMap]
+  );
+
+  const performanceSorted = useMemo(
+    () => [...(performanceData ?? [])].sort((a, b) => (b.visits_this_month ?? 0) - (a.visits_this_month ?? 0)),
+    [performanceData]
   );
 
   const handleSubmit = useCallback(
@@ -355,6 +430,13 @@ export default function StaffPage() {
         }
       />
 
+      <Tabs defaultValue="staff" mt="md">
+        <Tabs.List>
+          <Tabs.Tab value="staff">Staff</Tabs.Tab>
+          <Tabs.Tab value="performance">Performance</Tabs.Tab>
+        </Tabs.List>
+
+        <Tabs.Panel value="staff" pt="md">
       {showForm && (
         <Paper mt="md" p="md" radius="md" shadow="sm" withBorder>
           <Text size="lg" fw={600} mb="md">
@@ -556,6 +638,23 @@ export default function StaffPage() {
         minWidth={400}
         emptyMessage="No staff registered yet"
       />
+        </Tabs.Panel>
+
+        <Tabs.Panel value="performance" pt="md">
+          <Paper p="md" radius="md" withBorder>
+            <Text size="sm" c="dimmed" mb="md">
+              Performance is based on number of visits recorded. Officers record visits; supervisors typically have zero.
+            </Text>
+            <DataTable
+              data={performanceSorted}
+              rowKey="id"
+              columns={performanceColumns}
+              minWidth={500}
+              emptyMessage="No staff performance data"
+            />
+          </Paper>
+        </Tabs.Panel>
+      </Tabs>
     </Box>
   );
 }

@@ -73,7 +73,7 @@ class VisitSerializer(serializers.ModelSerializer):
 class VisitCreateSerializer(serializers.ModelSerializer):
     farmer_id = serializers.UUIDField(write_only=True)
     farm_id = serializers.UUIDField(write_only=True, required=False, allow_null=True)
-    schedule_id = serializers.UUIDField(write_only=True, required=False, allow_null=True)
+    schedule_id = serializers.UUIDField(write_only=True)
     photo_taken_at = serializers.DateTimeField(required=False, allow_null=True)
     photo_device_info = serializers.CharField(required=False, allow_blank=True, default="", max_length=120)
     photo_place_name = serializers.CharField(required=False, allow_blank=True, default="", max_length=120)

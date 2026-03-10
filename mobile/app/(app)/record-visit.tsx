@@ -422,14 +422,18 @@ export default function RecordVisitScreen() {
     }
   }, []);
 
-  const mustSelectSchedule = acceptedSchedules.length > 0 && !selectedScheduleId;
+  const mustSelectSchedule = !selectedScheduleId || selectedSchedule?.status !== 'accepted';
   const scheduleLocked = !!selectedScheduleId && selectedSchedule?.status === 'accepted';
   const scheduleIdForSubmit = scheduleLocked ? selectedScheduleId : undefined;
   const mustSelectFarm = scheduleLocked && !scheduleLockedForFarm && farms.length > 0 && !selectedFarmId;
 
   const submit = useCallback(async () => {
     if (mustSelectSchedule) {
-      setError('Select a planned visit (accepted schedule) to record this visit.');
+      setError(
+        acceptedSchedules.length === 0
+          ? 'You need an accepted schedule for today to record a visit. Visits can only be recorded for a planned schedule.'
+          : 'Select a planned visit (accepted schedule) to record this visit.'
+      );
       return;
     }
     if (mustSelectFarm) {
@@ -476,11 +480,15 @@ export default function RecordVisitScreen() {
           setSnackbarMsg('Offline or server error — saving for sync.');
         }
       }
+      if (!scheduleIdForSubmit) {
+        setError('A planned schedule is required to record a visit.');
+        return;
+      }
       const photoPlaceName = selectedFarm?.village ?? selectedFarmer?.display_name ?? 'Visit location';
       await enqueueVisit({
         farmer_id: selectedFarmerId,
         farm_id: selectedFarmId || undefined,
-        schedule_id: scheduleIdForSubmit ?? undefined,
+        schedule_id: scheduleIdForSubmit,
         latitude: location.coords.latitude,
         longitude: location.coords.longitude,
         photo_uri: photoUri,
@@ -509,7 +517,7 @@ export default function RecordVisitScreen() {
     } finally {
       setSubmitting(false);
     }
-  }, [mustSelectSchedule, mustSelectFarm, selectedFarmerId, selectedFarmId, selectedScheduleId, scheduleIdForSubmit, photoUri, photoTakenAt, location, selectedFarm, selectedFarmer, activityType, notes, cropStage, germinationPercent, survivalRatePercent, orderValue, harvestKgs, pestsDiseases, farmersFeedback, isOnline, router]);
+  }, [mustSelectSchedule, mustSelectFarm, acceptedSchedules.length, selectedFarmerId, selectedFarmId, selectedScheduleId, scheduleIdForSubmit, photoUri, photoTakenAt, location, selectedFarm, selectedFarmer, activityType, notes, cropStage, germinationPercent, survivalRatePercent, orderValue, harvestKgs, pestsDiseases, farmersFeedback, isOnline, router]);
 
   const activityLabel =
     activityTypesList.find((a) => a.value === activityType)?.label ??
@@ -596,9 +604,9 @@ export default function RecordVisitScreen() {
             </Surface>
           ) : (
             <Surface style={styles.section} elevation={0}>
-              <Text variant="labelLarge" style={styles.fieldLabel}>Planned visit</Text>
+              <Text variant="labelLarge" style={styles.fieldLabel}>Planned visit (required)</Text>
               <Text variant="bodySmall" style={styles.hint}>
-                No accepted visits scheduled. Select a farmer below to record a visit without linking to a schedule.
+                No accepted schedules for today. Visits can only be recorded for a planned schedule. Create and get a schedule accepted for today, then return here to record the visit.
               </Text>
             </Surface>
           )}
