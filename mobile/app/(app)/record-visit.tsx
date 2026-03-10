@@ -274,12 +274,15 @@ export default function RecordVisitScreen() {
     }, [params.farmerId, userId])
   );
 
-  const acceptedSchedules = useMemo(
-    () => plannedSchedules.filter(
-      (s) => s.status === 'accepted' && !scheduleIdsWithRecordedVisits.has(s.id)
-    ),
-    [plannedSchedules, scheduleIdsWithRecordedVisits]
-  );
+  const acceptedSchedules = useMemo(() => {
+    const today = new Date().toISOString().slice(0, 10);
+    return plannedSchedules.filter(
+      (s) =>
+        s.status === 'accepted' &&
+        !scheduleIdsWithRecordedVisits.has(s.id) &&
+        s.scheduled_date <= today
+    );
+  }, [plannedSchedules, scheduleIdsWithRecordedVisits]);
 
   // Only clear selection when we have loaded schedules and the selected one is not in the accepted list.
   // Do not clear when plannedSchedules is empty (e.g. after a failed load), so user selection is not wiped.
@@ -431,8 +434,8 @@ export default function RecordVisitScreen() {
     if (mustSelectSchedule) {
       setError(
         acceptedSchedules.length === 0
-          ? 'You need an accepted schedule for today to record a visit. Visits can only be recorded for a planned schedule.'
-          : 'Select a planned visit (accepted schedule) to record this visit.'
+          ? 'You need an accepted schedule for today or a past date to record a visit. Future dates are not allowed.'
+          : 'Select a planned visit (accepted schedule) with date today or in the past.'
       );
       return;
     }
@@ -606,7 +609,7 @@ export default function RecordVisitScreen() {
             <Surface style={styles.section} elevation={0}>
               <Text variant="labelLarge" style={styles.fieldLabel}>Planned visit (required)</Text>
               <Text variant="bodySmall" style={styles.hint}>
-                No accepted schedules for today. Visits can only be recorded for a planned schedule. Create and get a schedule accepted for today, then return here to record the visit.
+                No accepted schedules for today or earlier. Visits can only be recorded for a planned schedule whose date is today or in the past.
               </Text>
             </Surface>
           )}

@@ -35,6 +35,7 @@ export interface ScheduleRow {
   id: string;
   officer: string;
   farmer: string | null;
+  farmer_display_name: string | null;
   farm: string | null;
   farm_display_name: string | null;
   scheduled_date: number;

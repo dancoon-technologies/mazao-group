@@ -74,6 +74,12 @@ function HomeScreenInner() {
     return set;
   });
 
+  const farmerDisplayName = useCallback(
+    (s: Schedule) =>
+      s.farmer_display_name ?? farmers.find((f) => f.id === s.farmer)?.display_name ?? 'No farmer assigned',
+    [farmers]
+  );
+
   const load = useCallback(async (forceSync?: boolean) => {
     const connected = await NetInfo.fetch().then((s) => s.isConnected ?? false);
     if (connected && userId) {
@@ -227,8 +233,8 @@ function HomeScreenInner() {
           todaySchedules.map((s) => (
             <ListItemRow
               key={s.id}
-              avatarLetter={s.farmer_display_name ?? '?'}
-              title={s.farmer_display_name ?? 'No farmer assigned'}
+              avatarLetter={(farmerDisplayName(s) || '?').charAt(0)}
+              title={farmerDisplayName(s)}
               subtitle={s.notes || formatDate(s.scheduled_date)}
               right={
                 <Chip style={styles.statusChip} textStyle={styles.statusChipText} compact>

@@ -2,11 +2,11 @@ import { ListItemRow } from '@/components/ListItemRow';
 import { colors, cardShadow, cardStyle, radius, spacing } from '@/constants/theme';
 import { formatDateHeader, scheduleStatusColor, scheduleStatusLabel } from '@/lib/format';
 import { syncWithServer } from '@/lib/syncWithServer';
-import { scheduleRowToSchedule, visitRowToVisit } from '@/lib/offline-helpers';
+import { farmerRowToFarmer, scheduleRowToSchedule, visitRowToVisit } from '@/lib/offline-helpers';
 import { useAppRefresh } from '@/contexts/AppRefreshContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { api, type Schedule, type Visit } from '@/lib/api';
-import { schedules$, visits$ } from '@/store/observable';
+import { farmers$, schedules$, visits$ } from '@/store/observable';
 import { useSelector } from '@legendapp/state/react';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
@@ -100,6 +100,16 @@ export default function VisitsScreen() {
       .sort((a, b) => b.scheduled_date - a.scheduled_date)
       .map(scheduleRowToSchedule);
   });
+  /** Farmers for fallback when schedule has no farmer_display_name (e.g. old cache). */
+  const farmers = useSelector(() => {
+    const list = farmers$.get() ?? [];
+    return list.map(farmerRowToFarmer);
+  });
+  const farmerDisplayName = useCallback(
+    (s: Schedule) =>
+      s.farmer_display_name ?? farmers.find((f) => f.id === s.farmer)?.display_name ?? 'No farmer assigned',
+    [farmers]
+  );
 
   const load = useCallback(async () => {
     const connected = await NetInfo.fetch().then((s) => s.isConnected ?? false);
@@ -178,10 +188,10 @@ export default function VisitsScreen() {
     if (!q) return pastSchedules;
     return pastSchedules.filter(
       (s) =>
-        (s.farmer_display_name ?? '').toLowerCase().includes(q) ||
+        farmerDisplayName(s).toLowerCase().includes(q) ||
         (s.notes ?? '').toLowerCase().includes(q)
     );
-  }, [pastSchedules, search]);
+  }, [pastSchedules, search, farmerDisplayName]);
 
   const pastSchedulesByDate = useMemo(
     () => groupPastSchedulesByDate(filteredPastSchedules),
@@ -291,8 +301,8 @@ export default function VisitsScreen() {
                     {items.map((s) => (
                       <ListItemRow
                         key={s.id}
-                        avatarLetter={s.farmer_display_name ?? '?'}
-                        title={s.farmer_display_name ?? 'No farmer assigned'}
+                        avatarLetter={(farmerDisplayName(s) || '?').charAt(0)}
+                        title={farmerDisplayName(s)}
                         subtitle={`${s.notes || 'Scheduled visit'} · Farm: ${s.farm_display_name ?? 'None'}`}
                         onPress={() => openRecordVisit(s)}
                         right={
@@ -356,8 +366,8 @@ export default function VisitsScreen() {
                       return (
                         <ListItemRow
                           key={s.id}
-                          avatarLetter={s.farmer_display_name ?? '?'}
-                          title={s.farmer_display_name ?? 'No farmer assigned'}
+                          avatarLetter={(farmerDisplayName(s) || '?').charAt(0)}
+                          title={farmerDisplayName(s)}
                           subtitle={`${s.notes || 'Scheduled visit'} · Farm: ${s.farm_display_name ?? 'None'}`}
                           right={
                             <View style={[styles.badge, { backgroundColor: (recorded ? colors.primary : colors.gray500) + '20' }]}>

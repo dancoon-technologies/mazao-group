@@ -45,7 +45,7 @@ export function scheduleRowToSchedule(r: ScheduleRow): Schedule {
     officer: r.officer,
     officer_email: '',
     farmer: r.farmer,
-    farmer_display_name: null,
+    farmer_display_name: r.farmer_display_name ?? null,
     farm: r.farm ?? null,
     farm_display_name: r.farm_display_name ?? null,
     scheduled_date: new Date(r.scheduled_date).toISOString().slice(0, 10),

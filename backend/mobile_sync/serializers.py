@@ -36,6 +36,10 @@ class VisitSyncSerializer(serializers.ModelSerializer):
 
 
 class ScheduleSyncSerializer(serializers.ModelSerializer):
+    farmer = serializers.UUIDField(source="farmer_id", read_only=True, allow_null=True)
+    farmer_display_name = serializers.CharField(
+        source="farmer.name", read_only=True, allow_null=True
+    )
     farm = serializers.UUIDField(source="farm_id", read_only=True, allow_null=True)
     farm_display_name = serializers.SerializerMethodField()
 
@@ -45,6 +49,7 @@ class ScheduleSyncSerializer(serializers.ModelSerializer):
             "id",
             "officer",
             "farmer",
+            "farmer_display_name",
             "farm",
             "farm_display_name",
             "scheduled_date",

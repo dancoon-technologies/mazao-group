@@ -144,6 +144,7 @@ function toScheduleRow(data: Record<string, unknown>): ScheduleRow {
     id: String(data.id),
     officer: String(data.officer ?? ''),
     farmer: data.farmer != null ? String(data.farmer) : null,
+    farmer_display_name: data.farmer_display_name != null ? String(data.farmer_display_name) : null,
     farm: data.farm != null ? String(data.farm) : null,
     farm_display_name: data.farm_display_name != null ? String(data.farm_display_name) : null,
     scheduled_date: Number(data.scheduled_date) || 0,

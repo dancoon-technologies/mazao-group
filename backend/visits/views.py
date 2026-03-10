@@ -184,9 +184,9 @@ class VisitListCreateView(generics.ListCreateAPIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
         today = timezone.now().date()
-        if schedule.scheduled_date != today:
+        if schedule.scheduled_date > today:
             return Response(
-                {"schedule_id": ["You can only record a visit for a schedule on its scheduled date."]},
+                {"schedule_id": ["Cannot record a visit for a schedule in the future."]},
                 status=status.HTTP_400_BAD_REQUEST,
             )
         if Visit.objects.filter(schedule=schedule).exists():

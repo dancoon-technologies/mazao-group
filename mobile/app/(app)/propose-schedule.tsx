@@ -398,14 +398,17 @@ export default function ProposeScheduleScreen() {
           {schedules.length === 0 ? (
             <Text variant="bodySmall" style={styles.muted}>No schedules yet</Text>
           ) : (
-            schedules.slice(0, 10).map((s) => (
-              <ListItemRow
-                key={s.id}
-                avatarLetter={s.farmer_display_name ?? '?'}
-                title={s.farmer_display_name ?? 'No farmer assigned'}
-                subtitle={`${formatDate(s.scheduled_date)} · Farm: ${s.farm_display_name ?? 'None'} · ${s.status}`}
-              />
-            ))
+            schedules.slice(0, 10).map((s) => {
+              const displayName = s.farmer_display_name ?? farmers.find((f) => f.id === s.farmer)?.display_name ?? 'No farmer assigned';
+              return (
+                <ListItemRow
+                  key={s.id}
+                  avatarLetter={(displayName || '?').charAt(0)}
+                  title={displayName}
+                  subtitle={`${formatDate(s.scheduled_date)} · Farm: ${s.farm_display_name ?? 'None'} · ${s.status}`}
+                />
+              );
+            })
           )}
         </ScrollView>
       </KeyboardAvoidingView>
