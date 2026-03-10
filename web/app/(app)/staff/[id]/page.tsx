@@ -23,7 +23,6 @@ import { formatDateTime, formatActivityType } from "@/lib/format";
 
 export default function StaffDetailPage() {
   const params = useParams<{ id: string }>();
-  const router = useRouter();
   const { role } = useAuth();
   const isAdmin = role === ROLES.ADMIN;
   const staffId = params?.id ?? "";
@@ -170,47 +169,7 @@ export default function StaffDetailPage() {
   }
 
   if (staffLoading || !staffId) return <PageLoading message="Loading staff…" />;
-  if (staffError || !staff) return <PageError message={staffError?.message ?? "Staff not found."} />;
-
-  const visitColumns: DataTableColumn<Visit>[] = useMemo(
-    () => [
-      {
-        key: "created_at",
-        label: "Date",
-        render: (v) => <Text size="sm" c="dimmed">{formatDateTime(v.created_at)}</Text>,
-      },
-      {
-        key: "farmer",
-        label: "Farmer",
-        render: (v) => <Text size="sm">{v.farmer_display_name ?? v.farmer}</Text>,
-      },
-      {
-        key: "farm",
-        label: "Farm",
-        render: (v) => <Text size="sm" c="dimmed">{v.farm_display_name ?? "—"}</Text>,
-      },
-      {
-        key: "activity_type",
-        label: "Activity",
-        render: (v) => <Text size="sm">{formatActivityType(v.activity_type ?? "")}</Text>,
-      },
-      {
-        key: "verification_status",
-        label: "Status",
-        render: (v) => (
-          <Badge color={v.verification_status === "verified" ? "green" : "red"} variant="light" size="sm">
-            {v.verification_status}
-          </Badge>
-        ),
-      },
-      {
-        key: "notes",
-        label: "Notes",
-        render: (v) => <Text size="sm" c="dimmed" lineClamp={1}>{(v.notes ?? "").slice(0, 60)}</Text>,
-      },
-    ],
-    []
-  );
+  if (staffError || !staff) return <PageError message={staffError ?? "Staff not found."} />;
 
   return (
     <Box style={{ minWidth: PAGE_BOX_MIN_WIDTH }}>
