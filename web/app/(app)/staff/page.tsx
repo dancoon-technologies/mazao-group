@@ -32,7 +32,7 @@ function buildStaffColumns(
       key: "email",
       label: "Email",
       render: (u) => (
-        <Text size="sm" fw={500}>
+        <Text size="sm" fw={500} component={Link} href={`/staff/${u.id}`} style={{ textDecoration: "none", color: "var(--mantine-color-blue-6)" }}>
           {u.email}
         </Text>
       ),
@@ -303,14 +303,6 @@ export default function StaffPage() {
         label: "",
         render: (u) => (
           <Group gap="xs">
-            <Button
-              size="xs"
-              variant="light"
-              component={Link}
-              href={`/staff/${u.id}`}
-            >
-              View
-            </Button>
             <Button
               size="xs"
               variant="light"
