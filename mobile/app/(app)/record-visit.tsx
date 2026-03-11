@@ -51,6 +51,7 @@ import {
   scrollPaddingKeyboard,
   spacing,
 } from '@/constants/theme';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 function haversineDistance(
   lat1: number,
@@ -569,9 +570,14 @@ export default function RecordVisitScreen() {
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
       <View style={styles.header}>
-        <Text variant="headlineSmall" style={styles.headerTitle}>
-          Record Visit
-        </Text>
+        <View style={styles.headerLeft}>
+          <Text variant="labelSmall" style={styles.headerStepLabel}>
+            STEP {step + 1} OF 3
+          </Text>
+          <Text variant="headlineSmall" style={styles.headerTitle}>
+            Record Visit
+          </Text>
+        </View>
         <Pressable onPress={() => router.back()} style={styles.headerClose} hitSlop={12}>
           <Text variant="headlineMedium" style={styles.headerCloseText}>×</Text>
         </Pressable>
@@ -594,16 +600,35 @@ export default function RecordVisitScreen() {
             </Chip>
           )}
 
-          {/* Stepper */}
+          {/* Stepper: checkmark for completed, number for current, grey for future */}
           <View style={styles.stepperRow}>
-            <Pressable onPress={() => setStep(0)} style={[styles.stepperStep, step === 0 && styles.stepperStepActive]}>
-              <Text variant="labelSmall" style={step === 0 ? styles.stepperStepTextActive : styles.stepperStepText}>1. Schedule</Text>
+            <Pressable onPress={() => setStep(0)} style={styles.stepperItem} disabled={false}>
+              <View style={[styles.stepperCircle, (step === 0 || step >= 1) && styles.stepperCircleActive]}>
+                {step >= 1 ? (
+                  <MaterialCommunityIcons name="check" size={18} color={colors.white} />
+                ) : (
+                  <Text variant="labelMedium" style={[styles.stepperCircleText, step === 0 && styles.stepperCircleTextActive]}>1</Text>
+                )}
+              </View>
+              <Text variant="labelSmall" style={[styles.stepperLabel, (step === 0 || step >= 1) && styles.stepperLabelActive]}>Schedule</Text>
             </Pressable>
-            <Pressable onPress={() => step >= 1 && setStep(1)} style={[styles.stepperStep, step === 1 && styles.stepperStepActive]} disabled={step < 1}>
-              <Text variant="labelSmall" style={step === 1 ? styles.stepperStepTextActive : styles.stepperStepText}>2. Details</Text>
+            <View style={[styles.stepperLine, step >= 1 && styles.stepperLineActive]} />
+            <Pressable onPress={() => step >= 1 && setStep(1)} style={styles.stepperItem} disabled={step < 1}>
+              <View style={[styles.stepperCircle, (step === 1 || step >= 2) && styles.stepperCircleActive]}>
+                {step >= 2 ? (
+                  <MaterialCommunityIcons name="check" size={18} color={colors.white} />
+                ) : (
+                  <Text variant="labelMedium" style={[styles.stepperCircleText, step === 1 && styles.stepperCircleTextActive]}>2</Text>
+                )}
+              </View>
+              <Text variant="labelSmall" style={[styles.stepperLabel, (step === 1 || step >= 2) && styles.stepperLabelActive]}>Details</Text>
             </Pressable>
-            <Pressable onPress={() => step >= 2 && setStep(2)} style={[styles.stepperStep, step === 2 && styles.stepperStepActive]} disabled={step < 2}>
-              <Text variant="labelSmall" style={step === 2 ? styles.stepperStepTextActive : styles.stepperStepText}>3. Additional</Text>
+            <View style={[styles.stepperLine, step >= 2 && styles.stepperLineActive]} />
+            <Pressable onPress={() => step >= 2 && setStep(2)} style={styles.stepperItem} disabled={step < 2}>
+              <View style={[styles.stepperCircle, step === 2 && styles.stepperCircleActive]}>
+                <Text variant="labelMedium" style={[styles.stepperCircleText, step === 2 && styles.stepperCircleTextActive]}>3</Text>
+              </View>
+              <Text variant="labelSmall" style={[styles.stepperLabel, step === 2 && styles.stepperLabelActive]}>Additional</Text>
             </Pressable>
           </View>
 
@@ -642,16 +667,37 @@ export default function RecordVisitScreen() {
                   )}
                 </Surface>
               ) : (
-                <Surface style={styles.section} elevation={0}>
-                  <Text variant="labelLarge" style={styles.fieldLabel}>Planned visit (required)</Text>
-                  <Text variant="bodySmall" style={styles.hint}>
-                    No accepted schedules for today or earlier. Visits can only be recorded for a planned schedule whose date is today or in the past.
-                  </Text>
-                </Surface>
+                <>
+                  <View style={styles.warningBox}>
+                    <MaterialCommunityIcons name="alert-circle-outline" size={22} color={colors.warning} style={styles.warningBoxIcon} />
+                    <View style={styles.warningBoxContent}>
+                      <Text variant="labelLarge" style={styles.warningBoxTitle}>No Scheduled Visit Found</Text>
+                      <Text variant="bodySmall" style={styles.warningBoxText}>
+                        Visits can only be recorded for a planned schedule dated today or earlier. Please check your schedule list.
+                      </Text>
+                    </View>
+                  </View>
+                  <View style={styles.infoBox}>
+                    <MaterialCommunityIcons name="information-outline" size={22} color={colors.info} style={styles.infoBoxIcon} />
+                    <View style={styles.infoBoxContent}>
+                      <Text variant="labelLarge" style={styles.infoBoxTitle}>How it works</Text>
+                      <Text variant="bodySmall" style={styles.infoBoxText}>
+                        Select a planned visit from your accepted schedule. The farmer and farm details will auto-populate in the next step.
+                      </Text>
+                    </View>
+                  </View>
+                </>
               )}
               <View style={styles.stepActions}>
-                <Button mode="contained" onPress={() => setStep(1)} disabled={mustSelectSchedule} style={styles.nextBtn}>
-                  Next: Details & photo
+                <Button
+                  mode="contained"
+                  onPress={() => setStep(1)}
+                  disabled={mustSelectSchedule}
+                  style={styles.nextBtn}
+                  contentStyle={styles.nextBtnContent}
+                  icon="arrow-right"
+                >
+                  Next: Details & Photo
                 </Button>
               </View>
             </>
@@ -660,134 +706,156 @@ export default function RecordVisitScreen() {
           {/* Step 2: Farmer/farm details, activity, photo, location */}
           {step === 1 && (
             <>
-              <Surface style={styles.section} elevation={0}>
-                <Text variant="labelLarge" style={styles.fieldLabel}>Farmer & farm (from schedule)</Text>
-                <Text variant="bodySmall" style={styles.hint}>
-                  Set by the planned visit you selected. Change schedule in step 1 to change farmer or farm.
-                </Text>
-                {selectedFarmer && (
-                  <ListItemRow
-                    avatarLetter={(selectedFarmer.display_name || '?').charAt(0)}
-                    title={selectedFarmer.display_name ?? '—'}
-                    subtitle={selectedFarmer.phone ? `Tel: ${selectedFarmer.phone}` : undefined}
-                  />
-                )}
-                {scheduleLockedForFarm && selectedFarm ? (
-                  <ListItemRow
-                    avatarLetter={selectedFarm.village.charAt(0)}
-                    title={selectedFarm.village}
-                    subtitle={`${selectedFarm.crop_type ?? '—'} · ${selectedFarm.plot_size ?? '—'}`}
-                  />
-                ) : selectedFarmer && !scheduleLockedForFarm ? (
-                  <View style={styles.farmSelectWrap}>
-                    <Text variant="labelSmall" style={styles.fieldLabel}>Farm (optional)</Text>
-                    <Menu
-                      visible={farmMenuOpen}
-                      onDismiss={() => setFarmMenuOpen(false)}
-                      anchor={
-                        <TextInput
-                          placeholder={farms.length ? 'Select farm' : 'No farms for this farmer'}
-                          value={selectedFarm ? `${selectedFarm.village}${selectedFarm.crop_type ? ` · ${selectedFarm.crop_type}` : ''}` : ''}
-                          mode="outlined"
-                          right={<TextInput.Icon icon="menu-down" onPress={() => farms.length > 0 && setFarmMenuOpen(true)} />}
-                          style={styles.input}
-                          onPressIn={() => farms.length > 0 && setFarmMenuOpen(true)}
-                          editable={false}
-                        />
-                      }
-                    >
-                      <Menu.Item onPress={() => { setSelectedFarmId(null); setFarmMenuOpen(false); }} title="None" />
-                      {farms.map((f) => (
-                        <Menu.Item
-                          key={f.id}
-                          onPress={() => { setSelectedFarmId(f.id); setFarmMenuOpen(false); }}
-                          title={`${f.village}${f.crop_type ? ` · ${f.crop_type}` : ''}`}
-                        />
-                      ))}
-                    </Menu>
+              <Text variant="labelMedium" style={styles.step2SectionTitle}>FARMER & FARM (from schedule)</Text>
+              {selectedFarmer && (
+                <View style={styles.farmerCard}>
+                  <View style={styles.farmerCardAvatar}>
+                    <Text variant="titleLarge" style={styles.farmerCardAvatarText}>
+                      {(selectedFarmer.display_name || '?').charAt(0).toUpperCase()}
+                    </Text>
                   </View>
-                ) : selectedFarmer && (
-                  <Text variant="bodySmall" style={styles.hint}>No specific farm for this visit</Text>
-                )}
-              </Surface>
+                  <View style={styles.farmerCardBody}>
+                    <Text variant="titleMedium" style={styles.farmerCardName}>{selectedFarmer.display_name ?? '—'}</Text>
+                    {selectedFarmer.phone ? (
+                      <View style={styles.farmerCardPhone}>
+                        <MaterialCommunityIcons name="phone" size={16} color="#DB2777" />
+                        <Text variant="bodySmall" style={styles.farmerCardPhoneText}>{selectedFarmer.phone}</Text>
+                      </View>
+                    ) : null}
+                  </View>
+                  <View style={styles.farmerCardTag}>
+                    <Chip mode="flat" style={styles.activeChip} textStyle={styles.activeChipText} compact>Active</Chip>
+                  </View>
+                </View>
+              )}
 
-              <Surface style={styles.section} elevation={0}>
-                <Text variant="labelLarge" style={styles.fieldLabel}>Activity Type *</Text>
+              <Text variant="labelMedium" style={styles.step2SectionTitle}>FARM (optional)</Text>
+              {(scheduleLockedForFarm && selectedFarm) ? (
+                <View style={styles.farmDisplay}>
+                  <Text variant="bodyLarge">{selectedFarm.village}{selectedFarm.crop_type ? ` · ${selectedFarm.crop_type}` : ''}</Text>
+                </View>
+              ) : selectedFarmer && !scheduleLockedForFarm ? (
                 <Menu
-                  visible={activityMenuOpen}
-                  onDismiss={() => setActivityMenuOpen(false)}
+                  visible={farmMenuOpen}
+                  onDismiss={() => setFarmMenuOpen(false)}
                   anchor={
                     <TextInput
-                      placeholder="Select activity type"
-                      value={activityLabel}
+                      placeholder={farms.length ? 'Select farm' : 'No farms for this farmer'}
+                      value={selectedFarm ? `${selectedFarm.village}${selectedFarm.crop_type ? ` · ${selectedFarm.crop_type}` : ''}` : ''}
                       mode="outlined"
-                      right={<TextInput.Icon icon="menu-down" onPress={() => setActivityMenuOpen(true)} />}
-                      style={styles.input}
-                      onPressIn={() => setActivityMenuOpen(true)}
+                      right={<TextInput.Icon icon="chevron-down" onPress={() => farms.length > 0 && setFarmMenuOpen(true)} />}
+                      style={styles.step2Input}
+                      onPressIn={() => farms.length > 0 && setFarmMenuOpen(true)}
                       editable={false}
                     />
                   }
                 >
-                  {activityTypeOptions.map((a) => (
+                  <Menu.Item onPress={() => { setSelectedFarmId(null); setFarmMenuOpen(false); }} title="None" />
+                  {farms.map((f) => (
                     <Menu.Item
-                      key={a.value}
-                      onPress={() => {
-                        setActivityType(a.value);
-                        setActivityMenuOpen(false);
-                      }}
-                      title={a.label}
+                      key={f.id}
+                      onPress={() => { setSelectedFarmId(f.id); setFarmMenuOpen(false); }}
+                      title={`${f.village}${f.crop_type ? ` · ${f.crop_type}` : ''}`}
                     />
                   ))}
                 </Menu>
-              </Surface>
+              ) : null}
 
-              <Surface style={styles.section} elevation={0}>
-                <View style={styles.locationBox}>
-                  <View style={styles.locationBoxLeft}>
-                    <List.Icon icon="map-marker" color={theme.colors.primary} style={styles.locationIcon} />
-                    <View>
-                      <Text variant="labelLarge" style={styles.fieldLabel}>Location</Text>
-                      {locationError ? (
+              <Text variant="labelMedium" style={styles.step2SectionTitle}>ACTIVITY TYPE</Text>
+              <Menu
+                visible={activityMenuOpen}
+                onDismiss={() => setActivityMenuOpen(false)}
+                anchor={
+                  <TextInput
+                    placeholder="Select activity type"
+                    value={activityLabel}
+                    mode="outlined"
+                    right={<TextInput.Icon icon="chevron-down" onPress={() => setActivityMenuOpen(true)} />}
+                    style={styles.step2Input}
+                    onPressIn={() => setActivityMenuOpen(true)}
+                    editable={false}
+                  />
+                }
+              >
+                {activityTypeOptions.map((a) => (
+                  <Menu.Item
+                    key={a.value}
+                    onPress={() => {
+                      setActivityType(a.value);
+                      setActivityMenuOpen(false);
+                    }}
+                    title={a.label}
+                  />
+                ))}
+              </Menu>
+
+              {/* Location: green card when verified, otherwise neutral/warning */}
+              <View style={[styles.locationCard, location && gpsValid && styles.locationCardVerified]}>
+                <View style={styles.locationCardLeft}>
+                  <MaterialCommunityIcons
+                    name="map-marker"
+                    size={24}
+                    color={location && gpsValid ? colors.primary : colors.gray500}
+                    style={styles.locationCardIcon}
+                  />
+                  <View style={styles.locationCardText}>
+                    {locationError ? (
+                      <>
+                        <Text variant="labelLarge" style={styles.locationCardTitle}>Location</Text>
                         <Text variant="bodySmall" style={styles.locationStatusError}>{locationError}</Text>
-                      ) : locationLoading ? (
+                      </>
+                    ) : locationLoading ? (
+                      <>
+                        <Text variant="labelLarge" style={styles.locationCardTitle}>Location</Text>
                         <Text variant="bodySmall" style={styles.locationStatus}>Getting location…</Text>
-                      ) : location ? (
-                        <Text variant="bodySmall" style={styles.locationStatus}>
-                          {distanceM !== null ? `Distance: ${distanceM}m (max ${maxM}m)` : 'Location captured'}
+                      </>
+                    ) : location && gpsValid && distanceM !== null ? (
+                      <>
+                        <Text variant="labelLarge" style={styles.locationCardTitleVerified}>Location Verified ✓</Text>
+                        <Text variant="bodySmall" style={styles.locationCardDetail}>
+                          {distanceM}m away · within {maxM}m limit
                         </Text>
-                      ) : (
+                      </>
+                    ) : location ? (
+                      <>
+                        <Text variant="labelLarge" style={styles.locationCardTitle}>
+                          {distanceM !== null && !gpsValid ? 'Out of range' : 'Location'}
+                        </Text>
+                        <Text variant="bodySmall" style={styles.locationStatus}>
+                          {distanceM !== null ? `${distanceM}m (max ${maxM}m)` : 'Location captured'}
+                        </Text>
+                        {distanceM !== null && !gpsValid && (
+                          <HelperText type="error">Must be within {maxM}m to record this visit.</HelperText>
+                        )}
+                      </>
+                    ) : (
+                      <>
+                        <Text variant="labelLarge" style={styles.locationCardTitle}>Location</Text>
                         <Text variant="bodySmall" style={styles.locationStatus}>Location not captured</Text>
-                      )}
-                      {location && distanceM !== null && distanceWarning && gpsValid && (
-                        <HelperText type="info">You are approaching the limit. Stay within {maxM}m to submit.</HelperText>
-                      )}
-                      {location && distanceM !== null && !gpsValid && (
-                        <HelperText type="error">Must be within {maxM}m of the farmer/farm to record this visit.</HelperText>
-                      )}
-                    </View>
+                      </>
+                    )}
                   </View>
-                  <Button mode="outlined" compact onPress={refreshLocation} disabled={locationLoading}>
-                    Refresh
-                  </Button>
                 </View>
-              </Surface>
+                <Pressable onPress={refreshLocation} disabled={locationLoading} style={styles.locationRefreshBtn}>
+                  <MaterialCommunityIcons name="refresh" size={24} color={location && gpsValid ? colors.primary : colors.gray500} />
+                </Pressable>
+              </View>
 
-              <Surface style={styles.section} elevation={0}>
-                <Text variant="labelLarge" style={styles.fieldLabel}>Photo Evidence *</Text>
-                <View style={styles.photoEvidenceRow}>
-                  <Button mode="outlined" icon="camera" onPress={openCameraModal} style={styles.photoEvidenceBtn}>
-                    Take Photo
+              <Text variant="labelMedium" style={styles.step2SectionTitle}>PHOTO EVIDENCE *</Text>
+              {photoUri ? (
+                <View style={styles.photoPreviewWrap}>
+                  <Image source={{ uri: photoUri }} style={styles.previewImg} contentFit="cover" />
+                  <Button mode="text" compact onPress={() => { setPhotoUri(null); openCameraModal(); }}>
+                    Retake photo
                   </Button>
                 </View>
-                {photoUri ? (
-                  <View style={styles.photoPreviewWrap}>
-                    <Image source={{ uri: photoUri }} style={styles.previewImg} contentFit="cover" />
-                    <Button mode="text" compact onPress={() => { setPhotoUri(null); openCameraModal(); }}>
-                      Retake photo
-                    </Button>
-                  </View>
-                ) : null}
-              </Surface>
+              ) : (
+                <Pressable style={styles.photoPlaceholder} onPress={openCameraModal}>
+                  <MaterialCommunityIcons name="camera" size={48} color={colors.gray500} />
+                  <Text variant="bodyLarge" style={styles.photoPlaceholderText}>Tap to take photo</Text>
+                  <Text variant="bodySmall" style={styles.photoPlaceholderHint}>Required for verification</Text>
+                </Pressable>
+              )}
 
               <View style={styles.stepActions}>
                 <Button mode="outlined" onPress={() => setStep(0)} style={styles.nextBtn}>
@@ -802,6 +870,8 @@ export default function RecordVisitScreen() {
                     (location && distanceM !== null && !gpsValid)
                   }
                   style={styles.nextBtn}
+                  contentStyle={styles.nextBtnContent}
+                  icon="arrow-right"
                 >
                   Next: Additional info
                 </Button>
@@ -972,10 +1042,39 @@ const styles = StyleSheet.create({
     paddingTop: spacing.sm,
     paddingBottom: spacing.xs,
   },
+  headerLeft: { flex: 1 },
+  headerStepLabel: { color: colors.gray500, marginBottom: 2 },
   headerTitle: { fontWeight: '700', color: colors.gray900 },
   headerClose: { padding: spacing.sm },
   headerCloseText: { fontSize: 28, lineHeight: 32, opacity: 0.85, color: colors.gray700 },
   offlineChip: { marginBottom: spacing.md },
+  warningBox: {
+    flexDirection: 'row',
+    backgroundColor: colors.warningLight,
+    borderRadius: radius.card,
+    padding: spacing.lg,
+    marginBottom: spacing.md,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+  },
+  warningBoxIcon: { marginRight: spacing.md },
+  warningBoxContent: { flex: 1 },
+  warningBoxTitle: { color: colors.warning, fontWeight: '600', marginBottom: 4 },
+  warningBoxText: { color: colors.gray900 },
+  infoBox: {
+    flexDirection: 'row',
+    backgroundColor: '#F0FDF4',
+    borderRadius: radius.card,
+    padding: spacing.lg,
+    marginBottom: spacing.md,
+    borderWidth: 1,
+    borderColor: '#BBF7D0',
+  },
+  infoBoxIcon: { marginRight: spacing.md },
+  infoBoxContent: { flex: 1 },
+  infoBoxTitle: { color: colors.info, fontWeight: '600', marginBottom: 4 },
+  infoBoxText: { color: colors.gray900 },
+  nextBtnContent: { flexDirection: 'row-reverse' },
   section: {
     padding: spacing.lg,
     marginBottom: spacing.sm,
@@ -1006,6 +1105,86 @@ const styles = StyleSheet.create({
   addFarmerBtn: { marginTop: -2, marginBottom: 2 },
   farmList: { marginTop: spacing.xs },
   farmSelectWrap: { marginTop: spacing.sm },
+  step2SectionTitle: {
+    fontWeight: '600',
+    color: colors.gray700,
+    marginBottom: spacing.sm,
+    marginTop: spacing.md,
+    letterSpacing: 0.5,
+  },
+  farmerCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.white,
+    borderRadius: radius.card,
+    padding: spacing.lg,
+    marginBottom: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.gray200,
+  },
+  farmerCardAvatar: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: colors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: spacing.md,
+  },
+  farmerCardAvatarText: { color: colors.white, fontWeight: '700' },
+  farmerCardBody: { flex: 1, minWidth: 0 },
+  farmerCardName: { fontWeight: '700', color: colors.gray900 },
+  farmerCardPhone: { flexDirection: 'row', alignItems: 'center', marginTop: 4, gap: 6 },
+  farmerCardPhoneText: { color: colors.gray700 },
+  farmerCardTag: { marginLeft: spacing.sm },
+  activeChip: { backgroundColor: colors.primary },
+  activeChipText: { color: colors.white, fontWeight: '600', fontSize: 12 },
+  farmDisplay: {
+    backgroundColor: colors.white,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.gray200,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    marginBottom: spacing.md,
+  },
+  step2Input: { marginBottom: spacing.md },
+  locationCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: colors.gray100,
+    borderRadius: radius.card,
+    padding: spacing.lg,
+    marginBottom: spacing.lg,
+    borderWidth: 1,
+    borderColor: colors.gray200,
+  },
+  locationCardVerified: {
+    backgroundColor: colors.primaryLight,
+    borderColor: colors.primary,
+  },
+  locationCardLeft: { flexDirection: 'row', alignItems: 'center', flex: 1 },
+  locationCardIcon: { marginRight: spacing.md },
+  locationCardText: { flex: 1 },
+  locationCardTitle: { fontWeight: '600', color: colors.gray700 },
+  locationCardTitleVerified: { fontWeight: '600', color: colors.primary },
+  locationCardDetail: { color: colors.gray700, marginTop: 2 },
+  locationRefreshBtn: { padding: spacing.sm },
+  photoPlaceholder: {
+    borderWidth: 2,
+    borderStyle: 'dashed',
+    borderColor: colors.gray200,
+    borderRadius: radius.card,
+    paddingVertical: spacing.xxl,
+    paddingHorizontal: spacing.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.md,
+    backgroundColor: colors.gray100,
+  },
+  photoPlaceholderText: { color: colors.gray700, marginTop: spacing.md },
+  photoPlaceholderHint: { color: colors.gray500, marginTop: spacing.xs },
   lockedHint: { marginTop: 2, marginBottom: 4 },
   errorHint: { marginTop: 4, marginBottom: 0 },
   scheduleChips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginTop: spacing.sm },
@@ -1065,21 +1244,39 @@ const styles = StyleSheet.create({
   submitBtn: { marginBottom: 0 },
   stepperRow: {
     flexDirection: 'row',
-    marginBottom: spacing.lg,
-    gap: 4,
-  },
-  stepperStep: {
-    flex: 1,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.xs,
-    borderRadius: radius.sm,
     alignItems: 'center',
-    backgroundColor: colors.gray100,
+    marginBottom: spacing.xl,
+    paddingHorizontal: spacing.xs,
   },
-  stepperStepActive: {
-    backgroundColor: colors.primary + '20',
+  stepperItem: {
+    alignItems: 'center',
+    minWidth: 56,
   },
-  stepperStepText: { color: colors.gray500 },
-  stepperStepTextActive: { color: colors.primary, fontWeight: '600' },
+  stepperCircle: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: colors.gray200,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  stepperCircleActive: {
+    backgroundColor: colors.primary,
+  },
+  stepperCircleText: { color: colors.gray500, fontWeight: '600' },
+  stepperCircleTextActive: { color: colors.white, fontWeight: '600' },
+  stepperLabel: { marginTop: 4, color: colors.gray500, fontSize: 12 },
+  stepperLabelActive: { color: colors.primary, fontWeight: '600' },
+  stepperLine: {
+    flex: 1,
+    height: 3,
+    backgroundColor: colors.gray200,
+    marginHorizontal: 4,
+    marginBottom: 20,
+    borderRadius: 2,
+  },
+  stepperLineActive: {
+    backgroundColor: colors.primary,
+  },
   stepActions: { flexDirection: 'row', gap: spacing.md, marginTop: spacing.md, marginBottom: spacing.lg },
 });
