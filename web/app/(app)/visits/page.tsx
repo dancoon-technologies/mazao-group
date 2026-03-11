@@ -63,6 +63,7 @@ function VisitDetailModal({
   onVerify: (visitId: string, action: "accept" | "reject") => Promise<void>;
 }) {
   const [verifying, setVerifying] = useState<"accept" | "reject" | null>(null);
+  const [exportingPdf, setExportingPdf] = useState(false);
   if (!visit) return null;
   const row = (label: string, value: React.ReactNode) => (
     <Group justify="space-between" wrap="nowrap" key={label}>
@@ -81,6 +82,50 @@ function VisitDetailModal({
       onClose();
     } finally {
       setVerifying(null);
+    }
+  };
+  const handleGenerateReportPdf = async () => {
+    setExportingPdf(true);
+    try {
+      const [{ jsPDF }, { default: autoTable }] = await Promise.all([
+        import("jspdf"),
+        import("jspdf-autotable"),
+      ]);
+      const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+      doc.setFontSize(16);
+      doc.text("Visit report", 14, 16);
+      doc.setFontSize(10);
+      doc.text(`Generated ${formatDateTime(new Date().toISOString())}`, 14, 24);
+      const head = ["Field", "Value"];
+      const body: [string, string][] = [
+        ["Date", formatDateTime(visit.created_at)],
+        ["Officer", (visit.officer_email ?? visit.officer) ?? "—"],
+        ["Farmer", (visit.farmer_display_name ?? visit.farmer) ?? "—"],
+        ["Farm visited", visit.farm_display_name ?? "—"],
+        ["Activity", formatActivityType(visit.activity_type ?? "")],
+        ["Status", visit.verification_status ?? "—"],
+        ["Distance (m)", visit.distance_from_farmer != null ? String(Math.round(visit.distance_from_farmer)) : "—"],
+        ["Crop stage", visit.crop_stage ?? "—"],
+        ["Germination %", visit.germination_percent != null ? String(visit.germination_percent) : "—"],
+        ["Survival rate", visit.survival_rate ?? "—"],
+        ["Pests/diseases", visit.pests_diseases ?? "—"],
+        ["Order value", visit.order_value != null ? String(visit.order_value) : "—"],
+        ["Harvest (kg)", visit.harvest_kgs != null ? String(visit.harvest_kgs) : "—"],
+        ["Farmers feedback", (visit.farmers_feedback ?? "—").slice(0, 200)],
+        ["Notes", (visit.notes ?? "—").slice(0, 300)],
+      ];
+      autoTable(doc, {
+        head: [head],
+        body,
+        startY: 30,
+        styles: { fontSize: 9 },
+        margin: { left: 14, right: 14 },
+        columnStyles: { Value: { cellWidth: "wrap" } },
+      });
+      const dateStr = visit.created_at.slice(0, 10);
+      doc.save(`visit-report-${dateStr}-${visit.id.slice(0, 8)}.pdf`);
+    } finally {
+      setExportingPdf(false);
     }
   };
   return (
@@ -112,6 +157,15 @@ function VisitDetailModal({
         ) : null}
         {canVerify && (
           <Group mt="md" gap="xs">
+            <Button
+              variant="light"
+              size="sm"
+              loading={exportingPdf}
+              disabled={exportingPdf || verifying !== null}
+              onClick={handleGenerateReportPdf}
+            >
+              Generate report (PDF)
+            </Button>
             <Button
               color="green"
               variant="light"
@@ -294,68 +348,6 @@ export default function VisitsPage() {
     doc.save(`${exportFilenameBase}.pdf`);
   };
 
-  const handleExportDetailedPdf = async () => {
-    const [{ jsPDF }, { default: autoTable }] = await Promise.all([
-      import("jspdf"),
-      import("jspdf-autotable"),
-    ]);
-    const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
-    const verified = visits.filter((v) => v.verification_status === "verified").length;
-    const rejected = visits.filter((v) => v.verification_status === "rejected").length;
-    doc.setFontSize(16);
-    doc.text("Detailed Visit Report", 14, 12);
-    doc.setFontSize(10);
-    doc.text(reportPeriodLabel, 14, 18);
-    doc.text(`Generated ${formatDateTime(new Date().toISOString())}`, 14, 24);
-    doc.text(`Total: ${visits.length} visit(s)  •  Verified: ${verified}  •  Rejected: ${rejected}`, 14, 30);
-    const head = [
-      "Date",
-      "Officer",
-      "Farmer",
-      "Farm",
-      "Activity",
-      "Status",
-      "Distance (m)",
-      "Crop stage",
-      "Germination %",
-      "Survival",
-      "Pests/diseases",
-      "Order value",
-      "Harvest (kg)",
-      "Farmers feedback",
-      "Notes",
-    ];
-    const body = visits.map((v) => [
-      formatDateTime(v.created_at),
-      (v.officer_email ?? v.officer) ?? "",
-      (v.farmer_display_name ?? v.farmer) ?? "",
-      v.farm_display_name ?? "",
-      formatActivityType(v.activity_type ?? ""),
-      v.verification_status ?? "",
-      v.distance_from_farmer != null ? String(Math.round(v.distance_from_farmer)) : "",
-      v.crop_stage ?? "",
-      v.germination_percent != null ? String(v.germination_percent) : "",
-      v.survival_rate ?? "",
-      v.pests_diseases ?? "",
-      v.order_value != null ? String(v.order_value) : "",
-      v.harvest_kgs != null ? String(v.harvest_kgs) : "",
-      v.farmers_feedback ?? "",
-      v.notes ?? "",
-    ]);
-    autoTable(doc, {
-      head: [head],
-      body,
-      startY: 36,
-      styles: { fontSize: 6, cellPadding: 1.5 },
-      margin: { left: 14, right: 14 },
-      columnStyles: {
-        "Farmers feedback": { cellWidth: 35 },
-        Notes: { cellWidth: 40 },
-      },
-    });
-    doc.save(`${exportFilenameBase}-detailed.pdf`);
-  };
-
   const openDetail = (v: Visit) => {
     setSelectedVisit(v);
     setDetailOpen(true);
@@ -534,9 +526,6 @@ export default function VisitsPage() {
               </Button>
               <Button variant="light" color="green" size="sm" onClick={handleExportPdf}>
                 Generate PDF
-              </Button>
-              <Button variant="light" color="teal" size="sm" onClick={handleExportDetailedPdf}>
-                Detailed report (PDF)
               </Button>
             </Group>
           </Group>
