@@ -273,6 +273,7 @@ export default function ProfileScreen() {
                     : 'Not registered'
               }
             />
+            {/* Push notification test — commented out
             {pushRegistered === true && (
               <>
                 <Divider style={styles.divider} />
@@ -298,6 +299,7 @@ export default function ProfileScreen() {
                 </View>
               </>
             )}
+            */}
             {pushRegistered === false && (
               <>
                 <Text variant="bodySmall" style={styles.pushHint}>
