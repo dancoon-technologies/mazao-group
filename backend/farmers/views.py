@@ -31,19 +31,8 @@ class FarmerListCreateView(generics.ListCreateAPIView):
         return self.list_serializer_class
 
     def get_queryset(self):
-        user = self.request.user
         qs = Farmer.objects.all().select_related("assigned_officer", "assigned_officer__department")
-        if user.role == "admin":
-            pass  # Admin sees all farmers
-        elif user.role == "supervisor":
-            # Supervisors see only farmers assigned to officers in their department.
-            if user.department_id:
-                qs = qs.filter(assigned_officer__department=user.department)
-            else:
-                qs = qs.none()
-        else:
-            # Officers see only farmers assigned to them
-            qs = qs.filter(assigned_officer=user)
+        # All authenticated users see all farmers in the DB (no department nor user filter).
         search = (self.request.query_params.get("search") or "").strip()
         if search:
             qs = qs.filter(
