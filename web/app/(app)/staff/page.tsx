@@ -13,6 +13,7 @@ import {
   Text,
   TextInput,
 } from "@mantine/core";
+import { IconSearch } from "@tabler/icons-react";
 import Link from "next/link";
 import { useCallback, useMemo, useState } from "react";
 import { useAsyncData } from "@/hooks/useAsyncData";
@@ -189,6 +190,7 @@ export default function StaffPage() {
   const [assignSubCountyId, setAssignSubCountyId] = useState("");
   const [assignError, setAssignError] = useState("");
   const [assigningId, setAssigningId] = useState<string | null>(null);
+  const [staffSearch, setStaffSearch] = useState("");
   const [form, updateField, resetForm] = useFormFields(INITIAL_STAFF_FORM);
 
   const regionOptions = useMemo(
@@ -291,6 +293,26 @@ export default function StaffPage() {
     [editingUser, assignDepartment, assignRegionId, assignCountyId, assignSubCountyId, refetch]
   );
 
+  const filteredStaff = useMemo(() => {
+    const term = staffSearch.trim().toLowerCase();
+    if (!term) return staffData ?? [];
+    const list = staffData ?? [];
+    return list.filter(
+      (u) =>
+        (u.display_name ?? "").toLowerCase().includes(term) ||
+        (u.email ?? "").toLowerCase().includes(term) ||
+        (u.phone ?? "").toLowerCase().includes(term) ||
+        (roleLabelMap[u.role] ?? u.role ?? "").toLowerCase().includes(term) ||
+        (departmentLabelMap[u.department] ?? u.department ?? "").toLowerCase().includes(term) ||
+        (u.region ?? "").toLowerCase().includes(term) ||
+        [u.first_name, u.middle_name, u.last_name]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase()
+          .includes(term)
+    );
+  }, [staffData, staffSearch, roleLabelMap, departmentLabelMap]);
+
   const staffColumns = useMemo<DataTableColumn<StaffUser>[]>(
     () => [
       ...buildStaffColumns(departmentLabelMap, roleLabelMap),
@@ -350,6 +372,25 @@ export default function StaffPage() {
     [performanceData]
   );
 
+  const filteredPerformance = useMemo(() => {
+    const term = staffSearch.trim().toLowerCase();
+    if (!term) return performanceSorted;
+    return performanceSorted.filter(
+      (u) =>
+        (u.display_name ?? "").toLowerCase().includes(term) ||
+        (u.email ?? "").toLowerCase().includes(term) ||
+        (u.phone ?? "").toLowerCase().includes(term) ||
+        (roleLabelMap[u.role] ?? u.role ?? "").toLowerCase().includes(term) ||
+        (departmentLabelMap[u.department] ?? u.department ?? "").toLowerCase().includes(term) ||
+        (u.region ?? "").toLowerCase().includes(term) ||
+        [u.first_name, u.middle_name, u.last_name]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase()
+          .includes(term)
+    );
+  }, [performanceSorted, staffSearch, roleLabelMap, departmentLabelMap]);
+
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {
       e.preventDefault();
@@ -404,8 +445,6 @@ export default function StaffPage() {
   if (loading) return <PageLoading message="Loading staff…" />;
   if (error) return <PageError message={error} />;
 
-  const staff = staffData ?? [];
-
   return (
     <Box style={{ minWidth: PAGE_BOX_MIN_WIDTH }}>
       <PageHeader
@@ -425,6 +464,14 @@ export default function StaffPage() {
         </Tabs.List>
 
         <Tabs.Panel value="staff" pt="md">
+      <TextInput
+        placeholder="Search by name, email, phone, role, department, region…"
+        value={staffSearch}
+        onChange={(e) => setStaffSearch(e.currentTarget.value)}
+        mb="md"
+        leftSection={<IconSearch size={16} />}
+        styles={{ root: { maxWidth: 400 } }}
+      />
       {showForm && (
         <Paper mt="md" p="md" radius="md" shadow="sm" withBorder>
           <Text size="lg" fw={600} mb="md">
@@ -620,26 +667,34 @@ export default function StaffPage() {
       </Modal>
 
       <DataTable
-        data={staff}
+        data={filteredStaff}
         rowKey="id"
         columns={staffColumns}
         minWidth={400}
-        emptyMessage="No staff registered yet"
+        emptyMessage={staffSearch.trim() ? "No staff match your search." : "No staff registered yet"}
         pageSize={15}
       />
         </Tabs.Panel>
 
         <Tabs.Panel value="performance" pt="md">
+          <TextInput
+            placeholder="Search by name, email, phone, role, department, region…"
+            value={staffSearch}
+            onChange={(e) => setStaffSearch(e.currentTarget.value)}
+            mb="md"
+            leftSection={<IconSearch size={16} />}
+            styles={{ root: { maxWidth: 400 } }}
+          />
           <Paper p="md" radius="md" withBorder>
             <Text size="sm" c="dimmed" mb="md">
               Performance is based on number of visits recorded. Officers record visits; supervisors typically have zero.
             </Text>
             <DataTable
-              data={performanceSorted}
+              data={filteredPerformance}
               rowKey="id"
               columns={performanceColumns}
               minWidth={500}
-              emptyMessage="No staff performance data"
+              emptyMessage={staffSearch.trim() ? "No staff match your search." : "No staff performance data"}
               pageSize={15}
             />
           </Paper>
