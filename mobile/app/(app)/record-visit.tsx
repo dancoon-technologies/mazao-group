@@ -5,7 +5,7 @@ import {
   getScheduleIdsWithRecordedVisits,
 } from '@/database';
 import { useAuth } from '@/contexts/AuthContext';
-import { api, type ActivityTypeOption, type Farm, type Farmer, type Schedule, type VisitSettings } from '@/lib/api';
+import { api, type ActivityFormFieldOption, type ActivityTypeOption, type Farm, type Farmer, type Schedule, type VisitSettings } from '@/lib/api';
 import { ACTIVITY_TYPES, DEFAULT_ACTIVITY_TYPE } from '@/lib/constants/activityTypes';
 import { enqueueVisit, syncWithServer } from '@/lib/syncWithServer';
 import NetInfo from '@react-native-community/netinfo';
@@ -101,6 +101,7 @@ export default function RecordVisitScreen() {
   const [activityType, setActivityType] = useState(DEFAULT_ACTIVITY_TYPE);
   const [activityTypesList, setActivityTypesList] = useState<ActivityTypeOption[]>([]);
   const [farmerMenuOpen, setFarmerMenuOpen] = useState(false);
+  const [farmMenuOpen, setFarmMenuOpen] = useState(false);
   const [activityMenuOpen, setActivityMenuOpen] = useState(false);
   const [accordionExpanded, setAccordionExpanded] = useState(false);
   const [locationLoading, setLocationLoading] = useState(false);
@@ -120,6 +121,7 @@ export default function RecordVisitScreen() {
   const [cameraModalVisible, setCameraModalVisible] = useState(false);
   const cameraRef = useRef<CameraView>(null);
   const [visitSettings, setVisitSettings] = useState<VisitSettings | null>(null);
+  const [step, setStep] = useState(0); // 0 = schedule, 1 = details & photo, 2 = additional fields
 
   const selectedFarmer = farmers.find((f) => f.id === selectedFarmerId);
   const selectedFarm = farms.find((f) => f.id === selectedFarmId);
@@ -179,6 +181,23 @@ export default function RecordVisitScreen() {
         : ACTIVITY_TYPES.map((a) => ({ value: a.value, label: a.label })),
     [activityTypesList]
   );
+
+  /** Default form fields for step 3 when activity has no form_fields config (show all). */
+  const DEFAULT_STEP3_FIELDS: ActivityFormFieldOption[] = [
+    { key: 'crop_stage', label: 'Crop Stage', required: false },
+    { key: 'germination_percent', label: 'Germination %', required: false },
+    { key: 'survival_rate', label: 'Survival Rate %', required: false },
+    { key: 'pests_diseases', label: 'Pests/Diseases', required: false },
+    { key: 'order_value', label: 'Order Value', required: false },
+    { key: 'harvest_kgs', label: 'Harvest (kg)', required: false },
+    { key: 'farmers_feedback', label: "Farmer's Feedback", required: false },
+  ];
+
+  const step3Fields = useMemo(() => {
+    const config = activityTypesList.find((a) => a.value === activityType);
+    const fields = config?.form_fields?.length ? config.form_fields : DEFAULT_STEP3_FIELDS;
+    return fields;
+  }, [activityType, activityTypesList]);
 
   useEffect(() => {
     let cancelled = false;
@@ -428,7 +447,6 @@ export default function RecordVisitScreen() {
   const mustSelectSchedule = !selectedScheduleId || selectedSchedule?.status !== 'accepted';
   const scheduleLocked = !!selectedScheduleId && selectedSchedule?.status === 'accepted';
   const scheduleIdForSubmit = scheduleLocked ? selectedScheduleId : undefined;
-  const mustSelectFarm = scheduleLocked && !scheduleLockedForFarm && farms.length > 0 && !selectedFarmId;
 
   const submit = useCallback(async () => {
     if (mustSelectSchedule) {
@@ -437,10 +455,6 @@ export default function RecordVisitScreen() {
           ? 'You need an accepted schedule for today or a past date to record a visit. Future dates are not allowed.'
           : 'Select a planned visit (accepted schedule) with date today or in the past.'
       );
-      return;
-    }
-    if (mustSelectFarm) {
-      setError('Select a farm for this visit. The schedule has no farm assigned.');
       return;
     }
     if (!selectedFarmerId || !photoUri || !location) {
@@ -526,7 +540,7 @@ export default function RecordVisitScreen() {
     } finally {
       setSubmitting(false);
     }
-  }, [mustSelectSchedule, mustSelectFarm, acceptedSchedules.length, selectedFarmerId, selectedFarmId, selectedScheduleId, scheduleIdForSubmit, photoUri, photoTakenAt, location, selectedFarm, selectedFarmer, activityType, notes, cropStage, germinationPercent, survivalRatePercent, orderValue, harvestKgs, pestsDiseases, farmersFeedback, router]);
+  }, [mustSelectSchedule, acceptedSchedules.length, selectedFarmerId, selectedFarmId, selectedScheduleId, scheduleIdForSubmit, photoUri, photoTakenAt, location, selectedFarm, selectedFarmer, activityType, notes, cropStage, germinationPercent, survivalRatePercent, orderValue, harvestKgs, pestsDiseases, farmersFeedback, router]);
 
   const activityLabel =
     activityTypesList.find((a) => a.value === activityType)?.label ??
@@ -580,347 +594,303 @@ export default function RecordVisitScreen() {
             </Chip>
           )}
 
-          {acceptedSchedules.length > 0 ? (
-            <Surface style={styles.section} elevation={0}>
-              <Text variant="labelLarge" style={styles.fieldLabel}>Planned visit (accepted) *</Text>
-              <Text variant="bodySmall" style={styles.hint}>
-                Select the accepted schedule for this visit. Farmer and farm are set from the schedule.
-              </Text>
-              <View style={styles.scheduleChips}>
-                {acceptedSchedules.map((s) => {
-                  const farmerName = farmers.find((f) => f.id === s.farmer)?.display_name ?? s.farmer ?? '—';
-                  const dateStr = s.scheduled_date;
-                  return (
-                    <Chip
-                      key={s.id}
-                      selected={selectedScheduleId === s.id}
-                      onPress={() => {
-                        setSelectedScheduleId(s.id);
-                        if (s.farmer) setSelectedFarmerId(s.farmer);
-                        setSelectedFarmId(s.farm ?? null);
-                      }}
-                      style={styles.scheduleChip}
-                      compact
-                    >
-                      {dateStr} — {farmerName} · Farm: {s.farm_display_name ?? 'None'}
-                    </Chip>
-                  );
-                })}
-              </View>
-              {mustSelectSchedule && (
-                <HelperText type="error" style={styles.errorHint}>Select a planned visit to continue.</HelperText>
+          {/* Stepper */}
+          <View style={styles.stepperRow}>
+            <Pressable onPress={() => setStep(0)} style={[styles.stepperStep, step === 0 && styles.stepperStepActive]}>
+              <Text variant="labelSmall" style={step === 0 ? styles.stepperStepTextActive : styles.stepperStepText}>1. Schedule</Text>
+            </Pressable>
+            <Pressable onPress={() => step >= 1 && setStep(1)} style={[styles.stepperStep, step === 1 && styles.stepperStepActive]} disabled={step < 1}>
+              <Text variant="labelSmall" style={step === 1 ? styles.stepperStepTextActive : styles.stepperStepText}>2. Details</Text>
+            </Pressable>
+            <Pressable onPress={() => step >= 2 && setStep(2)} style={[styles.stepperStep, step === 2 && styles.stepperStepActive]} disabled={step < 2}>
+              <Text variant="labelSmall" style={step === 2 ? styles.stepperStepTextActive : styles.stepperStepText}>3. Additional</Text>
+            </Pressable>
+          </View>
+
+          {/* Step 1: Select schedule */}
+          {step === 0 && (
+            <>
+              {acceptedSchedules.length > 0 ? (
+                <Surface style={styles.section} elevation={0}>
+                  <Text variant="labelLarge" style={styles.fieldLabel}>Planned visit (accepted) *</Text>
+                  <Text variant="bodySmall" style={styles.hint}>
+                    Select the accepted schedule for this visit. Farmer and farm are set from the schedule.
+                  </Text>
+                  <View style={styles.scheduleChips}>
+                    {acceptedSchedules.map((s) => {
+                      const farmerName = farmers.find((f) => f.id === s.farmer)?.display_name ?? s.farmer ?? '—';
+                      const dateStr = s.scheduled_date;
+                      return (
+                        <Chip
+                          key={s.id}
+                          selected={selectedScheduleId === s.id}
+                          onPress={() => {
+                            setSelectedScheduleId(s.id);
+                            if (s.farmer) setSelectedFarmerId(s.farmer);
+                            setSelectedFarmId(s.farm ?? null);
+                          }}
+                          style={styles.scheduleChip}
+                          compact
+                        >
+                          {dateStr} — {farmerName} · Farm: {s.farm_display_name ?? 'None'}
+                        </Chip>
+                      );
+                    })}
+                  </View>
+                  {mustSelectSchedule && (
+                    <HelperText type="error" style={styles.errorHint}>Select a planned visit to continue.</HelperText>
+                  )}
+                </Surface>
+              ) : (
+                <Surface style={styles.section} elevation={0}>
+                  <Text variant="labelLarge" style={styles.fieldLabel}>Planned visit (required)</Text>
+                  <Text variant="bodySmall" style={styles.hint}>
+                    No accepted schedules for today or earlier. Visits can only be recorded for a planned schedule whose date is today or in the past.
+                  </Text>
+                </Surface>
               )}
-            </Surface>
-          ) : (
-            <Surface style={styles.section} elevation={0}>
-              <Text variant="labelLarge" style={styles.fieldLabel}>Planned visit (required)</Text>
-              <Text variant="bodySmall" style={styles.hint}>
-                No accepted schedules for today or earlier. Visits can only be recorded for a planned schedule whose date is today or in the past.
-              </Text>
-            </Surface>
+              <View style={styles.stepActions}>
+                <Button mode="contained" onPress={() => setStep(1)} disabled={mustSelectSchedule} style={styles.nextBtn}>
+                  Next: Details & photo
+                </Button>
+              </View>
+            </>
           )}
 
-          <Surface style={styles.section} elevation={0}>
-            <Text variant="labelLarge" style={styles.fieldLabel}>Farmer *</Text>
-            {farmers.length === 0 ? (
-              <>
-                <Text variant="bodyMedium" style={styles.hint}>
-                  No farmers yet. Add a farmer to record visits.
+          {/* Step 2: Farmer/farm details, activity, photo, location */}
+          {step === 1 && (
+            <>
+              <Surface style={styles.section} elevation={0}>
+                <Text variant="labelLarge" style={styles.fieldLabel}>Farmer & farm (from schedule)</Text>
+                <Text variant="bodySmall" style={styles.hint}>
+                  Set by the planned visit you selected. Change schedule in step 1 to change farmer or farm.
                 </Text>
-                <Button
-                  mode="contained-tonal"
-                  icon="account-plus"
-                  onPress={() => router.push({ pathname: '/(app)/add-farmer', params: { returnTo: 'record-visit' } })}
-                  style={styles.addFarmerBtn}
-                  compact
-                >
-                  Add farmer
-                </Button>
-              </>
-            ) : scheduleLocked ? (
-              <>
-                <TextInput
-                  placeholder="Select farmer"
-                  value={selectedFarmer?.display_name ?? ''}
-                  mode="outlined"
-                  editable={false}
-                  style={styles.input}
-                />
-                <HelperText type="info" style={styles.lockedHint}>Set by selected planned visit. Change schedule above to change farmer.</HelperText>
-              </>
-            ) : (
-              <>
+                {selectedFarmer && (
+                  <ListItemRow
+                    avatarLetter={(selectedFarmer.display_name || '?').charAt(0)}
+                    title={selectedFarmer.display_name ?? '—'}
+                    subtitle={selectedFarmer.phone ? `Tel: ${selectedFarmer.phone}` : undefined}
+                  />
+                )}
+                {scheduleLockedForFarm && selectedFarm ? (
+                  <ListItemRow
+                    avatarLetter={selectedFarm.village.charAt(0)}
+                    title={selectedFarm.village}
+                    subtitle={`${selectedFarm.crop_type ?? '—'} · ${selectedFarm.plot_size ?? '—'}`}
+                  />
+                ) : selectedFarmer && !scheduleLockedForFarm ? (
+                  <View style={styles.farmSelectWrap}>
+                    <Text variant="labelSmall" style={styles.fieldLabel}>Farm (optional)</Text>
+                    <Menu
+                      visible={farmMenuOpen}
+                      onDismiss={() => setFarmMenuOpen(false)}
+                      anchor={
+                        <TextInput
+                          placeholder={farms.length ? 'Select farm' : 'No farms for this farmer'}
+                          value={selectedFarm ? `${selectedFarm.village}${selectedFarm.crop_type ? ` · ${selectedFarm.crop_type}` : ''}` : ''}
+                          mode="outlined"
+                          right={<TextInput.Icon icon="menu-down" onPress={() => farms.length > 0 && setFarmMenuOpen(true)} />}
+                          style={styles.input}
+                          onPressIn={() => farms.length > 0 && setFarmMenuOpen(true)}
+                          editable={false}
+                        />
+                      }
+                    >
+                      <Menu.Item onPress={() => { setSelectedFarmId(null); setFarmMenuOpen(false); }} title="None" />
+                      {farms.map((f) => (
+                        <Menu.Item
+                          key={f.id}
+                          onPress={() => { setSelectedFarmId(f.id); setFarmMenuOpen(false); }}
+                          title={`${f.village}${f.crop_type ? ` · ${f.crop_type}` : ''}`}
+                        />
+                      ))}
+                    </Menu>
+                  </View>
+                ) : selectedFarmer && (
+                  <Text variant="bodySmall" style={styles.hint}>No specific farm for this visit</Text>
+                )}
+              </Surface>
+
+              <Surface style={styles.section} elevation={0}>
+                <Text variant="labelLarge" style={styles.fieldLabel}>Activity Type *</Text>
                 <Menu
-                  visible={farmerMenuOpen}
-                  onDismiss={() => setFarmerMenuOpen(false)}
-                  anchorPosition="bottom"
+                  visible={activityMenuOpen}
+                  onDismiss={() => setActivityMenuOpen(false)}
                   anchor={
                     <TextInput
-                      placeholder="Select farmer"
-                      value={selectedFarmer?.display_name ?? ''}
+                      placeholder="Select activity type"
+                      value={activityLabel}
                       mode="outlined"
-                      right={<TextInput.Icon icon="menu-down" onPress={() => setFarmerMenuOpen(true)} />}
+                      right={<TextInput.Icon icon="menu-down" onPress={() => setActivityMenuOpen(true)} />}
                       style={styles.input}
-                      onPressIn={() => setFarmerMenuOpen(true)}
+                      onPressIn={() => setActivityMenuOpen(true)}
                       editable={false}
                     />
                   }
                 >
-                  {farmers.map((f) => (
+                  {activityTypeOptions.map((a) => (
                     <Menu.Item
-                      key={f.id}
+                      key={a.value}
                       onPress={() => {
-                        setSelectedFarmerId(f.id);
-                        setFarmerMenuOpen(false);
+                        setActivityType(a.value);
+                        setActivityMenuOpen(false);
                       }}
-                      title={f.display_name}
+                      title={a.label}
                     />
                   ))}
                 </Menu>
-                <Button
-                  mode="text"
-                  icon="account-plus"
-                  onPress={() => router.push({ pathname: '/(app)/add-farmer', params: { returnTo: 'record-visit' } })}
-                  style={styles.addFarmerBtn}
-                  compact
-                >
-                  Add new farmer
-                </Button>
-              </>
-            )}
-            {selectedFarmerId && farms.length > 0 && (
-              <>
-                <Text variant="labelLarge" style={styles.fieldLabel}>Farm {scheduleLocked && !scheduleLockedForFarm ? '*' : '(optional)'}</Text>
-                {scheduleLockedForFarm ? (
-                  <>
-                    <HelperText type="info" style={styles.lockedHint}>Set by selected planned visit. Change schedule above to change farm.</HelperText>
-                    <ListItemRow
-                      avatarLetter={selectedFarm ? selectedFarm.village.charAt(0) : '—'}
-                      title={selectedFarm ? selectedFarm.village : 'No specific farm'}
-                      subtitle={selectedFarm ? `${selectedFarm.crop_type ?? '—'} · ${selectedFarm.plot_size ?? '—'}` : undefined}
-                      right={<List.Icon icon="check" color={colors.primary} />}
-                    />
-                  </>
-                ) : (
-                  <>
-                    {scheduleLocked && (
-                      <HelperText type="info" style={styles.lockedHint}>Schedule has no farm assigned. Select a farm for this visit.</HelperText>
-                    )}
-                    <View style={styles.farmList}>
-                      {!scheduleLocked && (
-                        <ListItemRow
-                          avatarLetter="—"
-                          title="No specific farm"
-                          right={selectedFarmId === null ? <List.Icon icon="check" color={colors.primary} /> : undefined}
-                          onPress={() => setSelectedFarmId(null)}
-                        />
+              </Surface>
+
+              <Surface style={styles.section} elevation={0}>
+                <View style={styles.locationBox}>
+                  <View style={styles.locationBoxLeft}>
+                    <List.Icon icon="map-marker" color={theme.colors.primary} style={styles.locationIcon} />
+                    <View>
+                      <Text variant="labelLarge" style={styles.fieldLabel}>Location</Text>
+                      {locationError ? (
+                        <Text variant="bodySmall" style={styles.locationStatusError}>{locationError}</Text>
+                      ) : locationLoading ? (
+                        <Text variant="bodySmall" style={styles.locationStatus}>Getting location…</Text>
+                      ) : location ? (
+                        <Text variant="bodySmall" style={styles.locationStatus}>
+                          {distanceM !== null ? `Distance: ${distanceM}m (max ${maxM}m)` : 'Location captured'}
+                        </Text>
+                      ) : (
+                        <Text variant="bodySmall" style={styles.locationStatus}>Location not captured</Text>
                       )}
-                      {farms.map((farm) => (
-                        <ListItemRow
-                          key={farm.id}
-                          avatarLetter={farm.village.charAt(0)}
-                          title={farm.village}
-                          subtitle={`${farm.crop_type ?? '—'} · ${farm.plot_size ?? '—'}`}
-                          right={selectedFarmId === farm.id ? <List.Icon icon="check" color={colors.primary} /> : undefined}
-                          onPress={() => setSelectedFarmId(farm.id)}
-                        />
-                      ))}
+                      {location && distanceM !== null && distanceWarning && gpsValid && (
+                        <HelperText type="info">You are approaching the limit. Stay within {maxM}m to submit.</HelperText>
+                      )}
+                      {location && distanceM !== null && !gpsValid && (
+                        <HelperText type="error">Must be within {maxM}m of the farmer/farm to record this visit.</HelperText>
+                      )}
                     </View>
-                  </>
-                )}
-              </>
-            )}
-          </Surface>
-
-          <Surface style={styles.section} elevation={0}>
-            <View style={styles.locationBox}>
-              <View style={styles.locationBoxLeft}>
-                <List.Icon icon="map-marker" color={theme.colors.primary} style={styles.locationIcon} />
-                <View>
-                  <Text variant="labelLarge" style={styles.fieldLabel}>Location</Text>
-                  {locationError ? (
-                    <Text variant="bodySmall" style={styles.locationStatusError}>{locationError}</Text>
-                  ) : locationLoading ? (
-                    <Text variant="bodySmall" style={styles.locationStatus}>Getting location…</Text>
-                  ) : location ? (
-                    <Text variant="bodySmall" style={styles.locationStatus}>
-                      {distanceM !== null ? `Distance: ${distanceM}m (max ${maxM}m)` : 'Location captured'}
-                    </Text>
-                  ) : (
-                    <Text variant="bodySmall" style={styles.locationStatus}>Location not captured</Text>
-                  )}
-                  {location && distanceM !== null && distanceWarning && gpsValid && (
-                    <HelperText type="info">You are approaching the limit. Stay within {maxM}m to submit.</HelperText>
-                  )}
-                  {location && distanceM !== null && !gpsValid && (
-                    <HelperText type="error">Must be within {maxM}m of the farmer/farm to record this visit.</HelperText>
-                  )}
+                  </View>
+                  <Button mode="outlined" compact onPress={refreshLocation} disabled={locationLoading}>
+                    Refresh
+                  </Button>
                 </View>
-              </View>
-              <Button mode="outlined" compact onPress={refreshLocation} disabled={locationLoading}>
-                Refresh
-              </Button>
-            </View>
-          </Surface>
+              </Surface>
 
-          <Surface style={styles.section} elevation={0}>
-            <Text variant="labelLarge" style={styles.fieldLabel}>Photo Evidence *</Text>
-            <View style={styles.photoEvidenceRow}>
-              <Button
-                mode="outlined"
-                icon="camera"
-                onPress={openCameraModal}
-                style={styles.photoEvidenceBtn}
-              >
-                Take Photo
-              </Button>
-            </View>
-            {photoUri ? (
-              <View style={styles.photoPreviewWrap}>
-                <Image source={{ uri: photoUri }} style={styles.previewImg} contentFit="cover" />
-                <Button mode="text" compact onPress={() => { setPhotoUri(null); openCameraModal(); }}>
-                  Retake photo
+              <Surface style={styles.section} elevation={0}>
+                <Text variant="labelLarge" style={styles.fieldLabel}>Photo Evidence *</Text>
+                <View style={styles.photoEvidenceRow}>
+                  <Button mode="outlined" icon="camera" onPress={openCameraModal} style={styles.photoEvidenceBtn}>
+                    Take Photo
+                  </Button>
+                </View>
+                {photoUri ? (
+                  <View style={styles.photoPreviewWrap}>
+                    <Image source={{ uri: photoUri }} style={styles.previewImg} contentFit="cover" />
+                    <Button mode="text" compact onPress={() => { setPhotoUri(null); openCameraModal(); }}>
+                      Retake photo
+                    </Button>
+                  </View>
+                ) : null}
+              </Surface>
+
+              <View style={styles.stepActions}>
+                <Button mode="outlined" onPress={() => setStep(0)} style={styles.nextBtn}>
+                  Back
+                </Button>
+                <Button
+                  mode="contained"
+                  onPress={() => setStep(2)}
+                  disabled={
+                    !photoUri ||
+                    !location ||
+                    (location && distanceM !== null && !gpsValid)
+                  }
+                  style={styles.nextBtn}
+                >
+                  Next: Additional info
                 </Button>
               </View>
-            ) : null}
-          </Surface>
+            </>
+          )}
 
-          <Surface style={styles.section} elevation={0}>
-            <Text variant="labelLarge" style={styles.fieldLabel}>Activity Type *</Text>
-            <Menu
-              visible={activityMenuOpen}
-              onDismiss={() => setActivityMenuOpen(false)}
-              anchor={
+          {/* Step 3: Additional fields (activity-based) and submit */}
+          {step === 2 && (
+            <>
+              <Surface style={styles.section} elevation={0}>
+                <Text variant="labelLarge" style={styles.fieldLabel}>Notes</Text>
                 <TextInput
-                  placeholder="Select activity type"
-                  value={activityLabel}
-                  mode="outlined"
-                  right={<TextInput.Icon icon="menu-down" onPress={() => setActivityMenuOpen(true)} />}
-                  style={styles.input}
-                  onPressIn={() => setActivityMenuOpen(true)}
-                  editable={false}
-                />
-              }
-            >
-              {activityTypeOptions.map((a) => (
-                <Menu.Item
-                  key={a.value}
-                  onPress={() => {
-                    setActivityType(a.value);
-                    setActivityMenuOpen(false);
-                  }}
-                  title={a.label}
-                />
-              ))}
-            </Menu>
-            <Text variant="labelLarge" style={styles.fieldLabel}>Notes</Text>
-            <TextInput
-              value={notes}
-              onChangeText={setNotes}
-              mode="outlined"
-              multiline
-              numberOfLines={3}
-              placeholder="Add any notes about this visit..."
-              style={styles.input}
-            />
-          </Surface>
-
-          <List.AccordionGroup>
-            <List.Accordion
-              title="Additional Details (Optional)"
-              id="1"
-              expanded={accordionExpanded}
-              onPress={() => setAccordionExpanded(!accordionExpanded)}
-              style={styles.accordion}
-              right={props => <List.Icon {...props} icon={accordionExpanded ? 'chevron-up' : 'chevron-down'} />}
-            >
-              <Surface style={styles.accordionInner} elevation={0}>
-                <View style={styles.twoColRow}>
-                  <TextInput
-                    label="Crop Stage"
-                    value={cropStage}
-                    onChangeText={setCropStage}
-                    mode="outlined"
-                    placeholder="e.g., Flowering"
-                    style={styles.inputHalf}
-                  />
-                  <TextInput
-                    label="Germination %"
-                    value={germinationPercent}
-                    onChangeText={setGerminationPercent}
-                    keyboardType="decimal-pad"
-                    mode="outlined"
-                    placeholder="0-100"
-                    style={styles.inputHalf}
-                  />
-                </View>
-                <View style={styles.twoColRow}>
-                  <TextInput
-                    label="Survival Rate %"
-                    value={survivalRatePercent}
-                    onChangeText={setSurvivalRatePercent}
-                    keyboardType="decimal-pad"
-                    mode="outlined"
-                    placeholder="0-100"
-                    style={styles.inputHalf}
-                  />
-                  <TextInput
-                    label="Order Value"
-                    value={orderValue}
-                    onChangeText={setOrderValue}
-                    keyboardType="decimal-pad"
-                    mode="outlined"
-                    placeholder="Amount"
-                    style={styles.inputHalf}
-                  />
-                </View>
-                <TextInput
-                  label="Harvest (kg)"
-                  value={harvestKgs}
-                  onChangeText={setHarvestKgs}
-                  keyboardType="decimal-pad"
-                  mode="outlined"
-                  placeholder="Harvest in kilograms"
-                  style={styles.input}
-                />
-                <TextInput
-                  label="Pests/Diseases"
-                  value={pestsDiseases}
-                  onChangeText={setPestsDiseases}
-                  mode="outlined"
-                  placeholder="List any pests or diseases"
-                  style={styles.input}
-                />
-                <TextInput
-                  label="Farmer's Feedback"
-                  value={farmersFeedback}
-                  onChangeText={setFarmersFeedback}
+                  value={notes}
+                  onChangeText={setNotes}
                   mode="outlined"
                   multiline
-                  numberOfLines={2}
-                  placeholder="Farmer's comments or feedback"
+                  numberOfLines={3}
+                  placeholder="Add any notes about this visit..."
                   style={styles.input}
                 />
               </Surface>
-            </List.Accordion>
-          </List.AccordionGroup>
 
-          {error ? (
-            <HelperText type="error" style={styles.errorBlock}>{error}</HelperText>
-          ) : null}
+              <Surface style={styles.section} elevation={0}>
+                <Text variant="labelLarge" style={styles.fieldLabel}>Additional details</Text>
+                <Text variant="bodySmall" style={styles.hint}>
+                  {step3Fields.length ? 'Relevant fields for this activity type.' : 'Optional details.'}
+                </Text>
+                {step3Fields.map((f) => {
+                  if (f.key === 'crop_stage') {
+                    return (
+                      <TextInput key={f.key} label={f.label} value={cropStage} onChangeText={setCropStage} mode="outlined" placeholder="e.g., Flowering" style={styles.input} />
+                    );
+                  }
+                  if (f.key === 'germination_percent') {
+                    return (
+                      <TextInput key={f.key} label={f.label} value={germinationPercent} onChangeText={setGerminationPercent} keyboardType="decimal-pad" mode="outlined" placeholder="0-100" style={styles.input} />
+                    );
+                  }
+                  if (f.key === 'survival_rate') {
+                    return (
+                      <TextInput key={f.key} label={f.label} value={survivalRatePercent} onChangeText={setSurvivalRatePercent} keyboardType="decimal-pad" mode="outlined" placeholder="0-100" style={styles.input} />
+                    );
+                  }
+                  if (f.key === 'pests_diseases') {
+                    return (
+                      <TextInput key={f.key} label={f.label} value={pestsDiseases} onChangeText={setPestsDiseases} mode="outlined" placeholder="List any pests or diseases" style={styles.input} />
+                    );
+                  }
+                  if (f.key === 'order_value') {
+                    return (
+                      <TextInput key={f.key} label={f.label} value={orderValue} onChangeText={setOrderValue} keyboardType="decimal-pad" mode="outlined" placeholder="Amount" style={styles.input} />
+                    );
+                  }
+                  if (f.key === 'harvest_kgs') {
+                    return (
+                      <TextInput key={f.key} label={f.label} value={harvestKgs} onChangeText={setHarvestKgs} keyboardType="decimal-pad" mode="outlined" placeholder="Harvest in kilograms" style={styles.input} />
+                    );
+                  }
+                  if (f.key === 'farmers_feedback') {
+                    return (
+                      <TextInput key={f.key} label={f.label} value={farmersFeedback} onChangeText={setFarmersFeedback} mode="outlined" multiline numberOfLines={2} placeholder="Farmer's comments" style={styles.input} />
+                    );
+                  }
+                  return null;
+                })}
+              </Surface>
 
-          <Surface style={styles.actionsSection} elevation={0}>
-            <Button
-              mode="contained"
-              onPress={submit}
-              loading={submitting}
-              disabled={submitting}
-              style={styles.submitBtn}
-              accessibilityLabel="Record visit"
-            >
-              Record Visit
-            </Button>
-          </Surface>
+              {error ? (
+                <HelperText type="error" style={styles.errorBlock}>{error}</HelperText>
+              ) : null}
+
+              <Surface style={styles.actionsSection} elevation={0}>
+                <Button mode="outlined" onPress={() => setStep(1)} style={styles.nextBtn}>
+                  Back
+                </Button>
+                <Button
+                  mode="contained"
+                  onPress={submit}
+                  loading={submitting}
+                  disabled={submitting}
+                  style={styles.submitBtn}
+                  accessibilityLabel="Record visit"
+                >
+                  Record Visit
+                </Button>
+              </Surface>
+            </>
+          )}
 
           <Modal
             visible={cameraModalVisible}
@@ -1035,6 +1005,7 @@ const styles = StyleSheet.create({
   twoColRow: { flexDirection: 'row', gap: spacing.md, marginBottom: 0 },
   addFarmerBtn: { marginTop: -2, marginBottom: 2 },
   farmList: { marginTop: spacing.xs },
+  farmSelectWrap: { marginTop: spacing.sm },
   lockedHint: { marginTop: 2, marginBottom: 4 },
   errorHint: { marginTop: 4, marginBottom: 0 },
   scheduleChips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginTop: spacing.sm },
@@ -1090,6 +1061,25 @@ const styles = StyleSheet.create({
   accordionInner: { paddingHorizontal: 12, paddingBottom: 12 },
   errorBlock: { marginVertical: 4 },
   actionsSection: { paddingTop: 12, paddingBottom: 4 },
-  nextBtn: { marginBottom: 0 },
+  nextBtn: { marginBottom: 8 },
   submitBtn: { marginBottom: 0 },
+  stepperRow: {
+    flexDirection: 'row',
+    marginBottom: spacing.lg,
+    gap: 4,
+  },
+  stepperStep: {
+    flex: 1,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.xs,
+    borderRadius: radius.sm,
+    alignItems: 'center',
+    backgroundColor: colors.gray100,
+  },
+  stepperStepActive: {
+    backgroundColor: colors.primary + '20',
+  },
+  stepperStepText: { color: colors.gray500 },
+  stepperStepTextActive: { color: colors.primary, fontWeight: '600' },
+  stepActions: { flexDirection: 'row', gap: spacing.md, marginTop: spacing.md, marginBottom: spacing.lg },
 });

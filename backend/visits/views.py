@@ -270,6 +270,26 @@ class VisitListCreateView(generics.ListCreateAPIView):
         return Response(out_serializer.data, status=status.HTTP_201_CREATED)
 
 
+class VisitRetrieveView(generics.RetrieveAPIView):
+    """GET a single visit by id. Officers see own; supervisors see department."""
+    permission_classes = [IsAuthenticated]
+    serializer_class = VisitSerializer
+    queryset = Visit.objects.select_related(
+        "officer", "officer__department", "farmer", "farm", "schedule", "schedule__farmer"
+    )
+
+    def get_queryset(self):
+        user = self.request.user
+        qs = super().get_queryset()
+        if user.role == "admin":
+            return qs
+        if user.role == "supervisor":
+            if user.department_id:
+                return qs.filter(officer__department=user.department)
+            return qs.none()
+        return qs.filter(officer=user)
+
+
 class VisitVerifyView(APIView):
     """POST with {"action": "accept" | "reject"}. Supervisor or admin only. Sets visit verification_status."""
 

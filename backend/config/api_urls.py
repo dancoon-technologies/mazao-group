@@ -29,7 +29,7 @@ from visits.dashboard_views import (
     DashboardVisitsByActivityView,
     DashboardVisitsByDayView,
 )
-from visits.views import VisitListCreateView, VisitVerifyView
+from visits.views import VisitListCreateView, VisitRetrieveView, VisitVerifyView
 
 urlpatterns = [
     path("auth/login/", EmailTokenObtainPairView.as_view(), name="token_obtain_pair"),
@@ -38,6 +38,7 @@ urlpatterns = [
     path("farmers/", FarmerListCreateView.as_view(), name="farmer-list-create"),
     path("farms/", FarmListCreateView.as_view(), name="farm-list-create"),
     path("visits/", VisitListCreateView.as_view(), name="visit-list-create"),
+    path("visits/<uuid:pk>/", VisitRetrieveView.as_view(), name="visit-retrieve"),
     path("visits/<uuid:pk>/verify/", VisitVerifyView.as_view(), name="visit-verify"),
     path("dashboard/stats/", DashboardStatsView.as_view(), name="dashboard-stats"),
     path("dashboard/stats-by-department/", DashboardStatsByDepartmentView.as_view(), name="dashboard-stats-by-department"),

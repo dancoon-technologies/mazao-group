@@ -10,6 +10,17 @@ class ActivityTypeConfigAdmin(admin.ModelAdmin):
     list_filter = ("departments",)
     search_fields = ("value", "label")
     filter_horizontal = ("departments",)
+    fieldsets = (
+        (None, {"fields": ("value", "label", "order")}),
+        ("Departments", {"fields": ("departments",)}),
+        (
+            "Step 3 form fields",
+            {
+                "fields": ("form_fields",),
+                "description": "Optional. List of {key, label, required} for record-visit step 3. Keys: crop_stage, germination_percent, survival_rate, pests_diseases, order_value, harvest_kgs, farmers_feedback. Empty = show all.",
+            },
+        ),
+    )
 
     def departments_display(self, obj):
         if not obj.departments.exists():

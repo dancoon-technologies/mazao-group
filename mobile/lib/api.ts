@@ -74,6 +74,10 @@ export interface Visit {
   harvest_kgs?: number | null;
   farmers_feedback?: string;
   created_at: string;
+  updated_at?: string;
+  photo_taken_at?: string | null;
+  photo_device_info?: string | null;
+  photo_place_name?: string | null;
 }
 
 export interface LocationData {
@@ -111,9 +115,17 @@ export interface VisitSettings {
   warning_distance_meters: number;
 }
 
+export interface ActivityFormFieldOption {
+  key: string;
+  label: string;
+  required?: boolean;
+}
+
 export interface ActivityTypeOption {
   value: string;
   label: string;
+  /** Optional: which fields to show in step 3 for this activity. Empty/undefined = show all. */
+  form_fields?: ActivityFormFieldOption[];
 }
 
 export interface OptionsResponse {
@@ -393,6 +405,11 @@ export const api = {
     const path = query ? `/visits/?${query}` : '/visits/';
     const data = await request<Visit[] | { results: Visit[] }>(path);
     return Array.isArray(data) ? data : (data?.results ?? []);
+  },
+
+  /** Get a single visit by id (for visit detail screen). */
+  async getVisit(id: string) {
+    return request<Visit>(`/visits/${id}/`);
   },
 
   async createVisit(params: {

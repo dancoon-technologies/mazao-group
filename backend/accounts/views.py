@@ -32,7 +32,8 @@ class OptionsListView(APIView):
         visit_max_m = getattr(django_settings, "VISIT_MAX_DISTANCE_METERS", 100)
         visit_warning_m = getattr(django_settings, "VISIT_WARNING_DISTANCE_METERS", 80)
 
-        # Activity types: only those for the user's department (prefetch used to avoid N+1)
+        # Activity types: only those for the user's department (prefetch used to avoid N+1).
+        # form_fields: optional list of {key, label, required} for step 3; empty = show all known fields.
         activity_types = []
         try:
             from visits.models import ActivityTypeConfig
@@ -40,7 +41,10 @@ class OptionsListView(APIView):
             for at in ActivityTypeConfig.objects.prefetch_related("departments"):
                 depts = list(at.departments.all())
                 if not depts or (user_dept_slug and any(d.slug == user_dept_slug for d in depts)):
-                    activity_types.append({"value": at.value, "label": at.label})
+                    item = {"value": at.value, "label": at.label}
+                    if getattr(at, "form_fields", None):
+                        item["form_fields"] = at.form_fields
+                    activity_types.append(item)
         except Exception as e:
             logger.warning("Options activity_types: %s", e)
 

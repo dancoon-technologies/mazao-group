@@ -27,6 +27,11 @@ class ActivityTypeConfig(models.Model):
         help_text="Leave empty = visible to all departments; otherwise only these.",
     )
     order = models.PositiveIntegerField(default=0, help_text="Display order in mobile")
+    form_fields = models.JSONField(
+        blank=True,
+        default=list,
+        help_text="Optional list of {key, label, required} for visit form step 3. Keys: crop_stage, germination_percent, survival_rate, pests_diseases, order_value, harvest_kgs, farmers_feedback. Empty = show all.",
+    )
 
     class Meta:
         ordering = ["order", "label"]

@@ -220,10 +220,10 @@ function HomeScreenInner() {
         </View>
 
         <View style={styles.statsGrid}>
-          <StatCard icon={STAT_ICONS.today} label="Today" value={visitsToday} />
-          <StatCard icon={STAT_ICONS.month} label="This Month" value={visitsThisMonth} />
-          <StatCard icon={STAT_ICONS.schedules} label="Today's schedules" value={todaySchedules.length} />
-          <StatCard icon={STAT_ICONS.farmers} label="Farmers" value={farmers.length} />
+          <StatCard icon={STAT_ICONS.today} label="Today" value={visitsToday} hint="visits recorded" />
+          <StatCard icon={STAT_ICONS.month} label="This Month" value={visitsThisMonth} hint="total visits" />
+          <StatCard icon={STAT_ICONS.schedules} label="Schedules" value={todaySchedules.length} hint="for today" />
+          <StatCard icon={STAT_ICONS.farmers} label="Farmers" value={farmers.length} hint="registered" />
         </View>
 
         <SectionHeader title="Today's Schedule" />
@@ -288,7 +288,7 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   loadingText: { marginTop: 16 },
-  welcome: { marginBottom: spacing.xl },
+  welcome: { marginBottom: spacing.xl, backgroundColor: "#FFFFFF" },
   lastSync: { marginTop: 6, color: colors.gray500 },
   welcomeEmail: { marginTop: 0, color: colors.gray700 },
   tag: {

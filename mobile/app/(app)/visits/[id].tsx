@@ -1,312 +1,230 @@
+/**
+ * Visit detail screen: show visit details, report record, and verification status (accepted/rejected by supervisor).
+ */
 import { useAuth } from '@/contexts/AuthContext';
-import { getAllSchedulesForOfficer } from '@/database';
-import { scheduleRowToSchedule } from '@/lib/offline-helpers';
-import { api, type Schedule } from '@/lib/api';
-import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
-import NetInfo from '@react-native-community/netinfo';
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { Image } from 'expo-image';
-import { View, StyleSheet, TouchableOpacity, Alert } from 'react-native';
-import { Button, Text, ActivityIndicator } from 'react-native-paper';
-import { colors } from '@/constants/theme';
-import { CameraView, useCameraPermissions } from 'expo-camera';
-import * as Location from 'expo-location';
+import { api, type Visit } from '@/lib/api';
+import { visitStatusColor, visitStatusLabel } from '@/lib/format';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useCallback, useEffect, useState } from 'react';
+import { Image, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Appbar, Card, Divider, List, Surface, Text } from 'react-native-paper';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { API_BASE } from '@/constants/config';
+import { colors, radius, spacing } from '@/constants/theme';
 
-export default function RecordVisitScreen() {
+function formatDateTime(iso: string | undefined): string {
+  if (!iso) return '—';
+  try {
+    return new Date(iso).toLocaleString(undefined, {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  } catch {
+    return iso;
+  }
+}
+
+/** Build full URL for visit photo (API may return relative path). */
+function getPhotoUrl(photo: string | undefined): string | null {
+  if (!photo?.trim()) return null;
+  if (photo.startsWith('http://') || photo.startsWith('https://')) return photo;
+  const base = API_BASE.replace(/\/api\/?$/, '');
+  return `${base}${photo.startsWith('/') ? '' : '/'}${photo}`;
+}
+
+function activityLabel(value: string): string {
+  const labels: Record<string, string> = {
+    farm_to_farm_visits: 'Farm to farm visits',
+    order_collection: 'Order collection',
+    debt_collections: 'Debt collections',
+    account_opening: 'Account opening',
+    key_farm_visits: 'Key farm visits',
+    group_training: 'Group training',
+    demo_set_up: 'Demo set up',
+    spot_demo: 'Spot demo',
+    reporting: 'Reporting',
+  };
+  return labels[value] ?? value.replace(/_/g, ' ');
+}
+
+export default function VisitDetailScreen() {
   const router = useRouter();
-  const { userId } = useAuth();
-  const params = useLocalSearchParams<{ id?: string }>();
-  const [permission, requestPermission] = useCameraPermissions();
-  const [location, setLocation] = useState<Location.LocationObject | null>(null);
-  const [locationError, setLocationError] = useState('');
-  const [photoUri, setPhotoUri] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
+  const params = useLocalSearchParams<{ id: string }>();
+  const visitId = typeof params.id === 'string' ? params.id : Array.isArray(params.id) ? params.id[0] : undefined;
+  const [visit, setVisit] = useState<Visit | null>(null);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [schedules, setSchedules] = useState<Schedule[]>([]);
-  const [selectedScheduleId, setSelectedScheduleId] = useState<string | null>(params.id ?? null);
-  const cameraRef = useRef<CameraView>(null);
 
-  const loadSchedules = useCallback(async () => {
-    const connected = await NetInfo.fetch().then((s) => s.isConnected ?? false);
-    if (connected) {
-      api.getSchedules().then(setSchedules).catch(async () => {
-        if (userId) {
-          const rows = await getAllSchedulesForOfficer(userId);
-          setSchedules(rows.map(scheduleRowToSchedule));
-        } else setSchedules([]);
-      });
-    } else if (userId) {
-      const rows = await getAllSchedulesForOfficer(userId);
-      setSchedules(rows.map(scheduleRowToSchedule));
-    } else {
-      setSchedules([]);
-    }
-  }, [userId]);
-
-  useEffect(() => {
-    loadSchedules();
-    if (params.id) setSelectedScheduleId(params.id);
-  }, [params.id, loadSchedules]);
-
-  useFocusEffect(useCallback(() => {
-    loadSchedules();
-  }, [loadSchedules]));
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (cancelled) return;
-      if (status !== 'granted') {
-        setLocationError('Location permission is required to verify visit.');
-        return;
-      }
-      try {
-        const loc = await Location.getCurrentPositionAsync({
-          accuracy: Location.Accuracy.Balanced,
-        });
-        if (!cancelled) setLocation(loc);
-      } catch {
-        if (!cancelled) setLocationError('Could not get location.');
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  const takePhoto = useCallback(async () => {
-    if (!cameraRef.current || !permission?.granted) {
-      if (!permission?.granted) requestPermission();
+  const load = useCallback(async () => {
+    if (!visitId) {
+      setError('Missing visit id');
+      setLoading(false);
       return;
     }
-    try {
-      const photo = await cameraRef.current.takePictureAsync({
-        quality: 0.8,
-        base64: false,
-      });
-      if (photo?.uri) setPhotoUri(photo.uri);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to take photo');
-    }
-  }, [permission?.granted, requestPermission]);
-
-  const submit = useCallback(async () => {
-    const scheduleId = selectedScheduleId;
-    if (!scheduleId) {
-      setError('Select a farmer.');
-      return;
-    }
-    const schedule = schedules.find((s) => s.id === scheduleId);
-    const farmerId = schedule?.farmer ?? null;
-    if (!farmerId) {
-      setError('Selected schedule has no farmer.');
-      return;
-    }
-    if (!photoUri) {
-      setError('Take a photo as proof of visit.');
-      return;
-    }
-    if (!location) {
-      setError('Location is required.');
-      return;
-    }
-    setSubmitting(true);
+    setLoading(true);
     setError('');
     try {
-      await api.createVisit({
-        farmer_id: farmerId,
-        schedule_id: selectedScheduleId,
-        latitude: location.coords.latitude,
-        longitude: location.coords.longitude,
-        photo: { uri: photoUri, type: 'image/jpeg', name: 'visit.jpg' },
-      });
-      Alert.alert('Success', 'Visit recorded successfully.', [
-        { text: 'OK', onPress: () => router.back() },
-      ]);
+      const v = await api.getVisit(visitId);
+      setVisit(v);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to submit visit');
+      setError(e instanceof Error ? e.message : 'Failed to load visit');
+      setVisit(null);
     } finally {
-      setSubmitting(false);
+      setLoading(false);
     }
-  }, [selectedScheduleId, schedules, photoUri, location, router]);
+  }, [visitId]);
 
-  if (!permission) {
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  if (loading) {
     return (
-      <View style={styles.centered}>
-        <ActivityIndicator size="large" />
-      </View>
+      <SafeAreaView style={styles.safe} edges={['bottom']}>
+        <Appbar.Header>
+          <Appbar.BackAction onPress={() => router.back()} />
+          <Appbar.Content title="Visit details" />
+        </Appbar.Header>
+        <View style={styles.centered}>
+          <ActivityIndicator size="large" />
+        </View>
+      </SafeAreaView>
     );
   }
 
-  if (!permission.granted) {
+  if (error || !visit) {
     return (
-      <View style={styles.centered}>
-        <Text variant="bodyLarge" style={styles.message}>
-          Camera access is required to record visit proof.
-        </Text>
-        <Button mode="contained" onPress={requestPermission} style={styles.button}>
-          Allow camera
-        </Button>
-      </View>
+      <SafeAreaView style={styles.safe} edges={['bottom']}>
+        <Appbar.Header>
+          <Appbar.BackAction onPress={() => router.back()} />
+          <Appbar.Content title="Visit details" />
+        </Appbar.Header>
+        <View style={styles.centered}>
+          <Text variant="bodyLarge" style={styles.error}>{error || 'Visit not found'}</Text>
+        </View>
+      </SafeAreaView>
     );
   }
 
-  const selectedSchedule = selectedScheduleId ? schedules.find((s) => s.id === selectedScheduleId) : null;
+  const status = (visit.verification_status || '').toLowerCase();
+  const statusColor = visitStatusColor(visit.verification_status);
+  const statusLabel = visitStatusLabel(visit.verification_status);
+  const photoUrl = getPhotoUrl(visit.photo);
 
   return (
-    <View style={styles.container}>
-      {selectedScheduleId && selectedSchedule && (
-        <View style={styles.section}>
-          <Text variant="bodySmall" style={styles.hint}>
-            Recording visit for planned schedule — {selectedSchedule.farmer_display_name ?? 'Farmer'} (fixed).
-          </Text>
-        </View>
-      )}
-      {!params.id && schedules.length > 0 && (
-        <View style={styles.section}>
-          <Text variant="labelLarge">Select schedule</Text>
-          <Text variant="bodySmall" style={styles.hint}>
-            Visit will be linked to the selected schedule. Farmer is fixed by the schedule.
-          </Text>
-          {schedules.map((s) => (
-            <Button
-              key={s.id}
-              mode={selectedScheduleId === s.id ? 'contained' : 'outlined'}
-              onPress={() => setSelectedScheduleId(s.id)}
-              style={styles.scheduleBtn}>
-              {s.farmer_display_name}
-            </Button>
-          ))}
-        </View>
-      )}
-
-      {locationError ? (
-        <Text style={styles.error}>{locationError}</Text>
-      ) : location ? (
-        <Text variant="bodySmall" style={styles.coords}>
-          Location: {location.coords.latitude.toFixed(5)}, {location.coords.longitude.toFixed(5)}
-        </Text>
-      ) : (
-        <ActivityIndicator size="small" style={styles.locationLoad} />
-      )}
-
-      <View style={styles.cameraWrap}>
-        {photoUri ? (
-          <View style={styles.preview}>
-            <Image source={{ uri: photoUri }} style={styles.previewImg} contentFit="cover" />
-            <Button mode="outlined" onPress={() => setPhotoUri(null)}>
-              Retake photo
-            </Button>
-          </View>
-        ) : (
-          <CameraView style={styles.camera} ref={cameraRef}>
-            <View style={styles.cameraActions}>
-              <TouchableOpacity style={styles.captureBtn} onPress={takePhoto} />
+    <SafeAreaView style={styles.safe} edges={['bottom']}>
+      <Appbar.Header>
+        <Appbar.BackAction onPress={() => router.back()} />
+        <Appbar.Content title="Visit details" />
+      </Appbar.Header>
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={true}
+      >
+        {/* Verification status: Accepted / Rejected by supervisor */}
+        <Card style={styles.card} mode="outlined">
+          <Card.Content>
+            <Text variant="labelMedium" style={styles.sectionLabel}>Supervisor decision</Text>
+            <View style={[styles.badge, { backgroundColor: statusColor + '22' }]}>
+              <Text variant="titleMedium" style={[styles.badgeText, { color: statusColor }]}>
+                {status === 'verified' ? 'Accepted' : status === 'rejected' ? 'Rejected' : statusLabel}
+              </Text>
             </View>
-          </CameraView>
+            <Text variant="bodySmall" style={styles.hint}>
+              {status === 'verified'
+                ? 'This visit record has been accepted by your supervisor.'
+                : status === 'rejected'
+                  ? 'This visit record was rejected by your supervisor. You may need to resubmit or correct the visit.'
+                  : 'Pending supervisor review.'}
+            </Text>
+          </Card.Content>
+        </Card>
+
+        {/* Visit details */}
+        <Card style={styles.card} mode="outlined">
+          <Card.Content>
+            <Text variant="labelMedium" style={styles.sectionLabel}>Visit details</Text>
+            <List.Item title="Farmer" description={visit.farmer_display_name ?? '—'} left={(props) => <List.Icon {...props} icon="account" />} />
+            <Divider />
+            <List.Item title="Farm" description={visit.farm_display_name ?? 'No specific farm'} left={(props) => <List.Icon {...props} icon="barn" />} />
+            <Divider />
+            <List.Item title="Date & time" description={formatDateTime(visit.created_at)} left={(props) => <List.Icon {...props} icon="calendar-clock" />} />
+            <Divider />
+            <List.Item title="Activity type" description={activityLabel(visit.activity_type)} left={(props) => <List.Icon {...props} icon="clipboard-list" />} />
+            {visit.distance_from_farmer != null && (
+              <>
+                <Divider />
+                <List.Item title="Distance from farmer/farm" description={`${Math.round(visit.distance_from_farmer)} m`} left={(props) => <List.Icon {...props} icon="map-marker" />} />
+              </>
+            )}
+          </Card.Content>
+        </Card>
+
+        {/* Photo */}
+        {photoUrl && (
+          <Card style={styles.card} mode="outlined">
+            <Card.Content>
+              <Text variant="labelMedium" style={styles.sectionLabel}>Photo evidence</Text>
+              <Image source={{ uri: photoUrl }} style={styles.photo} resizeMode="cover" />
+              {visit.photo_place_name ? (
+                <Text variant="bodySmall" style={styles.hint}>{visit.photo_place_name}</Text>
+              ) : null}
+              {visit.photo_taken_at ? (
+                <Text variant="bodySmall" style={styles.hint}>Taken: {formatDateTime(visit.photo_taken_at)}</Text>
+              ) : null}
+            </Card.Content>
+          </Card>
         )}
-      </View>
 
-      {error ? <Text style={styles.error}>{error}</Text> : null}
-
-      <View style={styles.actions}>
-        <Button
-          mode="contained"
-          onPress={submit}
-          loading={submitting}
-          disabled={
-            !selectedScheduleId ||
-            !photoUri ||
-            !location ||
-            (selectedScheduleId !== null && !schedules.find((s) => s.id === selectedScheduleId))
-          }>
-          Submit visit proof
-        </Button>
-        <Button mode="text" onPress={() => router.back()}>
-          Cancel
-        </Button>
-      </View>
-    </View>
+        {/* Report record: notes and additional fields */}
+        <Card style={styles.card} mode="outlined">
+          <Card.Content>
+            <Text variant="labelMedium" style={styles.sectionLabel}>Report record</Text>
+            {visit.notes ? (
+              <>
+                <Text variant="labelSmall" style={styles.fieldLabel}>Notes</Text>
+                <Text variant="bodyMedium" style={styles.fieldValue}>{visit.notes}</Text>
+              </>
+            ) : null}
+            {(visit.crop_stage || visit.germination_percent != null || visit.survival_rate || visit.pests_diseases || visit.order_value != null || visit.harvest_kgs != null || visit.farmers_feedback) ? (
+              <View style={styles.reportFields}>
+                {visit.crop_stage ? (<View><Text variant="labelSmall" style={styles.fieldLabel}>Crop stage</Text><Text variant="bodyMedium" style={styles.fieldValue}>{visit.crop_stage}</Text></View>) : null}
+                {visit.germination_percent != null ? (<View><Text variant="labelSmall" style={styles.fieldLabel}>Germination %</Text><Text variant="bodyMedium" style={styles.fieldValue}>{String(visit.germination_percent)}</Text></View>) : null}
+                {visit.survival_rate ? (<View><Text variant="labelSmall" style={styles.fieldLabel}>Survival rate</Text><Text variant="bodyMedium" style={styles.fieldValue}>{visit.survival_rate}</Text></View>) : null}
+                {visit.pests_diseases ? (<View><Text variant="labelSmall" style={styles.fieldLabel}>Pests/Diseases</Text><Text variant="bodyMedium" style={styles.fieldValue}>{visit.pests_diseases}</Text></View>) : null}
+                {visit.order_value != null ? (<View><Text variant="labelSmall" style={styles.fieldLabel}>Order value</Text><Text variant="bodyMedium" style={styles.fieldValue}>{String(visit.order_value)}</Text></View>) : null}
+                {visit.harvest_kgs != null ? (<View><Text variant="labelSmall" style={styles.fieldLabel}>Harvest (kg)</Text><Text variant="bodyMedium" style={styles.fieldValue}>{String(visit.harvest_kgs)}</Text></View>) : null}
+                {visit.farmers_feedback ? (<View><Text variant="labelSmall" style={styles.fieldLabel}>Farmer's feedback</Text><Text variant="bodyMedium" style={styles.fieldValue}>{visit.farmers_feedback}</Text></View>) : null}
+              </View>
+            ) : null}
+            {!visit.notes && !visit.crop_stage && visit.germination_percent == null && !visit.survival_rate && !visit.pests_diseases && visit.order_value == null && visit.harvest_kgs == null && !visit.farmers_feedback && (
+              <Text variant="bodySmall" style={styles.hint}>No additional notes or report fields.</Text>
+            )}
+          </Card.Content>
+        </Card>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    padding: 16,
-  },
-  centered: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 24,
-  },
-  message: {
-    textAlign: 'center',
-    marginBottom: 16,
-  },
-  button: {
-    marginTop: 8,
-  },
-  section: {
-    marginBottom: 16,
-  },
-  hint: {
-    marginTop: 2,
-    marginBottom: 8,
-    opacity: 0.85,
-  },
-  scheduleBtn: {
-    marginTop: 4,
-  },
-  coords: {
-    marginBottom: 8,
-    opacity: 0.8,
-  },
-  locationLoad: {
-    marginVertical: 8,
-  },
-  cameraWrap: {
-    flex: 1,
-    minHeight: 300,
-    borderRadius: 6,
-    overflow: 'hidden',
-    marginVertical: 16,
-  },
-  camera: {
-    flex: 1,
-  },
-  cameraActions: {
-    flex: 1,
-    justifyContent: 'flex-end',
-    alignItems: 'center',
-    paddingBottom: 24,
-  },
-  captureBtn: {
-    width: 72,
-    height: 72,
-    borderRadius: 24,
-    backgroundColor: 'rgba(255,255,255,0.9)',
-    borderWidth: 4,
-    borderColor: '#2e7d32',
-  },
-  preview: {
-    flex: 1,
-    backgroundColor: '#000',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  previewImg: {
-    width: '100%',
-    flex: 1,
-    resizeMode: 'contain',
-  },
-  error: {
-    color: colors.error,
-    marginVertical: 8,
-  },
-  actions: {
-    gap: 8,
-  },
+  safe: { flex: 1 },
+  scroll: { flex: 1 },
+  scrollContent: { padding: spacing.lg, paddingBottom: spacing.xxl },
+  centered: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 },
+  error: { color: colors.error, textAlign: 'center' },
+  card: { marginBottom: spacing.lg, borderRadius: radius.card },
+  sectionLabel: { marginBottom: spacing.sm, fontWeight: '600', color: colors.gray700 },
+  badge: { alignSelf: 'flex-start', paddingHorizontal: spacing.md, paddingVertical: spacing.xs, borderRadius: radius.sm, marginBottom: spacing.xs },
+  badgeText: { fontWeight: '600' },
+  hint: { marginTop: 2, opacity: 0.85 },
+  photo: { width: '100%', height: 240, borderRadius: radius.sm, marginTop: spacing.sm, backgroundColor: colors.gray100 },
+  fieldLabel: { marginTop: spacing.sm, color: colors.gray700 },
+  fieldValue: { marginTop: 2 },
+  reportFields: { marginTop: spacing.xs },
 });

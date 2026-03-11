@@ -1,4 +1,4 @@
-import { colors, cardShadow, cardStyle, spacing } from '@/constants/theme';
+import { cardShadow, cardStyle, colors, spacing } from '@/constants/theme';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { StyleSheet, View } from 'react-native';
 import { Card, Text } from 'react-native-paper';
@@ -7,9 +7,10 @@ type StatCardProps = {
   icon: keyof typeof MaterialCommunityIcons.glyphMap;
   label: string;
   value: string | number;
+  hint?: string;
 };
 
-export function StatCard({ icon, label, value }: StatCardProps) {
+export function StatCard({ icon, label, value, hint }: StatCardProps) {
   return (
     <Card style={[cardStyle, cardShadow, styles.card]} elevation={1}>
       <Card.Content style={styles.content}>
@@ -22,6 +23,10 @@ export function StatCard({ icon, label, value }: StatCardProps) {
         <Text variant="headlineMedium" style={styles.value}>
           {value}
         </Text>
+        {hint && <Text variant="bodySmall" style={styles.hint}>
+          {hint}
+        </Text>
+        }
       </Card.Content>
     </Card>
   );
@@ -38,4 +43,5 @@ const styles = StyleSheet.create({
   content: { alignItems: 'flex-start', paddingHorizontal: 0, paddingVertical: 0 },
   label: { color: colors.gray700, marginTop: 4 },
   value: { fontWeight: '700', color: colors.gray900, marginTop: 2 },
+  hint: { color: colors.gray500, marginTop: 2 },
 });
