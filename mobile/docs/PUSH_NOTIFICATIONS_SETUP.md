@@ -2,7 +2,19 @@
 
 The app uses **Expo Push Notifications**. The APK is built with `eas build --platform android --profile preview --local` in GitHub Actions. For push to work on installed APKs, Android **FCM (Firebase Cloud Messaging)** credentials must be configured in your EAS project.
 
-## One-time setup
+## Ensure FCM is configured for the workflow build
+
+The workflow (`.github/workflows/build-android-apk.yml`) does **not** configure FCM by itself. It uses **EAS-managed credentials**: when the build runs, EAS CLI fetches the credentials (including FCM) for the **preview** profile and embeds them in the APK. You must set these up once:
+
+| Step | What to do |
+|------|------------|
+| 1. **GitHub secret** | In the repo: **Settings → Secrets and variables → Actions**. Add a secret named `EXPO_TOKEN`. Create it at [expo.dev/accounts/[account]/settings/access-tokens](https://expo.dev/accounts) (classic token with “Read” and “Write” for the project). Without this, the build cannot fetch credentials. |
+| 2. **EAS project** | Ensure the app is linked to an EAS project (e.g. `eas init` or `app.json` has `expo.extra.eas.projectId`). The workflow uses this project. |
+| 3. **FCM for preview profile** | Run once (from your machine): `cd mobile` then `eas credentials --platform android`. Select the **preview** profile. Under **FCM (Push Notifications)** either **let EAS manage** (creates Firebase and FCM v1 for you) or **upload your own** FCM v1 service account JSON. |
+
+After step 3, every APK built by the workflow (including from GitHub Actions) will include FCM credentials and can receive push notifications. No changes to the workflow file are required.
+
+## One-time setup (detailed)
 
 1. **Install EAS CLI** (if needed):
    ```bash
@@ -24,7 +36,7 @@ The app uses **Expo Push Notifications**. The APK is built with `eas build --pla
      - **Let EAS manage**: EAS can create a Firebase project and configure FCM v1 for you, or
      - **Upload your own**: if you already have a Firebase project, add the FCM v1 server key / service account as described in [Expo: Add Android FCM V1 credentials](https://docs.expo.dev/push-notifications/fcm-credentials/).
 
-4. **GitHub Actions**: The workflow uses `EXPO_TOKEN` (secret). When the workflow runs `eas build --local`, EAS CLI uses this token to fetch the credentials (including FCM) from your EAS project and embeds them in the APK. No extra steps are needed in the workflow once credentials are set.
+4. **GitHub Actions**: Add the `EXPO_TOKEN` secret (see table above). When the workflow runs `eas build --local`, EAS CLI uses this token to fetch the credentials (including FCM) from your EAS project and embeds them in the APK.
 
 ## How to know push is working
 

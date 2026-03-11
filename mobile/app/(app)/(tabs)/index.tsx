@@ -147,15 +147,22 @@ function HomeScreenInner() {
   const openFarmer = useCallback((id: string) => routerInstance.push({ pathname: '/farmers/[id]', params: { id } }), [routerInstance]);
 
   const today = new Date().toISOString().slice(0, 10);
+  const totalScheduledToday = schedules.filter(
+    (s) => s.scheduled_date === today && s.status === 'accepted'
+  ).length;
   const todaySchedules = schedules.filter(
     (s) =>
       s.scheduled_date === today &&
       s.status === 'accepted' &&
       !scheduleIdsWithRecordedVisits.has(s.id)
   );
+  const doneToday = totalScheduledToday - todaySchedules.length;
   const recentFarmers = farmers.slice(0, 5);
-  const visitsToday = stats?.visits_today ?? 0;
   const visitsThisMonth = stats?.visits_this_month ?? 0;
+
+  // Primary metric: show "X of Y" when there are scheduled visits, else just recorded count
+  const todayLabel = totalScheduledToday > 0 ? `${doneToday} of ${totalScheduledToday}` : String(doneToday);
+  const todayHint = totalScheduledToday > 0 ? 'recorded of scheduled' : 'visits recorded today';
 
   if (loading) {
     return (
@@ -220,10 +227,10 @@ function HomeScreenInner() {
         </View>
 
         <View style={styles.statsGrid}>
-          <StatCard icon={STAT_ICONS.today} label="Today" value={visitsToday} hint="visits recorded" />
-          <StatCard icon={STAT_ICONS.month} label="This Month" value={visitsThisMonth} hint="total visits" />
-          <StatCard icon={STAT_ICONS.schedules} label="Schedules" value={todaySchedules.length} hint="for today" />
-          <StatCard icon={STAT_ICONS.farmers} label="Farmers" value={farmers.length} hint="registered" />
+          <StatCard icon={STAT_ICONS.today} label="Today" value={todayLabel} hint={todayHint} />
+          <StatCard icon={STAT_ICONS.month} label="This month" value={visitsThisMonth} hint="visits recorded" />
+          <StatCard icon={STAT_ICONS.schedules} label="To do" value={todaySchedules.length} hint="visits left to record" />
+          <StatCard icon={STAT_ICONS.farmers} label="Farmers" value={farmers.length} hint="in your list" />
         </View>
 
         <SectionHeader title="Today's Schedule" />

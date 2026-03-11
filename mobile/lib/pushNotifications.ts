@@ -32,11 +32,15 @@ try {
   // Native notifications module may not be ready yet (e.g. on some devices/emulators)
 }
 
-export async function registerForPushNotificationsAsync(): Promise<string | null> {
+export type PushRegistrationResult =
+  | { ok: true; token: string }
+  | { ok: false; error: string };
+
+export async function registerForPushNotificationsAsync(): Promise<PushRegistrationResult> {
   try {
     if (!Device.isDevice) {
       logger.info('Push notifications require a physical device');
-      return null;
+      return { ok: false, error: 'Use a physical device (not an emulator).' };
     }
 
     const { status: existingStatus } = await Notifications.getPermissionsAsync();
@@ -47,23 +51,23 @@ export async function registerForPushNotificationsAsync(): Promise<string | null
       finalStatus = status;
       if (finalStatus !== 'granted') {
         logger.info('Push permission not granted');
-        return null;
+        return { ok: false, error: 'Notification permission denied. Enable in device Settings → Apps → Notifications.' };
       }
     }
 
     const projectId = getProjectId();
     if (!projectId) {
       logger.warn('Expo projectId not found; push tokens require extra.eas.projectId in app config');
-      return null;
+      return { ok: false, error: 'App config missing projectId. Rebuild the app with EAS.' };
     }
 
     const tokenData = await Notifications.getExpoPushTokenAsync({
       projectId,
     });
     const token = tokenData?.data ?? null;
-    if (!token) {
+    if (!token || typeof token !== 'string') {
       logger.warn('Could not get Expo push token');
-      return null;
+      return { ok: false, error: 'Could not get push token. Try again or use a production build.' };
     }
 
     if (Platform.OS === 'android') {
@@ -76,13 +80,15 @@ export async function registerForPushNotificationsAsync(): Promise<string | null
     try {
       await api.registerPushToken(token, Device.modelName ?? undefined);
       logger.info('Push token registered with backend');
+      return { ok: true, token };
     } catch (e) {
-      logger.warn('Failed to register push token with backend', e instanceof Error ? e.message : e);
+      const msg = e instanceof Error ? e.message : String(e);
+      logger.warn('Failed to register push token with backend', msg);
+      return { ok: false, error: `Server: ${msg}` };
     }
-
-    return token;
   } catch (e) {
-    logger.warn('Push registration failed', e instanceof Error ? e.message : e);
-    return null;
+    const msg = e instanceof Error ? e.message : String(e);
+    logger.warn('Push registration failed', msg);
+    return { ok: false, error: msg };
   }
 }

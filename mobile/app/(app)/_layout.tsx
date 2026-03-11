@@ -83,6 +83,22 @@ function AppLayoutInner() {
     return () => clearTimeout(t);
   }, [isAuthenticated]);
 
+  // Retry push registration when app returns to foreground (e.g. user was offline at login)
+  const lastPushRegRef = useRef<number>(0);
+  const PUSH_REG_THROTTLE_MS = 60_000;
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    const handleAppState = (next: AppStateStatus) => {
+      if (next !== 'active') return;
+      const now = Date.now();
+      if (now - lastPushRegRef.current < PUSH_REG_THROTTLE_MS) return;
+      lastPushRegRef.current = now;
+      registerForPushNotificationsAsync().catch(() => {});
+    };
+    const sub = AppState.addEventListener('change', handleAppState);
+    return () => sub.remove();
+  }, [isAuthenticated]);
+
   // When user taps a push notification, open the notifications screen
   const notificationResponseListener = useRef<Notifications.EventSubscription | null>(null);
   useEffect(() => {

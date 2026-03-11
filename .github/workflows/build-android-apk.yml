@@ -30,6 +30,14 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
+      # Verify EAS auth so the build fails fast with a clear error if EXPO_TOKEN is missing/invalid.
+      # FCM for push: configure Android FCM in EAS for the "preview" profile (see mobile/docs/PUSH_NOTIFICATIONS_SETUP.md).
+      - name: Verify EAS authentication
+        working-directory: mobile
+        run: npx -y eas-cli whoami --non-interactive
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+
       # Use npm only; remove other lock files so expo doctor sees a single lock file.
       - name: Install dependencies
         working-directory: mobile

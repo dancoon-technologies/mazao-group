@@ -53,8 +53,10 @@ def send_push_expo(
             method="POST",
         )
         with urllib.request.urlopen(req, timeout=10) as resp:
-            if resp.status != 200:
-                logger.warning("Expo push failed status=%s", resp.status)
+            resp_body = resp.read().decode()
+            # Expo returns 200 (all ok) or 207 (mixed); both include per-ticket status in body
+            if resp.status not in (200, 207):
+                logger.warning("Expo push failed status=%s body=%s", resp.status, resp_body[:500])
                 if record_attempts:
                     for token in tokens:
                         PushDeliveryAttempt.objects.create(
@@ -65,7 +67,7 @@ def send_push_expo(
                             error_message=f"HTTP {resp.status}",
                         )
             else:
-                data = json.loads(resp.read().decode())
+                data = json.loads(resp_body)
                 tickets = (isinstance(data, dict) and data.get("data")) or []
                 for i, token in enumerate(tokens):
                     ticket = tickets[i] if i < len(tickets) else {}
@@ -81,7 +83,11 @@ def send_push_expo(
                             expo_ticket_id=(ticket.get("id") or "")[:100],
                         )
                     if not is_ok:
-                        logger.warning("Expo push ticket error: %s", ticket.get("message"))
+                        logger.warning(
+                            "Expo push ticket error: %s (details=%s)",
+                            ticket.get("message"),
+                            ticket.get("details"),
+                        )
     except Exception as e:
         logger.warning("Expo push request failed: %s", e)
         if record_attempts:

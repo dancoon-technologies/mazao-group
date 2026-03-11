@@ -1,6 +1,7 @@
 import { colors, radius, spacing } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
 import { api } from '@/lib/api';
+import { registerForPushNotificationsAsync } from '@/lib/pushNotifications';
 import { getPendingSyncCount, syncWithServer } from '@/lib/syncWithServer';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import NetInfo from '@react-native-community/netinfo';
@@ -56,6 +57,7 @@ export default function ProfileScreen() {
   const [pushRegistered, setPushRegistered] = useState<boolean | null>(null);
   const [testPushLoading, setTestPushLoading] = useState(false);
   const [testPushMessage, setTestPushMessage] = useState<string | null>(null);
+  const [pushRetryLoading, setPushRetryLoading] = useState(false);
 
   useEffect(() => {
     const sub = NetInfo.addEventListener((state) => setIsOnline(state.isConnected ?? false));
@@ -106,6 +108,17 @@ export default function ProfileScreen() {
       setTestPushLoading(false);
     }
   }, []);
+
+  const handleRetryPushRegistration = useCallback(async () => {
+    setPushRetryLoading(true);
+    setTestPushMessage(null);
+    const result = await registerForPushNotificationsAsync();
+    await refreshPushStatus();
+    if (!result.ok) {
+      setTestPushMessage(result.error);
+    }
+    setPushRetryLoading(false);
+  }, [refreshPushStatus]);
 
   const handleSync = useCallback(async () => {
     setSyncing(true);
@@ -286,9 +299,26 @@ export default function ProfileScreen() {
               </>
             )}
             {pushRegistered === false && (
-              <Text variant="bodySmall" style={styles.pushHint}>
-                Use a physical device, allow notifications when prompted, and ensure FCM is configured for your build.
-              </Text>
+              <>
+                <Text variant="bodySmall" style={styles.pushHint}>
+                  Use a physical device, allow notifications when prompted, and ensure FCM is configured for your build.
+                </Text>
+                <Button
+                  mode="outlined"
+                  compact
+                  onPress={handleRetryPushRegistration}
+                  loading={pushRetryLoading}
+                  disabled={pushRetryLoading}
+                  style={styles.testPushBtn}
+                >
+                  Retry registration
+                </Button>
+                {testPushMessage != null && !testPushMessage.startsWith('Test') && (
+                  <Text variant="bodySmall" style={styles.pushError}>
+                    {testPushMessage}
+                  </Text>
+                )}
+              </>
             )}
           </Card.Content>
         </Card>
