@@ -224,15 +224,16 @@ export default function SchedulesPage() {
     [form, resetForm, loadData, isOfficer]
   );
 
-  if (loading) return <PageLoading message="Loading schedules…" />;
-  if (error) return <PageError message={error} />;
-
-  const officerOptions = officers.map((o) => ({
-    value: o.id,
-    label: o.display_name
-      ? `${o.display_name} (${o.email})`
-      : `${o.email}${o.department ? ` — ${o.department}` : ""}${o.region ? ` (${o.region})` : ""}`,
-  }));
+  const officerOptions = useMemo(
+    () =>
+      officers.map((o) => ({
+        value: o.id,
+        label: o.display_name
+          ? `${o.display_name} (${o.email})`
+          : `${o.email}${o.department ? ` — ${o.department}` : ""}${o.region ? ` (${o.region})` : ""}`,
+      })),
+    [officers]
+  );
 
   const filteredFarmers = useMemo(() => {
     const q = farmerSearch.trim().toLowerCase();
@@ -276,6 +277,9 @@ export default function SchedulesPage() {
       ),
     [canApprove, canEditSchedule, approvingId, handleApprove, openEdit]
   );
+
+  if (loading) return <PageLoading message="Loading schedules…" />;
+  if (error) return <PageError message={error} />;
 
   return (
     <Box style={{ minWidth: PAGE_BOX_MIN_WIDTH }}>
