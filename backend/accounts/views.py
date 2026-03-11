@@ -257,7 +257,7 @@ class ChangePasswordView(generics.GenericAPIView):
             user,
             title="Password changed",
             message="Your password was changed successfully.",
-            channels=["in_app"],
+            channels=["in_app", "push"],
         )
         refresh = RefreshToken.for_user(user)
         jti = refresh.get("jti")
@@ -314,7 +314,7 @@ class StaffResendCredentialsView(generics.GenericAPIView):
             user,
             title="Login credentials resent",
             message="Your temporary login credentials have been sent to your email again.",
-            channels=["in_app"],
+            channels=["in_app", "push"],
         )
         return Response(
             {"detail": f"Credentials email sent to {user.email}."},

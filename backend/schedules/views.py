@@ -98,7 +98,7 @@ class ScheduleListCreateView(generics.ListCreateAPIView):
                 officer,
                 title="New visit scheduled",
                 message=f"You have a visit scheduled on {date_str}. Farmer: {farmer_name}. Notes: {schedule.notes or 'None'}",
-                channels=["in_app", "email", "sms"],
+                channels=["in_app", "email", "sms", "push"],
             )
         else:
             officer = data.get("officer")
@@ -138,7 +138,7 @@ class ScheduleListCreateView(generics.ListCreateAPIView):
                     recipient,
                     title="Schedule proposal for approval",
                     message=message,
-                    channels=["in_app", "email", "sms"],
+                    channels=["in_app", "email", "sms", "push"],
                 )
         logger.info(
             "POST /api/schedules/ created schedule_id=%s officer_id=%s farmer_id=%s by user=%s",
@@ -201,7 +201,7 @@ class ScheduleApproveView(generics.GenericAPIView):
                 schedule.officer,
                 title="Schedule accepted",
                 message=f"Your visit scheduled on {date_str} (Farmer: {farmer_name}) has been accepted.",
-                channels=["in_app", "email", "sms"],
+                channels=["in_app", "email", "sms", "push"],
             )
             return Response(ScheduleSerializer(schedule).data)
         if action == "reject":
@@ -218,7 +218,7 @@ class ScheduleApproveView(generics.GenericAPIView):
                 schedule.officer,
                 title="Schedule rejected",
                 message=f"Your visit scheduled on {date_str} has been rejected.",
-                channels=["in_app", "email", "sms"],
+                channels=["in_app", "email", "sms", "push"],
             )
             return Response(ScheduleSerializer(schedule).data)
         logger.warning("POST /api/schedules/%s/approve invalid action=%s", pk, request.data.get("action"))

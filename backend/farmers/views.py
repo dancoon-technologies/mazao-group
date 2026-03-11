@@ -87,7 +87,7 @@ class FarmerListCreateView(generics.ListCreateAPIView):
                 farmer.assigned_officer,
                 title="New farmer assigned to you",
                 message=f"A new farmer has been assigned to you: {farmer.name}.",
-                channels=["in_app", "email", "sms"],
+                channels=["in_app", "email", "sms", "push"],
             )
 
 

@@ -107,6 +107,6 @@ class StaffCreateSerializer(serializers.ModelSerializer):
             user,
             title="You have been registered",
             message="Check your email for your temporary login credentials. You must change your password on first login.",
-            channels=["in_app"],
+            channels=["in_app", "push"],
         )
         return user

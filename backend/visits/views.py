@@ -254,7 +254,7 @@ class VisitListCreateView(generics.ListCreateAPIView):
                 recipient,
                 title="New visit recorded",
                 message=f"{user.email} recorded a visit to {farmer.name}.",
-                channels=["in_app", "email", "sms"],
+                channels=["in_app", "email", "sms", "push"],
             )
         logger.info(
             "POST /api/visits/ created visit_id=%s farmer_id=%s by user=%s distance=%.0fm",
