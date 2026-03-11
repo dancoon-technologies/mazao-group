@@ -13,6 +13,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { View, StyleSheet, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
 import { Appbar, Button, Text, TextInput, ActivityIndicator, Banner, Snackbar } from 'react-native-paper';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SelectFarmerModal } from '@/components/SelectFarmerModal';
 import { isScheduleEditableByDate } from '@/lib/format';
 import { appbarHeight, colors, scrollPaddingKeyboard } from '@/constants/theme';
 
@@ -32,6 +33,7 @@ export default function EditScheduleScreen() {
   const [selectedFarmerId, setSelectedFarmerId] = useState<string | null>(null);
   const [selectedFarmId, setSelectedFarmId] = useState<string | null>(null);
   const [notes, setNotes] = useState('');
+  const [farmerModalOpen, setFarmerModalOpen] = useState(false);
   const [snackbarVisible, setSnackbarVisible] = useState(false);
 
   const load = useCallback(async () => {
@@ -212,36 +214,34 @@ export default function EditScheduleScreen() {
           />
 
           <Text variant="labelLarge" style={styles.label}>Farmer (optional)</Text>
-          <View style={styles.chipRow}>
-            <Button
-              mode={selectedFarmerId === null ? 'contained' : 'outlined'}
-              compact
-              onPress={() => setSelectedFarmerId(null)}
-              style={styles.chip}
-            >
-              No farmer
-            </Button>
-            {farmers.map((f) => (
-              <Button
-                key={f.id}
-                mode={selectedFarmerId === f.id ? 'contained' : 'outlined'}
-                compact
-                onPress={() => setSelectedFarmerId(f.id)}
-                style={styles.chip}
-              >
-                {f.display_name}
-              </Button>
-            ))}
-            <Button
-              mode="outlined"
-              compact
-              icon="account-plus"
-              onPress={() => router.push({ pathname: '/(app)/add-farmer', params: { returnTo: 'edit-schedule' } })}
-              style={styles.chip}
-            >
-              Add farmer
-            </Button>
-          </View>
+          <Button
+            mode="outlined"
+            onPress={() => setFarmerModalOpen(true)}
+            style={styles.farmerSelectBtn}
+            contentStyle={styles.farmerSelectBtnContent}
+            icon="account-search"
+          >
+            {selectedFarmerId
+              ? (farmers.find((f) => f.id === selectedFarmerId)?.display_name ?? 'Farmer selected')
+              : 'Select farmer'}
+          </Button>
+          <Button
+            mode="text"
+            compact
+            icon="account-plus"
+            onPress={() => router.push({ pathname: '/(app)/add-farmer', params: { returnTo: 'edit-schedule' } })}
+            style={styles.addFarmerLink}
+          >
+            Add new farmer
+          </Button>
+          <SelectFarmerModal
+            visible={farmerModalOpen}
+            onClose={() => setFarmerModalOpen(false)}
+            farmers={farmers}
+            selectedFarmerId={selectedFarmerId}
+            onSelect={setSelectedFarmerId}
+            title="Select farmer"
+          />
 
           {selectedFarmerId && (
             <>
@@ -319,6 +319,9 @@ const styles = StyleSheet.create({
   input: { marginBottom: 12 },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 },
   chip: { margin: 0 },
+  farmerSelectBtn: { marginBottom: 4 },
+  farmerSelectBtnContent: { justifyContent: 'flex-start' },
+  addFarmerLink: { marginBottom: 8 },
   banner: { backgroundColor: '#ffebee' },
   actions: { gap: 8, marginTop: 20 },
   muted: { opacity: 0.7 },

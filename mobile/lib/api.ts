@@ -53,6 +53,7 @@ export interface Visit {
   id: string;
   officer: string;
   officer_email?: string;
+  officer_display_name?: string;
   farmer: string;
   farmer_display_name?: string;
   farm: string | null;

@@ -115,7 +115,7 @@ export default function HistoryScreen() {
 
   if (forbidden) {
     return (
-      <SafeAreaView style={styles.safe} edges={['bottom']}>
+      <SafeAreaView style={styles.safe} edges={['bottom','top']}>
       <ScrollView style={styles.container} contentContainerStyle={styles.content}>
         <Card style={styles.card} elevation={0}>
           <Card.Content>

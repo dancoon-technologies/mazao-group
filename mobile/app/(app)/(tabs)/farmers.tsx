@@ -164,7 +164,7 @@ export default function FarmersScreen() {
 
   return (
     <View style={styles.container}>
-    <SafeAreaView style={styles.safe} edges={['bottom']}>
+    <SafeAreaView style={styles.safe} edges={['bottom','top']}>
       <View style={styles.header}>
         <View style={styles.headerText}>
           <Text variant="bodyMedium" style={styles.subtitle}>

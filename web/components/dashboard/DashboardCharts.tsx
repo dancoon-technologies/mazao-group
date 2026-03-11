@@ -91,10 +91,11 @@ export function DashboardCharts({
         ]
       : [];
 
-  const topOfficersChartData = topOfficers.map((o) => ({
-    name: o.display_name || o.officer_email || "—",
-    visits: o.visits_count,
-  }));
+  const topOfficersChartData = topOfficers.map((o) => {
+    const name = o.display_name || o.officer_email || "—";
+    const withEmail = o.officer_email && name !== o.officer_email ? `${name} (${o.officer_email})` : name;
+    return { name: withEmail, visits: o.visits_count };
+  });
 
   const departmentChartData = statsByDepartment.map((d) => ({
     department_name: d.department_name,

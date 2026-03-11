@@ -3,7 +3,7 @@
 import { DataTable, type DataTableColumn } from "@/components/ui";
 import { formatDate } from "@/lib/format";
 import type { Schedule } from "@/lib/types";
-import { Badge, Button, Group, Text } from "@mantine/core";
+import { Badge, Button, Group, Stack, Text } from "@mantine/core";
 import {
   scheduleStatusColor,
   scheduleStatusLabel,
@@ -20,9 +20,14 @@ const scheduleColumnsBase: DataTableColumn<Schedule>[] = [
     key: "officer_email",
     label: "Officer",
     render: (s) => (
-      <Text size="sm" fw={500}>
-        {s.officer_email}
-      </Text>
+      <Stack gap={0}>
+        <Text size="sm" fw={500}>
+          {s.officer_display_name || s.officer_email || "—"}
+        </Text>
+        <Text size="xs" c="dimmed">
+          {s.officer_email || ""}
+        </Text>
+      </Stack>
     ),
   },
   {

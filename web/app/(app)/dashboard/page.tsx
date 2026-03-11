@@ -30,8 +30,8 @@ export default function DashboardPage() {
     [days]
   );
   const { data: statsByDepartment = [] } = useAsyncData(
-    (signal) => api.getDashboardStatsByDepartment({ signal }),
-    []
+    (signal) => (isAdmin ? api.getDashboardStatsByDepartment({ signal }) : Promise.resolve([])),
+    [isAdmin]
   );
   const { data: visitsByActivity = [] } = useAsyncData(
     (signal) => api.getDashboardVisitsByActivity({ signal }),
@@ -235,10 +235,14 @@ export default function DashboardPage() {
               visitsChartData={[]}
               days={days}
               onDaysChange={setDays}
-              statsByDepartment={statsByDepartment ?? []}
+              statsByDepartment={isAdmin ? (statsByDepartment ?? []) : []}
               visitsByActivity={[]}
               topOfficers={topOfficers ?? []}
-              sections={["keyMetrics", "byDepartment", "topOfficers"] as DashboardChartSection[]}
+              sections={
+                isAdmin
+                  ? (["keyMetrics", "byDepartment", "topOfficers"] as DashboardChartSection[])
+                  : (["keyMetrics", "topOfficers"] as DashboardChartSection[])
+              }
             />
           </Box>
         </Tabs.Panel>

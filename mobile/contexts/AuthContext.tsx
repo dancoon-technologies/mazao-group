@@ -65,12 +65,23 @@ function setStateFromCachedPayload(payload: CachedAuthPayload): AuthState {
   };
 }
 
-/** True if the error is due to network (offline / request failed). */
+/** True if the error is due to network (offline / request failed / timeout). */
 function isNetworkError(e: unknown): boolean {
   if (e instanceof TypeError && (e.message === 'Network request failed' || e.message === 'Failed to fetch')) return true;
   if (e instanceof Error) {
     const msg = e.message.toLowerCase();
-    return msg.includes('network') || msg.includes('failed to fetch') || msg.includes('network request failed');
+    return (
+      msg.includes('network') ||
+      msg.includes('failed to fetch') ||
+      msg.includes('network request failed') ||
+      msg.includes('timeout') ||
+      msg.includes('connection') ||
+      msg.includes('connection refused') ||
+      msg.includes('host') ||
+      msg.includes('enotfound') ||
+      msg.includes('econnrefused') ||
+      msg.includes('econnreset')
+    );
   }
   return false;
 }
@@ -162,6 +173,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (!(netState.isConnected ?? false)) {
           return;
         }
+        // Only validate session when we have tokens. After offline login we have no tokens;
+        // don't clear auth in that case (user stays in and can use offline data / re-sign in later).
+        const access = await SecureStore.getItemAsync(STORAGE_KEYS.ACCESS_TOKEN);
+        if (!access) return;
         const valid = await api.validateSession();
         if (!valid && mounted.current) {
           setState(clearAuthState);
@@ -173,15 +188,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [state.isAuthenticated]);
 
   const login = useCallback(async (email: string, password: string) => {
+    const trimmedEmail = email.trim().toLowerCase();
+    if (!trimmedEmail || !password) {
+      throw new Error('Email and password are required.');
+    }
+    // If we're offline, try offline login first so we don't wait for fetch to fail.
+    const netState = await NetInfo.fetch();
+    if (!(netState.isConnected ?? false)) {
+      const payload = await verifyOfflineLogin(trimmedEmail, password);
+      if (payload && mounted.current) {
+        setState(setStateFromCachedPayload(payload));
+        return { mustChangePassword: payload.mustChangePassword };
+      }
+      throw new Error(
+        'You are offline. Sign in once while online to enable offline sign-in with the same credentials.'
+      );
+    }
     try {
-      await api.login(email, password);
+      await api.login(trimmedEmail, password);
     } catch (e) {
       if (isNetworkError(e)) {
-        const payload = await verifyOfflineLogin(email, password);
+        const payload = await verifyOfflineLogin(trimmedEmail, password);
         if (payload && mounted.current) {
           setState(setStateFromCachedPayload(payload));
           return { mustChangePassword: payload.mustChangePassword };
         }
+        throw new Error(
+          'Network error. If you have signed in on this device before, use the same email and password to continue offline.'
+        );
       }
       throw e;
     }
@@ -199,11 +233,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const department = (payload?.department_display as string) ?? (payload?.department as string) ?? null;
     const region = (payload?.region_display as string) ?? null;
     const mustChangePassword = getMustChangePasswordFromToken(access);
-    const authState: AuthState = { isAuthenticated: true, isLoading: false, userId, email, displayName, role, roleDisplay, department: department || null, region: region || null, mustChangePassword };
+    const authState: AuthState = { isAuthenticated: true, isLoading: false, userId, email: trimmedEmail, displayName, role, roleDisplay, department: department || null, region: region || null, mustChangePassword };
     setState(authState);
     const cached: CachedAuthPayload = {
       userId,
-      email,
+      email: trimmedEmail,
       displayName,
       role,
       roleDisplay,
@@ -211,7 +245,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       region: region || null,
       mustChangePassword,
     };
-    await saveOfflineCredentials(email, password, cached);
+    await saveOfflineCredentials(trimmedEmail, password, cached);
     return { mustChangePassword };
   }, []);
 

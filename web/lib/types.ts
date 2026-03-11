@@ -18,6 +18,7 @@ export interface Visit {
   id: string;
   officer: string;
   officer_email?: string;
+  officer_display_name?: string;
   farmer: string;
   farmer_display_name?: string;
   farm: string | null;
@@ -118,6 +119,7 @@ export interface Schedule {
   created_by: string;
   officer: string;
   officer_email: string;
+  officer_display_name?: string;
   farmer: string | null;
   farmer_display_name: string | null;
   farm: string | null;

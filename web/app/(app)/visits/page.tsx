@@ -165,7 +165,7 @@ function VisitDetailModal({
       const head = ["Field", "Value"];
       const body: [string, string][] = [
         ["Date", formatDateTime(visit.created_at)],
-        ["Officer", (visit.officer_email ?? visit.officer) ?? "—"],
+        ["Officer", ([visit.officer_display_name, visit.officer_email].filter(Boolean).join(" — ") || (visit.officer_email ?? visit.officer)) ?? "—"],
         ["Farmer", (visit.farmer_display_name ?? visit.farmer) ?? "—"],
         ["Farm visited", visit.farm_display_name ?? "—"],
         ["Activity", formatActivityType(visit.activity_type ?? "")],
@@ -200,7 +200,12 @@ function VisitDetailModal({
     <Modal opened={opened} onClose={onClose} title="Visit details" size="md">
       <Stack gap="sm">
         {row("Date", formatDateTime(visit.created_at))}
-        {row("Officer", visit.officer_email ?? visit.officer)}
+        {row("Officer", (
+          <Stack gap={0}>
+            <Text size="sm" fw={500}>{visit.officer_display_name || visit.officer_email || visit.officer || "—"}</Text>
+            <Text size="xs" c="dimmed">{visit.officer_email ?? ""}</Text>
+          </Stack>
+        ))}
         {row("Farmer", visit.farmer_display_name ?? visit.farmer)}
         {row("Farm visited", visit.farm_display_name ?? "—")}
         {row("Activity", formatActivityType(visit.activity_type ?? ""))}
@@ -355,7 +360,7 @@ export default function VisitsPage() {
   const handleExportExcel = () => {
     const rows = visits.map((v) => ({
       Date: formatDateTime(v.created_at),
-      Officer: v.officer_email ?? v.officer,
+      Officer: [v.officer_display_name, v.officer_email].filter(Boolean).join(" — ") || (v.officer_email ?? v.officer),
       Farmer: v.farmer_display_name ?? v.farmer,
       "Farm visited": v.farm_display_name ?? "",
       Activity: formatActivityType(v.activity_type ?? ""),
@@ -404,7 +409,7 @@ export default function VisitsPage() {
     ];
     const body = visits.map((v) => [
       formatDateTime(v.created_at),
-      (v.officer_email ?? v.officer) ?? "",
+      ([v.officer_display_name, v.officer_email].filter(Boolean).join(" — ") || (v.officer_email ?? v.officer)) ?? "",
       (v.farmer_display_name ?? v.farmer) ?? "",
       v.farm_display_name ?? "",
       formatActivityType(v.activity_type ?? ""),
@@ -464,9 +469,10 @@ export default function VisitsPage() {
             key: "officer",
             label: "Officer",
             render: (v: Visit) => (
-              <Text size="sm" c="dimmed">
-                {v.officer_email ?? v.officer}
-              </Text>
+              <Stack gap={0}>
+                <Text size="sm" fw={500}>{v.officer_display_name || v.officer_email || v.officer || "—"}</Text>
+                <Text size="xs" c="dimmed">{v.officer_email ?? ""}</Text>
+              </Stack>
             ),
           }]
         : []),

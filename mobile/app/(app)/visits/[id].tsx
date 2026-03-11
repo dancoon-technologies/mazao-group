@@ -153,6 +153,17 @@ export default function VisitDetailScreen() {
         <Card style={styles.card} mode="outlined">
           <Card.Content>
             <Text variant="labelMedium" style={styles.sectionLabel}>Visit details</Text>
+            <List.Item
+              title="Officer"
+              description={
+                <>
+                  <Text variant="bodyMedium">{visit.officer_display_name || visit.officer_email || visit.officer || '—'}</Text>
+                  {visit.officer_email ? <Text variant="bodySmall" style={styles.muted}>{visit.officer_email}</Text> : null}
+                </>
+              }
+              left={(props) => <List.Icon {...props} icon="account-tie" />}
+            />
+            <Divider />
             <List.Item title="Farmer" description={visit.farmer_display_name ?? '—'} left={(props) => <List.Icon {...props} icon="account" />} />
             <Divider />
             <List.Item title="Farm" description={visit.farm_display_name ?? 'No specific farm'} left={(props) => <List.Icon {...props} icon="barn" />} />
@@ -237,6 +248,7 @@ const styles = StyleSheet.create({
   badgeIcon: {},
   badgeText: { fontWeight: '600' },
   hint: { marginTop: 2, opacity: 0.85 },
+  muted: { color: colors.gray500, marginTop: 2 },
   photo: { width: '100%', height: 240, borderRadius: radius.sm, marginTop: spacing.sm, backgroundColor: colors.gray100 },
   fieldLabel: { marginTop: spacing.sm, color: colors.gray700 },
   fieldValue: { marginTop: 2 },

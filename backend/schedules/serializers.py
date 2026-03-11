@@ -10,6 +10,7 @@ class ScheduleSerializer(serializers.ModelSerializer):
     created_by = serializers.UUIDField(source="created_by_id", read_only=True)
     officer = serializers.UUIDField(source="officer_id", read_only=True)
     officer_email = serializers.EmailField(source="officer.email", read_only=True)
+    officer_display_name = serializers.SerializerMethodField()
     farmer = serializers.UUIDField(source="farmer_id", read_only=True, allow_null=True)
     farmer_display_name = serializers.CharField(
         source="farmer.name", read_only=True, allow_null=True
@@ -26,6 +27,7 @@ class ScheduleSerializer(serializers.ModelSerializer):
             "created_by",
             "officer",
             "officer_email",
+            "officer_display_name",
             "farmer",
             "farmer_display_name",
             "farm",
@@ -36,6 +38,9 @@ class ScheduleSerializer(serializers.ModelSerializer):
             "approved_by",
             "created_at",
         )
+
+    def get_officer_display_name(self, obj):
+        return obj.officer.display_name if obj.officer_id and getattr(obj, "officer", None) else ""
 
     def get_farm_display_name(self, obj):
         if obj.farm_id and getattr(obj, "farm", None):

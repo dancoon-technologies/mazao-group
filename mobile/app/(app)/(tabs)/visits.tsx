@@ -240,7 +240,7 @@ export default function VisitsScreen() {
 
   return (
     <View style={styles.pageWrap}>
-      <SafeAreaView style={styles.safe} edges={['bottom']}>
+      <SafeAreaView style={styles.safe} edges={['bottom','top']}>
         {/* Tabs */}
         <View style={styles.tabRow}>
           <Pressable

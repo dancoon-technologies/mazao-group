@@ -1,6 +1,7 @@
 "use client";
 
 import { ListItemRow } from '@/components/ListItemRow';
+import { useAuth } from '@/contexts/AuthContext';
 import { colors, cardShadow, cardStyle, radius, spacing } from '@/constants/theme';
 import { api, type Notification } from '@/lib/api';
 import { useFocusEffect, useRouter } from 'expo-router';
@@ -34,6 +35,7 @@ function formatNotificationDate(iso: string | null) {
 
 export default function NotificationsScreen() {
   const router = useRouter();
+  const { userId } = useAuth();
   const [list, setList] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -41,18 +43,35 @@ export default function NotificationsScreen() {
   const [markingId, setMarkingId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
+    setList([]);
+    if (!userId) {
+      setError(null);
+      setLoading(false);
+      setRefreshing(false);
+      return;
+    }
     try {
       const data = await api.getNotifications();
       setList(Array.isArray(data) ? data : []);
       setError(null);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load notifications');
+      const msg = e instanceof Error ? e.message : 'Failed to load notifications';
+      const isAuthError =
+        msg.includes('Session expired') ||
+        msg.includes('Not authenticated') ||
+        msg.includes('Session') ||
+        msg.toLowerCase().includes('401');
+      setError(
+        isAuthError
+          ? 'Sign in when online to see notifications.'
+          : msg
+      );
       setList([]);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [userId]);
 
   useFocusEffect(
     useCallback(() => {

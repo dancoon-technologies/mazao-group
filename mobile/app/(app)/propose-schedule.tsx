@@ -26,6 +26,8 @@ import {
 } from 'react-native-paper';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ListItemRow } from '@/components/ListItemRow';
+import { SelectFarmerModal } from '@/components/SelectFarmerModal';
+import { SelectFarmModal } from '@/components/SelectFarmModal';
 import { appbarHeight, cardShadow, cardStyle, colors, scrollPaddingKeyboard } from '@/constants/theme';
 
 function formatDate(iso: string) {
@@ -56,6 +58,8 @@ export default function ProposeScheduleScreen() {
   const [selectedOfficerId, setSelectedOfficerId] = useState<string | null>(null);
   const [notes, setNotes] = useState('');
   const [officerMenuOpen, setOfficerMenuOpen] = useState(false);
+  const [farmerModalOpen, setFarmerModalOpen] = useState(false);
+  const [farmModalOpen, setFarmModalOpen] = useState(false);
   const [snackbarMsg, setSnackbarMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [snackbarVisible, setSnackbarVisible] = useState(false);
   const [isOnline, setIsOnline] = useState<boolean | null>(null);
@@ -212,6 +216,8 @@ export default function ProposeScheduleScreen() {
     }
   }, [assigner, userId, selectedDate, selectedOfficerId, selectedFarmerId, notes, router, showSnackbar, isOnline]);
 
+  const selectedFarm = farms.find((f) => f.id === selectedFarmId);
+
   if (loading) {
     return (
       <SafeAreaView style={styles.safe} edges={['bottom']}>
@@ -284,7 +290,7 @@ export default function ProposeScheduleScreen() {
                       setSelectedOfficerId(o.id);
                       setOfficerMenuOpen(false);
                     }}
-                    title={o.display_name || o.email}
+                    title={o.display_name && o.email ? `${o.display_name} · ${o.email}` : (o.display_name || o.email)}
                   />
                 ))}
                 {officers.length === 0 && (
@@ -306,64 +312,63 @@ export default function ProposeScheduleScreen() {
           />
 
           <Text variant="labelLarge" style={styles.label}>Farmer (optional)</Text>
-          <View style={styles.chipRow}>
-            <Button
-              mode={selectedFarmerId === null ? 'contained' : 'outlined'}
-              compact
-              onPress={() => setSelectedFarmerId(null)}
-              style={styles.chip}
-            >
-              No farmer
-            </Button>
-            {farmers.map((f) => (
-              <Button
-                key={f.id}
-                mode={selectedFarmerId === f.id ? 'contained' : 'outlined'}
-                compact
-                onPress={() => setSelectedFarmerId(f.id)}
-                style={styles.chip}
-              >
-                {f.display_name}
-              </Button>
-            ))}
-            <Button
-              mode="outlined"
-              compact
-              icon="account-plus"
-              onPress={() => router.push({ pathname: '/(app)/add-farmer', params: { returnTo: 'propose-schedule' } })}
-              style={styles.chip}
-            >
-              Add farmer
-            </Button>
-          </View>
+          <Button
+            mode="outlined"
+            onPress={() => setFarmerModalOpen(true)}
+            style={styles.farmerSelectBtn}
+            contentStyle={styles.farmerSelectBtnContent}
+            icon="account-search"
+          >
+            {selectedFarmerId
+              ? (farmers.find((f) => f.id === selectedFarmerId)?.display_name ?? 'Farmer selected')
+              : 'Select farmer'}
+          </Button>
+          <Button
+            mode="text"
+            compact
+            icon="account-plus"
+            onPress={() => router.push({ pathname: '/(app)/add-farmer', params: { returnTo: 'propose-schedule' } })}
+            style={styles.addFarmerLink}
+          >
+            Add new farmer
+          </Button>
+          <SelectFarmerModal
+            visible={farmerModalOpen}
+            onClose={() => setFarmerModalOpen(false)}
+            farmers={farmers}
+            selectedFarmerId={selectedFarmerId}
+            onSelect={setSelectedFarmerId}
+            title="Select farmer"
+          />
 
           {selectedFarmerId && (
             <>
               <Text variant="labelLarge" style={styles.label}>Farm (optional)</Text>
-              <View style={styles.chipRow}>
-                <Button
-                  mode={selectedFarmId === null ? 'contained' : 'outlined'}
-                  compact
-                  onPress={() => setSelectedFarmId(null)}
-                  style={styles.chip}
-                >
-                  None
-                </Button>
-                {farms.map((farm) => (
+              {farms.length === 0 ? (
+                <Text variant="bodySmall" style={styles.muted}>No farms for this farmer</Text>
+              ) : (
+                <>
                   <Button
-                    key={farm.id}
-                    mode={selectedFarmId === farm.id ? 'contained' : 'outlined'}
-                    compact
-                    onPress={() => setSelectedFarmId(farm.id)}
-                    style={styles.chip}
+                    mode="outlined"
+                    onPress={() => setFarmModalOpen(true)}
+                    style={styles.farmerSelectBtn}
+                    contentStyle={styles.farmerSelectBtnContent}
+                    icon="barn"
                   >
-                    {farm.village}
+                    {selectedFarm
+                      ? `${selectedFarm.village}${selectedFarm.crop_type ? ` · ${selectedFarm.crop_type}` : ''}`
+                      : 'Select farm'}
                   </Button>
-                ))}
-                {farms.length === 0 && (
-                  <Text variant="bodySmall" style={styles.muted}>No farms for this farmer</Text>
-                )}
-              </View>
+                  <SelectFarmModal
+                    visible={farmModalOpen}
+                    onClose={() => setFarmModalOpen(false)}
+                    farms={farms}
+                    selectedFarmId={selectedFarmId}
+                    onSelect={setSelectedFarmId}
+                    title="Select farm"
+                  />
+                </>
+              )}
             </>
           )}
 
@@ -441,6 +446,9 @@ const styles = StyleSheet.create({
   menuButtonContent: { justifyContent: 'flex-start' },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 },
   chip: { margin: 0 },
+  farmerSelectBtn: { marginBottom: 4 },
+  farmerSelectBtnContent: { justifyContent: 'flex-start' },
+  addFarmerLink: { marginBottom: 8 },
   banner: { backgroundColor: '#ffebee' },
   snackbarWrapper: { position: 'absolute', left: 0, right: 0 },
   snackbarTop: { marginHorizontal: 0 },

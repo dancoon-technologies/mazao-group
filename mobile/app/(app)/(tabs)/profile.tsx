@@ -148,7 +148,7 @@ export default function ProfileScreen() {
   const name = (displayName?.trim() || email || 'Field officer').trim();
 
   return (
-    <SafeAreaView style={styles.safe} edges={['bottom']}>
+    <SafeAreaView style={styles.safe} edges={['bottom','top']}>
       <ScrollView
         style={styles.container}
         contentContainerStyle={styles.content}

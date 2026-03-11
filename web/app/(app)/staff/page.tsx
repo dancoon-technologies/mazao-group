@@ -29,18 +29,16 @@ function buildStaffColumns(
 ): DataTableColumn<StaffUser>[] {
   return [
     {
-      key: "email",
-      label: "Email",
+      key: "staff",
+      label: "Staff",
       render: (u) => (
-        <Text size="sm" fw={500} component={Link} href={`/staff/${u.id}`} style={{ textDecoration: "none", color: "var(--mantine-color-blue-6)" }}>
-          {u.email}
-        </Text>
+        <Stack gap={0}>
+          <Text size="sm" fw={500} component={Link} href={`/staff/${u.id}`} style={{ textDecoration: "none", color: "var(--mantine-color-blue-6)" }}>
+            {u.display_name || u.email || "—"}
+          </Text>
+          <Text size="xs" c="dimmed">{u.email}</Text>
+        </Stack>
       ),
-    },
-    {
-      key: "display_name",
-      label: "Name",
-      render: (u) => <Text size="sm" c="dimmed">{u.display_name || "—"}</Text>,
     },
     {
       key: "phone",
@@ -84,18 +82,16 @@ function buildPerformanceColumns(
 ): DataTableColumn<StaffPerformanceUser>[] {
   return [
     {
-      key: "display_name",
-      label: "Name",
+      key: "staff",
+      label: "Staff",
       render: (u) => (
-        <Text size="sm" fw={500} component={Link} href={`/staff/${u.id}`} style={{ textDecoration: "none", color: "var(--mantine-color-blue-6)" }}>
-          {u.display_name || u.email || "—"}
-        </Text>
+        <Stack gap={0}>
+          <Text size="sm" fw={500} component={Link} href={`/staff/${u.id}`} style={{ textDecoration: "none", color: "var(--mantine-color-blue-6)" }}>
+            {u.display_name || u.email || "—"}
+          </Text>
+          <Text size="xs" c="dimmed">{u.email}</Text>
+        </Stack>
       ),
-    },
-    {
-      key: "email",
-      label: "Email",
-      render: (u) => <Text size="sm" c="dimmed">{u.email}</Text>,
     },
     {
       key: "role",

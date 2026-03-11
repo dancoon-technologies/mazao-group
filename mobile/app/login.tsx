@@ -26,6 +26,7 @@ export default function LoginScreen() {
   const { login } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [passwordVisible, setPasswordVisible] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [snackbarVisible, setSnackbarVisible] = useState(false);
@@ -103,7 +104,7 @@ export default function LoginScreen() {
               onChangeText={setPassword}
               placeholder="••••••••"
               placeholderTextColor={colors.gray500}
-              secureTextEntry
+              secureTextEntry={!passwordVisible}
               autoComplete="password"
               mode="outlined"
               outlineColor={colors.gray200}
@@ -111,6 +112,13 @@ export default function LoginScreen() {
               textColor={colors.gray900}
               style={styles.input}
               contentStyle={styles.inputContent}
+              right={
+                <TextInput.Icon
+                  icon={passwordVisible ? 'eye-off' : 'eye'}
+                  onPress={() => setPasswordVisible((v) => !v)}
+                  forceTextInputFocus={false}
+                />
+              }
             />
 
             {loading ? (

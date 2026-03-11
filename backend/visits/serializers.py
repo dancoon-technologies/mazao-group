@@ -9,6 +9,7 @@ class VisitSerializer(serializers.ModelSerializer):
     farm = serializers.UUIDField(source="farm_id", read_only=True, allow_null=True)
     schedule = serializers.UUIDField(source="schedule_id", read_only=True, allow_null=True)
     officer_email = serializers.SerializerMethodField()
+    officer_display_name = serializers.SerializerMethodField()
     farmer_display_name = serializers.SerializerMethodField()
     farm_display_name = serializers.SerializerMethodField()
     schedule_display = serializers.SerializerMethodField()
@@ -19,6 +20,7 @@ class VisitSerializer(serializers.ModelSerializer):
             "id",
             "officer",
             "officer_email",
+            "officer_display_name",
             "farmer",
             "farmer_display_name",
             "farm",
@@ -55,6 +57,9 @@ class VisitSerializer(serializers.ModelSerializer):
 
     def get_officer_email(self, obj):
         return obj.officer.email if obj.officer_id else ""
+
+    def get_officer_display_name(self, obj):
+        return obj.officer.display_name if obj.officer_id and obj.officer else ""
 
     def get_farmer_display_name(self, obj):
         return obj.farmer.name if obj.farmer_id else ""
