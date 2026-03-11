@@ -73,7 +73,8 @@ export interface ScheduleColumnsConfig {
   canApprove: boolean;
   canEditSchedule: boolean;
   approvingId: string | null;
-  onApprove: (scheduleId: string, action: "accept" | "reject") => void;
+  onApprove: (scheduleId: string, action: "accept") => void;
+  onRejectClick: (schedule: Schedule) => void;
   onOpenEdit: (schedule: Schedule) => void;
 }
 
@@ -83,10 +84,21 @@ export function getScheduleColumns(
   if (!config?.canApprove && !config?.canEditSchedule) {
     return scheduleColumnsBase;
   }
-  const { canApprove, canEditSchedule, approvingId, onApprove, onOpenEdit } =
+  const { canApprove, canEditSchedule, approvingId, onApprove, onRejectClick, onOpenEdit } =
     config;
   return [
     ...scheduleColumnsBase,
+    {
+      key: "rejection_reason",
+      label: "Rejection reason",
+      visibleFrom: "md",
+      render: (s) =>
+        s.status === "rejected" && s.rejection_reason ? (
+          <Text size="sm" c="dimmed" lineClamp={2}>
+            {s.rejection_reason}
+          </Text>
+        ) : null,
+    },
     {
       key: "actions",
       label: "Actions",
@@ -109,7 +121,7 @@ export function getScheduleColumns(
                   variant="light"
                   color="red"
                   loading={approvingId === s.id}
-                  onClick={() => onApprove(s.id, "reject")}
+                  onClick={() => onRejectClick(s)}
                 >
                   Decline
                 </Button>

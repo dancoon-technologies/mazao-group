@@ -34,6 +34,10 @@ export default function AppTabsLayout() {
             backgroundColor: colors.white,
             borderBottomColor: colors.gray200,
             borderBottomWidth: 0.5,
+            height: 48,
+          },
+          headerTitleContainerStyle: {
+            paddingVertical: 0,
           },
           headerShadowVisible: false,
           headerBackground: () => null,

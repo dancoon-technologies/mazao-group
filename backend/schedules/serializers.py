@@ -36,6 +36,7 @@ class ScheduleSerializer(serializers.ModelSerializer):
             "notes",
             "status",
             "approved_by",
+            "rejection_reason",
             "created_at",
         )
 

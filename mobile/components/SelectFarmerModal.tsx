@@ -6,7 +6,7 @@ import {
   StyleSheet,
   FlatList,
   Pressable,
-  KeyboardAvoidingView,
+  Keyboard,
   Platform,
 } from "react-native";
 import { Button, Text, TextInput } from "react-native-paper";
@@ -40,6 +40,23 @@ export function SelectFarmerModal({
   title = "Select farmer",
 }: SelectFarmerModalProps) {
   const [search, setSearch] = useState("");
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+
+  useEffect(() => {
+    if (!visible) return;
+    const showSub = Keyboard.addListener(
+      Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow",
+      (e) => setKeyboardHeight(e.endCoordinates.height)
+    );
+    const hideSub = Keyboard.addListener(
+      Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide",
+      () => setKeyboardHeight(0)
+    );
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, [visible]);
 
   useEffect(() => {
     if (visible) setSearch("");
@@ -79,13 +96,11 @@ export function SelectFarmerModal({
       animationType="slide"
       transparent
       onRequestClose={onClose}
+      statusBarTranslucent
     >
-      <KeyboardAvoidingView
-        style={styles.overlay}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-      >
+      <View style={styles.overlay}>
         <Pressable style={styles.backdrop} onPress={onClose} />
-        <View style={styles.sheet}>
+        <View style={[styles.sheet, { marginBottom: keyboardHeight }]}>
           <View style={styles.header}>
             <Text variant="titleMedium" style={styles.title}>
               {title}
@@ -131,7 +146,7 @@ export function SelectFarmerModal({
             }
           />
         </View>
-      </KeyboardAvoidingView>
+      </View>
     </Modal>
   );
 }

@@ -413,14 +413,19 @@ export const api = {
 
   async approveSchedule(
     scheduleId: string,
-    action: "accept" | "reject"
+    action: "accept" | "reject",
+    rejectionReason?: string
   ): Promise<Schedule> {
+    const body: { action: string; rejection_reason?: string } = { action };
+    if (action === "reject" && rejectionReason != null) {
+      body.rejection_reason = rejectionReason.trim();
+    }
     const res = await authFetch(
       `${API_BASE}/api/schedules/${scheduleId}/approve`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action }),
+        body: JSON.stringify(body),
       }
     );
     if (!res.ok) {

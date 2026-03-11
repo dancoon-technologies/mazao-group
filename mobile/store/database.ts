@@ -152,6 +152,7 @@ function toScheduleRow(data: Record<string, unknown>): ScheduleRow {
     status: String(data.status ?? 'proposed'),
     created_by: data.created_by != null ? String(data.created_by) : null,
     approved_by: data.approved_by != null ? String(data.approved_by) : null,
+    rejection_reason: data.rejection_reason != null ? String(data.rejection_reason) : null,
     updated_at: Number(data.updated_at) || 0,
     is_deleted: data.is_deleted ? 1 : 0,
   };

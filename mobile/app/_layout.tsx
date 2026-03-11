@@ -31,7 +31,7 @@ export default function RootLayout() {
       <SafeAreaProvider>
         <PaperProvider theme={paperTheme}>
           <ConfigErrorScreen />
-          <StatusBar style="auto" />
+          <StatusBar style="dark" />
         </PaperProvider>
       </SafeAreaProvider>
     );
@@ -46,7 +46,7 @@ export default function RootLayout() {
           <Stack.Screen name="change-password" options={{ title: 'Set new password' }} />
           <Stack.Screen name="(app)" options={{ headerShown: false }} />
         </Stack>
-        <StatusBar style="auto" />
+        <StatusBar style="dark" />
         </AuthProvider>
       </PaperProvider>
     </SafeAreaProvider>

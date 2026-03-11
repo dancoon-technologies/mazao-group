@@ -8,7 +8,7 @@ import { api } from "@/lib/api";
 import { PAGE_BOX_MIN_WIDTH, ROLES_CAN_CREATE_SCHEDULES } from "@/lib/constants";
 import { pluralize } from "@/lib/format";
 import type { Farm, Farmer, Schedule, StaffUser } from "@/lib/types";
-import { Alert, Box, Button, Group, Select } from "@mantine/core";
+import { Alert, Box, Button, Group, Modal, Select, Stack, Textarea } from "@mantine/core";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { getScheduleColumns } from "./scheduleColumns";
 import { ScheduleEditModal } from "./ScheduleEditModal";
@@ -36,6 +36,9 @@ export default function SchedulesPage() {
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState("");
   const [approvingId, setApprovingId] = useState<string | null>(null);
+  const [rejectSchedule, setRejectSchedule] = useState<Schedule | null>(null);
+  const [rejectReason, setRejectReason] = useState("");
+  const [rejectSubmitting, setRejectSubmitting] = useState(false);
   const [departmentFilter, setDepartmentFilter] = useState<string | null>(null);
   const [farmerModalOpen, setFarmerModalOpen] = useState(false);
   const [farmModalOpen, setFarmModalOpen] = useState(false);
@@ -44,10 +47,10 @@ export default function SchedulesPage() {
   const [form, updateField, resetForm] = useFormFields(INITIAL_SCHEDULE_FORM);
 
   const handleApprove = useCallback(
-    async (scheduleId: string, action: "accept" | "reject") => {
+    async (scheduleId: string) => {
       setApprovingId(scheduleId);
       try {
-        const updated = await api.approveSchedule(scheduleId, action);
+        const updated = await api.approveSchedule(scheduleId, "accept");
         setSchedules((prev) =>
           prev.map((s) => (s.id === updated.id ? updated : s))
         );
@@ -59,6 +62,34 @@ export default function SchedulesPage() {
     },
     []
   );
+
+  const onRejectClick = useCallback((schedule: Schedule) => {
+    setRejectSchedule(schedule);
+    setRejectReason("");
+  }, []);
+
+  const handleRejectSubmit = useCallback(async () => {
+    if (!rejectSchedule) return;
+    const reason = rejectReason.trim();
+    if (!reason) {
+      setError("Please provide a reason for rejecting this schedule.");
+      return;
+    }
+    setRejectSubmitting(true);
+    setError("");
+    try {
+      const updated = await api.approveSchedule(rejectSchedule.id, "reject", reason);
+      setSchedules((prev) =>
+        prev.map((s) => (s.id === updated.id ? updated : s))
+      );
+      setRejectSchedule(null);
+      setRejectReason("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to reject schedule");
+    } finally {
+      setRejectSubmitting(false);
+    }
+  }, [rejectSchedule, rejectReason]);
 
   const openEdit = useCallback(
     (s: Schedule) => {
@@ -271,11 +302,12 @@ export default function SchedulesPage() {
               canEditSchedule,
               approvingId,
               onApprove: handleApprove,
+              onRejectClick,
               onOpenEdit: openEdit,
             }
           : null
       ),
-    [canApprove, canEditSchedule, approvingId, handleApprove, openEdit]
+    [canApprove, canEditSchedule, approvingId, handleApprove, onRejectClick, openEdit]
   );
 
   if (loading) return <PageLoading message="Loading schedules…" />;
@@ -366,6 +398,50 @@ export default function SchedulesPage() {
         onSelect={(id) => updateField("farm", id)}
         onClear={() => updateField("farm", "")}
       />
+
+      <Modal
+        opened={rejectSchedule !== null}
+        onClose={() => {
+          setRejectSchedule(null);
+          setRejectReason("");
+        }}
+        title="Reject schedule"
+      >
+        {rejectSchedule && (
+          <Stack gap="md">
+            <Alert color="orange" variant="light">
+              Provide a reason for rejecting this schedule. The officer will see it in their notification and on the schedule.
+            </Alert>
+            <Textarea
+              label="Reason for rejection"
+              placeholder="e.g. Date conflicts with another activity"
+              value={rejectReason}
+              onChange={(e) => setRejectReason(e.currentTarget.value)}
+              minRows={3}
+              required
+            />
+            <Group>
+              <Button
+                color="red"
+                loading={rejectSubmitting}
+                disabled={!rejectReason.trim()}
+                onClick={handleRejectSubmit}
+              >
+                Reject schedule
+              </Button>
+              <Button
+                variant="default"
+                onClick={() => {
+                  setRejectSchedule(null);
+                  setRejectReason("");
+                }}
+              >
+                Cancel
+              </Button>
+            </Group>
+          </Stack>
+        )}
+      </Modal>
 
       <ScheduleEditModal
         schedule={editingSchedule}

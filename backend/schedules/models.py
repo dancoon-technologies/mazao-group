@@ -8,6 +8,7 @@ from farmers.models import Farm, Farmer
 from mobile_sync.models import MobileSyncModel
 
 NOTES_MAX_LENGTH = 2000
+REJECTION_REASON_MAX_LENGTH = 1000
 
 
 class Schedule(MobileSyncModel):
@@ -57,6 +58,11 @@ class Schedule(MobileSyncModel):
         null=True,
         blank=True,
         related_name="approved_schedules",
+    )
+    rejection_reason = models.TextField(
+        blank=True,
+        validators=[MaxLengthValidator(REJECTION_REASON_MAX_LENGTH)],
+        help_text="Reason given by supervisor/admin when rejecting a proposed schedule.",
     )
     created_at = models.DateTimeField(auto_now_add=True)
 

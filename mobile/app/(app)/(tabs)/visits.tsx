@@ -1,5 +1,5 @@
 import { ListItemRow } from '@/components/ListItemRow';
-import { colors, cardShadow, cardStyle, radius, spacing } from '@/constants/theme';
+import { colors, cardShadow, cardStyle, headerContentGapOffset, radius, spacing } from '@/constants/theme';
 import { formatDateHeader, isScheduleEditableByDate, scheduleStatusColor, scheduleStatusLabel } from '@/lib/format';
 import { syncWithServer } from '@/lib/syncWithServer';
 import { farmerRowToFarmer, scheduleRowToSchedule, visitRowToVisit } from '@/lib/offline-helpers';
@@ -240,7 +240,7 @@ export default function VisitsScreen() {
 
   return (
     <View style={styles.pageWrap}>
-      <SafeAreaView style={styles.safe} edges={['bottom','top']}>
+      <SafeAreaView style={styles.safe} edges={['bottom']}>
         {/* Tabs */}
         <View style={styles.tabRow}>
           <Pressable
@@ -442,9 +442,9 @@ export default function VisitsScreen() {
 
 const styles = StyleSheet.create({
   pageWrap: { flex: 1 },
-  safe: { flex: 1 },
+  safe: { flex: 1, marginTop: headerContentGapOffset },
   container: { flex: 1 },
-  content: { paddingHorizontal: spacing.lg, paddingTop: spacing.md },
+  content: { paddingHorizontal: spacing.lg, paddingTop: spacing.xs },
   tabRow: {
     flexDirection: 'row',
     borderBottomWidth: 1,

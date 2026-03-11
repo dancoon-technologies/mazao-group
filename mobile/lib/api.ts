@@ -46,6 +46,7 @@ export interface Schedule {
   notes: string;
   status: 'proposed' | 'accepted' | 'rejected';
   approved_by?: string | null;
+  rejection_reason?: string | null;
   created_at?: string;
 }
 

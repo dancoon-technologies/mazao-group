@@ -1,4 +1,4 @@
-import { colors, radius, spacing } from '@/constants/theme';
+import { colors, headerContentGapOffset, radius, spacing } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
 import { api } from '@/lib/api';
 import { registerForPushNotificationsAsync } from '@/lib/pushNotifications';
@@ -148,7 +148,7 @@ export default function ProfileScreen() {
   const name = (displayName?.trim() || email || 'Field officer').trim();
 
   return (
-    <SafeAreaView style={styles.safe} edges={['bottom','top']}>
+    <SafeAreaView style={styles.safe} edges={['bottom']}>
       <ScrollView
         style={styles.container}
         contentContainerStyle={styles.content}
@@ -356,7 +356,7 @@ export default function ProfileScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.gray100 },
+  safe: { flex: 1, marginTop: headerContentGapOffset, backgroundColor: colors.gray100 },
   container: { flex: 1 },
   content: { padding: spacing.lg, paddingBottom: 80 },
   header: { marginBottom: spacing.xl },

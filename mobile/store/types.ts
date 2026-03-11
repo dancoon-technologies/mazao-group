@@ -43,6 +43,7 @@ export interface ScheduleRow {
   status: string;
   created_by: string | null;
   approved_by: string | null;
+  rejection_reason: string | null;
   updated_at: number;
   is_deleted: number;
 }

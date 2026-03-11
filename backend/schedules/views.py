@@ -205,19 +205,24 @@ class ScheduleApproveView(generics.GenericAPIView):
             )
             return Response(ScheduleSerializer(schedule).data)
         if action == "reject":
+            rejection_reason = (request.data.get("rejection_reason") or "").strip()[:1000]
             schedule.status = Schedule.Status.REJECTED
             schedule.approved_by = user
-            schedule.save(update_fields=["status", "approved_by"])
+            schedule.rejection_reason = rejection_reason
+            schedule.save(update_fields=["status", "approved_by", "rejection_reason"])
             logger.info("POST /api/schedules/%s/approve rejected by user=%s", pk, user.id)
             from django.utils.formats import date_format
 
             from notifications.services import notify_user
 
             date_str = date_format(schedule.scheduled_date, use_l10n=True)
+            msg = f"Your visit scheduled on {date_str} has been rejected."
+            if rejection_reason:
+                msg += f" Reason: {rejection_reason}"
             notify_user(
                 schedule.officer,
                 title="Schedule rejected",
-                message=f"Your visit scheduled on {date_str} has been rejected.",
+                message=msg,
                 channels=["in_app", "email", "sms", "push"],
             )
             return Response(ScheduleSerializer(schedule).data)
