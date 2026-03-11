@@ -1,126 +1,21 @@
 "use client";
 
-import { DataTable, type DataTableColumn, PageError, PageHeader, PageLoading } from "@/components/ui";
+import { DataTable, PageError, PageHeader, PageLoading } from "@/components/ui";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAsyncData } from "@/hooks/useAsyncData";
 import { useFormFields } from "@/hooks/useFormFields";
 import { api } from "@/lib/api";
 import { PAGE_BOX_MIN_WIDTH, ROLES_CAN_CREATE_SCHEDULES } from "@/lib/constants";
-import { formatDate, pluralize } from "@/lib/format";
+import { pluralize } from "@/lib/format";
 import type { Farm, Farmer, Schedule, StaffUser } from "@/lib/types";
-import {
-  Alert,
-  Badge,
-  Box,
-  Button,
-  Group,
-  Modal,
-  Paper,
-  Select,
-  Stack,
-  Text,
-  Textarea,
-} from "@mantine/core";
-import { DateInput } from "@mantine/dates";
+import { Alert, Box, Button, Group, Select } from "@mantine/core";
 import { useCallback, useEffect, useMemo, useState } from "react";
-
-function scheduleStatusColor(status: string) {
-  switch (status) {
-    case "proposed":
-      return "yellow";
-    case "accepted":
-      return "green";
-    case "rejected":
-      return "red";
-    default:
-      return "gray";
-  }
-}
-
-function scheduleStatusLabel(status: string): string {
-  switch (status) {
-    case "proposed":
-      return "Pending";
-    case "accepted":
-      return "Accepted";
-    case "rejected":
-      return "Rejected";
-    default:
-      return status;
-  }
-}
-
-/** Proposed schedule is editable only if the scheduled date is more than one day from today (at least 2 days ahead). */
-function isScheduleEditable(schedule: Schedule): boolean {
-  if (schedule.status !== "proposed") return false;
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const d = new Date(schedule.scheduled_date + "T00:00:00");
-  const diffDays = Math.floor((d.getTime() - today.getTime()) / (24 * 60 * 60 * 1000));
-  return diffDays >= 2;
-}
-
-const scheduleColumnsBase: DataTableColumn<Schedule>[] = [
-  {
-    key: "scheduled_date",
-    label: "Date",
-    render: (s) => <Text size="sm">{formatDate(s.scheduled_date)}</Text>,
-  },
-  {
-    key: "officer_email",
-    label: "Officer",
-    render: (s) => (
-      <Text size="sm" fw={500}>
-        {s.officer_email}
-      </Text>
-    ),
-  },
-  {
-    key: "farmer_display_name",
-    label: "Farmer",
-    render: (s) => (
-      <Text size="sm" c="dimmed">
-        {s.farmer_display_name || "—"}
-      </Text>
-    ),
-  },
-  {
-    key: "farm_display_name",
-    label: "Farm",
-    render: (s) => (
-      <Text size="sm" c="dimmed">
-        {s.farm_display_name ?? "None"}
-      </Text>
-    ),
-  },
-  {
-    key: "status",
-    label: "Status",
-    render: (s) => (
-      <Badge color={scheduleStatusColor(s.status)} variant="light" size="sm">
-        {scheduleStatusLabel(s.status)}
-      </Badge>
-    ),
-  },
-  {
-    key: "notes",
-    label: "Notes",
-    visibleFrom: "md",
-    render: (s) => (
-      <Text size="sm" c="dimmed" lineClamp={2}>
-        {s.notes || "—"}
-      </Text>
-    ),
-  },
-];
-
-const INITIAL_SCHEDULE_FORM = {
-  officer: "",
-  farmer: "",
-  farm: "",
-  scheduled_date: "",
-  notes: "",
-};
+import { getScheduleColumns } from "./scheduleColumns";
+import { ScheduleEditModal } from "./ScheduleEditModal";
+import { ScheduleForm } from "./ScheduleForm";
+import { SelectFarmModal } from "./SelectFarmModal";
+import { SelectFarmerModal } from "./SelectFarmerModal";
+import { INITIAL_SCHEDULE_FORM, type ScheduleFormValues } from "./utils";
 
 export default function SchedulesPage() {
   const { role } = useAuth();
@@ -142,6 +37,10 @@ export default function SchedulesPage() {
   const [formError, setFormError] = useState("");
   const [approvingId, setApprovingId] = useState<string | null>(null);
   const [departmentFilter, setDepartmentFilter] = useState<string | null>(null);
+  const [farmerModalOpen, setFarmerModalOpen] = useState(false);
+  const [farmModalOpen, setFarmModalOpen] = useState(false);
+  const [farmerSearch, setFarmerSearch] = useState("");
+  const [farmSearch, setFarmSearch] = useState("");
   const [form, updateField, resetForm] = useFormFields(INITIAL_SCHEDULE_FORM);
 
   const handleApprove = useCallback(
@@ -212,57 +111,6 @@ export default function SchedulesPage() {
     [editingSchedule, form, isAdminOrSupervisor, closeEditModal]
   );
 
-  const scheduleColumns = useMemo<DataTableColumn<Schedule>[]>(
-    () =>
-      canApprove || canEditSchedule
-        ? [
-            ...scheduleColumnsBase,
-            {
-              key: "actions",
-              label: "Actions",
-              render: (s) =>
-                s.status === "proposed" ? (
-                  <Group gap="xs">
-                    {canApprove && (
-                      <>
-                        <Button
-                          size="xs"
-                          variant="light"
-                          color="green"
-                          loading={approvingId === s.id}
-                          onClick={() => handleApprove(s.id, "accept")}
-                        >
-                          Accept
-                        </Button>
-                        <Button
-                          size="xs"
-                          variant="light"
-                          color="red"
-                          loading={approvingId === s.id}
-                          onClick={() => handleApprove(s.id, "reject")}
-                        >
-                          Decline
-                        </Button>
-                      </>
-                    )}
-                    {canEditSchedule && isScheduleEditable(s) && (
-                      <Button
-                        size="xs"
-                        variant="light"
-                        color="blue"
-                        onClick={() => openEdit(s)}
-                      >
-                        Request change
-                      </Button>
-                    )}
-                  </Group>
-                ) : null,
-            },
-          ]
-        : scheduleColumnsBase,
-    [canApprove, canEditSchedule, handleApprove, approvingId, openEdit]
-  );
-
   const isAdmin = role === "admin";
   const loadData = useCallback(async () => {
     const [scheds, offs, fms] = await Promise.all([
@@ -293,12 +141,20 @@ export default function SchedulesPage() {
       cancelled = true;
     };
   }, [loadData]);
+
   const { data: optionsData } = useAsyncData(
-    (signal) => (isAdmin ? api.getOptions({ signal }) : Promise.resolve({ departments: [], staff_roles: [] })),
+    (signal) =>
+      isAdmin
+        ? api.getOptions({ signal })
+        : Promise.resolve({ departments: [], staff_roles: [] }),
     [isAdmin]
   );
   const departmentOptions = useMemo(
-    () => (optionsData?.departments ?? []).map((d) => ({ value: d.value, label: d.label })),
+    () =>
+      (optionsData?.departments ?? []).map((d) => ({
+        value: d.value,
+        label: d.label,
+      })),
     [optionsData?.departments]
   );
 
@@ -377,10 +233,49 @@ export default function SchedulesPage() {
       ? `${o.display_name} (${o.email})`
       : `${o.email}${o.department ? ` — ${o.department}` : ""}${o.region ? ` (${o.region})` : ""}`,
   }));
-  const farmerOptions = [
-    { value: "", label: "— No specific farmer —" },
-    ...farmers.map((f) => ({ value: f.id, label: f.display_name })),
-  ];
+
+  const filteredFarmers = useMemo(() => {
+    const q = farmerSearch.trim().toLowerCase();
+    if (!q) return farmers;
+    return farmers.filter(
+      (f) =>
+        (f.display_name ?? "").toLowerCase().includes(q) ||
+        (f.phone ?? "").toLowerCase().includes(q) ||
+        (f.first_name ?? "").toLowerCase().includes(q) ||
+        (f.last_name ?? "").toLowerCase().includes(q)
+    );
+  }, [farmers, farmerSearch]);
+
+  const filteredFarms = useMemo(() => {
+    const q = farmSearch.trim().toLowerCase();
+    if (!q) return farms;
+    return farms.filter(
+      (f) =>
+        (f.village ?? "").toLowerCase().includes(q) ||
+        (f.crop_type ?? "").toLowerCase().includes(q) ||
+        (f.sub_county ?? "").toLowerCase().includes(q) ||
+        (f.county ?? "").toLowerCase().includes(q)
+    );
+  }, [farms, farmSearch]);
+
+  const selectedFarmer = farmers.find((f) => f.id === form.farmer);
+  const selectedFarm = farms.find((f) => f.id === form.farm);
+
+  const scheduleColumns = useMemo(
+    () =>
+      getScheduleColumns(
+        canApprove || canEditSchedule
+          ? {
+              canApprove,
+              canEditSchedule,
+              approvingId,
+              onApprove: handleApprove,
+              onOpenEdit: openEdit,
+            }
+          : null
+      ),
+    [canApprove, canEditSchedule, approvingId, handleApprove, openEdit]
+  );
 
   return (
     <Box style={{ minWidth: PAGE_BOX_MIN_WIDTH }}>
@@ -410,184 +305,85 @@ export default function SchedulesPage() {
 
       {canApprove && (
         <Alert color="blue" variant="light" mt="md" mb="xs">
-          Officers can edit proposed schedules when the date is more than one day away. Accept or reject a proposed
-          schedule to confirm the current proposal; once accepted, it is reflected for the officer.
+          Officers can edit proposed schedules when the date is more than one
+          day away. Accept or reject a proposed schedule to confirm the current
+          proposal; once accepted, it is reflected for the officer.
         </Alert>
       )}
 
       {canCreate && showForm && (
-        <Paper mt="md" p="md" radius="md" shadow="sm" withBorder>
-          <Text size="lg" fw={600} mb="md">
-            {isOfficer ? "Propose visit schedule" : "New schedule"}
-          </Text>
-          <Text size="sm" c="dimmed" mb="md">
-            {isOfficer
-              ? "Your proposal will be sent to your supervisor for approval."
-              : "The officer will be notified. Schedule is created as accepted."}
-          </Text>
-          <form onSubmit={handleSubmit}>
-            <Stack gap="md">
-              {formError && (
-                <Alert color="red" variant="light">
-                  {formError}
-                </Alert>
-              )}
-              {isAdminOrSupervisor && (
-                <Select
-                  label="Extension officer"
-                  required
-                  placeholder="Select officer"
-                  data={officerOptions}
-                  value={form.officer || null}
-                  onChange={(v) => updateField("officer", v ?? "")}
-                />
-              )}
-              <Select
-                label="Farmer (optional)"
-                description={isOfficer ? "Optional: link this visit to one of your assigned farmers." : undefined}
-                placeholder="Select farmer"
-                searchable
-                clearable
-                data={farmerOptions}
-                value={form.farmer || null}
-                onChange={(v) => {
-                  updateField("farmer", v ?? "");
-                  updateField("farm", "");
-                }}
-              />
-              {form.farmer && (
-                <Select
-                  label="Farm (optional)"
-                  placeholder="None or select farm"
-                  searchable
-                  clearable
-                  data={[
-                    { value: "", label: "— None —" },
-                    ...farms.map((f) => ({ value: f.id, label: f.village })),
-                  ]}
-                  value={form.farm || null}
-                  onChange={(v) => updateField("farm", v ?? "")}
-                />
-              )}
-              <DateInput
-                label="Scheduled date"
-                placeholder="Pick date"
-                value={form.scheduled_date || null}
-                onChange={(value) =>
-                  updateField("scheduled_date", value ?? "")
-                }
-                valueFormat="YYYY-MM-DD"
-                required
-                clearable
-              />
-              <Textarea
-                label="Notes"
-                placeholder="Optional notes"
-                value={form.notes}
-                onChange={(e) => updateField("notes", e.target.value)}
-              />
-              <Group>
-                <Button type="submit" color="green" loading={submitting}>
-                  {submitting
-                    ? "Saving…"
-                    : isOfficer
-                      ? "Propose schedule"
-                      : "Create schedule"}
-                </Button>
-                <Button
-                  type="button"
-                  variant="default"
-                  onClick={() => setShowForm(false)}
-                >
-                  Cancel
-                </Button>
-              </Group>
-            </Stack>
-          </form>
-        </Paper>
+        <ScheduleForm
+          isOfficer={isOfficer}
+          isAdminOrSupervisor={isAdminOrSupervisor}
+          officerOptions={officerOptions}
+          form={form}
+          updateField={updateField as (k: keyof ScheduleFormValues, v: string) => void}
+          selectedFarmer={selectedFarmer}
+          selectedFarm={selectedFarm}
+          formError={formError}
+          submitting={submitting}
+          onOpenFarmerModal={() => {
+            setFarmerSearch("");
+            setFarmerModalOpen(true);
+          }}
+          onOpenFarmModal={() => {
+            setFarmSearch("");
+            setFarmModalOpen(true);
+          }}
+          onSubmit={handleSubmit}
+          onCancel={() => setShowForm(false)}
+        />
       )}
 
-      <Modal
-        opened={editingSchedule !== null}
+      <SelectFarmerModal
+        opened={farmerModalOpen}
+        onClose={() => setFarmerModalOpen(false)}
+        searchValue={farmerSearch}
+        onSearchChange={setFarmerSearch}
+        filteredFarmers={filteredFarmers}
+        selectedFarmerId={form.farmer}
+        onSelect={(id) => {
+          updateField("farmer", id);
+          updateField("farm", "");
+        }}
+        onClear={() => {
+          updateField("farmer", "");
+          updateField("farm", "");
+        }}
+      />
+
+      <SelectFarmModal
+        opened={farmModalOpen}
+        onClose={() => setFarmModalOpen(false)}
+        searchValue={farmSearch}
+        onSearchChange={setFarmSearch}
+        filteredFarms={filteredFarms}
+        selectedFarmId={form.farm}
+        onSelect={(id) => updateField("farm", id)}
+        onClear={() => updateField("farm", "")}
+      />
+
+      <ScheduleEditModal
+        schedule={editingSchedule}
+        isAdminOrSupervisor={isAdminOrSupervisor}
+        officerOptions={officerOptions}
+        form={form}
+        updateField={updateField as (k: keyof ScheduleFormValues, v: string) => void}
+        selectedFarmer={selectedFarmer}
+        selectedFarm={selectedFarm}
+        formError={formError}
+        submitting={submitting}
         onClose={closeEditModal}
-        title="Request schedule change"
-        size="md"
-      >
-        {editingSchedule && (
-          <Text size="sm" c="dimmed" mb="md">
-            You can change the proposed visit only when it is more than one day away.
-          </Text>
-        )}
-        <form onSubmit={handleEditSubmit}>
-          <Stack gap="md">
-            {formError && (
-              <Alert color="red" variant="light">
-                {formError}
-              </Alert>
-            )}
-            {isAdminOrSupervisor && editingSchedule && (
-              <Select
-                label="Extension officer"
-                placeholder="Select officer"
-                data={officerOptions}
-                value={form.officer || null}
-                onChange={(v) => updateField("officer", v ?? "")}
-              />
-            )}
-            <Select
-              label="Farmer (optional)"
-              placeholder="Select farmer"
-              searchable
-              clearable
-              data={farmerOptions}
-              value={form.farmer || null}
-              onChange={(v) => {
-                updateField("farmer", v ?? "");
-                updateField("farm", "");
-              }}
-            />
-            {form.farmer && (
-              <Select
-                label="Farm (optional)"
-                placeholder="None or select farm"
-                searchable
-                clearable
-                data={[
-                  { value: "", label: "— None —" },
-                  ...farms.map((f) => ({ value: f.id, label: f.village })),
-                ]}
-                value={form.farm || null}
-                onChange={(v) => updateField("farm", v ?? "")}
-              />
-            )}
-            <DateInput
-              label="Scheduled date"
-              placeholder="Pick date"
-              value={form.scheduled_date || null}
-              onChange={(value) =>
-                updateField("scheduled_date", value ?? "")
-              }
-              valueFormat="YYYY-MM-DD"
-              required
-              clearable
-            />
-            <Textarea
-              label="Notes"
-              placeholder="Optional notes"
-              value={form.notes}
-              onChange={(e) => updateField("notes", e.target.value)}
-            />
-            <Group>
-              <Button type="submit" color="blue" loading={submitting}>
-                {submitting ? "Saving…" : "Save changes"}
-              </Button>
-              <Button type="button" variant="default" onClick={closeEditModal}>
-                Cancel
-              </Button>
-            </Group>
-          </Stack>
-        </form>
-      </Modal>
+        onSubmit={handleEditSubmit}
+        onOpenFarmerModal={() => {
+          setFarmerSearch("");
+          setFarmerModalOpen(true);
+        }}
+        onOpenFarmModal={() => {
+          setFarmSearch("");
+          setFarmModalOpen(true);
+        }}
+      />
 
       <DataTable
         data={schedules}

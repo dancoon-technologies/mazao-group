@@ -49,6 +49,74 @@ function todayISO(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
+/** PDF styling: mobile app colors (primary green, grays) for consistent report branding */
+const PDF_COLORS = {
+  primary: [27, 143, 58] as [number, number, number],       // #1B8F3A
+  primaryDark: [21, 115, 46] as [number, number, number],  // #15732E
+  gray900: [17, 24, 39] as [number, number, number],       // #111827
+  gray700: [55, 65, 81] as [number, number, number],        // #374151
+  gray500: [107, 114, 128] as [number, number, number],     // #6B7280
+  gray200: [229, 231, 235] as [number, number, number],     // #E5E7EB
+  white: [255, 255, 255] as [number, number, number],
+};
+
+const PDF_MARGIN = 14;
+const PDF_HEADER_HEIGHT = 22;
+const PDF_FOOTER_HEIGHT = 14;
+
+function drawPdfHeader(
+  doc: import("jspdf").jsPDF,
+  title: string,
+  subtitle?: string
+): void {
+  doc.setFillColor(...PDF_COLORS.primary);
+  doc.rect(0, 0, doc.internal.pageSize.getWidth(), 10, "F");
+  doc.setTextColor(...PDF_COLORS.white);
+  doc.setFontSize(12);
+  doc.text("Mazao Group", PDF_MARGIN, 7);
+  doc.setTextColor(...PDF_COLORS.gray900);
+  doc.setFontSize(14);
+  doc.text(title, PDF_MARGIN, PDF_HEADER_HEIGHT);
+  if (subtitle) {
+    doc.setFontSize(9);
+    doc.setTextColor(...PDF_COLORS.gray500);
+    doc.text(subtitle, PDF_MARGIN, PDF_HEADER_HEIGHT + 6);
+  }
+}
+
+function drawPdfFooter(
+  doc: import("jspdf").jsPDF,
+  pageNumber: number,
+  pageCount: number,
+  generatedAt: string
+): void {
+  const pageW = doc.internal.pageSize.getWidth();
+  const pageH = doc.internal.pageSize.getHeight();
+  doc.setDrawColor(...PDF_COLORS.gray200);
+  doc.line(PDF_MARGIN, pageH - PDF_FOOTER_HEIGHT, pageW - PDF_MARGIN, pageH - PDF_FOOTER_HEIGHT);
+  doc.setFontSize(8);
+  doc.setTextColor(...PDF_COLORS.gray500);
+  doc.text(
+    `Generated ${generatedAt}`,
+    PDF_MARGIN,
+    pageH - 8
+  );
+  doc.text(
+    `Page ${pageNumber} of ${pageCount}`,
+    pageW - PDF_MARGIN,
+    pageH - 8,
+    { align: "right" }
+  );
+}
+
+/** Shared autoTable head styles using mobile primary color */
+const PDF_TABLE_HEAD_STYLES = {
+  fillColor: PDF_COLORS.primary,
+  textColor: PDF_COLORS.white,
+  fontStyle: "bold" as const,
+  fontSize: 9,
+};
+
 function VisitDetailModal({
   visit,
   opened,
@@ -92,10 +160,8 @@ function VisitDetailModal({
         import("jspdf-autotable"),
       ]);
       const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
-      doc.setFontSize(16);
-      doc.text("Visit report", 14, 16);
-      doc.setFontSize(10);
-      doc.text(`Generated ${formatDateTime(new Date().toISOString())}`, 14, 24);
+      const generatedAt = formatDateTime(new Date().toISOString());
+      drawPdfHeader(doc, "Visit report", formatDateTime(visit.created_at));
       const head = ["Field", "Value"];
       const body: [string, string][] = [
         ["Date", formatDateTime(visit.created_at)],
@@ -117,11 +183,13 @@ function VisitDetailModal({
       autoTable(doc, {
         head: [head],
         body,
-        startY: 30,
-        styles: { fontSize: 9 },
-        margin: { left: 14, right: 14 },
+        startY: PDF_HEADER_HEIGHT + 14,
+        margin: { left: PDF_MARGIN, right: PDF_MARGIN },
+        styles: { fontSize: 9, textColor: PDF_COLORS.gray900 },
+        headStyles: PDF_TABLE_HEAD_STYLES,
         columnStyles: { Value: { cellWidth: "wrap" } },
       });
+      drawPdfFooter(doc, 1, 1, generatedAt);
       const dateStr = visit.created_at.slice(0, 10);
       doc.save(`visit-report-${dateStr}-${visit.id.slice(0, 8)}.pdf`);
     } finally {
@@ -300,6 +368,8 @@ export default function VisitsPage() {
       import("jspdf-autotable"),
     ]);
     const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+    const generatedAt = formatDateTime(new Date().toISOString());
+    drawPdfHeader(doc, "Visits report", `${reportPeriodLabel} — ${visits.length} visit(s)`);
     const head = [
       "Date",
       "Officer",
@@ -334,16 +404,17 @@ export default function VisitsPage() {
       v.distance_from_farmer != null ? String(Math.round(v.distance_from_farmer)) : "",
       v.verification_status ?? "",
     ]);
-    doc.setFontSize(14);
-    doc.text(reportPeriodLabel, 14, 12);
-    doc.setFontSize(10);
-    doc.text(`Generated ${formatDateTime(new Date().toISOString())} — ${visits.length} visit(s)`, 14, 18);
     autoTable(doc, {
       head: [head],
       body,
-      startY: 22,
-      styles: { fontSize: 7 },
-      margin: { left: 14, right: 14 },
+      startY: PDF_HEADER_HEIGHT + 14,
+      margin: { left: PDF_MARGIN, right: PDF_MARGIN },
+      styles: { fontSize: 7, textColor: PDF_COLORS.gray900 },
+      headStyles: PDF_TABLE_HEAD_STYLES,
+      didDrawPage: (data) => {
+        const totalPages = doc.getNumberOfPages();
+        drawPdfFooter(doc, data.pageNumber, totalPages, generatedAt);
+      },
     });
     doc.save(`${exportFilenameBase}.pdf`);
   };
