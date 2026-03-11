@@ -1,4 +1,4 @@
-package com.anonymous.mobile
+package com.dancoon.mazaogroup
 
 import android.app.Application
 import android.content.res.Configuration

@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "784787109690",
+    "project_id": "mazao-group",
+    "storage_bucket": "mazao-group.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:784787109690:android:d26f05fcaae11d78184203",
+        "android_client_info": {
+          "package_name": "com.dancoon.mazaogroup"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBZbrEvhDZilLtrr4GQ1oplrfJgKnwPteA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

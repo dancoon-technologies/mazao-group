@@ -1,4 +1,4 @@
-package com.anonymous.mobile
+package com.dancoon.mazaogroup
 import expo.modules.splashscreen.SplashScreenManager
 
 import android.os.Build

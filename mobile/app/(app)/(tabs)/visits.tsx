@@ -163,7 +163,7 @@ export default function VisitsScreen() {
     const today = new Date().toISOString().slice(0, 10);
     return schedules.filter(
       (s) =>
-        s.status === 'accepted' &&
+        (s.status === 'accepted' || s.status === 'proposed') &&
         s.scheduled_date >= today &&
         !scheduleIdToVisit[s.id]
     );
@@ -178,7 +178,7 @@ export default function VisitsScreen() {
     const today = new Date().toISOString().slice(0, 10);
     return schedules.filter(
       (s) =>
-        s.status === 'accepted' &&
+        (s.status === 'accepted' || s.status === 'proposed') &&
         (s.scheduled_date < today || !!scheduleIdToVisit[s.id])
     );
   }, [schedules, scheduleIdToVisit]);
@@ -308,7 +308,7 @@ export default function VisitsScreen() {
                     </Text>
                     {items.map((s) => {
                       const proposedEditable = s.status === 'proposed' && isScheduleEditableByDate(s.scheduled_date);
-                      const rowPress = s.status === 'accepted' ? () => openRecordVisit(s) : proposedEditable ? () => openEditSchedule(s) : undefined;
+                      const rowPress = s.status === 'accepted' ? () => openRecordVisit(s) : () => openEditSchedule(s);
                       return (
                         <ListItemRow
                           key={s.id}
@@ -323,12 +323,13 @@ export default function VisitsScreen() {
                                   {scheduleStatusLabel(s.status)}
                                 </Text>
                               </View>
-                              {proposedEditable && (
+                              {s.status === 'proposed' && (
                                 <IconButton
                                   icon="pencil"
                                   size={22}
                                   iconColor={colors.primary}
                                   onPress={() => openEditSchedule(s)}
+                                  accessibilityLabel={proposedEditable ? 'Edit schedule' : 'View schedule'}
                                 />
                               )}
                               {s.status === 'accepted' && (
@@ -337,6 +338,7 @@ export default function VisitsScreen() {
                                   size={22}
                                   iconColor={colors.primary}
                                   onPress={() => openRecordVisit(s)}
+                                  accessibilityLabel="Record visit"
                                 />
                               )}
                             </View>
@@ -385,6 +387,8 @@ export default function VisitsScreen() {
                     {items.map((s) => {
                       const recorded = !!scheduleIdToVisit[s.id];
                       const visit = scheduleIdToVisit[s.id];
+                      const isProposed = s.status === 'proposed';
+                      const rowPress = recorded && visit ? () => openVisit(visit.id) : isProposed ? () => openEditSchedule(s) : undefined;
                       return (
                         <ListItemRow
                           key={s.id}
@@ -392,14 +396,23 @@ export default function VisitsScreen() {
                           title={farmerDisplayName(s)}
                           subtitle={`${s.notes || 'Scheduled visit'} · Farm: ${s.farm_display_name ?? 'None'}`}
                           right={
-                            <View style={[styles.badge, { backgroundColor: (recorded ? colors.primary : colors.gray500) + '20' }]}>
-                              <Text variant="labelSmall" style={[styles.badgeText, { color: recorded ? colors.primary : colors.gray700 }]}>
-                                {recorded ? 'Recorded' : 'Not recorded'}
-                              </Text>
-                              <MaterialCommunityIcons name={recorded ? 'check-circle' : 'circle-outline'} size={14} color={recorded ? colors.primary : colors.gray700} />
+                            <View style={styles.pastRight}>
+                              {isProposed && (
+                                <View style={[styles.badge, { backgroundColor: scheduleStatusColor(s.status) + '20' }]}>
+                                  <Text variant="labelSmall" style={[styles.badgeText, { color: scheduleStatusColor(s.status) }]}>
+                                    {scheduleStatusLabel(s.status)}
+                                  </Text>
+                                </View>
+                              )}
+                              <View style={[styles.badge, { backgroundColor: (recorded ? colors.primary : colors.gray500) + '20' }]}>
+                                <Text variant="labelSmall" style={[styles.badgeText, { color: recorded ? colors.primary : colors.gray700 }]}>
+                                  {recorded ? 'Recorded' : 'Not recorded'}
+                                </Text>
+                                <MaterialCommunityIcons name={recorded ? 'check-circle' : 'circle-outline'} size={14} color={recorded ? colors.primary : colors.gray700} />
+                              </View>
                             </View>
                           }
-                          onPress={recorded && visit ? () => openVisit(visit.id) : undefined}
+                          onPress={rowPress}
                         />
                       );
                     })}
@@ -470,6 +483,11 @@ const styles = StyleSheet.create({
   upcomingRight: {
     flexDirection: 'row',
     alignItems: 'center',
+  },
+  pastRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
   },
   badge: {
     flexDirection: 'row',

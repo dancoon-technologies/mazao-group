@@ -59,6 +59,20 @@ After step 3, every APK built by the workflow (including from GitHub Actions) wi
 - **projectId**: Already set in `app.json` under `expo.extra.eas.projectId`. It ties the Expo push token to your project.
 - **Build**: After FCM is configured, the next APK built by the workflow will be able to receive push notifications on real devices.
 
+## Troubleshooting: "Default FirebaseApp is not initialized"
+
+If you see **"Default FirebaseApp is not initialized in this process ... Make sure to call FirebaseApp.initializeApp(Context) first"**:
+
+1. **Android package must match `google-services.json`**  
+   The app’s Android `applicationId` (in `android/app/build.gradle`) must match the `package_name` in your `google-services.json`. If you see a process name like `com.anonymous.mobile` in the error, the built app is using a different package than the one in `google-services.json` (e.g. `com.dancoon.mazaogroup`). Fix by aligning the native project with `app.json`: set `namespace` and `applicationId` in `android/app/build.gradle` to the same value as `expo.android.package` in `app.json`, and ensure your Kotlin/Java package and source folders match (e.g. `com/dancoon/mazaogroup/`).
+
+2. **Include `google-services.json` and the Google Services plugin**  
+   - In `app.json`: `expo.android.googleServicesFile` should point to your `google-services.json` (e.g. `"./google-services.json"`).  
+   - The Android app module must apply the Google Services plugin and have `google-services.json` in the app directory (or the path configured) so Firebase is initialized. See [Expo: FCM credentials](https://docs.expo.dev/push-notifications/fcm-credentials/).
+
+3. **Rebuild the app**  
+   After changing package name or Firebase config, do a clean native build (e.g. `eas build --platform android --profile preview --local --clear-cache` or regenerate `android/` with `npx expo prebuild --platform android --clean` then build again).
+
 ## References
 
 - [Expo push notifications setup](https://docs.expo.dev/push-notifications/push-notifications-setup/)
