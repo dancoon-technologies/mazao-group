@@ -227,7 +227,7 @@ class VisitListCreateView(generics.ListCreateAPIView):
             photo_device_info=data.get("photo_device_info") or "",
             photo_place_name=data.get("photo_place_name") or "",
             distance_from_farmer=distance,
-            verification_status=Visit.VerificationStatus.VERIFIED,
+            verification_status=Visit.VerificationStatus.PENDING,
             activity_type=activity_type,
             crop_stage=data.get("crop_stage", ""),
             germination_percent=data.get("germination_percent"),

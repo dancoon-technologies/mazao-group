@@ -120,7 +120,7 @@ class VisitAPITests(TestCase):
         photo = make_jpeg_file()
         r = self.client.post("/api/visits/", {**data, "photo": photo}, format="multipart")
         self.assertEqual(r.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(r.json()["verification_status"], "verified")
+        self.assertEqual(r.json()["verification_status"], "pending")
         self.assertIn("id", r.json())
         self.assertIsNotNone(r.json().get("distance_from_farmer"))
         self.assertEqual(Visit.objects.count(), 1)

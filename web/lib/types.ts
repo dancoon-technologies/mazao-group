@@ -27,7 +27,7 @@ export interface Visit {
   photo: string;
   notes: string;
   distance_from_farmer: number | null;
-  verification_status: "verified" | "rejected";
+  verification_status: "pending" | "verified" | "rejected";
   activity_type: string;
   crop_stage?: string;
   germination_percent?: number | null;

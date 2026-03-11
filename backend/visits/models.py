@@ -42,6 +42,7 @@ class ActivityTypeConfig(models.Model):
 
 class Visit(MobileSyncModel):
     class VerificationStatus(models.TextChoices):
+        PENDING = "pending", "Pending"
         VERIFIED = "verified", "Verified"
         REJECTED = "rejected", "Rejected"
 
@@ -125,7 +126,7 @@ class Visit(MobileSyncModel):
     verification_status = models.CharField(
         max_length=20,
         choices=VerificationStatus.choices,
-        default=VerificationStatus.VERIFIED,
+        default=VerificationStatus.PENDING,
     )
     activity_type = models.CharField(
         max_length=50,

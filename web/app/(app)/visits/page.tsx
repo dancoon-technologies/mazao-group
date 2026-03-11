@@ -205,8 +205,23 @@ function VisitDetailModal({
         {row("Farm visited", visit.farm_display_name ?? "—")}
         {row("Activity", formatActivityType(visit.activity_type ?? ""))}
         {row("Status", (
-          <Badge color={visit.verification_status === "verified" ? "green" : "red"} size="sm">
-            {visit.verification_status}
+          <Badge
+            color={
+              visit.verification_status === "verified"
+                ? "green"
+                : visit.verification_status === "rejected"
+                  ? "red"
+                  : "yellow"
+            }
+            size="sm"
+          >
+            {visit.verification_status === "pending"
+              ? "Pending"
+              : visit.verification_status === "verified"
+                ? "Verified"
+                : visit.verification_status === "rejected"
+                  ? "Rejected"
+                  : visit.verification_status}
           </Badge>
         ))}
         {row("Distance", visit.distance_from_farmer != null ? `${Math.round(visit.distance_from_farmer)} m` : "—")}
@@ -489,11 +504,23 @@ export default function VisitsPage() {
         label: "Status",
         render: (v) => (
           <Badge
-            color={v.verification_status === "verified" ? "green" : "red"}
+            color={
+              v.verification_status === "verified"
+                ? "green"
+                : v.verification_status === "rejected"
+                  ? "red"
+                  : "yellow"
+            }
             variant="light"
             size="sm"
           >
-            {v.verification_status}
+            {v.verification_status === "pending"
+              ? "Pending"
+              : v.verification_status === "verified"
+                ? "Verified"
+                : v.verification_status === "rejected"
+                  ? "Rejected"
+                  : v.verification_status}
           </Badge>
         ),
       },
