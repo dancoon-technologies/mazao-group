@@ -56,3 +56,40 @@ class Notification(models.Model):
 
     def __str__(self):
         return f"{self.title} for {self.user_id}"
+
+
+class PushDeliveryAttempt(models.Model):
+    """One record per push send (per token). Used to show failed notifications in admin."""
+
+    class Status(models.TextChoices):
+        SUCCESS = "success", "Success"
+        ERROR = "error", "Error"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="push_delivery_attempts",
+    )
+    notification = models.ForeignKey(
+        Notification,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="push_attempts",
+    )
+    token_prefix = models.CharField(max_length=50, help_text="First part of Expo token for debugging")
+    sent_at = models.DateTimeField(auto_now_add=True)
+    status = models.CharField(max_length=20, choices=Status.choices)
+    error_message = models.CharField(max_length=255, blank=True)
+    expo_ticket_id = models.CharField(max_length=100, blank=True)
+
+    class Meta:
+        ordering = ["-sent_at"]
+        indexes = [
+            models.Index(fields=["status"], name="pushattempt_status_idx"),
+            models.Index(fields=["user", "sent_at"], name="pushattempt_user_sent_idx"),
+        ]
+
+    def __str__(self):
+        return f"Push {self.status} to {self.user_id} at {self.sent_at}"

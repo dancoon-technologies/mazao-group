@@ -18,21 +18,32 @@ from django.conf import settings
 from django.core.mail import send_mail
 from django.utils import timezone
 
-from .models import Notification, PushToken
+from .models import Notification, PushDeliveryAttempt, PushToken
 
 logger = logging.getLogger(__name__)
 
 EXPO_PUSH_URL = "https://exp.host/--/api/v2/push/send"
 
 
-def send_push_expo(tokens: list[str], title: str, body: str) -> None:
-    """Send push notifications via Expo Push API. Fire-and-forget; logs errors."""
+def _token_prefix(token: str) -> str:
+    return (token or "")[:50]
+
+
+def send_push_expo(
+    tokens: list[str],
+    title: str,
+    body: str,
+    user=None,
+    notification=None,
+) -> None:
+    """Send push notifications via Expo Push API. Logs errors and records each attempt if user is provided."""
     if not tokens:
         return
     payload = [
         {"to": token, "title": title[:120], "body": (body or "")[:500], "sound": "default"}
         for token in tokens
     ]
+    record_attempts = user is not None
     try:
         body_bytes = json.dumps(payload).encode("utf-8")
         req = urllib.request.Request(
@@ -44,14 +55,45 @@ def send_push_expo(tokens: list[str], title: str, body: str) -> None:
         with urllib.request.urlopen(req, timeout=10) as resp:
             if resp.status != 200:
                 logger.warning("Expo push failed status=%s", resp.status)
+                if record_attempts:
+                    for token in tokens:
+                        PushDeliveryAttempt.objects.create(
+                            user=user,
+                            notification=notification,
+                            token_prefix=_token_prefix(token),
+                            status=PushDeliveryAttempt.Status.ERROR,
+                            error_message=f"HTTP {resp.status}",
+                        )
             else:
                 data = json.loads(resp.read().decode())
-                if isinstance(data, dict) and data.get("data"):
-                    for ticket in data.get("data") or []:
-                        if ticket.get("status") == "error":
-                            logger.warning("Expo push ticket error: %s", ticket.get("message"))
+                tickets = (isinstance(data, dict) and data.get("data")) or []
+                for i, token in enumerate(tokens):
+                    ticket = tickets[i] if i < len(tickets) else {}
+                    status = ticket.get("status") or "error"
+                    is_ok = status == "ok"
+                    if record_attempts:
+                        PushDeliveryAttempt.objects.create(
+                            user=user,
+                            notification=notification,
+                            token_prefix=_token_prefix(token),
+                            status=PushDeliveryAttempt.Status.SUCCESS if is_ok else PushDeliveryAttempt.Status.ERROR,
+                            error_message="" if is_ok else (ticket.get("message") or "Unknown error")[:255],
+                            expo_ticket_id=(ticket.get("id") or "")[:100],
+                        )
+                    if not is_ok:
+                        logger.warning("Expo push ticket error: %s", ticket.get("message"))
     except Exception as e:
         logger.warning("Expo push request failed: %s", e)
+        if record_attempts:
+            err_msg = str(e)[:255]
+            for token in tokens:
+                PushDeliveryAttempt.objects.create(
+                    user=user,
+                    notification=notification,
+                    token_prefix=_token_prefix(token),
+                    status=PushDeliveryAttempt.Status.ERROR,
+                    error_message=err_msg,
+                )
 
 
 def send_sms(phone: str, message: str) -> bool:
@@ -94,7 +136,7 @@ def notify_user(user, title: str, message: str, channels=None):
             PushToken.objects.filter(user=user).values_list("token", flat=True)
         )
         if tokens:
-            send_push_expo(tokens, title, message or "")
+            send_push_expo(tokens, title, message or "", user=user, notification=notification)
 
     if "email" in channels and user.email:
         try:

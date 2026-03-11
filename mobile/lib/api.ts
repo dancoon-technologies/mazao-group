@@ -565,4 +565,12 @@ export const api = {
       body: JSON.stringify({ expo_push_token: expo_push_token, device_id: device_id ?? '' }),
     });
   },
+
+  async getPushStatus() {
+    return request<{ push_registered: boolean }>('/notifications/push-status/');
+  },
+
+  async sendTestPush() {
+    return request<{ status: string; message?: string }>('/notifications/test-push/', { method: 'POST' });
+  },
 };

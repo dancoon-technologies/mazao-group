@@ -132,3 +132,37 @@ class RegisterPushTokenView(APIView):
         )
         logger.debug("POST /api/notifications/register-device/ user=%s token_prefix=%s", request.user.id, token[:30])
         return Response({"status": "ok"})
+
+
+class PushStatusView(APIView):
+    """Return whether the current user has at least one push token registered (for verification)."""
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request: Request):
+        registered = PushToken.objects.filter(user=request.user).exists()
+        return Response({"push_registered": registered})
+
+
+class TestPushView(APIView):
+    """Send a test push notification to the current user (for verification)."""
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request: Request):
+        from .services import send_push_expo
+
+        tokens = list(PushToken.objects.filter(user=request.user).values_list("token", flat=True))
+        if not tokens:
+            return Response(
+                {"detail": "No push token registered. Open the app on a physical device and allow notifications."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        send_push_expo(
+            tokens,
+            "Test notification",
+            "If you see this, push notifications are working.",
+            user=request.user,
+            notification=None,
+        )
+        return Response({"status": "ok", "message": "Test notification sent."})
