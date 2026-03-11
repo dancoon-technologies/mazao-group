@@ -12,8 +12,15 @@ from accounts.models import User
 from farmers.models import Farmer
 from locations.models import Region
 
+from django.utils import timezone
+from datetime import timedelta
+
 from .models import Visit
-from .utils import MAX_VISIT_DISTANCE_METERS, haversine_meters
+from .utils import (
+    MAX_VISIT_DISTANCE_METERS,
+    check_travel_from_last_visit,
+    haversine_meters,
+)
 
 
 def make_jpeg_file(name="photo.jpg", size_kb=1):
@@ -55,6 +62,76 @@ class HaversineTests(TestCase):
         lat2 = -6.0 + (200 / 111320)  # ~200m
         d = haversine_meters(lat1, lon1, lat2, lon1)
         self.assertGreater(d, MAX_VISIT_DISTANCE_METERS)
+
+
+class TravelValidationTests(TestCase):
+    """Tests for check_travel_from_last_visit (impossible location within time window)."""
+
+    def setUp(self):
+        from accounts.models import User
+        from farmers.models import Farmer
+        from locations.models import Region
+
+        region = Region.objects.create(name="North")
+        self.officer = User.objects.create_user(
+            email="officer@test.com",
+            password="officer123",
+            role=User.Role.OFFICER,
+            region_id=region,
+        )
+        self.farmer = Farmer.objects.create(
+            first_name="Test",
+            last_name="Farmer",
+            phone="+255111",
+            latitude=-6.0,
+            longitude=39.0,
+            assigned_officer=self.officer,
+        )
+
+    def test_no_previous_visit_allowed(self):
+        err, extra = check_travel_from_last_visit(
+            self.officer.pk, -6.0, 39.0, window_hours=2.0, max_speed_kmh=120.0
+        )
+        self.assertIsNone(err)
+        self.assertIsNone(extra)
+
+    def test_far_location_within_window_rejected(self):
+        # First visit at Thika-ish (-1.0, 37.0). Then "record" at Naivasha-ish (-0.7, 36.4) ~100km in "same minute".
+        Visit.objects.create(
+            officer=self.officer,
+            farmer=self.farmer,
+            latitude=-1.0,
+            longitude=37.0,
+            notes="",
+            distance_from_farmer=0,
+        )
+        # ~100 km away, 0 minutes: would require infinite speed
+        err, extra = check_travel_from_last_visit(
+            self.officer.pk, -0.7, 36.4, window_hours=2.0, max_speed_kmh=120.0
+        )
+        self.assertIsNotNone(err)
+        self.assertIn("rejected", err.lower())
+        self.assertIsNotNone(extra)
+        self.assertIn("distance_km", extra)
+
+    def test_old_previous_visit_ignored(self):
+        Visit.objects.create(
+            officer=self.officer,
+            farmer=self.farmer,
+            latitude=-1.0,
+            longitude=37.0,
+            notes="",
+            distance_from_farmer=0,
+        )
+        # Backdate the visit to 3 hours ago
+        Visit.objects.filter(officer=self.officer).update(
+            created_at=timezone.now() - timedelta(hours=3)
+        )
+        err, extra = check_travel_from_last_visit(
+            self.officer.pk, -0.7, 36.4, window_hours=2.0, max_speed_kmh=120.0
+        )
+        self.assertIsNone(err)
+        self.assertIsNone(extra)
 
 
 class VisitAPITests(TestCase):

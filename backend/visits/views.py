@@ -13,7 +13,7 @@ from schedules.models import Schedule
 
 from .models import ActivityTypeConfig, Visit
 from .serializers import VisitCreateSerializer, VisitSerializer
-from .utils import haversine_meters
+from .utils import check_travel_from_last_visit, haversine_meters
 
 
 def _allowed_activity_type_values(user):
@@ -130,6 +130,20 @@ class VisitListCreateView(generics.ListCreateAPIView):
                 {"activity_type": ["This activity type is not allowed for your department."]},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+
+        # Reject if this location is impossibly far from the officer's last visit (e.g. Thika then Naivasha in minutes).
+        window_h = getattr(django_settings, "VISIT_TRAVEL_VALIDATION_WINDOW_HOURS", 12.0)
+        max_kmh = getattr(django_settings, "VISIT_MAX_TRAVEL_SPEED_KMH", 120.0)
+        travel_err, travel_extra = check_travel_from_last_visit(
+            user.pk, lat, lon, window_hours=window_h, max_speed_kmh=max_kmh
+        )
+        if travel_err:
+            logger.warning("POST /api/visits/ travel validation failed: %s", travel_err)
+            payload = {"detail": travel_err}
+            if travel_extra:
+                payload["travel_validation"] = travel_extra
+            return Response(payload, status=status.HTTP_400_BAD_REQUEST)
+
         if user.role != "admin" and farmer.assigned_officer_id != user.pk:
             logger.warning("POST /api/visits/ forbidden user=%s not assigned to farmer_id=%s", user.id, farmer_id)
             return Response(
