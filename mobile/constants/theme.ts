@@ -14,9 +14,6 @@ export const spacing = {
   xxl: 32,
 } as const;
 
-/** Negative margin to pull tab screen content closer to the header (reduces gap). */
-export const headerContentGapOffset = -20;
-
 // --- Corner radius
 export const radius = {
   sm: 4,

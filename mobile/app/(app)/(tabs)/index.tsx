@@ -5,7 +5,7 @@ import {
   StatCard,
 } from '@/components/dashboard';
 import { ListItemRow } from '@/components/ListItemRow';
-import { cardShadow, cardStyle, colors, headerContentGapOffset, spacing } from '@/constants/theme';
+import { cardShadow, cardStyle, colors, spacing } from '@/constants/theme';
 import { useAppRefresh } from '@/contexts/AppRefreshContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { syncWithServer } from '@/lib/syncWithServer';
@@ -166,7 +166,7 @@ function HomeScreenInner() {
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.safe} edges={['bottom']}>
+      <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
         <Surface style={styles.centered} elevation={0}>
           <ActivityIndicator size="large" />
           <Text variant="bodyLarge" style={styles.loadingText}>
@@ -178,7 +178,7 @@ function HomeScreenInner() {
   }
 
   return (
-    <SafeAreaView style={styles.safe} edges={['bottom']}>
+    <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
       <ScrollView
         style={styles.container}
         contentContainerStyle={styles.content}
@@ -285,7 +285,7 @@ function HomeScreenInner() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, marginTop: headerContentGapOffset },
+  safe: { flex: 1 },
   container: { flex: 1 },
   content: { padding: spacing.lg, paddingTop: 0, paddingBottom: 100 },
   centered: {

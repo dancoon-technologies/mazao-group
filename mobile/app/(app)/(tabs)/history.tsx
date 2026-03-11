@@ -11,7 +11,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { FlatList, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ActivityIndicator, Card, Text, Button } from 'react-native-paper';
-import { colors, cardShadow, cardStyle, headerContentGapOffset, radius, spacing } from '@/constants/theme';
+import { colors, cardShadow, cardStyle, radius, spacing } from '@/constants/theme';
 
 export default function HistoryScreen() {
   const router = useRouter();
@@ -115,7 +115,7 @@ export default function HistoryScreen() {
 
   if (forbidden) {
     return (
-      <SafeAreaView style={styles.safe} edges={['bottom']}>
+      <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
       <ScrollView style={styles.container} contentContainerStyle={styles.content}>
         <Card style={styles.card} elevation={0}>
           <Card.Content>
@@ -132,7 +132,7 @@ export default function HistoryScreen() {
 
   if (error) {
     return (
-      <SafeAreaView style={styles.safe} edges={['bottom']}>
+      <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
       <ScrollView style={styles.container} contentContainerStyle={styles.content}>
         <Card style={styles.card} elevation={0}>
           <Card.Content>
@@ -147,7 +147,7 @@ export default function HistoryScreen() {
 
   if (visits.length === 0) {
     return (
-      <SafeAreaView style={styles.safe} edges={['bottom']}>
+      <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
       <ScrollView style={styles.container} contentContainerStyle={styles.content}>
         <Card style={styles.card} elevation={0}>
           <Card.Content>
@@ -163,7 +163,7 @@ export default function HistoryScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.safe} edges={['bottom']}>
+    <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
       <FlatList
         data={visits}
         keyExtractor={(item) => item.id}
@@ -184,7 +184,7 @@ export default function HistoryScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, marginTop: headerContentGapOffset },
+  safe: { flex: 1},
   container: { flex: 1 },
   content: { padding: spacing.lg, paddingBottom: spacing.xxl },
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },

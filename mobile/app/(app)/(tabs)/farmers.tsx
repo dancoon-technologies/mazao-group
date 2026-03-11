@@ -1,4 +1,4 @@
-import { cardShadow, cardStyle, colors, headerContentGapOffset, spacing } from '@/constants/theme';
+import { cardShadow, cardStyle, colors, spacing } from '@/constants/theme';
 import { getFarmers as getFarmersDb, getAllFarms } from '@/database';
 import { farmRowToFarm, farmerRowToFarmer } from '@/lib/offline-helpers';
 import { api, type Farm, type Farmer } from '@/lib/api';
@@ -164,7 +164,7 @@ export default function FarmersScreen() {
 
   return (
     <View style={styles.container}>
-    <SafeAreaView style={styles.safe} edges={['bottom']}>
+    <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
       <View style={styles.header}>
         <View style={styles.headerText}>
           <Text variant="bodyMedium" style={styles.subtitle}>
@@ -230,7 +230,7 @@ export default function FarmersScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  safe: { flex: 1, marginTop: headerContentGapOffset },
+  safe: { flex: 1 },
   header: {
     flexDirection: 'row',
     alignItems: 'flex-start',

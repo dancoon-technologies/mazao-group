@@ -2,7 +2,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Tabs, useRouter } from 'expo-router';
 import { Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colors, shadows, typography } from '@/constants/theme';
+import { colors, shadows } from '@/constants/theme';
 
 const TAB_ICONS: Record<string, keyof typeof MaterialCommunityIcons.glyphMap> = {
   index: 'home',
@@ -24,23 +24,7 @@ export default function AppTabsLayout() {
         return {
           tabBarActiveTintColor: colors.primary,
           tabBarInactiveTintColor: colors.gray500,
-          headerShown: true,
-          headerTitle: getHeaderTitle(route.name),
-          headerTitleStyle: {
-            fontSize: typography.headingL.fontSize,
-            fontWeight: typography.headingL.fontWeight,
-          },
-          headerStyle: {
-            backgroundColor: colors.white,
-            borderBottomColor: colors.gray200,
-            borderBottomWidth: 0.5,
-            height: 48,
-          },
-          headerTitleContainerStyle: {
-            paddingVertical: 0,
-          },
-          headerShadowVisible: false,
-          headerBackground: () => null,
+          headerShown: false,
           tabBarLabelStyle: { fontSize: 12, fontWeight: '500' },
           tabBarStyle: {
             height: 88 + bottomInset,
@@ -142,23 +126,4 @@ export default function AppTabsLayout() {
       />
     </Tabs>
   );
-}
-
-function getHeaderTitle(name: string) {
-  switch (name) {
-    case 'index':
-      return 'Welcome Back';
-    case 'profile':
-      return 'Profile';
-    case 'visits':
-      return 'My Visits';
-    case 'record':
-      return 'Record Visit';
-    case 'farmers':
-      return 'Farmers';
-    case 'history':
-      return 'Visit History';
-    default:
-      return '';
-  }
 }
