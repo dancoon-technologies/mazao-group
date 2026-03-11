@@ -89,6 +89,9 @@ export default function HistoryScreen() {
           subtitle={subtitle}
           right={
             <View style={[styles.badge, { backgroundColor: visitStatusColor(status) + '20' }]}>
+              {status.toLowerCase() === 'rejected' && (
+                <MaterialCommunityIcons name="alert" size={14} color={visitStatusColor(status)} style={styles.badgeIcon} />
+              )}
               <Text variant="labelSmall" style={[styles.badgeText, { color: visitStatusColor(status) }]}>
                 {visitStatusLabel(status)}
               </Text>
@@ -196,5 +199,6 @@ const styles = StyleSheet.create({
     borderRadius: radius.sm,
     gap: 2,
   },
+  badgeIcon: { marginRight: 2 },
   badgeText: { fontWeight: '600', fontSize: 12 },
 });

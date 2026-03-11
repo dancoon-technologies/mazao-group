@@ -7,6 +7,7 @@ import { visitStatusColor, visitStatusLabel } from '@/lib/format';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { Image, ScrollView, StyleSheet, View } from 'react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { ActivityIndicator, Appbar, Card, Divider, List, Surface, Text } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { API_BASE } from '@/constants/config';
@@ -131,6 +132,9 @@ export default function VisitDetailScreen() {
           <Card.Content>
             <Text variant="labelMedium" style={styles.sectionLabel}>Supervisor decision</Text>
             <View style={[styles.badge, { backgroundColor: statusColor + '22' }]}>
+              {status === 'rejected' && (
+                <MaterialCommunityIcons name="alert" size={20} color={statusColor} style={styles.badgeIcon} />
+              )}
               <Text variant="titleMedium" style={[styles.badgeText, { color: statusColor }]}>
                 {status === 'verified' ? 'Accepted' : status === 'rejected' ? 'Rejected' : statusLabel}
               </Text>
@@ -220,7 +224,17 @@ const styles = StyleSheet.create({
   error: { color: colors.error, textAlign: 'center' },
   card: { marginBottom: spacing.lg, borderRadius: radius.card },
   sectionLabel: { marginBottom: spacing.sm, fontWeight: '600', color: colors.gray700 },
-  badge: { alignSelf: 'flex-start', paddingHorizontal: spacing.md, paddingVertical: spacing.xs, borderRadius: radius.sm, marginBottom: spacing.xs },
+  badge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: radius.sm,
+    marginBottom: spacing.xs,
+    gap: 6,
+  },
+  badgeIcon: {},
   badgeText: { fontWeight: '600' },
   hint: { marginTop: 2, opacity: 0.85 },
   photo: { width: '100%', height: 240, borderRadius: radius.sm, marginTop: spacing.sm, backgroundColor: colors.gray100 },
