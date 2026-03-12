@@ -75,22 +75,29 @@ export default function DashboardPage() {
 
   const cards = useMemo(() => {
     if (!stats) return [];
-    const base: { label: string; value: number | string }[] = [
-      { label: "Visits today", value: stats.visits_today },
-      { label: "Visits this month", value: stats.visits_this_month },
-      { label: "Active officers", value: stats.active_officers },
+    type CardItem = { label: string; value: number | string; href?: string; linkLabel?: string };
+    const base: CardItem[] = [
+      { label: "Visits today", value: stats.visits_today, href: ROUTES.VISITS, linkLabel: "View visits" },
+      { label: "Visits this month", value: stats.visits_this_month, href: ROUTES.VISITS, linkLabel: "View visits" },
+      {
+        label: "Active officers",
+        value: stats.active_officers,
+        ...(isAdmin ? { href: ROUTES.STAFF, linkLabel: "View staff" as const } : {}),
+      },
     ];
     if (stats.verification_rate_pct != null) {
       base.push({
         label: "Verification rate",
         value: `${stats.verification_rate_pct}%`,
+        href: ROUTES.VISITS,
+        linkLabel: "View visits",
       });
     }
     if (isAdmin && stats.total_farmers != null) {
-      base.push({ label: "Total farmers", value: stats.total_farmers });
+      base.push({ label: "Total farmers", value: stats.total_farmers, href: ROUTES.FARMERS, linkLabel: "View farmers" });
     }
     if (isAdmin && stats.total_farms != null) {
-      base.push({ label: "Total farms", value: stats.total_farms });
+      base.push({ label: "Total farms", value: stats.total_farms, href: ROUTES.FARMS, linkLabel: "View farms" });
     }
     return base;
   }, [stats, isAdmin]);
@@ -126,6 +133,13 @@ export default function DashboardPage() {
                   <Text size="2rem" fw={700} mt="xs" lh={1.2} c="dark.7">
                     {card.value}
                   </Text>
+                  {card.href && card.linkLabel && (
+                    <Text size="xs" mt="sm" c="dimmed">
+                      <Anchor component={Link} href={card.href} size="xs">
+                        {card.linkLabel} →
+                      </Anchor>
+                    </Text>
+                  )}
                 </Paper>
               </Grid.Col>
             ))}
