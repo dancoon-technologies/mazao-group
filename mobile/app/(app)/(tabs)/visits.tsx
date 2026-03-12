@@ -445,8 +445,8 @@ const styles = StyleSheet.create({
   pageWrap: { flex: 1 },
   safe: { flex: 1 },
   container: { flex: 1 },
-  content: { paddingHorizontal: spacing.lg, paddingTop: spacing.xs },
-  title: { fontWeight: '700', fontSize: 20 },
+  content: { paddingHorizontal: spacing.lg, paddingTop: 0 },
+  title: { fontWeight: '700', fontSize: 20, paddingHorizontal: spacing.lg, paddingTop: 0 },
   tabRow: {
     flexDirection: 'row',
     borderBottomWidth: 1,

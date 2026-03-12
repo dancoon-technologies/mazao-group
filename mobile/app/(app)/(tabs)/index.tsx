@@ -5,17 +5,17 @@ import {
   StatCard,
 } from '@/components/dashboard';
 import { ListItemRow } from '@/components/ListItemRow';
-import { cardShadow, cardStyle, colors, spacing } from '@/constants/theme';
+import { cardShadow, cardStyle, colors, radius, spacing } from '@/constants/theme';
 import { useAppRefresh } from '@/contexts/AppRefreshContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { syncWithServer } from '@/lib/syncWithServer';
-import { appMeta$, farmers$, schedules$, visits$ } from '@/store/observable';
+import { api, type Farmer, type Schedule } from '@/lib/api';
 import { formatDate } from '@/lib/format';
 import { farmerRowToFarmer, scheduleRowToSchedule } from '@/lib/offline-helpers';
-import { api, type Farmer, type Schedule } from '@/lib/api';
+import { syncWithServer } from '@/lib/syncWithServer';
+import { appMeta$, farmers$, schedules$, visits$ } from '@/store/observable';
 import { observer, useSelector } from '@legendapp/state/react';
-import { useFocusEffect, useRouter } from 'expo-router';
 import NetInfo from '@react-native-community/netinfo';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   RefreshControl,
@@ -88,7 +88,7 @@ function HomeScreenInner() {
         !forceSync &&
         lastSync &&
         Date.now() - new Date(lastSync).getTime() < 60_000;
-      if (!skipSync) await syncWithServer().catch(() => {});
+      if (!skipSync) await syncWithServer().catch(() => { });
     }
     if (connected && userId) {
       try {
@@ -215,78 +215,80 @@ function HomeScreenInner() {
           })()}
         </View>
 
-        <View style={styles.actionRow}>
-          <ActionCard
-            icon="camera"
-            label="Record Visit"
-            variant="primary"
-            onPress={() => openRecordVisit()}
-          />
-          <ActionCard
-            icon="account-plus"
-            label="Add Farmer"
-            onPress={openAddFarmer}
-          />
-          <ActionCard
-            icon="calendar"
-            label="Schedule"
-            onPress={openProposeSchedule}
-          />
-        </View>
-
-        <View style={styles.statsGrid}>
-          <StatCard icon={STAT_ICONS.today} label="Today" value={todayLabel} hint={todayHint} />
-          <StatCard icon={STAT_ICONS.month} label="This month" value={visitsThisMonth} hint="visits recorded" />
-          <StatCard icon={STAT_ICONS.schedules} label="To do" value={todaySchedules.length} hint="visits left to record" />
-          <StatCard icon={STAT_ICONS.farmers} label="Farmers" value={farmers.length} hint="in your list" />
-        </View>
-
-        <SectionHeader title="Today's Schedule" />
-        {todaySchedules.length === 0 ? (
-          <EmptyStateCard message="No visits scheduled for today" />
-        ) : (
-          todaySchedules.map((s) => (
-            <ListItemRow
-              key={s.id}
-              avatarLetter={(farmerDisplayName(s) || '?').charAt(0)}
-              title={farmerDisplayName(s)}
-              subtitle={s.notes || formatDate(s.scheduled_date)}
-              right={
-                <Chip style={styles.statusChip} textStyle={styles.statusChipText} compact>
-                  {s.status}
-                </Chip>
-              }
-              onPress={() => openRecordVisit(s)}
+        <View style={styles.contentContainer}>
+          <View style={styles.actionRow}>
+            <ActionCard
+              icon="camera"
+              label="Record Visit"
+              variant="primary"
+              onPress={() => openRecordVisit()}
             />
-          ))
-        )}
-
-        <SectionHeader
-          title="Recent Farmers"
-          rightLabel="View all"
-          onRightPress={openFarmersTab}
-        />
-        {recentFarmers.length === 0 ? (
-          <EmptyStateCard message="No farmers yet" />
-        ) : (
-          recentFarmers.map((f) => (
-            <ListItemRow
-              key={f.id}
-              avatarLetter={f.display_name}
-              title={f.display_name}
-              subtitle={f.phone || '—'}
-              onPress={() => openFarmer(f.id)}
+            <ActionCard
+              icon="account-plus"
+              label="Add Farmer"
+              onPress={openAddFarmer}
             />
-          ))
-        )}
+            <ActionCard
+              icon="calendar"
+              label="Schedule"
+              onPress={openProposeSchedule}
+            />
+          </View>
 
-        {error ? (
-          <Card style={styles.errorCard} elevation={0}>
-            <Card.Content>
-              <Text variant="bodyMedium" style={styles.errorText}>{error}</Text>
-            </Card.Content>
-          </Card>
-        ) : null}
+          <View style={styles.statsGrid}>
+            <StatCard icon={STAT_ICONS.today} label="Today" value={todayLabel} hint={todayHint} />
+            <StatCard icon={STAT_ICONS.month} label="This month" value={visitsThisMonth} hint="visits recorded" />
+            <StatCard icon={STAT_ICONS.schedules} label="To do" value={todaySchedules.length} hint="visits left to record" />
+            <StatCard icon={STAT_ICONS.farmers} label="Farmers" value={farmers.length} hint="in your list" />
+          </View>
+
+          <SectionHeader title="Today's Schedule" />
+          {todaySchedules.length === 0 ? (
+            <EmptyStateCard message="No visits scheduled for today" />
+          ) : (
+            todaySchedules.map((s) => (
+              <ListItemRow
+                key={s.id}
+                avatarLetter={(farmerDisplayName(s) || '?').charAt(0)}
+                title={farmerDisplayName(s)}
+                subtitle={s.notes || formatDate(s.scheduled_date)}
+                right={
+                  <Chip style={styles.statusChip} textStyle={styles.statusChipText} compact>
+                    {s.status}
+                  </Chip>
+                }
+                onPress={() => openRecordVisit(s)}
+              />
+            ))
+          )}
+
+          <SectionHeader
+            title="Recent Farmers"
+            rightLabel="View all"
+            onRightPress={openFarmersTab}
+          />
+          {recentFarmers.length === 0 ? (
+            <EmptyStateCard message="No farmers yet" />
+          ) : (
+            recentFarmers.map((f) => (
+              <ListItemRow
+                key={f.id}
+                avatarLetter={f.display_name}
+                title={f.display_name}
+                subtitle={f.phone || '—'}
+                onPress={() => openFarmer(f.id)}
+              />
+            ))
+          )}
+
+          {error ? (
+            <Card style={styles.errorCard} elevation={0}>
+              <Card.Content>
+                <Text variant="bodyMedium" style={styles.errorText}>{error}</Text>
+              </Card.Content>
+            </Card>
+          ) : null}
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -295,7 +297,8 @@ function HomeScreenInner() {
 const styles = StyleSheet.create({
   safe: { flex: 1 },
   container: { flex: 1 },
-  content: { padding: spacing.lg, paddingTop: 0, paddingBottom: 50 },
+  content: { padding: 0 },
+  contentContainer: { paddingTop: 0, paddingHorizontal: spacing.lg, backgroundColor: colors.accent, borderTopLeftRadius: radius.lg, borderTopRightRadius: radius.lg, overflow: 'hidden' },
   centered: {
     flex: 1,
     justifyContent: 'center',
@@ -303,7 +306,7 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   loadingText: { marginTop: 16 },
-  welcome: { marginBottom: spacing.xl, backgroundColor: "#FFFFFF" },
+  welcome: { padding: spacing.lg, paddingTop: 0, marginBottom: spacing.xs },
   lastSync: { marginTop: 6, color: colors.gray500 },
   welcomeEmail: { marginTop: 0, color: colors.gray700 },
   welcomeGreeting: { marginTop: 0, color: colors.gray700, fontWeight: '700' },

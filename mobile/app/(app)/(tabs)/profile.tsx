@@ -361,8 +361,8 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   safe: { flex: 1},
   container: { flex: 1 },
-  content: { padding: spacing.lg, paddingBottom: 80 },
-  header: { marginBottom: spacing.xl },
+  content: { paddingHorizontal: spacing.lg,},
+  header: { marginBottom: 0, paddingTop: 0 },
   title: { fontWeight: '700', color: colors.gray900, fontSize: 20 },
   subtitle: { color: colors.gray700, marginTop: 4 },
   card: {
