@@ -51,6 +51,8 @@
             "usesCleartextTraffic": true,
             "enableMinifyInReleaseBuilds": true,
             "enableShrinkResourcesInReleaseBuilds": true,
+            "enableBundleCompression": true,
+            "buildArchs": ["arm64-v8a", "armeabi-v7a"],
             "packagingOptions": {
               "pickFirst": [
                 "**/libc++_shared.so"

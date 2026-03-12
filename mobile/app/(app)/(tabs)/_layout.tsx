@@ -77,6 +77,7 @@ export default function AppTabsLayout() {
       <Tabs.Screen
         name="index"
         options={{
+          headerShown: false,
           title: 'Home',
           tabBarIcon: ({ color, size }) => (
             <MaterialCommunityIcons name={TAB_ICONS.index} size={size} color={color} />
@@ -86,6 +87,7 @@ export default function AppTabsLayout() {
       <Tabs.Screen
         name="visits"
         options={{
+          headerShown: false,
           title: 'Visits',
           tabBarIcon: ({ color, size }) => (
             <MaterialCommunityIcons name={TAB_ICONS.visits} size={size} color={color} />
@@ -95,6 +97,7 @@ export default function AppTabsLayout() {
       <Tabs.Screen
         name="record"
         options={{
+          headerShown: false,
           title: 'Record',
           tabBarIcon: () => null,
         }}
@@ -102,6 +105,7 @@ export default function AppTabsLayout() {
       <Tabs.Screen
         name="farmers"
         options={{
+          headerShown: false,
           title: 'Farmers',
           tabBarIcon: ({ color, size }) => (
             <MaterialCommunityIcons name={TAB_ICONS.farmers} size={size} color={color} />
@@ -111,6 +115,7 @@ export default function AppTabsLayout() {
       <Tabs.Screen
         name="history"
         options={{
+          headerShown: false,
           title: 'History',
           href: null,
         }}
@@ -118,6 +123,7 @@ export default function AppTabsLayout() {
       <Tabs.Screen
         name="profile"
         options={{
+          headerShown: false,
           title: 'Profile',
           tabBarIcon: ({ color, size }) => (
             <MaterialCommunityIcons name={TAB_ICONS.profile} size={size} color={color} />

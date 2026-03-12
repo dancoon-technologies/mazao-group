@@ -155,6 +155,7 @@ export default function ProfileScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.header}>
+          <Text variant="bodyLarge" style={styles.title}>Profile</Text>
           <Text variant="bodyMedium" style={styles.subtitle}>
             Account and settings
           </Text>
@@ -362,7 +363,7 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   content: { padding: spacing.lg, paddingBottom: 80 },
   header: { marginBottom: spacing.xl },
-  title: { fontWeight: '700', color: colors.gray900 },
+  title: { fontWeight: '700', color: colors.gray900, fontSize: 20 },
   subtitle: { color: colors.gray700, marginTop: 4 },
   card: {
     marginBottom: spacing.lg,

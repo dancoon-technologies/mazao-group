@@ -167,6 +167,7 @@ export default function FarmersScreen() {
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
       <View style={styles.header}>
         <View style={styles.headerText}>
+          <Text variant="bodyLarge" style={styles.title}>Farmers</Text>
           <Text variant="bodyMedium" style={styles.subtitle}>
             Manage assigned farmers.
           </Text>
@@ -236,11 +237,11 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     justifyContent: 'space-between',
     paddingHorizontal: spacing.lg,
-    paddingTop: spacing.xs,
+    paddingTop: 0,
     paddingBottom: spacing.sm,
   },
   headerText: { flex: 1 },
-  title: { fontWeight: '700' },
+  title: { fontWeight: '700', fontSize: 20 },
   subtitle: { opacity: 0.7, marginTop: 2 },
   addButton: {
     flexDirection: 'row',

@@ -16,7 +16,7 @@ import { api, type Farmer, type Schedule } from '@/lib/api';
 import { observer, useSelector } from '@legendapp/state/react';
 import { useFocusEffect, useRouter } from 'expo-router';
 import NetInfo from '@react-native-community/netinfo';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   RefreshControl,
   ScrollView,
@@ -41,7 +41,7 @@ const STAT_ICONS = {
 
 function HomeScreenInner() {
   const routerInstance = useRouter();
-  const { email, department, userId } = useAuth();
+  const { email, department, userId, displayName } = useAuth();
   const { refreshTrigger } = useAppRefresh();
   const prevRefreshTrigger = useRef(0);
   const [stats, setStats] = useState<{ visits_today: number; visits_this_month: number } | null>(null);
@@ -164,6 +164,13 @@ function HomeScreenInner() {
   const todayLabel = totalScheduledToday > 0 ? `${doneToday} of ${totalScheduledToday}` : String(doneToday);
   const todayHint = totalScheduledToday > 0 ? 'recorded of scheduled' : 'visits recorded today';
 
+  const greeting = useMemo(() => {
+    const hour = new Date().getHours();
+    if (hour < 12) return 'Good morning';
+    if (hour < 18) return 'Good afternoon';
+    return 'Good evening';
+  }, []);
+
   if (loading) {
     return (
       <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
@@ -186,8 +193,9 @@ function HomeScreenInner() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.welcome}>
+          <Text variant="bodyLarge" style={styles.welcomeGreeting}>{greeting}, </Text>
           <Text variant="bodyLarge" style={styles.welcomeEmail}>
-            {email ?? 'Field officer'}
+            {displayName ?? email ?? 'Field officer'}
           </Text>
           {department ? (
             <Chip style={styles.tag} textStyle={styles.tagText}>
@@ -287,7 +295,7 @@ function HomeScreenInner() {
 const styles = StyleSheet.create({
   safe: { flex: 1 },
   container: { flex: 1 },
-  content: { padding: spacing.lg, paddingTop: 0, paddingBottom: 100 },
+  content: { padding: spacing.lg, paddingTop: 0, paddingBottom: 50 },
   centered: {
     flex: 1,
     justifyContent: 'center',
@@ -298,6 +306,7 @@ const styles = StyleSheet.create({
   welcome: { marginBottom: spacing.xl, backgroundColor: "#FFFFFF" },
   lastSync: { marginTop: 6, color: colors.gray500 },
   welcomeEmail: { marginTop: 0, color: colors.gray700 },
+  welcomeGreeting: { marginTop: 0, color: colors.gray700, fontWeight: '700' },
   tag: {
     marginTop: 8,
     alignSelf: 'flex-start',

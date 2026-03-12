@@ -241,6 +241,7 @@ export default function VisitsScreen() {
   return (
     <View style={styles.pageWrap}>
       <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
+        <Text variant="bodyLarge" style={styles.title}>Visits</Text>
         {/* Tabs */}
         <View style={styles.tabRow}>
           <Pressable
@@ -445,6 +446,7 @@ const styles = StyleSheet.create({
   safe: { flex: 1 },
   container: { flex: 1 },
   content: { paddingHorizontal: spacing.lg, paddingTop: spacing.xs },
+  title: { fontWeight: '700', fontSize: 20 },
   tabRow: {
     flexDirection: 'row',
     borderBottomWidth: 1,
