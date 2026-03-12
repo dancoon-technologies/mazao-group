@@ -143,8 +143,6 @@ function HomeScreenInner() {
   );
   const openAddFarmer = useCallback(() => routerInstance.push('/(app)/add-farmer'), [routerInstance]);
   const openProposeSchedule = useCallback(() => routerInstance.push('/(app)/propose-schedule'), [routerInstance]);
-  const openFarmersTab = useCallback(() => routerInstance.push('/(app)/(tabs)/farmers'), [routerInstance]);
-  const openFarmer = useCallback((id: string) => routerInstance.push({ pathname: '/farmers/[id]', params: { id } }), [routerInstance]);
 
   const today = new Date().toISOString().slice(0, 10);
   const totalScheduledToday = schedules.filter(
@@ -157,11 +155,9 @@ function HomeScreenInner() {
       !scheduleIdsWithRecordedVisits.has(s.id)
   );
   const doneToday = totalScheduledToday - todaySchedules.length;
-  const recentFarmers = farmers.slice(0, 5);
   const visitsThisMonth = stats?.visits_this_month ?? 0;
 
-  // Primary metric: show "X of Y" when there are scheduled visits, else just recorded count
-  const todayLabel = totalScheduledToday > 0 ? `${doneToday} of ${totalScheduledToday}` : String(doneToday);
+  const todayLabel = String(doneToday);
   const todayHint = totalScheduledToday > 0 ? 'recorded of scheduled' : 'visits recorded today';
 
   const greeting = useMemo(() => {
@@ -173,7 +169,7 @@ function HomeScreenInner() {
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
+      <SafeAreaView style={styles.safe} edges={['top']}>
         <Surface style={styles.centered} elevation={0}>
           <ActivityIndicator size="large" />
           <Text variant="bodyLarge" style={styles.loadingText}>
@@ -185,7 +181,7 @@ function HomeScreenInner() {
   }
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
+    <SafeAreaView style={styles.safe}>
       <ScrollView
         style={styles.container}
         contentContainerStyle={styles.content}
@@ -262,25 +258,6 @@ function HomeScreenInner() {
             ))
           )}
 
-          <SectionHeader
-            title="Recent Farmers"
-            rightLabel="View all"
-            onRightPress={openFarmersTab}
-          />
-          {recentFarmers.length === 0 ? (
-            <EmptyStateCard message="No farmers yet" />
-          ) : (
-            recentFarmers.map((f) => (
-              <ListItemRow
-                key={f.id}
-                avatarLetter={f.display_name}
-                title={f.display_name}
-                subtitle={f.phone || '—'}
-                onPress={() => openFarmer(f.id)}
-              />
-            ))
-          )}
-
           {error ? (
             <Card style={styles.errorCard} elevation={0}>
               <Card.Content>
@@ -298,7 +275,7 @@ const styles = StyleSheet.create({
   safe: { flex: 1 },
   container: { flex: 1 },
   content: { padding: 0 },
-  contentContainer: { paddingTop: 0, paddingHorizontal: spacing.lg, backgroundColor: colors.accent, borderTopLeftRadius: radius.lg, borderTopRightRadius: radius.lg, overflow: 'hidden' },
+  contentContainer: { paddingTop: spacing.lg, paddingHorizontal: spacing.lg, backgroundColor: colors.accentLight, borderTopLeftRadius: radius.full, borderTopRightRadius: radius.full, overflow: 'hidden' },
   centered: {
     flex: 1,
     justifyContent: 'center',

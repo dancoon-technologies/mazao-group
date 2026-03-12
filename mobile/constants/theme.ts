@@ -32,6 +32,7 @@ export const colors = {
   primaryLight: '#E6F4EA',
   // Accent (Orange)
   accent: '#F59E0B',
+  accentLight: '#F1F5F1',
   // Status
   success: '#22C55E',
   successLight: '#DCFCE7',
