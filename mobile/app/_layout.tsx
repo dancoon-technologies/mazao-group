@@ -7,7 +7,6 @@ import { PaperProvider } from 'react-native-paper';
 import 'react-native-reanimated';
 
 import { hasValidApiBase } from '@/constants/config';
-import { colors } from '@/constants/theme';
 import { AuthProvider } from '@/contexts/AuthContext';
 // Initialize Legend State persistence (AsyncStorage) before any screens load
 import '@/store/observable';
@@ -32,7 +31,7 @@ export default function RootLayout() {
       <SafeAreaProvider>
         <PaperProvider theme={paperTheme}>
           <ConfigErrorScreen />
-          <StatusBar style="light" backgroundColor={colors.primary} />
+          <StatusBar style="dark" />
         </PaperProvider>
       </SafeAreaProvider>
     );
@@ -47,7 +46,7 @@ export default function RootLayout() {
           <Stack.Screen name="change-password" options={{ title: 'Set new password' }} />
           <Stack.Screen name="(app)" options={{ headerShown: false }} />
         </Stack>
-        <StatusBar style="light" backgroundColor={colors.primary} />
+        <StatusBar style="dark" />
         </AuthProvider>
       </PaperProvider>
     </SafeAreaProvider>
