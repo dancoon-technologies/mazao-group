@@ -677,15 +677,6 @@ export default function RecordVisitScreen() {
                       </Text>
                     </View>
                   </View>
-                  <View style={styles.infoBox}>
-                    <MaterialCommunityIcons name="information-outline" size={22} color={colors.info} style={styles.infoBoxIcon} />
-                    <View style={styles.infoBoxContent}>
-                      <Text variant="labelLarge" style={styles.infoBoxTitle}>How it works</Text>
-                      <Text variant="bodySmall" style={styles.infoBoxText}>
-                        Select a planned visit from your accepted schedule. The farmer and farm details will auto-populate in the next step.
-                      </Text>
-                    </View>
-                  </View>
                 </>
               )}
               <View style={styles.stepActions}>
@@ -1055,25 +1046,12 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
     marginBottom: spacing.md,
     borderWidth: 1,
-    borderColor: '#FDE68A',
+    borderColor: colors.warning,
   },
   warningBoxIcon: { marginRight: spacing.md },
   warningBoxContent: { flex: 1 },
   warningBoxTitle: { color: colors.warning, fontWeight: '600', marginBottom: 4 },
   warningBoxText: { color: colors.gray900 },
-  infoBox: {
-    flexDirection: 'row',
-    backgroundColor: '#F0FDF4',
-    borderRadius: radius.card,
-    padding: spacing.lg,
-    marginBottom: spacing.md,
-    borderWidth: 1,
-    borderColor: '#BBF7D0',
-  },
-  infoBoxIcon: { marginRight: spacing.md },
-  infoBoxContent: { flex: 1 },
-  infoBoxTitle: { color: colors.info, fontWeight: '600', marginBottom: 4 },
-  infoBoxText: { color: colors.gray900 },
   nextBtnContent: { flexDirection: 'row-reverse' },
   section: {
     padding: spacing.lg,

@@ -1,14 +1,13 @@
 import { colors, radius, spacing } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
 import { api } from '@/lib/api';
-import { registerForPushNotificationsAsync } from '@/lib/pushNotifications';
 import { getPendingSyncCount, syncWithServer } from '@/lib/syncWithServer';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import NetInfo from '@react-native-community/netinfo';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
-import { Button, Card, Divider, Snackbar, Text } from 'react-native-paper';
+import { Button, Card, Divider, Text } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 function InfoRow({
@@ -54,11 +53,6 @@ export default function ProfileScreen() {
   const [syncError, setSyncError] = useState<string | null>(null);
   const [snackbarVisible, setSnackbarVisible] = useState(false);
   const [unreadNotifications, setUnreadNotifications] = useState(0);
-  const [pushRegistered, setPushRegistered] = useState<boolean | null>(null);
-  const [testPushLoading, setTestPushLoading] = useState(false);
-  const [testPushMessage, setTestPushMessage] = useState<string | null>(null);
-  const [pushRetryLoading, setPushRetryLoading] = useState(false);
-
   useEffect(() => {
     const sub = NetInfo.addEventListener((state) => setIsOnline(state.isConnected ?? false));
     return () => sub();
@@ -78,47 +72,15 @@ export default function ProfileScreen() {
     }
   }, []);
 
-  const refreshPushStatus = useCallback(async () => {
-    try {
-      const { push_registered } = await api.getPushStatus();
-      setPushRegistered(push_registered);
-    } catch {
-      setPushRegistered(null);
-    }
-  }, []);
+
 
   useFocusEffect(
     useCallback(() => {
       refreshPending();
       refreshUnread();
-      refreshPushStatus();
-    }, [refreshPending, refreshUnread, refreshPushStatus])
+    }, [refreshPending, refreshUnread])
   );
 
-  const handleSendTestPush = useCallback(async () => {
-    setTestPushLoading(true);
-    setTestPushMessage(null);
-    try {
-      await api.sendTestPush();
-      setTestPushMessage('Test notification sent. Check your device.');
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : 'Failed to send test';
-      setTestPushMessage(msg);
-    } finally {
-      setTestPushLoading(false);
-    }
-  }, []);
-
-  const handleRetryPushRegistration = useCallback(async () => {
-    setPushRetryLoading(true);
-    setTestPushMessage(null);
-    const result = await registerForPushNotificationsAsync();
-    await refreshPushStatus();
-    if (!result.ok) {
-      setTestPushMessage(result.error);
-    }
-    setPushRetryLoading(false);
-  }, [refreshPushStatus]);
 
   const handleSync = useCallback(async () => {
     setSyncing(true);
@@ -257,75 +219,6 @@ export default function ProfileScreen() {
           </Card.Content>
         </Card>
 
-        <Text variant="titleSmall" style={styles.sectionTitle}>
-          Push notifications
-        </Text>
-        <Card style={styles.card} elevation={0}>
-          <Card.Content style={styles.infoCardContent}>
-            <InfoRow
-              icon="cellphone"
-              iconColor={colors.primary}
-              label="Status"
-              value={
-                pushRegistered === null
-                  ? 'Checking…'
-                  : pushRegistered
-                    ? 'Registered'
-                    : 'Not registered'
-              }
-            />
-            {/* Push notification test — commented out
-            {pushRegistered === true && (
-              <>
-                <Divider style={styles.divider} />
-                <View style={styles.pushTestRow}>
-                  <Text variant="bodySmall" style={styles.pushTestHint}>
-                    Send a test notification to this device to verify push is working.
-                  </Text>
-                  <Button
-                    mode="outlined"
-                    compact
-                    onPress={handleSendTestPush}
-                    loading={testPushLoading}
-                    disabled={testPushLoading}
-                    style={styles.testPushBtn}
-                  >
-                    Send test notification
-                  </Button>
-                  {testPushMessage != null && (
-                    <Text variant="bodySmall" style={testPushMessage.startsWith('Test') ? styles.pushSuccess : styles.pushError}>
-                      {testPushMessage}
-                    </Text>
-                  )}
-                </View>
-              </>
-            )}
-            */}
-            {pushRegistered === false && (
-              <>
-                <Text variant="bodySmall" style={styles.pushHint}>
-                  Use a physical device, allow notifications when prompted, and ensure FCM is configured for your build.
-                </Text>
-                <Button
-                  mode="outlined"
-                  compact
-                  onPress={handleRetryPushRegistration}
-                  loading={pushRetryLoading}
-                  disabled={pushRetryLoading}
-                  style={styles.testPushBtn}
-                >
-                  Retry registration
-                </Button>
-                {testPushMessage != null && !testPushMessage.startsWith('Test') && (
-                  <Text variant="bodySmall" style={styles.pushError}>
-                    {testPushMessage}
-                  </Text>
-                )}
-              </>
-            )}
-          </Card.Content>
-        </Card>
-
         {pendingCount > 0 && (
           <Card style={styles.card} elevation={0}>
             <Card.Content>
@@ -359,9 +252,9 @@ export default function ProfileScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1},
+  safe: { flex: 1 },
   container: { flex: 1 },
-  content: { paddingHorizontal: spacing.lg,},
+  content: { paddingHorizontal: spacing.lg, },
   header: { marginBottom: 0, paddingTop: 0 },
   title: { fontWeight: '700', color: colors.gray900, fontSize: 20 },
   subtitle: { color: colors.gray700, marginTop: 4 },

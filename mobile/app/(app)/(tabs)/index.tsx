@@ -273,9 +273,9 @@ function HomeScreenInner() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1 },
-  container: { flex: 1 },
+  container: { flex: 1, backgroundColor: colors.backgroundWelcome },
   content: { padding: 0 },
-  contentContainer: { paddingTop: spacing.lg, paddingHorizontal: spacing.lg, backgroundColor: colors.accentLight, borderTopLeftRadius: radius.full, borderTopRightRadius: radius.full, overflow: 'hidden' },
+  contentContainer: { paddingTop: spacing.lg, paddingHorizontal: spacing.lg, backgroundColor: colors.accentLight, borderTopLeftRadius: radius.card, borderTopRightRadius: radius.card, overflow: 'hidden' },
   centered: {
     flex: 1,
     justifyContent: 'center',
