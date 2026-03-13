@@ -1,10 +1,21 @@
 from django.contrib import admin
-from .models import SiteConfig
+from .models import DepartmentTerminology, SiteConfig
+
+
+@admin.register(DepartmentTerminology)
+class DepartmentTerminologyAdmin(admin.ModelAdmin):
+    list_display = ("department", "partner_label", "location_label")
+    list_editable = ("partner_label", "location_label")
+    list_filter = ("department",)
+    search_fields = ("department__name", "department__slug", "partner_label", "location_label")
+    autocomplete_fields = ("department",)
 
 
 @admin.register(SiteConfig)
 class SiteConfigAdmin(admin.ModelAdmin):
     list_display = (
+        "partner_label",
+        "location_label",
         "visit_max_distance_meters",
         "visit_warning_distance_meters",
         "visit_travel_validation_window_hours",
@@ -12,6 +23,8 @@ class SiteConfigAdmin(admin.ModelAdmin):
         "visit_photo_max_size_mb",
     )
     list_editable = (
+        "partner_label",
+        "location_label",
         "visit_max_distance_meters",
         "visit_warning_distance_meters",
         "visit_travel_validation_window_hours",

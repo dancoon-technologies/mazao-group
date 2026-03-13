@@ -15,8 +15,9 @@ import * as Location from 'expo-location';
 import { createOrUpdateFarmer, createOrUpdateFarm } from '@/database';
 import { normalizeServerFarmer, normalizeServerFarm } from '@/database/helpers';
 import { enqueueFarmerWithFarm } from '@/lib/syncWithServer';
-import { api } from '@/lib/api';
-import { locationsCache$ } from '@/store/observable';
+import { api, getLabels } from '@/lib/api';
+import { appMeta$, locationsCache$ } from '@/store/observable';
+import { useSelector } from '@legendapp/state/react';
 import { useKenyaLocation } from '@/hooks/useKenyaLocation';
 
 type LocationState = {
@@ -33,6 +34,7 @@ export default function AddFarmerScreen() {
   const theme = useTheme();
   const params = useLocalSearchParams<{ returnTo?: string }>();
   const returnTo = params.returnTo;
+  const labels = useSelector(() => getLabels(appMeta$.cachedOptions.get()));
   const [locations, setLocations] = useState<LocationState | null>(null);
   const [loadingLocations, setLoadingLocations] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -84,7 +86,7 @@ export default function AddFarmerScreen() {
         });
         setError('');
       } else {
-        setError('Load locations when online first, then you can add farmer and farm offline.');
+        setError(`Load locations when online first, then you can add ${labels.partner.toLowerCase()} and ${labels.location.toLowerCase()} offline.`);
       }
     } finally {
       setLoadingLocations(false);
@@ -170,15 +172,15 @@ export default function AddFarmerScreen() {
     const farmLatNum = parseFloat(farmLat);
     const farmLonNum = parseFloat(farmLon);
     if (Number.isNaN(farmLatNum) || Number.isNaN(farmLonNum)) {
-      setError('Farm location (latitude and longitude) is required.');
+      setError(`${labels.location} location (latitude and longitude) is required.`);
       return;
     }
     if (farmLatNum < -90 || farmLatNum > 90) {
-      setError('Farm latitude must be between -90 and 90.');
+      setError(`${labels.location} latitude must be between -90 and 90.`);
       return;
     }
     if (farmLonNum < -180 || farmLonNum > 180) {
-      setError('Farm longitude must be between -180 and 180.');
+      setError(`${labels.location} longitude must be between -180 and 180.`);
       return;
     }
     setSubmitting(true);
@@ -196,7 +198,7 @@ export default function AddFarmerScreen() {
     }
     if (isOnline === false) {
       if (!locations) {
-        setError('Connect to load locations first, then you can add farmer and farm offline.');
+        setError(`Connect to load locations first, then you can add ${labels.partner.toLowerCase()} and ${labels.location.toLowerCase()} offline.`);
         setSubmitting(false);
         return;
       }
@@ -353,11 +355,11 @@ export default function AddFarmerScreen() {
         >
         {isOnline === false && (
           <Banner visible style={styles.banner}>
-            Offline — farmer and farm will sync when back online.
+            {`Offline — ${labels.partner.toLowerCase()} and ${labels.location.toLowerCase()} will sync when back online.`}
           </Banner>
         )}
         <Text variant="titleMedium" style={styles.sectionTitle}>
-          Farmer details
+          {labels.partner} details
         </Text>
         <TextInput
           label="First name *"
@@ -418,7 +420,7 @@ export default function AddFarmerScreen() {
         </Button>
 
         <Text variant="titleMedium" style={styles.sectionTitle}>
-          First farm (required)
+          First {labels.location.toLowerCase()} (required)
         </Text>
         {(gpsLocation.status === 'locating' || gpsLocation.status === 'geocoding') && (
           <Banner visible style={styles.banner}>
@@ -528,7 +530,7 @@ export default function AddFarmerScreen() {
         />
         <View style={styles.row}>
           <TextInput
-            label="Farm latitude *"
+            label={`${labels.location} latitude *`}
             value={farmLat}
             onChangeText={setFarmLat}
             keyboardType="decimal-pad"
@@ -536,7 +538,7 @@ export default function AddFarmerScreen() {
             style={[styles.input, styles.flex]}
           />
           <TextInput
-            label="Farm longitude *"
+            label={`${labels.location} longitude *`}
             value={farmLon}
             onChangeText={setFarmLon}
             keyboardType="decimal-pad"
@@ -569,7 +571,7 @@ export default function AddFarmerScreen() {
             loading={submitting}
             disabled={submitting || !firstName.trim() || !lastName.trim() || !regionId || !countyId || !subCountyId || !village.trim()}
           >
-            Add farmer
+            Add {labels.partner.toLowerCase()}
           </Button>
           <Button mode="text" onPress={() => router.back()}>
             Cancel
@@ -584,7 +586,7 @@ export default function AddFarmerScreen() {
           <Dialog.Title>{dialogSuccess ? 'Success' : 'Error'}</Dialog.Title>
           <Dialog.Content>
             <Text variant="bodyMedium">
-              {dialogSuccess ? 'Farmer and farm added.' : (submitError || 'Failed to add farmer.')}
+              {dialogSuccess ? `${labels.partner} and ${labels.location.toLowerCase()} added.` : (submitError || `Failed to add ${labels.partner.toLowerCase()}.`)}
             </Text>
           </Dialog.Content>
           <Dialog.Actions>

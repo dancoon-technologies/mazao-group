@@ -106,6 +106,9 @@ class VisitListCreateView(generics.ListCreateAPIView):
         lat = float(data["latitude"])
         lon = float(data["longitude"])
         photo = request.FILES.get("photo")
+        user = request.user
+        from site_config.services import get_labels_for_user
+        partner_label, location_label = get_labels_for_user(user)
 
         err_msg = _validate_photo(photo)[1]
         if err_msg:
@@ -116,9 +119,7 @@ class VisitListCreateView(generics.ListCreateAPIView):
             farmer = Farmer.objects.prefetch_related("farms").get(pk=farmer_id)
         except Farmer.DoesNotExist:
             logger.warning("POST /api/visits/ farmer_id=%s not found", farmer_id)
-            return Response({"farmer_id": ["Farmer not found."]}, status=status.HTTP_404_NOT_FOUND)
-
-        user = request.user
+            return Response({"farmer_id": [f"{partner_label} not found."]}, status=status.HTTP_404_NOT_FOUND)
         allowed_activities = _allowed_activity_type_values(user)
         activity_type = data.get("activity_type") or Visit.ActivityType.FARM_TO_FARM_VISITS
         if activity_type not in allowed_activities:
@@ -150,7 +151,7 @@ class VisitListCreateView(generics.ListCreateAPIView):
         if user.role != "admin" and farmer.assigned_officer_id != user.pk:
             logger.warning("POST /api/visits/ forbidden user=%s not assigned to farmer_id=%s", user.id, farmer_id)
             return Response(
-                {"farmer_id": ["You are not assigned to this farmer."]},
+                {"farmer_id": [f"You are not assigned to this {partner_label.lower()}."]},
                 status=status.HTTP_403_FORBIDDEN,
             )
 
@@ -163,7 +164,7 @@ class VisitListCreateView(generics.ListCreateAPIView):
             except Farm.DoesNotExist:
                 logger.warning("POST /api/visits/ farm_id=%s not found for farmer_id=%s", farm_id, farmer_id)
                 return Response(
-                    {"farm_id": ["Farm not found or does not belong to this farmer."]},
+                    {"farm_id": [f"{location_label} not found or does not belong to this {partner_label.lower()}."]},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
         if ref_lat is None and farmer.farms.exists():
@@ -199,7 +200,7 @@ class VisitListCreateView(generics.ListCreateAPIView):
             )
         if schedule.farmer_id and schedule.farmer_id != farmer_id:
             return Response(
-                {"schedule_id": ["Schedule is for a different farmer."]},
+                {"schedule_id": [f"Schedule is for a different {partner_label.lower()}."]},
                 status=status.HTTP_400_BAD_REQUEST,
             )
         today = timezone.now().date()
@@ -219,7 +220,7 @@ class VisitListCreateView(generics.ListCreateAPIView):
         distance = haversine_meters(lat, lon, ref_lat, ref_lon)
         if distance > max_m:
             msg = (
-                f"Visit rejected: officer is {distance:.0f}m from farmer/farm "
+                f"Visit rejected: officer is {distance:.0f}m from {partner_label.lower()}/{location_label.lower()} "
                 f"(max {max_m}m allowed)."
             )
             logger.warning("POST /api/visits/ %s", msg)
@@ -341,10 +342,12 @@ class VisitVerifyView(APIView):
             from django.utils.formats import date_format
             from notifications.services import notify_user
             date_str = date_format(visit.created_at, use_l10n=True)
+            from site_config.services import get_labels_for_user
+            _partner_label, _ = get_labels_for_user(visit.officer)
             notify_user(
                 visit.officer,
                 title="Visit verified",
-                message=f"Your visit record from {date_str} (Farmer: {visit.farmer.name}) has been accepted.",
+                message=f"Your visit record from {date_str} ({_partner_label}: {visit.farmer.name}) has been accepted.",
                 channels=["in_app", "push"],
             )
             return Response(VisitSerializer(visit).data)

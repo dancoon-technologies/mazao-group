@@ -6,7 +6,7 @@ import {
 } from '@/database';
 import { useAuth } from '@/contexts/AuthContext';
 import { appMeta$ } from '@/store/observable';
-import { api, type ActivityFormFieldOption, type ActivityTypeOption, type Farm, type Farmer, type Schedule, type VisitSettings } from '@/lib/api';
+import { api, getLabels, type ActivityFormFieldOption, type ActivityTypeOption, type Farm, type Farmer, type Schedule, type VisitSettings } from '@/lib/api';
 import { ACTIVITY_TYPES, DEFAULT_ACTIVITY_TYPE } from '@/lib/constants/activityTypes';
 import { enqueueVisit, syncWithServer } from '@/lib/syncWithServer';
 import NetInfo from '@react-native-community/netinfo';
@@ -14,6 +14,7 @@ import Constants from 'expo-constants';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as Location from 'expo-location';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { useSelector } from '@legendapp/state/react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Image } from 'expo-image';
 import {
@@ -127,6 +128,7 @@ export default function RecordVisitScreen() {
   const [visitSettings, setVisitSettings] = useState<VisitSettings | null>(null);
   const [step, setStep] = useState(0); // 0 = schedule, 1 = details & photo, 2 = additional fields
 
+  const labels = useSelector(() => getLabels(appMeta$.cachedOptions.get()));
   const selectedFarmer = farmers.find((f) => f.id === selectedFarmerId);
   const selectedFarm = farms.find((f) => f.id === selectedFarmId);
 
@@ -196,21 +198,24 @@ export default function RecordVisitScreen() {
   );
 
   /** Default form fields for step 3 when activity has no form_fields config (show all). */
-  const DEFAULT_STEP3_FIELDS: ActivityFormFieldOption[] = [
-    { key: 'crop_stage', label: 'Crop Stage', required: false },
-    { key: 'germination_percent', label: 'Germination %', required: false },
-    { key: 'survival_rate', label: 'Survival Rate %', required: false },
-    { key: 'pests_diseases', label: 'Pests/Diseases', required: false },
-    { key: 'order_value', label: 'Order Value', required: false },
-    { key: 'harvest_kgs', label: 'Harvest (kg)', required: false },
-    { key: 'farmers_feedback', label: "Farmer's Feedback", required: false },
-  ];
+  const defaultStep3Fields = useMemo<ActivityFormFieldOption[]>(
+    () => [
+      { key: 'crop_stage', label: 'Crop Stage', required: false },
+      { key: 'germination_percent', label: 'Germination %', required: false },
+      { key: 'survival_rate', label: 'Survival Rate %', required: false },
+      { key: 'pests_diseases', label: 'Pests/Diseases', required: false },
+      { key: 'order_value', label: 'Order Value', required: false },
+      { key: 'harvest_kgs', label: 'Harvest (kg)', required: false },
+      { key: 'farmers_feedback', label: `${labels.partner}'s Feedback`, required: false },
+    ],
+    [labels.partner]
+  );
 
   const step3Fields = useMemo(() => {
     const config = activityTypesList.find((a) => a.value === activityType);
-    const fields = config?.form_fields?.length ? config.form_fields : DEFAULT_STEP3_FIELDS;
+    const fields = config?.form_fields?.length ? config.form_fields : defaultStep3Fields;
     return fields;
-  }, [activityType, activityTypesList]);
+  }, [activityType, activityTypesList, defaultStep3Fields]);
 
   useEffect(() => {
     let cancelled = false;
@@ -471,7 +476,7 @@ export default function RecordVisitScreen() {
       return;
     }
     if (!selectedFarmerId || !photoUri || !location) {
-      setError('Select farmer, capture photo, and ensure location is available.');
+      setError(`Select ${labels.partner.toLowerCase()}, capture photo, and ensure location is available.`);
       return;
     }
     setSubmitting(true);
@@ -553,7 +558,7 @@ export default function RecordVisitScreen() {
     } finally {
       setSubmitting(false);
     }
-  }, [mustSelectSchedule, acceptedSchedules.length, selectedFarmerId, selectedFarmId, selectedScheduleId, scheduleIdForSubmit, photoUri, photoTakenAt, location, selectedFarm, selectedFarmer, activityType, notes, cropStage, germinationPercent, survivalRatePercent, orderValue, harvestKgs, pestsDiseases, farmersFeedback, router]);
+  }, [mustSelectSchedule, acceptedSchedules.length, selectedFarmerId, selectedFarmId, selectedScheduleId, scheduleIdForSubmit, photoUri, photoTakenAt, location, selectedFarm, selectedFarmer, activityType, notes, cropStage, germinationPercent, survivalRatePercent, orderValue, harvestKgs, pestsDiseases, farmersFeedback, labels, router]);
 
   const activityLabel =
     activityTypesList.find((a) => a.value === activityType)?.label ??
@@ -651,7 +656,7 @@ export default function RecordVisitScreen() {
                 <Surface style={styles.section} elevation={0}>
                   <Text variant="labelLarge" style={styles.fieldLabel}>Planned visit (accepted) *</Text>
                   <Text variant="bodySmall" style={styles.hint}>
-                    Select the accepted schedule for this visit. Farmer and farm are set from the schedule.
+                    {`Select the accepted schedule for this visit. ${labels.partner} and ${labels.location.toLowerCase()} are set from the schedule.`}
                   </Text>
                   <View style={styles.scheduleChips}>
                     {acceptedSchedules.map((s) => {
@@ -669,7 +674,7 @@ export default function RecordVisitScreen() {
                           style={styles.scheduleChip}
                           compact
                         >
-                          {dateStr} — {farmerName} · Farm: {s.farm_display_name ?? 'None'}
+                          {dateStr} — {farmerName} · {labels.location}: {s.farm_display_name ?? 'None'}
                         </Chip>
                       );
                     })}
@@ -709,7 +714,7 @@ export default function RecordVisitScreen() {
           {/* Step 2: Farmer/farm details, activity, photo, location */}
           {step === 1 && (
             <>
-              <Text variant="labelMedium" style={styles.step2SectionTitle}>FARMER & FARM (from schedule)</Text>
+              <Text variant="labelMedium" style={styles.step2SectionTitle}>{labels.partner.toUpperCase()} & {labels.location.toUpperCase()} (from schedule)</Text>
               {selectedFarmer && (
                 <View style={styles.farmerCard}>
                   <View style={styles.farmerCardAvatar}>
@@ -732,14 +737,14 @@ export default function RecordVisitScreen() {
                 </View>
               )}
 
-              <Text variant="labelMedium" style={styles.step2SectionTitle}>FARM (optional)</Text>
+              <Text variant="labelMedium" style={styles.step2SectionTitle}>{labels.location.toUpperCase()} (optional)</Text>
               {(scheduleLockedForFarm && selectedFarm) ? (
                 <View style={styles.farmDisplay}>
                   <Text variant="bodyLarge">{selectedFarm.village}{selectedFarm.crop_type ? ` · ${selectedFarm.crop_type}` : ''}</Text>
                 </View>
               ) : selectedFarmer && !scheduleLockedForFarm ? (
                 farms.length === 0 ? (
-                  <Text variant="bodySmall" style={styles.muted}>No farms for this farmer</Text>
+                  <Text variant="bodySmall" style={styles.muted}>No {labels.location.toLowerCase()}s for this {labels.partner.toLowerCase()}</Text>
                 ) : (
                   <>
                     <Button
@@ -937,7 +942,7 @@ export default function RecordVisitScreen() {
                   }
                   if (f.key === 'farmers_feedback') {
                     return (
-                      <TextInput key={f.key} label={f.label} value={farmersFeedback} onChangeText={setFarmersFeedback} mode="outlined" multiline numberOfLines={2} placeholder="Farmer's comments" style={styles.input} />
+                      <TextInput key={f.key} label={f.label} value={farmersFeedback} onChangeText={setFarmersFeedback} mode="outlined" multiline numberOfLines={2} placeholder={`${labels.partner}'s comments`} style={styles.input} />
                     );
                   }
                   return (

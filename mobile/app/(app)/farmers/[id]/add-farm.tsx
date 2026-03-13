@@ -1,6 +1,7 @@
 import { enqueueFarm } from '@/lib/syncWithServer';
-import { api } from '@/lib/api';
-import { locationsCache$ } from '@/store/observable';
+import { api, getLabels } from '@/lib/api';
+import { appMeta$, locationsCache$ } from '@/store/observable';
+import { useSelector } from '@legendapp/state/react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import NetInfo from '@react-native-community/netinfo';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -28,6 +29,7 @@ export default function AddFarmScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { id: farmerId } = useLocalSearchParams<{ id: string }>();
+  const labels = useSelector(() => getLabels(appMeta$.cachedOptions.get()));
   const [locations, setLocations] = useState<LocationState | null>(null);
   const [loadingLocations, setLoadingLocations] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -124,7 +126,7 @@ export default function AddFarmScreen() {
 
   const submit = useCallback(async () => {
     if (!farmerId) {
-      setError('Farmer not found.');
+      setError(`${labels.partner} not found.`);
       return;
     }
     if (!regionId || !countyId || !subCountyId) {
@@ -164,7 +166,7 @@ export default function AddFarmScreen() {
     }
     if (isOnline === false) {
       if (!locations) {
-        setError('Connect to load locations first, then you can add a farm offline.');
+        setError(`Connect to load locations first, then you can add a ${labels.location.toLowerCase()} offline.`);
         setSubmitting(false);
         return;
       }
@@ -182,7 +184,7 @@ export default function AddFarmScreen() {
           device_latitude: deviceLat,
           device_longitude: deviceLon,
         });
-        Alert.alert('Saved offline', 'Farm will sync when you are back online.', [
+        Alert.alert('Saved offline', `${labels.location} will sync when you are back online.`, [
           { text: 'OK', onPress: () => router.back() },
         ]);
       } catch (e) {
@@ -210,11 +212,11 @@ export default function AddFarmScreen() {
         device_latitude: deviceLat,
         device_longitude: deviceLon,
       });
-      Alert.alert('Success', 'Farm added.', [
+      Alert.alert('Success', `${labels.location} added.`, [
         { text: 'OK', onPress: () => router.back() },
       ]);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to add farm');
+      setError(e instanceof Error ? e.message : `Failed to add ${labels.location.toLowerCase()}`);
     } finally {
       setSubmitting(false);
     }

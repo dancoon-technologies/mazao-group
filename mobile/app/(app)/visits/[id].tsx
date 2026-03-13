@@ -2,7 +2,9 @@
  * Visit detail screen: show visit details, report record, and verification status (accepted/rejected by supervisor).
  */
 import { useAuth } from '@/contexts/AuthContext';
-import { api, type Visit } from '@/lib/api';
+import { api, getLabels, type Visit } from '@/lib/api';
+import { appMeta$ } from '@/store/observable';
+import { useSelector } from '@legendapp/state/react';
 import { visitStatusColor, visitStatusLabel } from '@/lib/format';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
@@ -59,6 +61,7 @@ export default function VisitDetailScreen() {
   const [visit, setVisit] = useState<Visit | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const labels = useSelector(() => getLabels(appMeta$.cachedOptions.get()));
 
   const load = useCallback(async () => {
     if (!visitId) {
@@ -164,9 +167,9 @@ export default function VisitDetailScreen() {
               left={(props) => <List.Icon {...props} icon="account-tie" />}
             />
             <Divider />
-            <List.Item title="Farmer" description={visit.farmer_display_name ?? '—'} left={(props) => <List.Icon {...props} icon="account" />} />
+            <List.Item title={labels.partner} description={visit.farmer_display_name ?? '—'} left={(props) => <List.Icon {...props} icon="account" />} />
             <Divider />
-            <List.Item title="Farm" description={visit.farm_display_name ?? 'No specific farm'} left={(props) => <List.Icon {...props} icon="barn" />} />
+            <List.Item title={labels.location} description={visit.farm_display_name ?? `No specific ${labels.location.toLowerCase()}`} left={(props) => <List.Icon {...props} icon="barn" />} />
             <Divider />
             <List.Item title="Date & time" description={formatDateTime(visit.created_at)} left={(props) => <List.Icon {...props} icon="calendar-clock" />} />
             <Divider />
@@ -174,7 +177,7 @@ export default function VisitDetailScreen() {
             {visit.distance_from_farmer != null && (
               <>
                 <Divider />
-                <List.Item title="Distance from farmer/farm" description={`${Math.round(visit.distance_from_farmer)} m`} left={(props) => <List.Icon {...props} icon="map-marker" />} />
+                <List.Item title={`Distance from ${labels.partner.toLowerCase()}/${labels.location.toLowerCase()}`} description={`${Math.round(visit.distance_from_farmer)} m`} left={(props) => <List.Icon {...props} icon="map-marker" />} />
               </>
             )}
           </Card.Content>
@@ -214,7 +217,7 @@ export default function VisitDetailScreen() {
                 {visit.pests_diseases ? (<View><Text variant="labelSmall" style={styles.fieldLabel}>Pests/Diseases</Text><Text variant="bodyMedium" style={styles.fieldValue}>{visit.pests_diseases}</Text></View>) : null}
                 {visit.order_value != null ? (<View><Text variant="labelSmall" style={styles.fieldLabel}>Order value</Text><Text variant="bodyMedium" style={styles.fieldValue}>{String(visit.order_value)}</Text></View>) : null}
                 {visit.harvest_kgs != null ? (<View><Text variant="labelSmall" style={styles.fieldLabel}>Harvest (kg)</Text><Text variant="bodyMedium" style={styles.fieldValue}>{String(visit.harvest_kgs)}</Text></View>) : null}
-                {visit.farmers_feedback ? (<View><Text variant="labelSmall" style={styles.fieldLabel}>Farmer's feedback</Text><Text variant="bodyMedium" style={styles.fieldValue}>{visit.farmers_feedback}</Text></View>) : null}
+                {visit.farmers_feedback ? (<View><Text variant="labelSmall" style={styles.fieldLabel}>{labels.partner}'s feedback</Text><Text variant="bodyMedium" style={styles.fieldValue}>{visit.farmers_feedback}</Text></View>) : null}
               </View>
             ) : null}
             {!visit.notes && !visit.crop_stage && visit.germination_percent == null && !visit.survival_rate && !visit.pests_diseases && visit.order_value == null && visit.harvest_kgs == null && !visit.farmers_feedback && (

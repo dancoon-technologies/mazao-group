@@ -1,7 +1,9 @@
 import { colors, radius, spacing } from '@/constants/theme';
 import { getFarmers as getFarmersDb, getFarms as getFarmsDb } from '@/database';
-import { api, type Farm, type Farmer } from '@/lib/api';
+import { api, getLabels, type Farm, type Farmer } from '@/lib/api';
 import { farmRowToFarm, farmerRowToFarmer } from '@/lib/offline-helpers';
+import { appMeta$ } from '@/store/observable';
+import { useSelector } from '@legendapp/state/react';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import NetInfo from '@react-native-community/netinfo';
 import { useIsFocused } from '@react-navigation/native';
@@ -25,6 +27,7 @@ export default function FarmerDetailScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
+  const labels = useSelector(() => getLabels(appMeta$.cachedOptions.get()));
 
   const loadFromDb = useCallback(async () => {
     if (!id) return;
@@ -35,8 +38,8 @@ export default function FarmerDetailScreen() {
     const found = farmerRows.find((r) => r.id === id);
     setFarmer(found ? farmerRowToFarmer(found) : null);
     setFarms(farmRows.map(farmRowToFarm));
-    setError(found ? '' : 'Farmer not found');
-  }, [id]);
+    setError(found ? '' : `${labels.partner} not found`);
+  }, [id, labels.partner]);
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -51,7 +54,7 @@ export default function FarmerDetailScreen() {
         const found = list.find((f) => f.id === id) ?? null;
         setFarmer(found);
         setFarms(Array.isArray(farmsData) ? farmsData : []);
-        setError(found ? '' : 'Farmer not found');
+        setError(found ? '' : `${labels.partner} not found`);
       } catch (e) {
         await loadFromDb();
       }
@@ -78,7 +81,7 @@ export default function FarmerDetailScreen() {
     <SafeAreaView style={styles.safe} edges={['bottom']}>
       <Appbar.Header>
         <Appbar.BackAction onPress={() => router.back()} />
-        <Appbar.Content title={farmer?.display_name ?? 'Farmer'} />
+        <Appbar.Content title={farmer?.display_name ?? labels.partner} />
       </Appbar.Header>
       <ScrollView
         style={styles.container}
@@ -132,18 +135,18 @@ export default function FarmerDetailScreen() {
 
             <View style={styles.section}>
               <View style={styles.sectionHeader}>
-                <Text variant="titleMedium" style={styles.sectionTitle}>Farms</Text>
+                <Text variant="titleMedium" style={styles.sectionTitle}>{labels.location}s</Text>
                 <Button mode="contained-tonal" compact onPress={openAddFarm} icon="plus">
-                  Add farm
+                  Add {labels.location.toLowerCase()}
                 </Button>
               </View>
 
               {farms.length === 0 ? (
                 <Card style={styles.emptyCard} elevation={0}>
                   <Card.Content>
-                    <Text variant="bodyMedium" style={styles.muted}>No farms yet. Add a farm location for this farmer.</Text>
+                    <Text variant="bodyMedium" style={styles.muted}>No {labels.location.toLowerCase()}s yet. Add a {labels.location.toLowerCase()} location for this {labels.partner.toLowerCase()}.</Text>
                     <Button mode="outlined" onPress={openAddFarm} style={styles.addFarmBtn}>
-                      Add farm
+                      Add {labels.location.toLowerCase()}
                     </Button>
                   </Card.Content>
                 </Card>

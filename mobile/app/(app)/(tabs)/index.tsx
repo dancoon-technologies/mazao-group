@@ -8,7 +8,7 @@ import { ListItemRow } from '@/components/ListItemRow';
 import { cardShadow, cardStyle, colors, radius, spacing } from '@/constants/theme';
 import { useAppRefresh } from '@/contexts/AppRefreshContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { api, type Farmer, type Schedule } from '@/lib/api';
+import { api, getLabels, type Farmer, type Schedule } from '@/lib/api';
 import { formatDate } from '@/lib/format';
 import { farmerRowToFarmer, scheduleRowToSchedule } from '@/lib/offline-helpers';
 import { syncWithServer } from '@/lib/syncWithServer';
@@ -49,6 +49,7 @@ function HomeScreenInner() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
 
+  const labels = useSelector(() => getLabels(appMeta$.cachedOptions.get()));
   /** Reactive read from store — updates when rehydration or sync populates store. */
   const farmers = useSelector<Farmer[]>(() => {
     const list = farmers$.get() ?? [];
@@ -221,7 +222,7 @@ function HomeScreenInner() {
             />
             <ActionCard
               icon="account-plus"
-              label="Add Farmer"
+              label={`Add ${labels.partner}`}
               onPress={openAddFarmer}
             />
             <ActionCard
@@ -235,7 +236,7 @@ function HomeScreenInner() {
             <StatCard icon={STAT_ICONS.today} label="Today" value={todayLabel} hint={todayHint} />
             <StatCard icon={STAT_ICONS.month} label="This month" value={visitsThisMonth} hint="visits recorded" />
             <StatCard icon={STAT_ICONS.schedules} label="To do" value={todaySchedules.length} hint="visits left to record" />
-            <StatCard icon={STAT_ICONS.farmers} label="Farmers" value={farmers.length} hint="in your list" />
+            <StatCard icon={STAT_ICONS.farmers} label={`${labels.partner}s`} value={farmers.length} hint="in your list" />
           </View>
 
           <SectionHeader title="Today's Schedule" />

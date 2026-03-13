@@ -7,6 +7,36 @@ Fallback: Django settings (env) when no row exists.
 from django.db import models
 
 
+class DepartmentTerminology(models.Model):
+    """
+    Per-department partner/location labels (e.g. Farmer/Farm vs Stockist/Outlet).
+    One row per department. Falls back to SiteConfig labels when no row exists for the user's department.
+    """
+    department = models.OneToOneField(
+        "accounts.Department",
+        on_delete=models.CASCADE,
+        related_name="terminology",
+        unique=True,
+    )
+    partner_label = models.CharField(
+        max_length=64,
+        default="Farmer",
+        help_text="Label for the person/entity (e.g. Farmer, Stockist).",
+    )
+    location_label = models.CharField(
+        max_length=64,
+        default="Farm",
+        help_text="Label for the location/plot (e.g. Farm, Outlet).",
+    )
+
+    class Meta:
+        verbose_name = "Department terminology"
+        verbose_name_plural = "Department terminology"
+
+    def __str__(self):
+        return f"{self.department.name}: {self.partner_label} / {self.location_label}"
+
+
 class SiteConfig(models.Model):
     """
     Singleton-style config (one row). Edit in admin to change behaviour without redeploy.
@@ -32,6 +62,17 @@ class SiteConfig(models.Model):
     visit_photo_max_size_mb = models.PositiveSmallIntegerField(
         default=5,
         help_text="Max visit photo size in MB.",
+    )
+    # Terminology: some departments use "Stockist" / "Outlet", others "Farmer" / "Farm", or both.
+    partner_label = models.CharField(
+        max_length=64,
+        default="Farmer",
+        help_text="Label for the person/entity (e.g. Farmer, Stockist, or Farmer / Stockist).",
+    )
+    location_label = models.CharField(
+        max_length=64,
+        default="Farm",
+        help_text="Label for the location/plot (e.g. Farm, Outlet, or Farm / Outlet).",
     )
 
     class Meta:

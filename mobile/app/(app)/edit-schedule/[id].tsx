@@ -6,7 +6,9 @@ import { useAuth } from '@/contexts/AuthContext';
 import { getFarmers as getFarmersDb, getFarms as getFarmsDb } from '@/database';
 import { farmerRowToFarmer } from '@/lib/offline-helpers';
 import { syncWithServer } from '@/lib/syncWithServer';
-import { api, type Farm, type Farmer, type Schedule } from '@/lib/api';
+import { api, getLabels, type Farm, type Farmer, type Schedule } from '@/lib/api';
+import { appMeta$ } from '@/store/observable';
+import { useSelector } from '@legendapp/state/react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import NetInfo from '@react-native-community/netinfo';
 import { useCallback, useEffect, useState } from 'react';
@@ -37,6 +39,7 @@ export default function EditScheduleScreen() {
   const [farmerModalOpen, setFarmerModalOpen] = useState(false);
   const [farmModalOpen, setFarmModalOpen] = useState(false);
   const [snackbarVisible, setSnackbarVisible] = useState(false);
+  const labels = useSelector(() => getLabels(appMeta$.cachedOptions.get()));
 
   const selectedFarm = farms.find((f) => f.id === selectedFarmId);
 
@@ -217,7 +220,7 @@ export default function EditScheduleScreen() {
             keyboardType="numbers-and-punctuation"
           />
 
-          <Text variant="labelLarge" style={styles.label}>Farmer (optional)</Text>
+          <Text variant="labelLarge" style={styles.label}>{labels.partner} (optional)</Text>
           <Button
             mode="outlined"
             onPress={() => setFarmerModalOpen(true)}
@@ -226,8 +229,8 @@ export default function EditScheduleScreen() {
             icon="account-search"
           >
             {selectedFarmerId
-              ? (farmers.find((f) => f.id === selectedFarmerId)?.display_name ?? 'Farmer selected')
-              : 'Select farmer'}
+              ? (farmers.find((f) => f.id === selectedFarmerId)?.display_name ?? `${labels.partner} selected`)
+              : `Select ${labels.partner.toLowerCase()}`}
           </Button>
           <Button
             mode="text"
@@ -236,7 +239,7 @@ export default function EditScheduleScreen() {
             onPress={() => router.push({ pathname: '/(app)/add-farmer', params: { returnTo: 'edit-schedule' } })}
             style={styles.addFarmerLink}
           >
-            Add new farmer
+            Add new {labels.partner.toLowerCase()}
           </Button>
           <SelectFarmerModal
             visible={farmerModalOpen}
@@ -244,14 +247,14 @@ export default function EditScheduleScreen() {
             farmers={farmers}
             selectedFarmerId={selectedFarmerId}
             onSelect={setSelectedFarmerId}
-            title="Select farmer"
+            title={`Select ${labels.partner}`}
           />
 
           {selectedFarmerId && (
             <>
-              <Text variant="labelLarge" style={styles.label}>Farm (optional)</Text>
+              <Text variant="labelLarge" style={styles.label}>{labels.location} (optional)</Text>
               {farms.length === 0 ? (
-                <Text variant="bodySmall" style={styles.muted}>No farms for this farmer</Text>
+                <Text variant="bodySmall" style={styles.muted}>No {labels.location.toLowerCase()}s for this {labels.partner.toLowerCase()}</Text>
               ) : (
                 <>
                   <Button
@@ -263,7 +266,7 @@ export default function EditScheduleScreen() {
                   >
                     {selectedFarm
                       ? `${selectedFarm.village}${selectedFarm.crop_type ? ` · ${selectedFarm.crop_type}` : ''}`
-                      : 'Select farm'}
+                      : `Select ${labels.location.toLowerCase()}`}
                   </Button>
                   <SelectFarmModal
                     visible={farmModalOpen}
@@ -271,7 +274,7 @@ export default function EditScheduleScreen() {
                     farms={farms}
                     selectedFarmId={selectedFarmId}
                     onSelect={setSelectedFarmId}
-                    title="Select farm"
+                    title={`Select ${labels.location}`}
                   />
                 </>
               )}

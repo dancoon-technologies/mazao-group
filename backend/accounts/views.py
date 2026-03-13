@@ -27,9 +27,14 @@ class OptionsListView(APIView):
             {"value": User.Role.SUPERVISOR, "label": dict(User.Role.choices)[User.Role.SUPERVISOR]},
             {"value": User.Role.OFFICER, "label": dict(User.Role.choices)[User.Role.OFFICER]},
         ]
-        from site_config.services import get_visit_max_distance_meters, get_visit_warning_distance_meters
+        from site_config.services import (
+            get_labels_for_user,
+            get_visit_max_distance_meters,
+            get_visit_warning_distance_meters,
+        )
         visit_max_m = get_visit_max_distance_meters()
         visit_warning_m = get_visit_warning_distance_meters()
+        partner_label, location_label = get_labels_for_user(request.user)
 
         # Activity types: only those for the user's department (prefetch used to avoid N+1).
         # form_fields: optional list of {key, label, required} for step 3; empty = show all known fields.
@@ -67,6 +72,10 @@ class OptionsListView(APIView):
                 "visit_settings": {
                     "max_distance_meters": visit_max_m,
                     "warning_distance_meters": visit_warning_m,
+                },
+                "labels": {
+                    "partner": partner_label,
+                    "location": location_label,
                 },
                 "activity_types": activity_types,
                 "tracking_settings": {

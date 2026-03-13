@@ -117,6 +117,22 @@ export interface VisitSettings {
   warning_distance_meters: number;
 }
 
+/** Configurable labels (e.g. Farmer/Farm vs Stockist/Outlet). From GET /api/options/ labels. */
+export interface PartnerLocationLabels {
+  partner: string;
+  location: string;
+}
+
+export const DEFAULT_LABELS: PartnerLocationLabels = { partner: 'Farmer', location: 'Farm' };
+
+/** Get partner/location labels from options response; fallback to Farmer/Farm. */
+export function getLabels(options: OptionsResponse | null | undefined): PartnerLocationLabels {
+  if (options?.labels?.partner != null && options?.labels?.location != null) {
+    return { partner: options.labels.partner, location: options.labels.location };
+  }
+  return DEFAULT_LABELS;
+}
+
 export interface ActivityFormFieldOption {
   key: string;
   label: string;
@@ -140,6 +156,8 @@ export interface OptionsResponse {
   departments: { value: string; label: string }[];
   staff_roles: { value: string; label: string }[];
   visit_settings: VisitSettings;
+  /** Partner/location terminology (e.g. Farmer/Farm or Stockist/Outlet). */
+  labels?: PartnerLocationLabels;
   activity_types?: ActivityTypeOption[];
   tracking_settings?: TrackingSettings;
 }

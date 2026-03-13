@@ -50,3 +50,38 @@ def get_visit_photo_max_size_mb():
     if c is not None:
         return c.visit_photo_max_size_mb
     return _DEFAULT_VISIT_PHOTO_MAX_SIZE_MB
+
+
+def get_partner_label():
+    """Label for the person/entity (e.g. Farmer, Stockist). Used in UI and messages."""
+    c = _get_config()
+    if c is not None and (c.partner_label or "").strip():
+        return (c.partner_label or "").strip()
+    return "Farmer"
+
+
+def get_location_label():
+    """Label for the location/plot (e.g. Farm, Outlet). Used in UI and messages."""
+    c = _get_config()
+    if c is not None and (c.location_label or "").strip():
+        return (c.location_label or "").strip()
+    return "Farm"
+
+
+def get_labels_for_user(user):
+    """
+    Return (partner_label, location_label) for the user's department.
+    Uses DepartmentTerminology when the user has a department with a terminology row;
+    otherwise falls back to SiteConfig (get_partner_label / get_location_label).
+    """
+    from .models import DepartmentTerminology
+
+    if user and getattr(user, "department_id", None):
+        try:
+            term = DepartmentTerminology.objects.get(department_id=user.department_id)
+            partner = (term.partner_label or "").strip() or "Farmer"
+            location = (term.location_label or "").strip() or "Farm"
+            return (partner, location)
+        except DepartmentTerminology.DoesNotExist:
+            pass
+    return (get_partner_label(), get_location_label())
