@@ -77,8 +77,8 @@ function HomeScreenInner() {
 
   const farmerDisplayName = useCallback(
     (s: Schedule) =>
-      s.farmer_display_name ?? farmers.find((f) => f.id === s.farmer)?.display_name ?? 'No farmer assigned',
-    [farmers]
+      s.farmer_display_name ?? farmers.find((f) => f.id === s.farmer)?.display_name ?? `No ${labels.partner.toLowerCase()} assigned`,
+    [farmers, labels.partner]
   );
 
   const load = useCallback(async (forceSync?: boolean) => {

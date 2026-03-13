@@ -2,7 +2,9 @@ import { useAuth } from '@/contexts/AuthContext';
 import { getFarmers as getFarmersDb, getFarms as getFarmsDb, getAllSchedulesForOfficer } from '@/database';
 import { farmerRowToFarmer, scheduleRowToSchedule } from '@/lib/offline-helpers';
 import { enqueueSchedule } from '@/lib/syncWithServer';
-import { api, type Farm, type Farmer, type Officer, type Schedule } from '@/lib/api';
+import { api, getLabels, type Farm, type Farmer, type Officer, type Schedule } from '@/lib/api';
+import { appMeta$ } from '@/store/observable';
+import { useSelector } from '@legendapp/state/react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useFocusEffect } from 'expo-router';
 import NetInfo from '@react-native-community/netinfo';
@@ -64,6 +66,7 @@ export default function ProposeScheduleScreen() {
   const [snackbarVisible, setSnackbarVisible] = useState(false);
   const [isOnline, setIsOnline] = useState<boolean | null>(null);
 
+  const labels = useSelector(() => getLabels(appMeta$.cachedOptions.get()));
   const assigner = isAssigner(role);
 
   useEffect(() => {
@@ -311,7 +314,7 @@ export default function ProposeScheduleScreen() {
             keyboardType="numbers-and-punctuation"
           />
 
-          <Text variant="labelLarge" style={styles.label}>Farmer (optional)</Text>
+          <Text variant="labelLarge" style={styles.label}>{labels.partner} (optional)</Text>
           <Button
             mode="outlined"
             onPress={() => setFarmerModalOpen(true)}
@@ -320,8 +323,8 @@ export default function ProposeScheduleScreen() {
             icon="account-search"
           >
             {selectedFarmerId
-              ? (farmers.find((f) => f.id === selectedFarmerId)?.display_name ?? 'Farmer selected')
-              : 'Select farmer'}
+              ? (farmers.find((f) => f.id === selectedFarmerId)?.display_name ?? `${labels.partner} selected`)
+              : `Select ${labels.partner.toLowerCase()}`}
           </Button>
           <Button
             mode="text"
@@ -330,7 +333,7 @@ export default function ProposeScheduleScreen() {
             onPress={() => router.push({ pathname: '/(app)/add-farmer', params: { returnTo: 'propose-schedule' } })}
             style={styles.addFarmerLink}
           >
-            Add new farmer
+            Add new {labels.partner.toLowerCase()}
           </Button>
           <SelectFarmerModal
             visible={farmerModalOpen}
@@ -338,14 +341,13 @@ export default function ProposeScheduleScreen() {
             farmers={farmers}
             selectedFarmerId={selectedFarmerId}
             onSelect={setSelectedFarmerId}
-            title="Select farmer"
           />
 
           {selectedFarmerId && (
             <>
-              <Text variant="labelLarge" style={styles.label}>Farm (optional)</Text>
+              <Text variant="labelLarge" style={styles.label}>{labels.location} (optional)</Text>
               {farms.length === 0 ? (
-                <Text variant="bodySmall" style={styles.muted}>No farms for this farmer</Text>
+                <Text variant="bodySmall" style={styles.muted}>No {labels.location.toLowerCase()}s for this {labels.partner.toLowerCase()}</Text>
               ) : (
                 <>
                   <Button
@@ -357,7 +359,7 @@ export default function ProposeScheduleScreen() {
                   >
                     {selectedFarm
                       ? `${selectedFarm.village}${selectedFarm.crop_type ? ` · ${selectedFarm.crop_type}` : ''}`
-                      : 'Select farm'}
+                      : `Select ${labels.location.toLowerCase()}`}
                   </Button>
                   <SelectFarmModal
                     visible={farmModalOpen}
@@ -365,7 +367,7 @@ export default function ProposeScheduleScreen() {
                     farms={farms}
                     selectedFarmId={selectedFarmId}
                     onSelect={setSelectedFarmId}
-                    title="Select farm"
+                    title={`Select ${labels.location.toLowerCase()}`}
                   />
                 </>
               )}
@@ -404,13 +406,13 @@ export default function ProposeScheduleScreen() {
             <Text variant="bodySmall" style={styles.muted}>No schedules yet</Text>
           ) : (
             schedules.slice(0, 10).map((s) => {
-              const displayName = s.farmer_display_name ?? farmers.find((f) => f.id === s.farmer)?.display_name ?? 'No farmer assigned';
+              const displayName = s.farmer_display_name ?? farmers.find((f) => f.id === s.farmer)?.display_name ?? `No ${labels.partner.toLowerCase()} assigned`;
               return (
                 <ListItemRow
                   key={s.id}
                   avatarLetter={(displayName || '?').charAt(0)}
                   title={displayName}
-                  subtitle={`${formatDate(s.scheduled_date)} · Farm: ${s.farm_display_name ?? 'None'} · ${s.status}`}
+                  subtitle={`${formatDate(s.scheduled_date)} · ${labels.location}: ${s.farm_display_name ?? 'None'} · ${s.status}`}
                 />
               );
             })

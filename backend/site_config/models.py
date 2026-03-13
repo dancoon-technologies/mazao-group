@@ -21,12 +21,12 @@ class DepartmentTerminology(models.Model):
     partner_label = models.CharField(
         max_length=64,
         default="Farmer",
-        help_text="Label for the person/entity (e.g. Farmer, Stockist).",
+        help_text="Label for the person/entity. Use 'Farmer', 'Stockist', or 'Farmer / Stockist' for departments that have both (e.g. Mazao na afya).",
     )
     location_label = models.CharField(
         max_length=64,
         default="Farm",
-        help_text="Label for the location/plot (e.g. Farm, Outlet).",
+        help_text="Label for the location/plot. Use 'Farm', 'Outlet', or 'Farm / Outlet' for departments that have both.",
     )
 
     class Meta:

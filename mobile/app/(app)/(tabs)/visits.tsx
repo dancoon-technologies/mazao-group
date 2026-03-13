@@ -5,8 +5,8 @@ import { syncWithServer } from '@/lib/syncWithServer';
 import { farmerRowToFarmer, scheduleRowToSchedule, visitRowToVisit } from '@/lib/offline-helpers';
 import { useAppRefresh } from '@/contexts/AppRefreshContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { api, type Schedule, type Visit } from '@/lib/api';
-import { farmers$, schedules$, visits$ } from '@/store/observable';
+import { api, getLabels, type Schedule, type Visit } from '@/lib/api';
+import { appMeta$, farmers$, schedules$, visits$ } from '@/store/observable';
 import { useSelector } from '@legendapp/state/react';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
@@ -105,10 +105,11 @@ export default function VisitsScreen() {
     const list = farmers$.get() ?? [];
     return list.map(farmerRowToFarmer);
   });
+  const labels = useSelector(() => getLabels(appMeta$.cachedOptions.get()));
   const farmerDisplayName = useCallback(
     (s: Schedule) =>
-      s.farmer_display_name ?? farmers.find((f) => f.id === s.farmer)?.display_name ?? 'No farmer assigned',
-    [farmers]
+      s.farmer_display_name ?? farmers.find((f) => f.id === s.farmer)?.display_name ?? `No ${labels.partner.toLowerCase()} assigned`,
+    [farmers, labels.partner]
   );
 
   const load = useCallback(async () => {

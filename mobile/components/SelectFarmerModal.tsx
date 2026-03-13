@@ -1,4 +1,7 @@
 import type { Farmer } from "@/lib/api";
+import { getLabels } from "@/lib/api";
+import { appMeta$ } from "@/store/observable";
+import { useSelector } from "@legendapp/state/react";
 import React, { useEffect, useMemo, useState } from "react";
 import {
   Modal,
@@ -37,8 +40,10 @@ export function SelectFarmerModal({
   farmers,
   selectedFarmerId,
   onSelect,
-  title = "Select farmer",
+  title,
 }: SelectFarmerModalProps) {
+  const labels = useSelector(() => getLabels(appMeta$.cachedOptions.get()));
+  const modalTitle = title ?? `Select ${labels.partner.toLowerCase()}`;
   const [search, setSearch] = useState("");
   const [keyboardHeight, setKeyboardHeight] = useState(0);
 
@@ -103,7 +108,7 @@ export function SelectFarmerModal({
         <View style={[styles.sheet, { marginBottom: keyboardHeight }]}>
           <View style={styles.header}>
             <Text variant="titleMedium" style={styles.title}>
-              {title}
+              {modalTitle}
             </Text>
             <Button mode="text" compact onPress={onClose} style={styles.closeBtn}>
               Close
@@ -126,7 +131,7 @@ export function SelectFarmerModal({
               onPress={() => handleSelect(null)}
               style={styles.noFarmerBtn}
             >
-              No farmer
+              No {labels.partner.toLowerCase()}
             </Button>
           </View>
           <FlatList
@@ -139,7 +144,7 @@ export function SelectFarmerModal({
               search.trim() ? (
                 <View style={styles.empty}>
                   <Text variant="bodySmall" style={styles.emptyText}>
-                    No farmers match "{search.trim()}"
+                    No {labels.partner.toLowerCase()}s match "{search.trim()}"
                   </Text>
                 </View>
               ) : null

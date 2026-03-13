@@ -1,7 +1,9 @@
 import { cardShadow, cardStyle, colors, spacing } from '@/constants/theme';
 import { getFarmers as getFarmersDb, getAllFarms } from '@/database';
 import { farmRowToFarm, farmerRowToFarmer } from '@/lib/offline-helpers';
-import { api, type Farm, type Farmer } from '@/lib/api';
+import { api, getLabels, type Farm, type Farmer } from '@/lib/api';
+import { appMeta$ } from '@/store/observable';
+import { useSelector } from '@legendapp/state/react';
 import { useAppRefresh } from '@/contexts/AppRefreshContext';
 import { useFocusEffect, useRouter } from 'expo-router';
 import NetInfo from '@react-native-community/netinfo';
@@ -38,6 +40,7 @@ export default function FarmersScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
+  const labels = useSelector(() => getLabels(appMeta$.cachedOptions.get()));
 
   const loadFromDb = useCallback(async () => {
     const [farmerRows, farmRows] = await Promise.all([getFarmersDb(), getAllFarms()]);
@@ -145,7 +148,7 @@ export default function FarmersScreen() {
       <Card style={styles.card} elevation={0}>
         <Card.Content>
           <Text variant="bodyMedium">
-            {search.trim() ? 'No farmers match your search.' : 'No farmers'}
+            {search.trim() ? `No ${labels.partner.toLowerCase()}s match your search.` : `No ${labels.partner.toLowerCase()}s`}
           </Text>
           {!search.trim() && (
             <Button
@@ -153,13 +156,13 @@ export default function FarmersScreen() {
               onPress={openAddFarmer}
               style={styles.addBtn}
             >
-              Add Farmer
+              Add {labels.partner}
             </Button>
           )}
         </Card.Content>
       </Card>
     ),
-    [search.trim(), openAddFarmer]
+    [search.trim(), openAddFarmer, labels.partner]
   );
 
   return (
@@ -167,9 +170,9 @@ export default function FarmersScreen() {
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
       <View style={styles.header}>
         <View style={styles.headerText}>
-          <Text variant="bodyLarge" style={styles.title}>Farmers</Text>
+          <Text variant="bodyLarge" style={styles.title}>{labels.partner}s</Text>
           <Text variant="bodyMedium" style={styles.subtitle}>
-            Manage assigned farmers.
+            Manage assigned {labels.partner.toLowerCase()}s.
           </Text>
         </View>
       </View>
