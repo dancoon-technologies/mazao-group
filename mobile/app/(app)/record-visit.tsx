@@ -42,6 +42,7 @@ import {
 } from 'react-native-paper';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ListItemRow } from '@/components/ListItemRow';
+import { SelectFarmModal } from '@/components/SelectFarmModal';
 import {
   colors,
   DEFAULT_MAX_DISTANCE_METERS,
@@ -102,7 +103,7 @@ export default function RecordVisitScreen() {
   const [activityType, setActivityType] = useState(DEFAULT_ACTIVITY_TYPE);
   const [activityTypesList, setActivityTypesList] = useState<ActivityTypeOption[]>([]);
   const [farmerMenuOpen, setFarmerMenuOpen] = useState(false);
-  const [farmMenuOpen, setFarmMenuOpen] = useState(false);
+  const [farmModalOpen, setFarmModalOpen] = useState(false);
   const [activityMenuOpen, setActivityMenuOpen] = useState(false);
   const [accordionExpanded, setAccordionExpanded] = useState(false);
   const [locationLoading, setLocationLoading] = useState(false);
@@ -726,30 +727,31 @@ export default function RecordVisitScreen() {
                   <Text variant="bodyLarge">{selectedFarm.village}{selectedFarm.crop_type ? ` · ${selectedFarm.crop_type}` : ''}</Text>
                 </View>
               ) : selectedFarmer && !scheduleLockedForFarm ? (
-                <Menu
-                  visible={farmMenuOpen}
-                  onDismiss={() => setFarmMenuOpen(false)}
-                  anchor={
-                    <TextInput
-                      placeholder={farms.length ? 'Select farm' : 'No farms for this farmer'}
-                      value={selectedFarm ? `${selectedFarm.village}${selectedFarm.crop_type ? ` · ${selectedFarm.crop_type}` : ''}` : ''}
+                farms.length === 0 ? (
+                  <Text variant="bodySmall" style={styles.muted}>No farms for this farmer</Text>
+                ) : (
+                  <>
+                    <Button
                       mode="outlined"
-                      right={<TextInput.Icon icon="chevron-down" onPress={() => farms.length > 0 && setFarmMenuOpen(true)} />}
-                      style={styles.step2Input}
-                      onPressIn={() => farms.length > 0 && setFarmMenuOpen(true)}
-                      editable={false}
+                      onPress={() => setFarmModalOpen(true)}
+                      style={styles.farmSelectBtn}
+                      contentStyle={styles.farmSelectBtnContent}
+                      icon="barn"
+                    >
+                      {selectedFarm
+                        ? `${selectedFarm.village}${selectedFarm.crop_type ? ` · ${selectedFarm.crop_type}` : ''}`
+                        : 'Select farm'}
+                    </Button>
+                    <SelectFarmModal
+                      visible={farmModalOpen}
+                      onClose={() => setFarmModalOpen(false)}
+                      farms={farms}
+                      selectedFarmId={selectedFarmId}
+                      onSelect={setSelectedFarmId}
+                      title="Select farm"
                     />
-                  }
-                >
-                  <Menu.Item onPress={() => { setSelectedFarmId(null); setFarmMenuOpen(false); }} title="None" />
-                  {farms.map((f) => (
-                    <Menu.Item
-                      key={f.id}
-                      onPress={() => { setSelectedFarmId(f.id); setFarmMenuOpen(false); }}
-                      title={`${f.village}${f.crop_type ? ` · ${f.crop_type}` : ''}`}
-                    />
-                  ))}
-                </Menu>
+                  </>
+                )
               ) : null}
 
               <Text variant="labelMedium" style={styles.step2SectionTitle}>ACTIVITY TYPE</Text>
@@ -1126,6 +1128,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     marginBottom: spacing.md,
   },
+  farmSelectBtn: { marginBottom: 4 },
+  farmSelectBtnContent: { justifyContent: 'flex-start' },
+  muted: { opacity: 0.7 },
   step2Input: { marginBottom: spacing.md },
   locationCard: {
     flexDirection: 'row',
