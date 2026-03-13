@@ -1,10 +1,11 @@
+from django import forms
 from django.contrib import admin
 
 from .forms import FormFieldsFormField
 from .models import ActivityTypeConfig, Visit
 
 
-class ActivityTypeConfigAdminForm(admin.forms.ModelForm):
+class ActivityTypeConfigAdminForm(forms.ModelForm):
     form_fields = FormFieldsFormField(
         required=False,
         help_text="Optional list of {key, label, required} for visit form step 3. Keys: crop_stage, germination_percent, survival_rate, pests_diseases, order_value, harvest_kgs, farmers_feedback. Empty = show all.",
