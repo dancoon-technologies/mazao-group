@@ -158,7 +158,18 @@ else:
         "EMAIL_BACKEND",
         default="django.core.mail.backends.smtp.EmailBackend",
     )
-DEFAULT_FROM_EMAIL = config("DEFAULT_FROM_EMAIL", default="noreply@mazao.local")
+EMAIL_HOST = config("SMTP_HOST", default="us2.smtp.mailhostbox.com")
+EMAIL_PORT = config("SMTP_PORT", default=587, cast=int)
+EMAIL_USE_TLS = config("EMAIL_USE_TLS", default=True, cast=bool)
+EMAIL_USE_SSL = config("EMAIL_USE_SSL", default=False, cast=bool)
+EMAIL_HOST_USER = config("SMTP_USER", default="no_reply@dancoon.tech")
+# SMTP_PASS is required for SMTP authentication
+# Set it via environment variable: export SMTP_PASS="your_password"
+EMAIL_HOST_PASSWORD = config("SMTP_PASS", default="")
+EMAIL_TIMEOUT = config("EMAIL_TIMEOUT", default=30, cast=int)  # Connection timeout in seconds (increased from 10 to 30)
+DEFAULT_FROM_EMAIL = config("NOTIFICATION_PROVIDER_FROM", default="no_reply@dancoon.tech")
+SERVER_EMAIL = config("SERVER_EMAIL", default=DEFAULT_FROM_EMAIL)
+
 FRONTEND_LOGIN_URL = config("FRONTEND_LOGIN_URL", default="http://localhost:3000/login")
 
 # Notifications: SMS backend (console = log only; twilio = notifications.sms_backends.TwilioSMSBackend)
