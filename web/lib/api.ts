@@ -195,11 +195,13 @@ export const api = {
     if (params?.date_to) search.set("date_to", params.date_to);
     if (params?.page_size != null) search.set("page_size", String(params.page_size));
     const qs = search.toString();
-    const url = qs ? `${API_BASE}/api/tracking/reports?${qs}` : `${API_BASE}/api/tracking/reports`;
+    const url = qs ? `${API_BASE}/api/tracking/reports/?${qs}` : `${API_BASE}/api/tracking/reports/`;
     const res = await authFetch(url, { signal: options?.signal });
     if (!res.ok) {
       if (res.status === 403) throw new Error("Only admin or supervisor can view tracking.");
-      throw new Error("Failed to fetch location reports");
+      const err = await res.json().catch(() => ({})) as { detail?: string };
+      const msg = typeof err?.detail === "string" ? err.detail : "Failed to fetch location reports";
+      throw new Error(msg);
     }
     const data = (await res.json()) as { results?: LocationReport[]; count?: number };
     return { results: data.results ?? [], count: data.count ?? 0 };
