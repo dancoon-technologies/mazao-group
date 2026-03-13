@@ -14,6 +14,7 @@ import { View, StyleSheet, ScrollView, KeyboardAvoidingView, Platform } from 're
 import { Appbar, Button, Text, TextInput, ActivityIndicator, Banner, Snackbar } from 'react-native-paper';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SelectFarmerModal } from '@/components/SelectFarmerModal';
+import { SelectFarmModal } from '@/components/SelectFarmModal';
 import { isScheduleEditableByDate } from '@/lib/format';
 import { appbarHeight, colors, scrollPaddingKeyboard } from '@/constants/theme';
 
@@ -34,7 +35,10 @@ export default function EditScheduleScreen() {
   const [selectedFarmId, setSelectedFarmId] = useState<string | null>(null);
   const [notes, setNotes] = useState('');
   const [farmerModalOpen, setFarmerModalOpen] = useState(false);
+  const [farmModalOpen, setFarmModalOpen] = useState(false);
   const [snackbarVisible, setSnackbarVisible] = useState(false);
+
+  const selectedFarm = farms.find((f) => f.id === selectedFarmId);
 
   const load = useCallback(async () => {
     if (!scheduleId) return;
@@ -246,30 +250,31 @@ export default function EditScheduleScreen() {
           {selectedFarmerId && (
             <>
               <Text variant="labelLarge" style={styles.label}>Farm (optional)</Text>
-              <View style={styles.chipRow}>
-                <Button
-                  mode={selectedFarmId === null ? 'contained' : 'outlined'}
-                  compact
-                  onPress={() => setSelectedFarmId(null)}
-                  style={styles.chip}
-                >
-                  None
-                </Button>
-                {farms.map((farm) => (
+              {farms.length === 0 ? (
+                <Text variant="bodySmall" style={styles.muted}>No farms for this farmer</Text>
+              ) : (
+                <>
                   <Button
-                    key={farm.id}
-                    mode={selectedFarmId === farm.id ? 'contained' : 'outlined'}
-                    compact
-                    onPress={() => setSelectedFarmId(farm.id)}
-                    style={styles.chip}
+                    mode="outlined"
+                    onPress={() => setFarmModalOpen(true)}
+                    style={styles.farmerSelectBtn}
+                    contentStyle={styles.farmerSelectBtnContent}
+                    icon="barn"
                   >
-                    {farm.village}
+                    {selectedFarm
+                      ? `${selectedFarm.village}${selectedFarm.crop_type ? ` · ${selectedFarm.crop_type}` : ''}`
+                      : 'Select farm'}
                   </Button>
-                ))}
-                {farms.length === 0 && (
-                  <Text variant="bodySmall" style={styles.muted}>No farms for this farmer</Text>
-                )}
-              </View>
+                  <SelectFarmModal
+                    visible={farmModalOpen}
+                    onClose={() => setFarmModalOpen(false)}
+                    farms={farms}
+                    selectedFarmId={selectedFarmId}
+                    onSelect={setSelectedFarmId}
+                    title="Select farm"
+                  />
+                </>
+              )}
             </>
           )}
 
@@ -317,8 +322,6 @@ const styles = StyleSheet.create({
   hint: { marginBottom: 16, opacity: 0.8 },
   label: { marginTop: 12, marginBottom: 4 },
   input: { marginBottom: 12 },
-  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 },
-  chip: { margin: 0 },
   farmerSelectBtn: { marginBottom: 4 },
   farmerSelectBtnContent: { justifyContent: 'flex-start' },
   addFarmerLink: { marginBottom: 8 },
