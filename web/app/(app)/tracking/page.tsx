@@ -140,7 +140,7 @@ export default function TrackingPage() {
               onChange={(v) => setDateTo(v ?? dateTo)}
               data={[
                 { value: todayISO(), label: "Today" },
-                { value: dateDaysAgo(0), label: "Yesterday" },
+                { value: dateDaysAgo(1), label: "Yesterday" },
               ]}
               style={{ width: 140 }}
             />
