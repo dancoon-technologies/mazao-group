@@ -115,6 +115,7 @@ export default function RecordVisitScreen() {
   const [harvestKgs, setHarvestKgs] = useState('');
   const [pestsDiseases, setPestsDiseases] = useState('');
   const [farmersFeedback, setFarmersFeedback] = useState('');
+  const [step3Extra, setStep3Extra] = useState<Record<string, string>>({});
   const [snackbarMsg, setSnackbarMsg] = useState('');
   const [dialogVisible, setDialogVisible] = useState(false);
   const [dialogSuccess, setDialogSuccess] = useState(true);
@@ -929,7 +930,17 @@ export default function RecordVisitScreen() {
                       <TextInput key={f.key} label={f.label} value={farmersFeedback} onChangeText={setFarmersFeedback} mode="outlined" multiline numberOfLines={2} placeholder="Farmer's comments" style={styles.input} />
                     );
                   }
-                  return null;
+                  return (
+                    <TextInput
+                      key={f.key}
+                      label={f.label}
+                      value={step3Extra[f.key] ?? ''}
+                      onChangeText={(t) => setStep3Extra((prev) => ({ ...prev, [f.key]: t }))}
+                      mode="outlined"
+                      placeholder={f.label}
+                      style={styles.input}
+                    />
+                  );
                 })}
               </Surface>
 
