@@ -19,8 +19,6 @@ class OptionsListView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        from django.conf import settings as django_settings
-
         logger.debug("GET /api/options/")
         departments = [
             {"value": d.slug, "label": d.name} for d in Department.objects.all()
@@ -29,8 +27,9 @@ class OptionsListView(APIView):
             {"value": User.Role.SUPERVISOR, "label": dict(User.Role.choices)[User.Role.SUPERVISOR]},
             {"value": User.Role.OFFICER, "label": dict(User.Role.choices)[User.Role.OFFICER]},
         ]
-        visit_max_m = getattr(django_settings, "VISIT_MAX_DISTANCE_METERS", 100)
-        visit_warning_m = getattr(django_settings, "VISIT_WARNING_DISTANCE_METERS", 80)
+        from site_config.services import get_visit_max_distance_meters, get_visit_warning_distance_meters
+        visit_max_m = get_visit_max_distance_meters()
+        visit_warning_m = get_visit_warning_distance_meters()
 
         # Activity types: only those for the user's department (prefetch used to avoid N+1).
         # form_fields: optional list of {key, label, required} for step 3; empty = show all known fields.
@@ -48,6 +47,19 @@ class OptionsListView(APIView):
         except Exception as e:
             logger.warning("Options activity_types: %s", e)
 
+        tracking_working_start = 6
+        tracking_working_end = 18
+        tracking_interval_minutes = 10
+        try:
+            from tracking.models import TrackingSettings
+            ts = TrackingSettings.objects.first()
+            if ts:
+                tracking_working_start = max(0, min(23, ts.working_hour_start))
+                tracking_working_end = max(0, min(23, ts.working_hour_end))
+                tracking_interval_minutes = max(1, min(120, ts.interval_minutes))
+        except Exception as e:
+            logger.warning("Options tracking_settings: %s", e)
+
         return Response(
             {
                 "departments": departments,
@@ -57,6 +69,11 @@ class OptionsListView(APIView):
                     "warning_distance_meters": visit_warning_m,
                 },
                 "activity_types": activity_types,
+                "tracking_settings": {
+                    "working_hour_start": tracking_working_start,
+                    "working_hour_end": tracking_working_end,
+                    "interval_minutes": tracking_interval_minutes,
+                },
             }
         )
 

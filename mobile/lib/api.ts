@@ -130,11 +130,18 @@ export interface ActivityTypeOption {
   form_fields?: ActivityFormFieldOption[];
 }
 
+export interface TrackingSettings {
+  working_hour_start: number;
+  working_hour_end: number;
+  interval_minutes?: number;
+}
+
 export interface OptionsResponse {
   departments: { value: string; label: string }[];
   staff_roles: { value: string; label: string }[];
   visit_settings: VisitSettings;
   activity_types?: ActivityTypeOption[];
+  tracking_settings?: TrackingSettings;
 }
 
 // --- Helpers ---

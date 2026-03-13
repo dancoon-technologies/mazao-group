@@ -37,7 +37,30 @@ async function pushQueue(accessToken: string): Promise<{ ok: boolean; error?: st
   const toSync = await getPendingSyncQueue()
   const pushedIds: string[] = []
 
+  const locationReportItems = toSync.filter((i) => i.entity === 'location_report')
+  if (locationReportItems.length > 0) {
+    try {
+      const reports = locationReportItems.map((i) => JSON.parse(i.payload) as Record<string, unknown>)
+      const res = await fetch(`${API_BASE}/tracking/reports/batch/`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({ reports }),
+      })
+      if (!res.ok) {
+        const err = (await res.json().catch(() => ({}))) as { detail?: string }
+        return { ok: false, error: err.detail ?? 'Location reports upload failed', pushedIds }
+      }
+      locationReportItems.forEach((i) => pushedIds.push(i.id))
+    } catch (e) {
+      return { ok: false, error: e instanceof Error ? e.message : 'Location reports upload failed', pushedIds }
+    }
+  }
+
   for (const item of toSync) {
+    if (item.entity === 'location_report') continue
     try {
       const payload = JSON.parse(item.payload) as Record<string, unknown>
       if (item.entity === 'visit') {
@@ -376,4 +399,16 @@ export async function enqueueFarm(payload: {
 /** Get count of pending sync items */
 export async function getPendingSyncCount(): Promise<number> {
   return getPendingSyncCountDb()
+}
+
+/** Enqueue a location report for later sync (offline-first). Collected during working hours with battery and device info. */
+export async function enqueueLocationReport(payload: {
+  reported_at: string
+  latitude: number
+  longitude: number
+  accuracy?: number | null
+  battery_percent?: number | null
+  device_info?: Record<string, unknown>
+}): Promise<void> {
+  await enqueueSyncItem('location_report', 'CREATE', payload)
 }

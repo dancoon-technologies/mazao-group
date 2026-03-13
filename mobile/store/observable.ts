@@ -10,6 +10,7 @@ import {
 } from '@legendapp/state/persist';
 import { ObservablePersistAsyncStorage } from '@legendapp/state/persist-plugins/async-storage';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import type { LocationData, OptionsResponse } from '@/lib/api';
 import type { FarmerRow, FarmRow, ScheduleRow, SyncQueueRow, VisitRow } from './types';
 
 configureObservablePersistence({
@@ -21,12 +22,21 @@ configureObservablePersistence({
   },
 });
 
-/** App meta (last sync time, cached dashboard stats). */
-export const appMeta$ = observable({
-  lastSyncAt: null as string | null,
-  cachedStats: null as { visits_today: number; visits_this_month: number } | null,
+/** App meta (last sync time, cached dashboard stats, cached options for offline). */
+export const appMeta$ = observable<{
+  lastSyncAt: string | null;
+  cachedStats: { visits_today: number; visits_this_month: number } | null;
+  cachedOptions: OptionsResponse | null;
+}>({
+  lastSyncAt: null,
+  cachedStats: null,
+  cachedOptions: null,
 });
 persistObservable(appMeta$, { local: 'mazao_meta' });
+
+/** Cached Kenya locations (regions, counties, sub_counties) for offline add-farmer/add-farm. */
+export const locationsCache$ = observable<LocationData | null>(null);
+persistObservable(locationsCache$, { local: 'mazao_locations_cache' });
 
 /** Farmers list. */
 export const farmers$ = observable<FarmerRow[]>([]);

@@ -12,6 +12,7 @@ from accounts.views import (
 )
 from farmers.views import FarmerListCreateView, FarmListCreateView
 from locations.views import LocationListView
+from tracking.views import LocationReportBatchCreateView, LocationReportListCreateView
 from notifications.views import (
     NotificationArchiveView,
     NotificationListView,
@@ -62,6 +63,8 @@ urlpatterns = [
     path("staff/", StaffListCreateView.as_view(), name="staff-list-create"),
     path("officers/", OfficersListView.as_view(), name="officers-list"),
     path("locations/", LocationListView.as_view(), name="locations-list"),
+    path("tracking/reports/", LocationReportListCreateView.as_view(), name="tracking-report-list"),
+    path("tracking/reports/batch/", LocationReportBatchCreateView.as_view(), name="tracking-report-batch"),
     path("options/", OptionsListView.as_view(), name="options-list"),
     path("notifications/", NotificationListView.as_view(), name="notification-list"),
     path(

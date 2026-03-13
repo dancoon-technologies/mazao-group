@@ -52,7 +52,10 @@
             "enableMinifyInReleaseBuilds": true,
             "enableShrinkResourcesInReleaseBuilds": true,
             "enableBundleCompression": true,
-            "buildArchs": ["arm64-v8a", "armeabi-v7a"],
+            "buildArchs": [
+              "arm64-v8a",
+              "armeabi-v7a"
+            ],
             "packagingOptions": {
               "pickFirst": [
                 "**/libc++_shared.so"
@@ -99,7 +102,8 @@
           "sounds": [],
           "defaultChannel": "default"
         }
-      ]
+      ],
+      "expo-background-task"
     ],
     "experiments": {
       "typedRoutes": true,

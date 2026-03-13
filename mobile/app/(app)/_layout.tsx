@@ -2,7 +2,10 @@ import { AppRefreshProvider, useAppRefresh } from '@/contexts/AppRefreshContext'
 import { useAuth } from '@/contexts/AuthContext';
 import { appMeta$ } from '@/store/observable';
 import { registerForPushNotificationsAsync } from '@/lib/pushNotifications';
+import { registerBackgroundSyncTask } from '@/lib/backgroundSync';
+import { api } from '@/lib/api';
 import { getLastSync, syncWithServer } from '@/lib/syncWithServer';
+import { startTracking, stopTracking } from '@/lib/trackingCollector';
 import NetInfo from '@react-native-community/netinfo';
 import * as Notifications from 'expo-notifications';
 import { Stack, useRouter } from 'expo-router';
@@ -32,6 +35,12 @@ function AppLayoutInner() {
     getLastSync().then((iso) => {
       if (iso) appMeta$.lastSyncAt.set(iso);
     });
+  }, [isAuthenticated]);
+
+  // Register background sync so offline data is pushed when app is in background
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    registerBackgroundSyncTask().catch(() => {});
   }, [isAuthenticated]);
 
   // Run sync immediately on mount when online (avoid stale store when user goes offline later)
@@ -73,6 +82,32 @@ function AppLayoutInner() {
     const sub = AppState.addEventListener('change', handleAppState);
     return () => sub.remove();
   }, [isAuthenticated, triggerRefresh]);
+
+  // Location tracking during working hours (config from admin; use cache when offline)
+  useEffect(() => {
+    if (!isAuthenticated) {
+      stopTracking();
+      return;
+    }
+    let cancelled = false;
+    api.getOptions().then((o) => {
+      if (!cancelled) {
+        appMeta$.cachedOptions.set(o);
+        if (o?.tracking_settings) startTracking(o.tracking_settings);
+        else startTracking();
+      }
+    }).catch(() => {
+      if (!cancelled) {
+        const cached = appMeta$.cachedOptions.get();
+        if (cached?.tracking_settings) startTracking(cached.tracking_settings);
+        else startTracking();
+      }
+    });
+    return () => {
+      cancelled = true;
+      stopTracking();
+    };
+  }, [isAuthenticated]);
 
   // Register for push notifications when authenticated (defer slightly so native module is ready)
   useEffect(() => {

@@ -5,6 +5,7 @@ import {
   getScheduleIdsWithRecordedVisits,
 } from '@/database';
 import { useAuth } from '@/contexts/AuthContext';
+import { appMeta$ } from '@/store/observable';
 import { api, type ActivityFormFieldOption, type ActivityTypeOption, type Farm, type Farmer, type Schedule, type VisitSettings } from '@/lib/api';
 import { ACTIVITY_TYPES, DEFAULT_ACTIVITY_TYPE } from '@/lib/constants/activityTypes';
 import { enqueueVisit, syncWithServer } from '@/lib/syncWithServer';
@@ -157,23 +158,32 @@ export default function RecordVisitScreen() {
   }, []);
 
   useEffect(() => {
+    const applyOptions = (o: import('@/lib/api').OptionsResponse) => {
+      setVisitSettings(o.visit_settings ?? { max_distance_meters: DEFAULT_MAX_DISTANCE_METERS, warning_distance_meters: DEFAULT_WARNING_DISTANCE_METERS });
+      if (o.activity_types?.length) {
+        setActivityTypesList(o.activity_types);
+        setActivityType((prev) => {
+          const allowed = o.activity_types!.map((a) => a.value);
+          return allowed.includes(prev) ? prev : (o.activity_types![0]?.value ?? prev);
+        });
+      } else {
+        setActivityTypesList(ACTIVITY_TYPES.map((a) => ({ value: a.value, label: a.label })));
+      }
+    };
     api
       .getOptions()
       .then((o) => {
-        setVisitSettings(o.visit_settings);
-        if (o.activity_types?.length) {
-          setActivityTypesList(o.activity_types);
-          setActivityType((prev) => {
-            const allowed = o.activity_types!.map((a) => a.value);
-            return allowed.includes(prev) ? prev : (o.activity_types![0]?.value ?? prev);
-          });
-        } else {
-          setActivityTypesList(ACTIVITY_TYPES.map((a) => ({ value: a.value, label: a.label })));
-        }
+        appMeta$.cachedOptions.set(o);
+        applyOptions(o);
       })
       .catch(() => {
-        setVisitSettings(null);
-        setActivityTypesList(ACTIVITY_TYPES.map((a) => ({ value: a.value, label: a.label })));
+        const cached = appMeta$.cachedOptions.get();
+        if (cached) {
+          applyOptions(cached);
+        } else {
+          setVisitSettings({ max_distance_meters: DEFAULT_MAX_DISTANCE_METERS, warning_distance_meters: DEFAULT_WARNING_DISTANCE_METERS });
+          setActivityTypesList(ACTIVITY_TYPES.map((a) => ({ value: a.value, label: a.label })));
+        }
       });
   }, []);
 

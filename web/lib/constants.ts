@@ -14,6 +14,7 @@ export const ROUTES = {
   VISITS: "/visits",
   SCHEDULES: "/schedules",
   STAFF: "/staff",
+  TRACKING: "/tracking",
 } as const;
 
 /** Role identifiers (single source of truth; match backend) */
@@ -38,6 +39,12 @@ export const ROLES_CAN_CREATE_SCHEDULES: readonly UserRole[] = [
 
 /** Roles that can list visits (admins and supervisors only) */
 export const ROLES_CAN_LIST_VISITS: readonly UserRole[] = [
+  ROLES.ADMIN,
+  ROLES.SUPERVISOR,
+];
+
+/** Roles that can access team tracking (location reports) */
+export const ROLES_TRACKING: readonly UserRole[] = [
   ROLES.ADMIN,
   ROLES.SUPERVISOR,
 ];

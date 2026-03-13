@@ -196,3 +196,17 @@ export interface Notification {
   created_at: string;
   read_at: string | null;
 }
+
+export interface LocationReport {
+  id: number;
+  user_id: string;
+  user_email: string;
+  user_display_name: string | null;
+  reported_at: string;
+  latitude: number;
+  longitude: number;
+  accuracy: number | null;
+  battery_percent: number | null;
+  device_info: Record<string, unknown>;
+  created_at: string;
+}

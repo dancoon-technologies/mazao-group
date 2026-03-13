@@ -38,6 +38,8 @@ INSTALLED_APPS = [
     "schedules",
     "notifications",
     "locations",
+    "tracking",
+    "site_config",
 ]
 
 MIDDLEWARE = [
@@ -134,18 +136,8 @@ CORS_ALLOWED_ORIGINS = config(
 ).split(",")
 CORS_ALLOW_ALL_ORIGINS = True if DEBUG else False
 
-# Visit photo: max 5MB
-VISIT_PHOTO_MAX_SIZE_MB = 5
+# Visit photo: allowed MIME types (max size is in site_config DB)
 VISIT_PHOTO_ALLOWED_EXTENSIONS = ("image/jpeg", "image/png", "image/jpg")
-
-# Visit GPS: max distance (meters) from farmer/farm to accept visit. Increase for development/testing.
-VISIT_MAX_DISTANCE_METERS = config("VISIT_MAX_DISTANCE_METERS", default=100, cast=int)
-# Optional: distance (meters) at which to show a warning in the app before user is over limit.
-VISIT_WARNING_DISTANCE_METERS = config("VISIT_WARNING_DISTANCE_METERS", default=80, cast=int)
-# Travel validation: only check if previous visit was within this many hours.
-VISIT_TRAVEL_VALIDATION_WINDOW_HOURS = config("VISIT_TRAVEL_VALIDATION_WINDOW_HOURS", default=12, cast=float)
-# Max reasonable travel speed (km/h) between consecutive visits; reject if required speed would exceed this.
-VISIT_MAX_TRAVEL_SPEED_KMH = config("VISIT_MAX_TRAVEL_SPEED_KMH", default=120, cast=float)
 
 # Email (staff credentials): console when DEBUG, else SMTP (override with EMAIL_BACKEND if needed)
 if DEBUG:

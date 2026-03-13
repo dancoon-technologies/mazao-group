@@ -15,6 +15,7 @@ import type {
   Notification,
   LocationsResponse,
   OptionsResponse,
+  LocationReport,
 } from "./types";
 import { parseApiError } from "./api-utils";
 
@@ -181,6 +182,27 @@ export const api = {
       throw new Error(msg);
     }
     return res.json();
+  },
+
+  /** Admin/supervisor only. Location reports (tracking during working hours). Offline-friendly: use page_size for poor network. */
+  async getTrackingReports(
+    params?: { user_id?: string; date_from?: string; date_to?: string; page_size?: number },
+    options?: { signal?: AbortSignal }
+  ): Promise<{ results: LocationReport[]; count: number }> {
+    const search = new URLSearchParams();
+    if (params?.user_id) search.set("user_id", params.user_id);
+    if (params?.date_from) search.set("date_from", params.date_from);
+    if (params?.date_to) search.set("date_to", params.date_to);
+    if (params?.page_size != null) search.set("page_size", String(params.page_size));
+    const qs = search.toString();
+    const url = qs ? `${API_BASE}/api/tracking/reports?${qs}` : `${API_BASE}/api/tracking/reports`;
+    const res = await authFetch(url, { signal: options?.signal });
+    if (!res.ok) {
+      if (res.status === 403) throw new Error("Only admin or supervisor can view tracking.");
+      throw new Error("Failed to fetch location reports");
+    }
+    const data = (await res.json()) as { results?: LocationReport[]; count?: number };
+    return { results: data.results ?? [], count: data.count ?? 0 };
   },
 
   async getDashboardStats(options?: { signal?: AbortSignal }): Promise<DashboardStats> {

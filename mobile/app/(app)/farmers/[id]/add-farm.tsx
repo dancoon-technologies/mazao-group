@@ -1,5 +1,6 @@
 import { enqueueFarm } from '@/lib/syncWithServer';
 import { api } from '@/lib/api';
+import { locationsCache$ } from '@/store/observable';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import NetInfo from '@react-native-community/netinfo';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -49,13 +50,25 @@ export default function AddFarmScreen() {
   const loadLocations = useCallback(async () => {
     try {
       const data = await api.getLocations();
+      locationsCache$.set(data);
       setLocations({
         regions: data.regions,
         counties: data.counties,
         sub_counties: data.sub_counties,
       });
+      setError('');
     } catch {
-      setError('Failed to load locations');
+      const cached = locationsCache$.get();
+      if (cached) {
+        setLocations({
+          regions: cached.regions,
+          counties: cached.counties,
+          sub_counties: cached.sub_counties,
+        });
+        setError('');
+      } else {
+        setError('Load locations when online first, then you can add farm offline.');
+      }
     } finally {
       setLoadingLocations(false);
     }

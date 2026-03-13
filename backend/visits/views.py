@@ -30,12 +30,14 @@ logger = logging.getLogger(__name__)
 
 
 def _validate_photo(file):
-    """Validate file type and size. Max 5MB."""
+    """Validate file type and size. Max from site config or 5MB."""
+    from site_config.services import get_visit_photo_max_size_mb
     if not file:
         return None, "Photo is required."
-    max_bytes = getattr(django_settings, "VISIT_PHOTO_MAX_SIZE_MB", 5) * 1024 * 1024
+    max_mb = get_visit_photo_max_size_mb()
+    max_bytes = max_mb * 1024 * 1024
     if file.size > max_bytes:
-        return None, f"Photo must be under {django_settings.VISIT_PHOTO_MAX_SIZE_MB}MB."
+        return None, f"Photo must be under {max_mb}MB."
     allowed = getattr(
         django_settings, "VISIT_PHOTO_ALLOWED_EXTENSIONS", ("image/jpeg", "image/png", "image/jpg")
     )
@@ -132,8 +134,9 @@ class VisitListCreateView(generics.ListCreateAPIView):
             )
 
         # Reject if this location is impossibly far from the officer's last visit (e.g. Thika then Naivasha in minutes).
-        window_h = getattr(django_settings, "VISIT_TRAVEL_VALIDATION_WINDOW_HOURS", 12.0)
-        max_kmh = getattr(django_settings, "VISIT_MAX_TRAVEL_SPEED_KMH", 120.0)
+        from site_config.services import get_visit_max_travel_speed_kmh, get_visit_travel_validation_window_hours
+        window_h = get_visit_travel_validation_window_hours()
+        max_kmh = get_visit_max_travel_speed_kmh()
         travel_err, travel_extra = check_travel_from_last_visit(
             user.pk, lat, lon, window_hours=window_h, max_speed_kmh=max_kmh
         )
@@ -211,7 +214,8 @@ class VisitListCreateView(generics.ListCreateAPIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        max_m = getattr(django_settings, "VISIT_MAX_DISTANCE_METERS", 100)
+        from site_config.services import get_visit_max_distance_meters
+        max_m = get_visit_max_distance_meters()
         distance = haversine_meters(lat, lon, ref_lat, ref_lon)
         if distance > max_m:
             msg = (

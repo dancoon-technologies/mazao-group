@@ -250,6 +250,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const logout = useCallback(async () => {
+    const { unregisterBackgroundSyncTask } = await import('@/lib/backgroundSync');
+    await unregisterBackgroundSyncTask();
     await clearOfflineCredentials();
     await api.logout();
     if (!mounted.current) return;

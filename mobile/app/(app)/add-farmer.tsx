@@ -16,6 +16,7 @@ import { createOrUpdateFarmer, createOrUpdateFarm } from '@/database';
 import { normalizeServerFarmer, normalizeServerFarm } from '@/database/helpers';
 import { enqueueFarmerWithFarm } from '@/lib/syncWithServer';
 import { api } from '@/lib/api';
+import { locationsCache$ } from '@/store/observable';
 import { useKenyaLocation } from '@/hooks/useKenyaLocation';
 
 type LocationState = {
@@ -66,13 +67,25 @@ export default function AddFarmerScreen() {
   const loadLocations = useCallback(async () => {
     try {
       const data = await api.getLocations();
+      locationsCache$.set(data);
       setLocations({
         regions: data.regions,
         counties: data.counties,
         sub_counties: data.sub_counties,
       });
+      setError('');
     } catch {
-      setError('Failed to load locations');
+      const cached = locationsCache$.get();
+      if (cached) {
+        setLocations({
+          regions: cached.regions,
+          counties: cached.counties,
+          sub_counties: cached.sub_counties,
+        });
+        setError('');
+      } else {
+        setError('Load locations when online first, then you can add farmer and farm offline.');
+      }
     } finally {
       setLoadingLocations(false);
     }
