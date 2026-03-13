@@ -60,7 +60,7 @@ export default function TrackingPage() {
   );
   const userOptions = useMemo(
     () =>
-      staffList.map((s) => ({
+      (staffList ?? []).map((s) => ({
         value: s.id,
         label: s.display_name || s.email || s.id,
       })),
