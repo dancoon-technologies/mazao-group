@@ -315,7 +315,7 @@ export default function AddFarmerScreen() {
 
   if (loadingLocations) {
     return (
-      <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
+      <SafeAreaView style={styles.safe}>
         <View style={styles.centered}>
           <ActivityIndicator size="large" />
         </View>
@@ -326,7 +326,7 @@ export default function AddFarmerScreen() {
   const scrollPaddingBottom = scrollPaddingKeyboard + Math.max(insets.bottom, 24);
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
+    <SafeAreaView style={styles.safe}>
       <KeyboardAvoidingView
         style={styles.container}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}

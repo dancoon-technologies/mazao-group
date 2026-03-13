@@ -214,7 +214,7 @@ export default function ProposeScheduleScreen() {
     } finally {
       setSubmitting(false);
     }
-  }, [assigner, userId, selectedDate, selectedOfficerId, selectedFarmerId, notes, router, showSnackbar, isOnline]);
+  }, [assigner, userId, selectedDate, selectedOfficerId, selectedFarmerId, selectedFarmId, notes, router, showSnackbar, isOnline]);
 
   const selectedFarm = farms.find((f) => f.id === selectedFarmId);
 
