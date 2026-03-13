@@ -4,7 +4,8 @@ from .models import LocationReport, TrackingSettings
 
 @admin.register(TrackingSettings)
 class TrackingSettingsAdmin(admin.ModelAdmin):
-    list_display = ("working_hour_start", "working_hour_end", "interval_minutes")
+    list_display = ("id", "working_hour_start", "working_hour_end", "interval_minutes")
+    list_display_links = ("id",)
     list_editable = ("working_hour_start", "working_hour_end", "interval_minutes")
 
     def has_add_permission(self, request):

@@ -4,7 +4,8 @@ from .models import DepartmentTerminology, SiteConfig
 
 @admin.register(DepartmentTerminology)
 class DepartmentTerminologyAdmin(admin.ModelAdmin):
-    list_display = ("department", "partner_label", "location_label")
+    list_display = ("id", "department", "partner_label", "location_label")
+    list_display_links = ("id",)
     list_editable = ("partner_label", "location_label")
     list_filter = ("department",)
     search_fields = ("department__name", "department__slug", "partner_label", "location_label")
@@ -14,6 +15,7 @@ class DepartmentTerminologyAdmin(admin.ModelAdmin):
 @admin.register(SiteConfig)
 class SiteConfigAdmin(admin.ModelAdmin):
     list_display = (
+        "id",
         "partner_label",
         "location_label",
         "visit_max_distance_meters",
@@ -22,6 +24,7 @@ class SiteConfigAdmin(admin.ModelAdmin):
         "visit_max_travel_speed_kmh",
         "visit_photo_max_size_mb",
     )
+    list_display_links = ("id",)
     list_editable = (
         "partner_label",
         "location_label",

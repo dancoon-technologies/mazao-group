@@ -54,13 +54,14 @@ export default function TrackingPage() {
   const [dateTo, setDateTo] = useState(todayISO());
   const [userId, setUserId] = useState<string | null>(null);
 
-  const { data: staffList = [] } = useAsyncData(
+  const { data: staffData } = useAsyncData(
     (signal) => api.getStaff({ signal }),
     []
   );
+  const staffList = staffData ?? [];
   const userOptions = useMemo(
     () =>
-      (staffList ?? []).map((s) => ({
+      staffList.map((s) => ({
         value: s.id,
         label: s.display_name || s.email || s.id,
       })),
