@@ -5,12 +5,13 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { TextInput, Button, Text, HelperText } from 'react-native-paper';
 import { useAuth } from '@/contexts/AuthContext';
 import { api } from '@/lib/api';
+import { getOfflineCredentials, saveOfflineCredentials } from '@/lib/offlineAuth';
 import { spacing, scrollPaddingKeyboardShort } from '@/constants/theme';
 
 export default function ChangePasswordScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { isAuthenticated, isLoading, clearMustChangePassword } = useAuth();
+  const { isAuthenticated, isLoading, clearMustChangePassword, email } = useAuth();
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -41,6 +42,10 @@ export default function ChangePasswordScreen() {
     try {
       await api.changePassword(currentPassword, newPassword);
       clearMustChangePassword();
+      const { payload } = await getOfflineCredentials();
+      if (payload && email) {
+        await saveOfflineCredentials(email, newPassword, { ...payload, mustChangePassword: false });
+      }
       router.replace('/(app)');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to change password');

@@ -8,14 +8,12 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
-  Button,
-  Card,
   RefreshControl,
   ScrollView,
   StyleSheet,
   View,
 } from 'react-native';
-import { Appbar, Text } from 'react-native-paper';
+import { Appbar, Button, Card, Text } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 function formatNotificationDate(iso: string | null) {
@@ -113,7 +111,8 @@ export default function NotificationsScreen() {
     }
   }, [list]);
 
-  const unreadCount = list.filter((n) => !n.read_at).length;
+  const safeList = list ?? [];
+  const unreadCount = safeList.filter((n) => !n.read_at).length;
 
   return (
     <SafeAreaView style={styles.safe} edges={['bottom']}>
@@ -145,7 +144,7 @@ export default function NotificationsScreen() {
               </Button>
             </Card.Content>
           </Card>
-        ) : list.length === 0 ? (
+        ) : safeList.length === 0 ? (
           <Card style={styles.card} elevation={0}>
             <Card.Content>
               <Text variant="bodyMedium" style={styles.emptyText}>
@@ -158,12 +157,12 @@ export default function NotificationsScreen() {
           </Card>
         ) : (
           <View style={styles.list}>
-            {list.map((n) => (
+            {safeList.map((n, index) => (
               <ListItemRow
-                key={n.id}
-                avatarLetter={n.title.charAt(0).toUpperCase() || '?'}
-                title={n.title}
-                subtitle={n.message}
+                key={n?.id ?? `notif-${index}`}
+                avatarLetter={((n?.title ?? '').charAt(0) || '?').toUpperCase()}
+                title={n?.title ?? ''}
+                subtitle={n?.message ?? ''}
                 onPress={() => handleMarkRead(n)}
                 right={
                   <View style={styles.rowRight}>
@@ -188,7 +187,7 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.gray100 },
   appbar: { backgroundColor: colors.white, elevation: 0 },
   container: { flex: 1 },
-  content: { padding: spacing.lg, paddingBottom: 80 },
+  content: { flexGrow: 1, padding: spacing.lg, paddingBottom: 80 },
   loader: { marginVertical: spacing.xl },
   card: { ...cardStyle, ...cardShadow },
   error: { marginBottom: 8 },

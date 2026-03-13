@@ -19,7 +19,7 @@ import { ROUTES } from "@/lib/constants";
 
 export default function ChangePasswordPage() {
   const router = useRouter();
-  const { isAuthenticated, isLoading, logout } = useAuth();
+  const { isAuthenticated, isLoading, setMustChangePassword } = useAuth();
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -46,13 +46,12 @@ export default function ChangePasswordPage() {
     }
     setLoading(true);
     try {
-      await api.changePassword({
+      const { user } = await api.changePassword({
         current_password: currentPassword,
         new_password: newPassword,
       });
-      await logout();
-      // Send to login with redirect to dashboard so they are not sent back to change-password
-      router.replace(`${ROUTES.LOGIN}?redirect=${encodeURIComponent(ROUTES.DASHBOARD)}`);
+      setMustChangePassword(user?.must_change_password ?? false);
+      router.replace(ROUTES.DASHBOARD);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to change password");
     } finally {

@@ -255,8 +255,6 @@ class ChangePasswordView(generics.GenericAPIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
-        from rest_framework_simplejwt.tokens import RefreshToken
-
         current = request.data.get("current_password")
         new_password = request.data.get("new_password")
         if not current or not new_password:
@@ -285,7 +283,9 @@ class ChangePasswordView(generics.GenericAPIView):
             message="Your password was changed successfully.",
             channels=["in_app", "push"],
         )
-        refresh = RefreshToken.for_user(user)
+        from accounts.auth_views import EmailTokenObtainPairSerializer
+
+        refresh = EmailTokenObtainPairSerializer.get_token(user)
         jti = refresh.get("jti")
         if jti:
             user.current_refresh_jti = jti
