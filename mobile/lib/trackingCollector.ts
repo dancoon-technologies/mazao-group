@@ -1,15 +1,19 @@
 /**
  * Location tracking during working hours: collect GPS, battery %, and device info.
+ * Works in foreground and background via expo-location startLocationUpdatesAsync.
  * Offline-first: enqueue to sync queue; syncWithServer pushes batch when online.
- * Runs only when app is in foreground and within working hours to save battery.
  */
 
 import Constants from 'expo-constants';
 import * as Device from 'expo-device';
 import * as Location from 'expo-location';
+import * as TaskManager from 'expo-task-manager';
 import { Platform } from 'react-native';
 import { enqueueLocationReport } from '@/lib/syncWithServer';
 import { logger } from '@/lib/logger';
+
+/** Task name for background location updates (must be defined at top level). */
+export const LOCATION_TRACKING_TASK = 'mazao-location-tracking';
 
 /** Default working hours (0–23) and interval when backend config is unavailable. */
 const DEFAULT_WORKING_HOUR_START = 6;
@@ -34,6 +38,12 @@ function getDeviceInfo(): Record<string, unknown> {
   };
 }
 
+function isWithinWorkingHours(): boolean {
+  const now = new Date();
+  const hour = now.getHours();
+  return hour >= workingHourStart && hour < workingHourEnd;
+}
+
 async function getBatteryPercent(): Promise<number | null> {
   try {
     const battery = await import('expo-battery').then((m) => m.getBatteryLevelAsync());
@@ -44,44 +54,37 @@ async function getBatteryPercent(): Promise<number | null> {
   }
 }
 
-function isWithinWorkingHours(): boolean {
-  const now = new Date();
-  const hour = now.getHours();
-  return hour >= workingHourStart && hour < workingHourEnd;
-}
-
-let trackingIntervalId: ReturnType<typeof setInterval> | null = null;
-
-export async function collectAndEnqueueLocationReport(): Promise<void> {
-  if (!isWithinWorkingHours()) return;
-  try {
-    const { status } = await Location.getForegroundPermissionsAsync();
-    if (status !== 'granted') return;
-    const location = await Location.getCurrentPositionAsync({
-      accuracy: Location.Accuracy.Highest,
-      mayShowUserSettingsDialog: false,
-    });
-    const coords = location.coords;
-    // Use the time when the location was actually captured (from GPS), not when we enqueue/sync.
-    const reportedAt =
-      typeof (location as { timestamp?: number }).timestamp === 'number'
-        ? new Date((location as { timestamp: number }).timestamp).toISOString()
-        : new Date().toISOString();
-    const batteryPercent = await getBatteryPercent();
-    const deviceInfo = getDeviceInfo();
-    await enqueueLocationReport({
-      reported_at: reportedAt,
-      latitude: coords.latitude,
-      longitude: coords.longitude,
-      accuracy: coords.accuracy ?? null,
-      battery_percent: batteryPercent,
-      device_info: deviceInfo,
-    });
-    logger.info('Tracking: enqueued location report', { lat: coords.latitude, lon: coords.longitude, battery: batteryPercent });
-  } catch (e) {
-    logger.warn('Tracking: collect failed', e instanceof Error ? e.message : e);
+/** Background/foreground location task: receives batched locations and enqueues each (during working hours). */
+TaskManager.defineTask(LOCATION_TRACKING_TASK, async ({ data, error }) => {
+  if (error) {
+    logger.warn('Tracking: location task error', error.message);
+    return;
   }
-}
+  const locations = (data as { locations?: Location.LocationObject[] })?.locations ?? [];
+  if (!isWithinWorkingHours()) return;
+  const deviceInfo = getDeviceInfo();
+  for (const location of locations) {
+    try {
+      const coords = location.coords;
+      const reportedAt =
+        typeof (location as { timestamp?: number }).timestamp === 'number'
+          ? new Date((location as { timestamp: number }).timestamp).toISOString()
+          : new Date().toISOString();
+      const batteryPercent = await getBatteryPercent();
+      await enqueueLocationReport({
+        reported_at: reportedAt,
+        latitude: coords.latitude,
+        longitude: coords.longitude,
+        accuracy: coords.accuracy ?? null,
+        battery_percent: batteryPercent,
+        device_info: deviceInfo,
+      });
+      logger.info('Tracking: enqueued location report', { lat: coords.latitude, lon: coords.longitude, battery: batteryPercent });
+    } catch (e) {
+      logger.warn('Tracking: enqueue failed', e instanceof Error ? e.message : e);
+    }
+  }
+});
 
 export interface TrackingConfig {
   working_hour_start?: number;
@@ -89,13 +92,14 @@ export interface TrackingConfig {
   interval_minutes?: number;
 }
 
+let isTrackingStarted = false;
+
 /**
- * Start periodic location tracking during working hours when app is in foreground.
- * Pass config from GET /api/options/ (tracking_settings) to use admin-configured hours.
- * Call stopTracking() when user logs out or app backgrounds if needed.
+ * Start location tracking during working hours. Uses background location so updates
+ * continue when the app is in the background. Request background permission first.
+ * Call stopTracking() when user logs out.
  */
-export function startTracking(config?: TrackingConfig): void {
-  if (trackingIntervalId) return;
+export async function startTracking(config?: TrackingConfig): Promise<void> {
   if (config?.working_hour_start != null) {
     workingHourStart = Math.max(0, Math.min(23, config.working_hour_start));
   } else {
@@ -111,15 +115,46 @@ export function startTracking(config?: TrackingConfig): void {
   } else {
     trackingIntervalMs = DEFAULT_INTERVAL_MINUTES * 60 * 1000;
   }
-  collectAndEnqueueLocationReport();
-  trackingIntervalId = setInterval(collectAndEnqueueLocationReport, trackingIntervalMs);
-  logger.info('Tracking: started %s–%s (interval %s min)', workingHourStart, workingHourEnd, trackingIntervalMs / 60000);
+
+  const { status: foregroundStatus } = await Location.getForegroundPermissionsAsync();
+  if (foregroundStatus !== 'granted') {
+    logger.warn('Tracking: foreground location not granted');
+    return;
+  }
+
+  try {
+    const { status: backgroundStatus } = await Location.getBackgroundPermissionsAsync();
+    if (backgroundStatus !== 'granted') {
+      await Location.requestBackgroundPermissionsAsync();
+    }
+  } catch (e) {
+    logger.warn('Tracking: background permission request failed', e instanceof Error ? e.message : e);
+  }
+
+  try {
+    await Location.startLocationUpdatesAsync(LOCATION_TRACKING_TASK, {
+      accuracy: Location.LocationAccuracy.Highest,
+      timeInterval: trackingIntervalMs,
+      distanceInterval: 0,
+      foregroundService: {
+        notificationTitle: 'Mazao tracking',
+        notificationBody: 'Recording your location during field work.',
+      },
+    });
+    isTrackingStarted = true;
+    logger.info('Tracking: started', { workingHourStart, workingHourEnd, intervalMin: trackingIntervalMs / 60000 });
+  } catch (e) {
+    logger.warn('Tracking: startLocationUpdatesAsync failed', e instanceof Error ? e.message : e);
+  }
 }
 
-export function stopTracking(): void {
-  if (trackingIntervalId) {
-    clearInterval(trackingIntervalId);
-    trackingIntervalId = null;
+export async function stopTracking(): Promise<void> {
+  if (!isTrackingStarted) return;
+  try {
+    await Location.stopLocationUpdatesAsync(LOCATION_TRACKING_TASK);
+    isTrackingStarted = false;
     logger.info('Tracking: stopped');
+  } catch (e) {
+    logger.warn('Tracking: stop failed', e instanceof Error ? e.message : e);
   }
 }

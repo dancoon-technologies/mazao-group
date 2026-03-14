@@ -1,5 +1,5 @@
 """
-Tests for farmers API: list by role (admin all, officer assigned only, supervisor by region).
+Tests for farmers API: list returns all farmers for any authenticated user; create by role.
 """
 
 from django.test import TestCase
@@ -83,24 +83,29 @@ class FarmersAPITests(TestCase):
         results = self._farmer_list_results(r)
         self.assertEqual(len(results), 3)
 
-    def test_officer_sees_only_assigned_farmers(self):
+    def test_officer_sees_all_farmers(self):
         token = self._login("officer@test.com", "officer123")
         self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
         r = self.client.get("/api/farmers/")
         self.assertEqual(r.status_code, status.HTTP_200_OK)
         results = self._farmer_list_results(r)
-        self.assertEqual(len(results), 1)
-        self.assertEqual(results[0]["display_name"], "My Farmer")
+        self.assertEqual(len(results), 3)
+        display_names = {x["display_name"] for x in results}
+        self.assertIn("My Farmer", display_names)
+        self.assertIn("Other Farmer", display_names)
+        self.assertIn("Unassigned Farmer", display_names)
 
-    def test_supervisor_sees_farmers_in_region(self):
+    def test_supervisor_sees_all_farmers(self):
         token = self._login("super@test.com", "super123")
         self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
         r = self.client.get("/api/farmers/")
         self.assertEqual(r.status_code, status.HTTP_200_OK)
-        # North region: officer is North, other_officer is South -> only farmer_assigned
         results = self._farmer_list_results(r)
-        self.assertEqual(len(results), 1)
-        self.assertEqual(results[0]["display_name"], "My Farmer")
+        self.assertEqual(len(results), 3)
+        display_names = {x["display_name"] for x in results}
+        self.assertIn("My Farmer", display_names)
+        self.assertIn("Other Farmer", display_names)
+        self.assertIn("Unassigned Farmer", display_names)
 
     def test_farmer_list_search(self):
         token = self._login("admin@test.com", "admin123")
@@ -145,7 +150,7 @@ class FarmersAPITests(TestCase):
         results = self._farmer_list_results(
             self.client.get("/api/farmers/")
         )
-        self.assertEqual(len(results), 2)
+        self.assertEqual(len(results), 4)
 
     def test_create_farmer_validation_required_fields(self):
         token = self._login("admin@test.com", "admin123")

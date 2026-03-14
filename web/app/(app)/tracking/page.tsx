@@ -5,6 +5,7 @@ import {
   Button,
   Card,
   Group,
+  Pagination,
   Select,
   Stack,
   Text,
@@ -12,7 +13,7 @@ import {
   Alert,
   Paper,
 } from "@mantine/core";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import { useAsyncData } from "@/hooks/useAsyncData";
 import { api } from "@/lib/api";
@@ -64,6 +65,7 @@ export default function TrackingPage() {
   const [dateFrom, setDateFrom] = useState(dateDaysAgo(0));
   const [dateTo, setDateTo] = useState(todayISO());
   const [userId, setUserId] = useState<string | null>(null);
+  const [tablePage, setTablePage] = useState(1);
 
   const { data: staffData } = useAsyncData(
     (signal) => (role === ROLES.ADMIN ? api.getStaff({ signal }) : Promise.resolve([])),
@@ -101,6 +103,30 @@ export default function TrackingPage() {
   );
 
   const reports: LocationReport[] = reportsData?.results ?? [];
+
+  const REPORTS_TABLE_PAGE_SIZE = 25;
+  const totalTablePages = Math.max(1, Math.ceil(reports.length / REPORTS_TABLE_PAGE_SIZE));
+  const paginatedReports = reports.slice(
+    (tablePage - 1) * REPORTS_TABLE_PAGE_SIZE,
+    tablePage * REPORTS_TABLE_PAGE_SIZE
+  );
+
+  // Reset table to page 1 when filters change
+  useEffect(() => {
+    setTablePage(1);
+  }, [dateFrom, dateTo, userId]);
+
+  // Poll for new reports every 30s when tab is visible (real-time updates without refresh)
+  const POLL_INTERVAL_MS = 30_000;
+  useEffect(() => {
+    if (!canView) return;
+    const id = setInterval(() => {
+      if (typeof document !== "undefined" && !document.hidden) {
+        refetch();
+      }
+    }, POLL_INTERVAL_MS);
+    return () => clearInterval(id);
+  }, [canView, refetch]);
 
   const latestByUser = useMemo(() => {
     const map = new Map<string, LocationReport>();
@@ -169,9 +195,6 @@ export default function TrackingPage() {
               clearable
               style={{ minWidth: 180 }}
             />
-            <Button onClick={() => refetch()} loading={loading} variant="light">
-              Refresh
-            </Button>
           </Group>
           {showCachedMessage && (
             <Alert mt="sm" color="yellow" title="Network issue">
@@ -217,7 +240,20 @@ export default function TrackingPage() {
               />
             </Paper>
             <Card withBorder p="md" radius="md">
-              <Text fw={600} mb="xs">Recent reports ({reports.length})</Text>
+              <Group justify="space-between" align="center" mb="xs">
+                <Text fw={600}>Recent reports ({reports.length})</Text>
+                {totalTablePages > 1 && (
+                  <Pagination
+                    size="sm"
+                    total={totalTablePages}
+                    value={tablePage}
+                    onChange={setTablePage}
+                    siblings={1}
+                    boundaries={0}
+                    withEdges
+                  />
+                )}
+              </Group>
               <Table striped highlightOnHover withTableBorder>
                 <Table.Thead>
                   <Table.Tr>
@@ -229,7 +265,7 @@ export default function TrackingPage() {
                   </Table.Tr>
                 </Table.Thead>
                 <Table.Tbody>
-                  {reports.slice(0, 50).map((r) => (
+                  {paginatedReports.map((r) => (
                     <Table.Tr key={r.id}>
                       <Table.Td>
                         <Text size="sm">{r.user_display_name || r.user_email}</Text>
@@ -254,8 +290,17 @@ export default function TrackingPage() {
                   ))}
                 </Table.Tbody>
               </Table>
-              {reports.length > 50 && (
-                <Text size="xs" c="dimmed" mt="xs">Showing first 50. Use filters to narrow.</Text>
+              {totalTablePages > 1 && (
+                <Group justify="flex-end" mt="sm">
+                  <Pagination
+                    total={totalTablePages}
+                    value={tablePage}
+                    onChange={setTablePage}
+                    siblings={1}
+                    boundaries={0}
+                    withEdges
+                  />
+                </Group>
               )}
             </Card>
           </>

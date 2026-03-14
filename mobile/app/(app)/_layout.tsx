@@ -83,6 +83,21 @@ function AppLayoutInner() {
     return () => sub.remove();
   }, [isAuthenticated, triggerRefresh]);
 
+  // Auto sync: run sync periodically when app is active so data stays fresh without manual refresh
+  const AUTO_SYNC_INTERVAL_MS = 2 * 60 * 1000; // 2 minute
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    const id = setInterval(() => {
+      if (AppState.currentState !== 'active') return;
+      NetInfo.fetch().then((state) => {
+        if (state.isConnected ?? false) {
+          syncWithServer().then(() => triggerRefresh()).catch(() => {});
+        }
+      });
+    }, AUTO_SYNC_INTERVAL_MS);
+    return () => clearInterval(id);
+  }, [isAuthenticated, triggerRefresh]);
+
   // Location tracking during working hours (config from admin; use cache when offline)
   useEffect(() => {
     if (!isAuthenticated) {
@@ -146,9 +161,7 @@ function AppLayoutInner() {
     }
     return () => {
       try {
-        if (notificationResponseListener.current) {
-          Notifications.removeNotificationSubscription(notificationResponseListener.current);
-        }
+        notificationResponseListener.current?.remove();
       } catch {
         // ignore
       }
