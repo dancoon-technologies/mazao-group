@@ -14,7 +14,7 @@ import { logger } from '@/lib/logger';
 /** Default working hours (0–23) and interval when backend config is unavailable. */
 const DEFAULT_WORKING_HOUR_START = 6;
 const DEFAULT_WORKING_HOUR_END = 18;
-const DEFAULT_INTERVAL_MINUTES = 10;
+const DEFAULT_INTERVAL_MINUTES = 1;
 
 /** Current config from admin (set by startTracking). */
 let workingHourStart = DEFAULT_WORKING_HOUR_START;
@@ -61,7 +61,11 @@ export async function collectAndEnqueueLocationReport(): Promise<void> {
       mayShowUserSettingsDialog: false,
     });
     const coords = location.coords;
-    const reportedAt = new Date().toISOString();
+    // Use the time when the location was actually captured (from GPS), not when we enqueue/sync.
+    const reportedAt =
+      typeof (location as { timestamp?: number }).timestamp === 'number'
+        ? new Date((location as { timestamp: number }).timestamp).toISOString()
+        : new Date().toISOString();
     const batteryPercent = await getBatteryPercent();
     const deviceInfo = getDeviceInfo();
     await enqueueLocationReport({

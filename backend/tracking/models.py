@@ -21,8 +21,8 @@ class TrackingSettings(models.Model):
         help_text="End of working hours (0–23). Mobile collects until this hour exclusive.",
     )
     interval_minutes = models.PositiveSmallIntegerField(
-        default=10,
-        help_text="Minutes between location reports during working hours (e.g. 10 = every 10 min).",
+        default=1,
+        help_text="Minutes between location reports during working hours (e.g. 1 = every minute).",
     )
 
     class Meta:

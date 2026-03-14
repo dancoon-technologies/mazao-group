@@ -19,7 +19,7 @@ import { api } from "@/lib/api";
 import type { LocationReport } from "@/lib/types";
 import { useAuth } from "@/contexts/AuthContext";
 import { PageHeader, PageLoading, PageError } from "@/components/ui";
-import { PAGE_BOX_MIN_WIDTH, ROLES_TRACKING } from "@/lib/constants";
+import { PAGE_BOX_MIN_WIDTH, ROLES, ROLES_TRACKING } from "@/lib/constants";
 
 const DEFAULT_ZOOM = 8;
 const KENYA_CENTER: [number, number] = [-1.292066, 36.821946];
@@ -55,8 +55,8 @@ export default function TrackingPage() {
   const [userId, setUserId] = useState<string | null>(null);
 
   const { data: staffData } = useAsyncData(
-    (signal) => api.getStaff({ signal }),
-    []
+    (signal) => (role === ROLES.ADMIN ? api.getStaff({ signal }) : Promise.resolve([])),
+    [role]
   );
   const staffList = staffData ?? [];
   const userOptions = useMemo(
