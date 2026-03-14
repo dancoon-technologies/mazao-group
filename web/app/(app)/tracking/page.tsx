@@ -90,6 +90,32 @@ export default function TrackingPage() {
   const userSelectValue =
     userId && validUserIds.has(userId) ? userId : "__all__";
 
+  const dateFromOptions = useMemo(() => {
+    const base = [
+      { value: dateDaysAgo(0), label: "Today" },
+      { value: dateDaysAgo(1), label: "Yesterday" },
+      { value: dateDaysAgo(6), label: "6 days ago" },
+      { value: dateDaysAgo(29), label: "29 days ago" },
+    ];
+    const values = new Set(base.map((o) => o.value));
+    if (dateFrom && !values.has(dateFrom)) {
+      return [...base, { value: dateFrom, label: dateFrom }];
+    }
+    return base;
+  }, [dateFrom]);
+
+  const dateToOptions = useMemo(() => {
+    const base = [
+      { value: todayISO(), label: "Today" },
+      { value: dateDaysAgo(1), label: "Yesterday" },
+    ];
+    const values = new Set(base.map((o) => o.value));
+    if (dateTo && !values.has(dateTo)) {
+      return [...base, { value: dateTo, label: dateTo }];
+    }
+    return base;
+  }, [dateTo]);
+
   const reportParams = useMemo(() => {
     const base = { user_id: userId ?? undefined, page_size: userId ? 500 : 200 };
     if (dateFrom && dateTo && dateFrom === dateTo) {
@@ -178,22 +204,14 @@ export default function TrackingPage() {
               label="Date from"
               value={dateFrom}
               onChange={(v) => setDateFrom(v ?? dateFrom)}
-              data={[
-                { value: dateDaysAgo(0), label: "Today" },
-                { value: dateDaysAgo(1), label: "Yesterday" },
-                { value: dateDaysAgo(6), label: "6 days ago" },
-                { value: dateDaysAgo(29), label: "29 days ago" },
-              ]}
+              data={dateFromOptions}
               style={{ width: 140 }}
             />
             <Select
               label="Date to"
               value={dateTo}
               onChange={(v) => setDateTo(v ?? dateTo)}
-              data={[
-                { value: todayISO(), label: "Today" },
-                { value: dateDaysAgo(1), label: "Yesterday" },
-              ]}
+              data={dateToOptions}
               style={{ width: 140 }}
             />
             <Select
