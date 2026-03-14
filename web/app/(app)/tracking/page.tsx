@@ -17,7 +17,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import { useAsyncData } from "@/hooks/useAsyncData";
 import { api } from "@/lib/api";
-import { formatLatLng } from "@/lib/format";
+import { formatDuration, formatLatLng } from "@/lib/format";
 import type { LocationReport } from "@/lib/types";
 import { useAuth } from "@/contexts/AuthContext";
 import { PageHeader, PageLoading, PageError } from "@/components/ui";
@@ -172,6 +172,31 @@ export default function TrackingPage() {
   }, [canView, refetch]);
 
   const reportTime = (r: LocationReport) => r.reported_at_server ?? r.reported_at;
+  const durationByReportId = useMemo(() => {
+    const map = new Map<number, number>();
+    const byUser = new Map<string, LocationReport[]>();
+    for (const r of reports) {
+      const list = byUser.get(r.user_id) ?? [];
+      list.push(r);
+      byUser.set(r.user_id, list);
+    }
+    byUser.forEach((list) => {
+      const sorted = [...list].sort(
+        (a, b) =>
+          new Date(reportTime(a)).getTime() - new Date(reportTime(b)).getTime()
+      );
+      for (let i = 0; i < sorted.length - 1; i++) {
+        const a = sorted[i];
+        const b = sorted[i + 1];
+        const sec =
+          (new Date(reportTime(b)).getTime() - new Date(reportTime(a)).getTime()) /
+          1000;
+        map.set(a.id, sec);
+      }
+    });
+    return map;
+  }, [reports]);
+
   const latestByUser = useMemo(() => {
     const map = new Map<string, LocationReport>();
     for (const r of reports) {
@@ -293,6 +318,7 @@ export default function TrackingPage() {
                   <Table.Tr>
                     <Table.Th>User</Table.Th>
                     <Table.Th>Reported at</Table.Th>
+                    <Table.Th>Time at point</Table.Th>
                     <Table.Th>Location</Table.Th>
                     <Table.Th>Battery</Table.Th>
                     <Table.Th>Device</Table.Th>
@@ -306,6 +332,9 @@ export default function TrackingPage() {
                       </Table.Td>
                       <Table.Td>
                         <Text size="sm">{formatReportTime(reportTime(r))}</Text>
+                      </Table.Td>
+                      <Table.Td>
+                        <Text size="sm">{formatDuration(durationByReportId.get(r.id))}</Text>
                       </Table.Td>
                       <Table.Td>
                         <Text size="sm">{formatLatLng(r.latitude, r.longitude)}</Text>

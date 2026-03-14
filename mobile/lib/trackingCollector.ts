@@ -28,6 +28,31 @@ const DEFAULT_WORKING_HOUR_END = 18;
 /** Default: collect location every 1 minute. Backend can override via options tracking_settings.interval_minutes (1–120). */
 const DEFAULT_INTERVAL_MINUTES = 1;
 
+/** Only record a new point when the user has moved at least this many meters from the last recorded point. */
+const MIN_MOVEMENT_METERS = 10;
+
+/** Last position we sent to the server (so we only record when change is detected). */
+let lastEnqueuedLat: number | null = null;
+let lastEnqueuedLon: number | null = null;
+
+function haversineMeters(
+  lat1: number,
+  lon1: number,
+  lat2: number,
+  lon2: number
+): number {
+  const R = 6371000;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLon / 2) ** 2;
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
 /** Current config from admin (set by startTracking). */
 let workingHourStart = DEFAULT_WORKING_HOUR_START;
 let workingHourEnd = DEFAULT_WORKING_HOUR_END;
@@ -93,6 +118,15 @@ TaskManager.defineTask(LOCATION_TRACKING_TASK, async ({ data, error }) => {
       } else {
         reportedAt = new Date().toISOString();
       }
+      if (lastEnqueuedLat != null && lastEnqueuedLon != null) {
+        const dist = haversineMeters(lastEnqueuedLat, lastEnqueuedLon, lat, lon);
+        if (dist < MIN_MOVEMENT_METERS) {
+          continue;
+        }
+      }
+      lastEnqueuedLat = lat;
+      lastEnqueuedLon = lon;
+
       const batteryPercent = await getBatteryPercent();
       const deviceClockOffsetSeconds = await getDeviceClockOffsetSeconds();
       await enqueueLocationReport({
@@ -104,7 +138,7 @@ TaskManager.defineTask(LOCATION_TRACKING_TASK, async ({ data, error }) => {
         battery_percent: batteryPercent,
         device_info: deviceInfo,
       });
-      logger.info('Tracking: enqueued location report', { lat, lon, battery: batteryPercent });
+      logger.info('Tracking: enqueued location report (change detected)', { lat, lon, battery: batteryPercent });
     } catch (e) {
       logger.warn('Tracking: enqueue failed', e instanceof Error ? e.message : e);
     }
@@ -155,6 +189,9 @@ export async function startTracking(config?: TrackingConfig): Promise<void> {
   } catch (e) {
     logger.warn('Tracking: background permission request failed', e instanceof Error ? e.message : e);
   }
+
+  lastEnqueuedLat = null;
+  lastEnqueuedLon = null;
 
   try {
     await Location.startLocationUpdatesAsync(LOCATION_TRACKING_TASK, {

@@ -9,6 +9,7 @@ import {
 } from "@vis.gl/react-google-maps";
 import React, { useEffect, useMemo, useState } from "react";
 import type { LocationReport } from "@/lib/types";
+import { formatDuration } from "@/lib/format";
 import { TrackingMapOSM } from "./TrackingMapOSM";
 
 const MAP_CONTAINER_STYLE = { width: "100%", height: 400 };
@@ -174,39 +175,51 @@ function TrackingMapInner({
         showPath={showPath}
         uniqueUserIds={uniqueUserIds}
       />
-      {listToRender.map((r) => (
-        <React.Fragment key={r.id}>
-          <Marker
+      {listToRender.map((r, i) => {
+        const nextReport = listToRender[i + 1];
+        const durationSeconds =
+          nextReport && reportTime(r) && reportTime(nextReport)
+            ? (new Date(reportTime(nextReport)).getTime() -
+                new Date(reportTime(r)).getTime()) /
+              1000
+            : null;
+        return (
+          <React.Fragment key={r.id}>
+            <Marker
               position={{ lat: r.latitude, lng: r.longitude }}
-            onClick={() =>
-              setSelectedId(selectedId === r.id ? null : r.id)
-            }
-          />
-          {selectedId === r.id && (
-            <InfoWindow
-              position={{ lat: r.latitude, lng: r.longitude }}
-              onCloseClick={() => setSelectedId(null)}
-              onClose={() => setSelectedId(null)}
-            >
-              <div style={{ padding: 4, minWidth: 160 }}>
-                <strong>{r.user_display_name || r.user_email}</strong>
-                <br />
-                {(() => {
-                  const t = r.reported_at_server ?? r.reported_at;
-                  const d = new Date(t);
-                  return Number.isNaN(d.getTime()) ? String(t) : d.toLocaleString();
-                })()}
-                {r.accuracy != null && (
-                  <> · Accuracy ±{Math.round(r.accuracy)} m</>
-                )}
-                {r.battery_percent != null && (
-                  <> · Battery {r.battery_percent}%</>
-                )}
-              </div>
-            </InfoWindow>
-          )}
-        </React.Fragment>
-      ))}
+              onClick={() =>
+                setSelectedId(selectedId === r.id ? null : r.id)
+              }
+            />
+            {selectedId === r.id && (
+              <InfoWindow
+                position={{ lat: r.latitude, lng: r.longitude }}
+                onCloseClick={() => setSelectedId(null)}
+                onClose={() => setSelectedId(null)}
+              >
+                <div style={{ padding: 4, minWidth: 160 }}>
+                  <strong>{r.user_display_name || r.user_email}</strong>
+                  <br />
+                  {(() => {
+                    const t = r.reported_at_server ?? r.reported_at;
+                    const d = new Date(t);
+                    return Number.isNaN(d.getTime()) ? String(t) : d.toLocaleString();
+                  })()}
+                  {durationSeconds != null && (
+                    <> · {formatDuration(durationSeconds)} here</>
+                  )}
+                  {r.accuracy != null && (
+                    <> · Accuracy ±{Math.round(r.accuracy)} m</>
+                  )}
+                  {r.battery_percent != null && (
+                    <> · Battery {r.battery_percent}%</>
+                  )}
+                </div>
+              </InfoWindow>
+            )}
+          </React.Fragment>
+        );
+      })}
     </Map>
   );
 }

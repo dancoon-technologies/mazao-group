@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useMemo } from "react";
+import { formatDuration } from "@/lib/format";
 import {
   MapContainer,
   TileLayer,
@@ -126,7 +127,14 @@ export function TrackingMapOSM({
             }}
           />
         )}
-        {listToRender.map((r) => {
+        {listToRender.map((r, i) => {
+          const nextReport = listToRender[i + 1];
+          const durationSeconds =
+            nextReport && reportTime(r) && reportTime(nextReport)
+              ? (new Date(reportTime(nextReport)).getTime() -
+                  new Date(reportTime(r)).getTime()) /
+                1000
+              : null;
           const color =
             uniqueUserIds.length > 1
               ? USER_COLORS[hashUserIdToColorIndex(r.user_id)]
@@ -165,6 +173,9 @@ export function TrackingMapOSM({
                       const d = new Date(t);
                       return Number.isNaN(d.getTime()) ? String(t) : d.toLocaleString();
                     })()}
+                    {durationSeconds != null && (
+                      <> · {formatDuration(durationSeconds)} here</>
+                    )}
                     {r.accuracy != null && (
                       <> · Accuracy ±{Math.round(r.accuracy)} m</>
                     )}
