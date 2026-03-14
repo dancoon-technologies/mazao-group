@@ -61,3 +61,68 @@ class AuthTests(TestCase):
     def test_protected_endpoint_without_token_401(self):
         r = self.client.get("/api/farmers/")
         self.assertEqual(r.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_login_email_case_insensitive(self):
+        """Login works with different email casing (normalized)."""
+        r = self.client.post(
+            "/api/auth/login/",
+            {"email": "USER@TEST.COM", "password": "pass123"},
+            format="json",
+        )
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        self.assertIn("access", r.json())
+
+    def test_refresh_invalid_token_401(self):
+        r = self.client.post(
+            "/api/auth/refresh/",
+            {"refresh": "invalid.jwt.token"},
+            format="json",
+        )
+        self.assertEqual(r.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_change_password_success(self):
+        r = self.client.post(
+            "/api/auth/login/",
+            {"email": "user@test.com", "password": "pass123"},
+            format="json",
+        )
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        token = r.json()["access"]
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
+        r2 = self.client.post(
+            "/api/auth/change-password/",
+            {"current_password": "pass123", "new_password": "newpass456"},
+            format="json",
+        )
+        self.assertEqual(r2.status_code, status.HTTP_200_OK)
+        self.assertIn("access", r2.json())
+        self.assertIn("Password changed successfully", r2.json().get("detail", ""))
+
+    def test_change_password_wrong_current_400(self):
+        r = self.client.post(
+            "/api/auth/login/",
+            {"email": "user@test.com", "password": "pass123"},
+            format="json",
+        )
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {r.json()['access']}")
+        r2 = self.client.post(
+            "/api/auth/change-password/",
+            {"current_password": "wrong", "new_password": "newpass456"},
+            format="json",
+        )
+        self.assertEqual(r2.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("current_password", r2.json())
+
+    def test_change_password_missing_fields_400(self):
+        r = self.client.post(
+            "/api/auth/login/",
+            {"email": "user@test.com", "password": "pass123"},
+            format="json",
+        )
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {r.json()['access']}")
+        r2 = self.client.post(
+            "/api/auth/change-password/",
+            {},
+            format="json",
+        )
+        self.assertEqual(r2.status_code, status.HTTP_400_BAD_REQUEST)

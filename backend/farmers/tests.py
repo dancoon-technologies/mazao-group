@@ -101,3 +101,57 @@ class FarmersAPITests(TestCase):
         results = self._farmer_list_results(r)
         self.assertEqual(len(results), 1)
         self.assertEqual(results[0]["display_name"], "My Farmer")
+
+    def test_farmer_list_search(self):
+        token = self._login("admin@test.com", "admin123")
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
+        r = self.client.get("/api/farmers/?search=My")
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        results = self._farmer_list_results(r)
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0]["display_name"], "My Farmer")
+
+    def test_create_farmer_as_admin_with_assignment(self):
+        token = self._login("admin@test.com", "admin123")
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
+        payload = {
+            "first_name": "New",
+            "last_name": "Partner",
+            "phone": "+255444",
+            "latitude": -6.03,
+            "longitude": 39.03,
+            "assigned_officer": str(self.officer.pk),
+        }
+        r = self.client.post("/api/farmers/", payload, format="json")
+        self.assertEqual(r.status_code, status.HTTP_201_CREATED)
+        data = r.json()
+        self.assertEqual(data["display_name"], "New Partner")
+        self.assertEqual(data["assigned_officer"], str(self.officer.pk))
+        self.assertEqual(Farmer.objects.count(), 4)
+
+    def test_create_farmer_as_officer_auto_assigns_self(self):
+        token = self._login("officer@test.com", "officer123")
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
+        payload = {
+            "first_name": "Officer",
+            "last_name": "Created",
+            "phone": "+255555",
+            "latitude": -6.04,
+            "longitude": 39.04,
+        }
+        r = self.client.post("/api/farmers/", payload, format="json")
+        self.assertEqual(r.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(r.json()["assigned_officer"], str(self.officer.pk))
+        results = self._farmer_list_results(
+            self.client.get("/api/farmers/")
+        )
+        self.assertEqual(len(results), 2)
+
+    def test_create_farmer_validation_required_fields(self):
+        token = self._login("admin@test.com", "admin123")
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
+        r = self.client.post("/api/farmers/", {"first_name": "Only"}, format="json")
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        errors = r.json()
+        self.assertTrue(errors)
+        self.assertTrue("last_name" in errors or "phone" in errors)

@@ -26,7 +26,7 @@ class LocationReportCreateSerializer(serializers.ModelSerializer):
 class LocationReportSerializer(serializers.ModelSerializer):
     """Read-only for admin: include user email and id."""
 
-    user_id = serializers.UUIDField(source="user_id", read_only=True)
+    user_id = serializers.UUIDField(read_only=True)
     user_email = serializers.EmailField(source="user.email", read_only=True)
     user_display_name = serializers.SerializerMethodField()
 

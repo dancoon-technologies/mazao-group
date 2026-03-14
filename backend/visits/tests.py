@@ -8,7 +8,7 @@ from django.test import TestCase
 from rest_framework import status
 from rest_framework.test import APIClient
 
-from accounts.models import User
+from accounts.models import Department, User
 from farmers.models import Farmer
 from locations.models import Region
 
@@ -362,4 +362,173 @@ class VisitAPITests(TestCase):
         token = self._login("officer@test.com", "officer123")
         self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
         r = self.client.get("/api/dashboard/stats/")
+        self.assertEqual(r.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_retrieve_visit_officer_sees_own(self):
+        visit = Visit.objects.create(
+            officer=self.officer,
+            farmer=self.farmer,
+            schedule=self.schedule,
+            latitude=-6.0,
+            longitude=39.0,
+            distance_from_farmer=0,
+            verification_status=Visit.VerificationStatus.PENDING,
+        )
+        token = self._login("officer@test.com", "officer123")
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
+        r = self.client.get(f"/api/visits/{visit.pk}/")
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        self.assertEqual(r.json()["id"], str(visit.pk))
+
+    def test_retrieve_visit_admin_sees_any(self):
+        visit = Visit.objects.create(
+            officer=self.other_officer,
+            farmer=self.farmer_other,
+            latitude=-6.01,
+            longitude=39.01,
+            distance_from_farmer=0,
+            verification_status=Visit.VerificationStatus.PENDING,
+        )
+        token = self._login("admin@test.com", "admin123")
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
+        r = self.client.get(f"/api/visits/{visit.pk}/")
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+
+    def test_retrieve_visit_officer_cannot_see_other_404(self):
+        visit = Visit.objects.create(
+            officer=self.other_officer,
+            farmer=self.farmer_other,
+            latitude=-6.01,
+            longitude=39.01,
+            distance_from_farmer=0,
+            verification_status=Visit.VerificationStatus.PENDING,
+        )
+        token = self._login("officer@test.com", "officer123")
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
+        r = self.client.get(f"/api/visits/{visit.pk}/")
+        self.assertEqual(r.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_create_visit_schedule_not_found_400(self):
+        import uuid
+
+        token = self._login("officer@test.com", "officer123")
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
+        data = {
+            "farmer_id": str(self.farmer.pk),
+            "schedule_id": str(uuid.uuid4()),
+            "latitude": -6.0,
+            "longitude": 39.0,
+        }
+        photo = make_jpeg_file()
+        r = self.client.post("/api/visits/", {**data, "photo": photo}, format="multipart")
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("schedule_id", r.json())
+
+
+class VisitVerifyAPITests(TestCase):
+    """Verify endpoint: supervisor/admin accept or reject; officer forbidden. Requires same department."""
+
+    def setUp(self):
+        self.client = APIClient()
+        region = Region.objects.create(name="North")
+        dept = Department.objects.create(name="Extension", slug="extension")
+        self.admin = User.objects.create_user(
+            email="admin@test.com", password="admin123", role=User.Role.ADMIN
+        )
+        self.officer = User.objects.create_user(
+            email="officer@test.com",
+            password="officer123",
+            role=User.Role.OFFICER,
+            region_id=region,
+            department=dept,
+        )
+        self.supervisor = User.objects.create_user(
+            email="super@test.com",
+            password="super123",
+            role=User.Role.SUPERVISOR,
+            region_id=region,
+            department=dept,
+        )
+        self.farmer = Farmer.objects.create(
+            first_name="Test",
+            last_name="Farmer",
+            phone="+255111",
+            latitude=-6.0,
+            longitude=39.0,
+            assigned_officer=self.officer,
+        )
+        self.schedule = Schedule.objects.create(
+            created_by=self.admin,
+            officer=self.officer,
+            farmer=self.farmer,
+            scheduled_date=timezone.now().date(),
+            status=Schedule.Status.ACCEPTED,
+        )
+
+    def _login(self, email, password):
+        r = self.client.post(
+            "/api/auth/login/", {"email": email, "password": password}, format="json"
+        )
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        return r.json()["access"]
+
+    def test_verify_accept(self):
+        visit = Visit.objects.create(
+            officer=self.officer,
+            farmer=self.farmer,
+            schedule=self.schedule,
+            latitude=-6.0,
+            longitude=39.0,
+            distance_from_farmer=0,
+            verification_status=Visit.VerificationStatus.PENDING,
+        )
+        token = self._login("super@test.com", "super123")
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
+        r = self.client.post(
+            f"/api/visits/{visit.pk}/verify/",
+            {"action": "accept"},
+            format="json",
+        )
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        visit.refresh_from_db()
+        self.assertEqual(visit.verification_status, Visit.VerificationStatus.VERIFIED)
+
+    def test_verify_reject(self):
+        visit = Visit.objects.create(
+            officer=self.officer,
+            farmer=self.farmer,
+            schedule=self.schedule,
+            latitude=-6.0,
+            longitude=39.0,
+            distance_from_farmer=0,
+            verification_status=Visit.VerificationStatus.PENDING,
+        )
+        token = self._login("super@test.com", "super123")
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
+        r = self.client.post(
+            f"/api/visits/{visit.pk}/verify/",
+            {"action": "reject"},
+            format="json",
+        )
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        visit.refresh_from_db()
+        self.assertEqual(visit.verification_status, Visit.VerificationStatus.REJECTED)
+
+    def test_verify_officer_forbidden(self):
+        visit = Visit.objects.create(
+            officer=self.officer,
+            farmer=self.farmer,
+            schedule=self.schedule,
+            latitude=-6.0,
+            longitude=39.0,
+            distance_from_farmer=0,
+            verification_status=Visit.VerificationStatus.PENDING,
+        )
+        token = self._login("officer@test.com", "officer123")
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
+        r = self.client.post(
+            f"/api/visits/{visit.pk}/verify/",
+            {"action": "accept"},
+            format="json",
+        )
         self.assertEqual(r.status_code, status.HTTP_403_FORBIDDEN)
