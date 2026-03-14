@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 
 class FarmerListCreateView(generics.ListCreateAPIView):
-    """List farmers: all authenticated users see all farmers in the DB. Create: authenticated users."""
+    """List farmers: admin sees all; officer sees assigned only; supervisor sees farmers in their region. Create: authenticated users."""
 
     list_serializer_class = FarmerSerializer
     create_serializer_class = FarmerCreateSerializer
@@ -31,8 +31,18 @@ class FarmerListCreateView(generics.ListCreateAPIView):
         return self.list_serializer_class
 
     def get_queryset(self):
+        user = self.request.user
         qs = Farmer.objects.all().select_related("assigned_officer", "assigned_officer__department")
-        # All authenticated users see all farmers in the DB (no department nor user filter).
+        if user.role == "admin":
+            pass
+        elif user.role == "officer":
+            qs = qs.filter(assigned_officer=user)
+        elif user.role == "supervisor" and getattr(user, "region_id_id", None):
+            qs = qs.filter(assigned_officer__region_id_id=user.region_id_id)
+        elif user.role == "supervisor":
+            qs = qs.none()
+        else:
+            qs = qs.none()
         search = (self.request.query_params.get("search") or "").strip()
         if search:
             qs = qs.filter(

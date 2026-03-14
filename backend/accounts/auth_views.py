@@ -40,10 +40,15 @@ class EmailTokenObtainPairSerializer(TokenObtainPairSerializer):
             attrs = {**attrs, "email": user.email if user else normalized}
         data = super().validate(attrs)
         # Single device: only this refresh token is valid until next login.
-        refresh = self.get_token(self.user)
-        jti = refresh.get("jti")
-        if jti:
-            User.objects.filter(pk=self.user.pk).update(current_refresh_jti=jti)
+        # Store the jti of the token we actually return to the client (not a new token).
+        try:
+            from rest_framework_simplejwt.tokens import RefreshToken
+            refresh = RefreshToken(data.get("refresh", ""))
+            jti = refresh.get("jti")
+            if jti:
+                User.objects.filter(pk=self.user.pk).update(current_refresh_jti=jti)
+        except Exception:
+            pass
         return data
 
 

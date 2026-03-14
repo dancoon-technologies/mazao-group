@@ -15,6 +15,8 @@ from locations.models import Region
 from django.utils import timezone
 from datetime import timedelta
 
+from schedules.models import Schedule
+
 from .models import Visit
 from .utils import (
     MAX_VISIT_DISTANCE_METERS,
@@ -176,6 +178,21 @@ class VisitAPITests(TestCase):
             longitude=39.01,
             assigned_officer=self.other_officer,
         )
+        today = timezone.now().date()
+        self.schedule = Schedule.objects.create(
+            created_by=self.admin,
+            officer=self.officer,
+            farmer=self.farmer,
+            scheduled_date=today,
+            status=Schedule.Status.ACCEPTED,
+        )
+        self.schedule_officer_other_farmer = Schedule.objects.create(
+            created_by=self.admin,
+            officer=self.officer,
+            farmer=self.farmer_other,
+            scheduled_date=today,
+            status=Schedule.Status.ACCEPTED,
+        )
 
     def _login(self, email, password):
         r = self.client.post(
@@ -184,12 +201,18 @@ class VisitAPITests(TestCase):
         self.assertEqual(r.status_code, status.HTTP_200_OK)
         return r.json()["access"]
 
+    def _visit_list_results(self, r):
+        """Return list of visits from response (handles paginated or plain list)."""
+        data = r.json()
+        return data.get("results", data) if isinstance(data, dict) and "results" in data else data
+
     def test_create_visit_success_within_100m(self):
         token = self._login("officer@test.com", "officer123")
         self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
         # Officer at same location as farmer
         data = {
             "farmer_id": str(self.farmer.pk),
+            "schedule_id": str(self.schedule.pk),
             "latitude": -6.0,
             "longitude": 39.0,
             "notes": "Visit done",
@@ -208,6 +231,7 @@ class VisitAPITests(TestCase):
         # Move officer ~500m away (roughly 0.0045 deg lat)
         data = {
             "farmer_id": str(self.farmer.pk),
+            "schedule_id": str(self.schedule.pk),
             "latitude": -6.0 + 0.005,
             "longitude": 39.0,
             "notes": "Far away",
@@ -223,6 +247,7 @@ class VisitAPITests(TestCase):
         self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
         data = {
             "farmer_id": str(self.farmer.pk),
+            "schedule_id": str(self.schedule.pk),
             "latitude": -6.0,
             "longitude": 39.0,
         }
@@ -233,9 +258,10 @@ class VisitAPITests(TestCase):
     def test_create_visit_officer_not_assigned_forbidden(self):
         token = self._login("officer@test.com", "officer123")
         self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
-        # Try to visit farmer assigned to other_officer
+        # Try to visit farmer assigned to other_officer (schedule is for officer+farmer_other but officer not assigned to farmer_other)
         data = {
             "farmer_id": str(self.farmer_other.pk),
+            "schedule_id": str(self.schedule_officer_other_farmer.pk),
             "latitude": -6.01,
             "longitude": 39.01,
         }
@@ -245,12 +271,13 @@ class VisitAPITests(TestCase):
         self.assertEqual(Visit.objects.count(), 0)
 
     def test_create_visit_farmer_not_found(self):
-        token = self._login("officer@test.com", "officer123")
-        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
         import uuid
 
+        token = self._login("officer@test.com", "officer123")
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
         data = {
             "farmer_id": str(uuid.uuid4()),
+            "schedule_id": str(self.schedule.pk),
             "latitude": -6.0,
             "longitude": 39.0,
         }
@@ -279,8 +306,9 @@ class VisitAPITests(TestCase):
         self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
         r = self.client.get("/api/visits/")
         self.assertEqual(r.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(r.json()), 1)
-        self.assertEqual(r.json()[0]["officer"], str(self.officer.pk))
+        results = self._visit_list_results(r)
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0]["officer"], str(self.officer.pk))
 
     def test_list_visits_admin_sees_all(self):
         Visit.objects.create(
@@ -295,7 +323,7 @@ class VisitAPITests(TestCase):
         self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
         r = self.client.get("/api/visits/")
         self.assertEqual(r.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(r.json()), 1)
+        self.assertEqual(len(self._visit_list_results(r)), 1)
 
     def test_list_visits_filter_by_date(self):
         Visit.objects.create(
@@ -313,7 +341,7 @@ class VisitAPITests(TestCase):
         today = timezone.now().date().isoformat()
         r = self.client.get(f"/api/visits/?date={today}")
         self.assertEqual(r.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(r.json()), 1)
+        self.assertEqual(len(self._visit_list_results(r)), 1)
 
     def test_dashboard_stats_admin_ok(self):
         token = self._login("admin@test.com", "admin123")
