@@ -78,6 +78,14 @@ export async function getVisitsForOfficer(officerId: string): Promise<VisitRow[]
     .sort((a, b) => b.created_at - a.created_at);
 }
 
+/** All non-deleted visits from store (for supervisor viewing department visits offline). */
+export async function getAllVisits(): Promise<VisitRow[]> {
+  const list = visits$.get() ?? [];
+  return list
+    .filter((v) => v.is_deleted === 0)
+    .sort((a, b) => b.created_at - a.created_at);
+}
+
 export async function getScheduleIdsWithRecordedVisits(officerId: string): Promise<Set<string>> {
   const list = visits$.get() ?? [];
   const set = new Set<string>();

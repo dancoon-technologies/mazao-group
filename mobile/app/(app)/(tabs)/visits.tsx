@@ -73,7 +73,9 @@ function groupVisitsByDate(visits: Visit[]): { date: string; items: Visit[] }[] 
 export default function VisitsScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { userId } = useAuth();
+  const { userId, role } = useAuth();
+  const isSupervisor = role === 'supervisor';
+  const isOfficer = role === 'officer';
   const { refreshTrigger } = useAppRefresh();
   const prevRefreshTrigger = useRef(0);
   const [activeTab, setActiveTab] = useState<TabKey>('upcoming');
@@ -83,12 +85,12 @@ export default function VisitsScreen() {
   const [error, setError] = useState('');
   const [isOnline, setIsOnline] = useState<boolean | null>(null);
 
-  /** Reactive read from store — updates when rehydration or sync populates visits$/schedules$. */
+  /** Reactive read from store — updates when rehydration or sync populates visits$/schedules$. Supervisor sees department data. */
   const visits = useSelector<Visit[]>(() => {
     if (!userId) return [];
     const list = visits$.get() ?? [];
     return list
-      .filter((v) => v.officer === userId && v.is_deleted === 0)
+      .filter((v) => v.is_deleted === 0 && (isSupervisor || v.officer === userId))
       .sort((a, b) => b.created_at - a.created_at)
       .map(visitRowToVisit);
   });
@@ -96,7 +98,7 @@ export default function VisitsScreen() {
     if (!userId) return [];
     const list = schedules$.get() ?? [];
     return list
-      .filter((s) => s.officer === userId && s.is_deleted === 0)
+      .filter((s) => s.is_deleted === 0 && (isSupervisor || s.officer === userId))
       .sort((a, b) => b.scheduled_date - a.scheduled_date)
       .map(scheduleRowToSchedule);
   });
@@ -310,7 +312,12 @@ export default function VisitsScreen() {
                     </Text>
                     {items.map((s) => {
                       const proposedEditable = s.status === 'proposed' && isScheduleEditableByDate(s.scheduled_date);
-                      const rowPress = s.status === 'accepted' ? () => openRecordVisit(s) : () => openEditSchedule(s);
+                      const rowPress =
+                        s.status === 'accepted'
+                          ? isOfficer
+                            ? () => openRecordVisit(s)
+                            : () => openEditSchedule(s)
+                          : () => openEditSchedule(s);
                       return (
                         <ListItemRow
                           key={s.id}
@@ -334,7 +341,7 @@ export default function VisitsScreen() {
                                   accessibilityLabel={proposedEditable ? 'Edit schedule' : 'View schedule'}
                                 />
                               )}
-                              {s.status === 'accepted' && (
+                              {s.status === 'accepted' && isOfficer && (
                                 <IconButton
                                   icon="pencil"
                                   size={22}

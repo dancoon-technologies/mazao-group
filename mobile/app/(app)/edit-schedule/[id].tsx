@@ -25,7 +25,8 @@ export default function EditScheduleScreen() {
   const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
   const scheduleId = typeof id === 'string' ? id : Array.isArray(id) ? id[0] : undefined;
-  const { userId } = useAuth();
+  const { userId, role } = useAuth();
+  const isSupervisor = role === 'supervisor';
   const [schedule, setSchedule] = useState<Schedule | null>(null);
   const [farmers, setFarmers] = useState<Farmer[]>([]);
   const [farms, setFarms] = useState<Farm[]>([]);
@@ -70,7 +71,7 @@ export default function EditScheduleScreen() {
         setLoading(false);
         return;
       }
-      if (s.officer !== userId) {
+      if (!isSupervisor && s.officer !== userId) {
         setError('You can only edit your own proposed schedules.');
         setSchedule(null);
         setLoading(false);
@@ -89,7 +90,7 @@ export default function EditScheduleScreen() {
     } finally {
       setLoading(false);
     }
-  }, [scheduleId, userId]);
+  }, [scheduleId, userId, isSupervisor]);
 
   useEffect(() => {
     load();

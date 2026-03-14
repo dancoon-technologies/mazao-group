@@ -41,7 +41,9 @@ const STAT_ICONS = {
 
 function HomeScreenInner() {
   const routerInstance = useRouter();
-  const { email, department, userId, displayName } = useAuth();
+  const { email, department, userId, displayName, role } = useAuth();
+  const isOfficer = role === 'officer';
+  const isSupervisor = role === 'supervisor';
   const { refreshTrigger } = useAppRefresh();
   const prevRefreshTrigger = useRef(0);
   const [stats, setStats] = useState<{ visits_today: number; visits_this_month: number } | null>(null);
@@ -61,7 +63,7 @@ function HomeScreenInner() {
     if (!userId) return [];
     const list = schedules$.get() ?? [];
     return list
-      .filter((s) => s.officer === userId && s.is_deleted === 0)
+      .filter((s) => s.is_deleted === 0 && (isSupervisor || s.officer === userId))
       .sort((a, b) => b.scheduled_date - a.scheduled_date)
       .map(scheduleRowToSchedule);
   });
@@ -70,7 +72,7 @@ function HomeScreenInner() {
     const list = visits$.get() ?? [];
     const set = new Set<string>();
     for (const v of list) {
-      if (v.officer === userId && v.is_deleted === 0 && v.schedule_id) set.add(v.schedule_id);
+      if (v.is_deleted === 0 && v.schedule_id && (isSupervisor || v.officer === userId)) set.add(v.schedule_id);
     }
     return set;
   });
@@ -159,7 +161,14 @@ function HomeScreenInner() {
   const visitsThisMonth = stats?.visits_this_month ?? 0;
 
   const todayLabel = String(doneToday);
-  const todayHint = totalScheduledToday > 0 ? 'recorded of scheduled' : 'visits recorded today';
+  const todayHint =
+    totalScheduledToday > 0
+      ? isSupervisor
+        ? 'team recorded of scheduled'
+        : 'recorded of scheduled'
+      : isSupervisor
+        ? 'team visits recorded today'
+        : 'visits recorded today';
 
   const greeting = useMemo(() => {
     const hour = new Date().getHours();
@@ -192,7 +201,7 @@ function HomeScreenInner() {
         <View style={styles.welcome}>
           <Text variant="bodyLarge" style={styles.welcomeGreeting}>{greeting}, </Text>
           <Text variant="bodyLarge" style={styles.welcomeEmail}>
-            {displayName ?? email ?? 'Field officer'}
+            {displayName ?? email ?? (isSupervisor ? 'Supervisor' : 'Field officer')}
           </Text>
           {department ? (
             <Chip style={styles.tag} textStyle={styles.tagText}>
@@ -214,12 +223,14 @@ function HomeScreenInner() {
 
         <View style={styles.contentContainer}>
           <View style={styles.actionRow}>
-            <ActionCard
-              icon="camera"
-              label="Record Visit"
-              variant="primary"
-              onPress={() => openRecordVisit()}
-            />
+            {isOfficer && (
+              <ActionCard
+                icon="camera"
+                label="Record Visit"
+                variant="primary"
+                onPress={() => openRecordVisit()}
+              />
+            )}
             <ActionCard
               icon="account-plus"
               label={`Add ${labels.partner}`}
@@ -241,7 +252,7 @@ function HomeScreenInner() {
 
           <SectionHeader title="Today's Schedule" />
           {todaySchedules.length === 0 ? (
-            <EmptyStateCard message="No visits scheduled for today" />
+            <EmptyStateCard message={isSupervisor ? 'No team visits scheduled for today' : 'No visits scheduled for today'} />
           ) : (
             todaySchedules.map((s) => (
               <ListItemRow
@@ -254,7 +265,7 @@ function HomeScreenInner() {
                     {s.status}
                   </Chip>
                 }
-                onPress={() => openRecordVisit(s)}
+                onPress={() => (isOfficer ? openRecordVisit(s) : routerInstance.push({ pathname: '/(app)/edit-schedule/[id]', params: { id: s.id } } as never))}
               />
             ))
           )}

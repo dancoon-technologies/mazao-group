@@ -55,7 +55,8 @@ class MobileSyncPushView(APIView):
 
 class MobileSyncPullView(APIView):
     """
-    Return visits and schedules for the current user (officer) updated after `last_sync`.
+    Return visits and schedules for the current user.
+    Officer: own visits and schedules. Supervisor: visits and schedules for officers in their department.
     """
 
     permission_classes = [IsAuthenticated]
@@ -64,8 +65,18 @@ class MobileSyncPullView(APIView):
         last_sync = request.query_params.get("last_sync")
         last_sync_dt = parse_datetime(last_sync) if last_sync else None
 
-        visits_qs = Visit.objects.filter(officer=request.user).select_related("farmer", "farm", "schedule")
-        schedules_qs = Schedule.objects.filter(officer=request.user).select_related("farmer", "farm")
+        if request.user.role == "supervisor" and getattr(request.user, "department_id", None):
+            visits_qs = (
+                Visit.objects.filter(officer__department_id=request.user.department_id)
+                .select_related("farmer", "farm", "schedule", "officer", "officer__department")
+            )
+            schedules_qs = (
+                Schedule.objects.filter(officer__department_id=request.user.department_id)
+                .select_related("farmer", "farm", "officer", "officer__department")
+            )
+        else:
+            visits_qs = Visit.objects.filter(officer=request.user).select_related("farmer", "farm", "schedule")
+            schedules_qs = Schedule.objects.filter(officer=request.user).select_related("farmer", "farm")
 
         if last_sync_dt:
             visits_qs = visits_qs.filter(updated_at__gt=last_sync_dt)

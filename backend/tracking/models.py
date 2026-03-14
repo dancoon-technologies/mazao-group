@@ -49,6 +49,12 @@ class LocationReport(models.Model):
         verbose_name="Captured (device time)",
         help_text="Device time when the location was captured by the phone (even when offline; synced later).",
     )
+    reported_at_server = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name="Captured (server-corrected)",
+        help_text="reported_at minus device_clock_offset when provided; used for route ordering.",
+    )
     latitude = models.DecimalField(max_digits=10, decimal_places=7)
     longitude = models.DecimalField(max_digits=10, decimal_places=7)
     accuracy = models.FloatField(

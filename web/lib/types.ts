@@ -203,6 +203,8 @@ export interface LocationReport {
   user_email: string;
   user_display_name: string | null;
   reported_at: string;
+  /** Server-corrected time when device_clock_offset was sent; used for route ordering. */
+  reported_at_server?: string | null;
   latitude: number;
   longitude: number;
   accuracy: number | null;

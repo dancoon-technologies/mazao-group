@@ -55,7 +55,9 @@ function dateDaysAgo(days: number): string {
 function formatReportTime(iso: string): string {
   return new Date(iso).toLocaleString(undefined, {
     dateStyle: "short",
-    timeStyle: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
   });
 }
 
@@ -128,11 +130,12 @@ export default function TrackingPage() {
     return () => clearInterval(id);
   }, [canView, refetch]);
 
+  const reportTime = (r: LocationReport) => r.reported_at_server ?? r.reported_at;
   const latestByUser = useMemo(() => {
     const map = new Map<string, LocationReport>();
     for (const r of reports) {
       const existing = map.get(r.user_id);
-      if (!existing || new Date(r.reported_at) > new Date(existing.reported_at)) {
+      if (!existing || new Date(reportTime(r)) > new Date(reportTime(existing))) {
         map.set(r.user_id, r);
       }
     }
@@ -271,7 +274,7 @@ export default function TrackingPage() {
                         <Text size="sm">{r.user_display_name || r.user_email}</Text>
                       </Table.Td>
                       <Table.Td>
-                        <Text size="sm">{formatReportTime(r.reported_at)}</Text>
+                        <Text size="sm">{formatReportTime(reportTime(r))}</Text>
                       </Table.Td>
                       <Table.Td>
                         <Text size="sm">{formatLatLng(r.latitude, r.longitude)}</Text>

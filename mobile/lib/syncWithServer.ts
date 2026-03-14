@@ -1,5 +1,6 @@
 import * as SecureStore from 'expo-secure-store'
 import { API_BASE, LAST_SYNC_KEY, STORAGE_KEYS, SYNC_PULL_PATH } from '@/constants/config'
+import { refreshDeviceClockOffset } from '@/lib/deviceClockSync'
 import {
   createOrUpdateFarm,
   createOrUpdateFarmer,
@@ -34,6 +35,7 @@ async function setLastSync(iso: string): Promise<void> {
 
 /** Push pending sync queue items to the server. Fail fast: on first item error returns immediately (remaining items stay pending for next sync). */
 async function pushQueue(accessToken: string): Promise<{ ok: boolean; error?: string; pushedIds: string[] }> {
+  await refreshDeviceClockOffset(accessToken)
   const toSync = await getPendingSyncQueue()
   const pushedIds: string[] = []
 
@@ -404,6 +406,7 @@ export async function getPendingSyncCount(): Promise<number> {
 /** Enqueue a location report for later sync (offline-first). Collected during working hours with battery and device info. */
 export async function enqueueLocationReport(payload: {
   reported_at: string
+  device_clock_offset_seconds?: number | null
   latitude: number
   longitude: number
   accuracy?: number | null

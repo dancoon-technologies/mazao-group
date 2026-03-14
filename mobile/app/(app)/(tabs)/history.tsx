@@ -1,6 +1,6 @@
 import { ListItemRow } from '@/components/ListItemRow';
 import { useAuth } from '@/contexts/AuthContext';
-import { getVisitsForOfficer } from '@/database';
+import { getVisitsForOfficer, getAllVisits } from '@/database';
 import { formatDateTime, visitStatusColor, visitStatusLabel } from '@/lib/format';
 import { visitRowToVisit } from '@/lib/offline-helpers';
 import { api, type Visit } from '@/lib/api';
@@ -15,7 +15,8 @@ import { colors, cardShadow, cardStyle, radius, spacing } from '@/constants/them
 
 export default function HistoryScreen() {
   const router = useRouter();
-  const { userId } = useAuth();
+  const { userId, role } = useAuth();
+  const isSupervisor = role === 'supervisor';
   const [visits, setVisits] = useState<Visit[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -23,12 +24,12 @@ export default function HistoryScreen() {
   const [forbidden, setForbidden] = useState(false);
 
   const loadFromDb = useCallback(async () => {
-    if (!userId) return;
-    const rows = await getVisitsForOfficer(userId);
+    if (!userId && !isSupervisor) return;
+    const rows = isSupervisor ? await getAllVisits() : await getVisitsForOfficer(userId!);
     setVisits(rows.map(visitRowToVisit));
     setError(null);
     setForbidden(false);
-  }, [userId]);
+  }, [userId, isSupervisor]);
 
   const load = useCallback(async (isRefresh = false) => {
     if (!isRefresh) setLoading(true);
@@ -49,18 +50,18 @@ export default function HistoryScreen() {
         if (isForbidden) {
           setForbidden(true);
           setVisits([]);
-        } else if (userId) {
+        } else if (userId || isSupervisor) {
           await loadFromDb();
         } else {
           setError(msg);
         }
       }
-    } else if (userId) {
+    } else if (userId || isSupervisor) {
       await loadFromDb();
     }
     setLoading(false);
     setRefreshing(false);
-  }, [userId, loadFromDb]);
+  }, [userId, isSupervisor, loadFromDb]);
 
   const onRefresh = useCallback(() => load(true), [load]);
 
@@ -119,7 +120,7 @@ export default function HistoryScreen() {
       <ScrollView style={styles.container} contentContainerStyle={styles.content}>
         <Card style={styles.card} elevation={0}>
           <Card.Content>
-            <Text variant="bodyMedium">Visit history is available to supervisors on the web app.</Text>
+            <Text variant="bodyMedium">You don&apos;t have permission to view visit history.</Text>
             <Text variant="bodySmall" style={styles.muted}>
               Your recorded visits are saved on the server and visible to your supervisor.
             </Text>

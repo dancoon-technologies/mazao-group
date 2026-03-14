@@ -9,6 +9,13 @@ import * as Device from 'expo-device';
 import * as Location from 'expo-location';
 import * as TaskManager from 'expo-task-manager';
 import { Platform } from 'react-native';
+import {
+  getEstimatedPosition,
+  startSensorSubscription,
+  stopSensorSubscription,
+  updateFromLocation,
+} from '@/lib/deadReckoning';
+import { getDeviceClockOffsetSeconds } from '@/lib/deviceClockSync';
 import { enqueueLocationReport } from '@/lib/syncWithServer';
 import { logger } from '@/lib/logger';
 
@@ -63,23 +70,41 @@ TaskManager.defineTask(LOCATION_TRACKING_TASK, async ({ data, error }) => {
   const locations = (data as { locations?: Location.LocationObject[] })?.locations ?? [];
   if (!isWithinWorkingHours()) return;
   const deviceInfo = getDeviceInfo();
+  const seenTimestamps = new Set<string>();
   for (const location of locations) {
     try {
       const coords = location.coords;
-      const reportedAt =
-        typeof (location as { timestamp?: number }).timestamp === 'number'
-          ? new Date((location as { timestamp: number }).timestamp).toISOString()
-          : new Date().toISOString();
+      const accuracy = coords.accuracy ?? null;
+      updateFromLocation(coords.latitude, coords.longitude, accuracy);
+      const dr = getEstimatedPosition(coords.latitude, coords.longitude, accuracy);
+      const lat = dr?.lat ?? coords.latitude;
+      const lon = dr?.lon ?? coords.longitude;
+      let reportedAt: string;
+      const rawTs = (location as { timestamp?: number }).timestamp;
+      if (typeof rawTs === 'number') {
+        reportedAt = new Date(rawTs).toISOString();
+        // If OS batches locations with the same timestamp, ensure distinct reported_at per row
+        while (seenTimestamps.has(reportedAt)) {
+          const d = new Date(reportedAt);
+          d.setMilliseconds(d.getMilliseconds() + 1);
+          reportedAt = d.toISOString();
+        }
+        seenTimestamps.add(reportedAt);
+      } else {
+        reportedAt = new Date().toISOString();
+      }
       const batteryPercent = await getBatteryPercent();
+      const deviceClockOffsetSeconds = await getDeviceClockOffsetSeconds();
       await enqueueLocationReport({
         reported_at: reportedAt,
-        latitude: coords.latitude,
-        longitude: coords.longitude,
+        ...(deviceClockOffsetSeconds != null && { device_clock_offset_seconds: deviceClockOffsetSeconds }),
+        latitude: lat,
+        longitude: lon,
         accuracy: coords.accuracy ?? null,
         battery_percent: batteryPercent,
         device_info: deviceInfo,
       });
-      logger.info('Tracking: enqueued location report', { lat: coords.latitude, lon: coords.longitude, battery: batteryPercent });
+      logger.info('Tracking: enqueued location report', { lat, lon, battery: batteryPercent });
     } catch (e) {
       logger.warn('Tracking: enqueue failed', e instanceof Error ? e.message : e);
     }
@@ -141,6 +166,7 @@ export async function startTracking(config?: TrackingConfig): Promise<void> {
         notificationBody: 'Recording your location during field work.',
       },
     });
+    startSensorSubscription();
     isTrackingStarted = true;
     logger.info('Tracking: started', { workingHourStart, workingHourEnd, intervalMin: trackingIntervalMs / 60000 });
   } catch (e) {
@@ -150,6 +176,7 @@ export async function startTracking(config?: TrackingConfig): Promise<void> {
 
 export async function stopTracking(): Promise<void> {
   if (!isTrackingStarted) return;
+  stopSensorSubscription();
   try {
     await Location.stopLocationUpdatesAsync(LOCATION_TRACKING_TASK);
     isTrackingStarted = false;

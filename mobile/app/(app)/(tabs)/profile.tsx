@@ -1,13 +1,12 @@
 import { colors, radius, spacing } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
 import { api } from '@/lib/api';
-import { getPendingSyncCount, syncWithServer } from '@/lib/syncWithServer';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import NetInfo from '@react-native-community/netinfo';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
-import { Button, Card, Divider, Text } from 'react-native-paper';
+import { Card, Divider, Text, Button } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 function InfoRow({
@@ -46,21 +45,12 @@ function InfoRow({
 
 export default function ProfileScreen() {
   const router = useRouter();
-  const { email, displayName, department, region, roleDisplay, logout } = useAuth();
+  const { email, displayName, department, region, role, roleDisplay, logout } = useAuth();
   const [isOnline, setIsOnline] = useState<boolean | null>(null);
-  const [syncing, setSyncing] = useState(false);
-  const [pendingCount, setPendingCount] = useState(0);
-  const [syncError, setSyncError] = useState<string | null>(null);
-  const [snackbarVisible, setSnackbarVisible] = useState(false);
   const [unreadNotifications, setUnreadNotifications] = useState(0);
   useEffect(() => {
     const sub = NetInfo.addEventListener((state) => setIsOnline(state.isConnected ?? false));
     return () => sub();
-  }, []);
-
-  const refreshPending = useCallback(async () => {
-    const n = await getPendingSyncCount();
-    setPendingCount(n);
   }, []);
 
   const refreshUnread = useCallback(async () => {
@@ -72,42 +62,18 @@ export default function ProfileScreen() {
     }
   }, []);
 
-
-
   useFocusEffect(
     useCallback(() => {
-      refreshPending();
       refreshUnread();
-    }, [refreshPending, refreshUnread])
+    }, [refreshUnread])
   );
-
-
-  const handleSync = useCallback(async () => {
-    setSyncing(true);
-    setSyncError(null);
-    try {
-      const result = await syncWithServer();
-      if (result.success) {
-        await refreshPending();
-      } else {
-        setSyncError(result.error ?? 'Sync failed');
-        setSnackbarVisible(true);
-      }
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : 'Sync failed';
-      setSyncError(msg);
-      setSnackbarVisible(true);
-    } finally {
-      setSyncing(false);
-    }
-  }, [refreshPending]);
 
   const handleLogout = async () => {
     await logout();
     router.replace('/login');
   };
 
-  const name = (displayName?.trim() || email || 'Field officer').trim();
+  const name = (displayName?.trim() || email || (role === 'supervisor' ? 'Supervisor' : 'Field officer')).trim();
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
@@ -211,35 +177,13 @@ export default function ProfileScreen() {
               valueComponent={
                 <View style={styles.roleBadge}>
                   <Text variant="labelMedium" style={styles.roleBadgeText}>
-                    {roleDisplay || 'Field Officer'}
+                    {roleDisplay || (role === 'supervisor' ? 'Supervisor' : 'Field Officer')}
                   </Text>
                 </View>
               }
             />
           </Card.Content>
         </Card>
-
-        {pendingCount > 0 && (
-          <Card style={styles.card} elevation={0}>
-            <Card.Content>
-              <Text variant="bodyMedium">
-                {pendingCount} item{pendingCount === 1 ? '' : 's'} waiting to sync. Tap below when online.
-              </Text>
-              {syncError != null && (
-                <Text variant="bodySmall" style={styles.syncError}>{syncError}</Text>
-              )}
-              <Button
-                mode="contained"
-                onPress={handleSync}
-                loading={syncing}
-                disabled={syncing || isOnline !== true}
-                style={styles.syncBtn}
-              >
-                Sync now
-              </Button>
-            </Card.Content>
-          </Card>
-        )}
 
         <View style={styles.logoutWrap}>
           <Button mode="outlined" onPress={handleLogout} style={styles.logout} textColor={colors.error}>
@@ -299,8 +243,6 @@ const styles = StyleSheet.create({
     borderRadius: radius.full,
   },
   roleBadgeText: { fontWeight: '600', color: colors.gray700 },
-  syncError: { color: colors.error, marginTop: spacing.xs },
-  syncBtn: { marginTop: spacing.sm },
   logoutWrap: { marginTop: spacing.xl },
   logout: { borderColor: colors.error, color: colors.error },
   pressed: { opacity: 0.7 },

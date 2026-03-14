@@ -1,12 +1,17 @@
 """
 Location tracking API.
+- GET /api/tracking/time/: server UTC for device clock sync (timestamp sync for route accuracy).
 - POST (batch): mobile submits reports (offline-first sync). Auth required.
 - GET: admin/supervisor list reports with filters. Supports poor network (small pages, etag optional).
   Date filtering: same as visits — date_from + date_to, or single date param (YYYY-MM-DD).
 """
 
 import logging
+from datetime import timedelta
 
+from django.db.models import F
+from django.db.models.functions import Coalesce
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -16,6 +21,17 @@ from .models import LocationReport
 from .serializers import LocationReportCreateSerializer, LocationReportSerializer
 
 logger = logging.getLogger(__name__)
+
+
+class ServerTimeView(APIView):
+    """
+    GET: Return server UTC time (ISO 8601). Used by mobile to compute device_clock_offset
+    for timestamp sync and accurate route ordering. Auth required.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        return Response({"utc": timezone.now().isoformat()})
 
 
 def _can_list_reports(user):
@@ -35,7 +51,10 @@ class LocationReportListCreateView(APIView):
             return Response({"detail": "Only admin or supervisor can list reports."}, status=status.HTTP_403_FORBIDDEN)
 
         try:
-            qs = LocationReport.objects.select_related("user").order_by("-reported_at")
+            # Prefer server-corrected time when available for consistent route ordering
+            qs = LocationReport.objects.select_related("user").order_by(
+                Coalesce(F("reported_at_server"), F("reported_at")).desc()
+            )
             if request.user.role == "supervisor":
                 if request.user.department_id:
                     qs = qs.filter(user__department=request.user.department)
@@ -101,9 +120,15 @@ class LocationReportBatchCreateView(APIView):
             if not ser.is_valid():
                 errors.append({"index": i, "errors": ser.errors})
                 continue
+            reported_at = ser.validated_data["reported_at"]
+            offset_sec = ser.validated_data.get("device_clock_offset_seconds")
+            reported_at_server = None
+            if offset_sec is not None:
+                reported_at_server = reported_at - timedelta(seconds=float(offset_sec))
             LocationReport.objects.create(
                 user=request.user,
-                reported_at=ser.validated_data["reported_at"],
+                reported_at=reported_at,
+                reported_at_server=reported_at_server,
                 latitude=ser.validated_data["latitude"],
                 longitude=ser.validated_data["longitude"],
                 accuracy=ser.validated_data.get("accuracy"),

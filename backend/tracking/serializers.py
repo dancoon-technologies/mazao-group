@@ -7,6 +7,11 @@ class LocationReportCreateSerializer(serializers.ModelSerializer):
     """For mobile: submit one or many reports. reported_at = device time (ISO string)."""
 
     reported_at = serializers.DateTimeField()
+    device_clock_offset_seconds = serializers.FloatField(
+        required=False,
+        allow_null=True,
+        help_text="Device clock minus server (seconds). When set, server stores reported_at_server for ordering.",
+    )
     accuracy = serializers.FloatField(required=False, allow_null=True)
     battery_percent = serializers.FloatField(required=False, allow_null=True)
     device_info = serializers.JSONField(required=False, default=dict)
@@ -15,6 +20,7 @@ class LocationReportCreateSerializer(serializers.ModelSerializer):
         model = LocationReport
         fields = (
             "reported_at",
+            "device_clock_offset_seconds",
             "latitude",
             "longitude",
             "accuracy",
@@ -38,6 +44,7 @@ class LocationReportSerializer(serializers.ModelSerializer):
             "user_email",
             "user_display_name",
             "reported_at",
+            "reported_at_server",
             "latitude",
             "longitude",
             "accuracy",

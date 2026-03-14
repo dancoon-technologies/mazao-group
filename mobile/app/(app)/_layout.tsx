@@ -4,6 +4,7 @@ import { appMeta$ } from '@/store/observable';
 import { registerForPushNotificationsAsync } from '@/lib/pushNotifications';
 import { registerBackgroundSyncTask } from '@/lib/backgroundSync';
 import { api } from '@/lib/api';
+import { refreshDeviceClockOffset } from '@/lib/deviceClockSync';
 import { getLastSync, syncWithServer } from '@/lib/syncWithServer';
 import { startTracking, stopTracking } from '@/lib/trackingCollector';
 import NetInfo from '@react-native-community/netinfo';
@@ -110,12 +111,18 @@ function AppLayoutInner() {
         appMeta$.cachedOptions.set(o);
         if (o?.tracking_settings) startTracking(o.tracking_settings);
         else startTracking();
+        api.getAccessToken().then((t) => {
+          if (t) refreshDeviceClockOffset(t);
+        });
       }
     }).catch(() => {
       if (!cancelled) {
         const cached = appMeta$.cachedOptions.get();
         if (cached?.tracking_settings) startTracking(cached.tracking_settings);
         else startTracking();
+        api.getAccessToken().then((t) => {
+          if (t) refreshDeviceClockOffset(t);
+        });
       }
     });
     return () => {
