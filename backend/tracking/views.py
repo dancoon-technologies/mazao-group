@@ -5,9 +5,8 @@ Location tracking API.
 """
 
 import logging
-from datetime import date as date_type, datetime, time
+from datetime import date as date_type
 
-from django.utils import timezone
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -50,15 +49,13 @@ class LocationReportListCreateView(APIView):
             if date_from:
                 try:
                     from_date = date_type.fromisoformat(date_from)
-                    from_dt = timezone.make_aware(datetime.combine(from_date, time.min))
-                    qs = qs.filter(reported_at__gte=from_dt)
+                    qs = qs.filter(reported_at__date__gte=from_date)
                 except (ValueError, TypeError):
                     pass
             if date_to:
                 try:
                     to_date = date_type.fromisoformat(date_to)
-                    to_dt = timezone.make_aware(datetime.combine(to_date, time.max))
-                    qs = qs.filter(reported_at__lte=to_dt)
+                    qs = qs.filter(reported_at__date__lte=to_date)
                 except (ValueError, TypeError):
                     pass
 
