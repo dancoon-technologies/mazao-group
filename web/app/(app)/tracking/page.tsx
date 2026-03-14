@@ -74,14 +74,21 @@ export default function TrackingPage() {
     [role]
   );
   const staffList = staffData ?? [];
-  const userOptions = useMemo(
-    () =>
-      staffList.map((s) => ({
-        value: s.id,
-        label: s.display_name || s.email || s.id,
-      })),
-    [staffList]
+  const userOptions = useMemo(() => {
+    const seen = new Set<string>();
+    return staffList
+      .filter((s) => s.id && !seen.has(s.id) && seen.add(s.id))
+      .map((s) => ({
+        value: String(s.id),
+        label: s.display_name || s.email || String(s.id),
+      }));
+  }, [staffList]);
+  const validUserIds = useMemo(
+    () => new Set(userOptions.map((o) => o.value)),
+    [userOptions]
   );
+  const userSelectValue =
+    userId && validUserIds.has(userId) ? userId : "__all__";
 
   const reportParams = useMemo(() => {
     const base = { user_id: userId ?? undefined, page_size: userId ? 500 : 200 };
@@ -191,11 +198,9 @@ export default function TrackingPage() {
             />
             <Select
               label="User"
-              placeholder="All"
-              value={userId ?? ""}
-              onChange={(v) => setUserId(v || null)}
-              data={[{ value: "", label: "All" }, ...userOptions]}
-              clearable
+              value={userSelectValue}
+              onChange={(v) => setUserId(v && v !== "__all__" ? v : null)}
+              data={[{ value: "__all__", label: "All" }, ...userOptions]}
               style={{ minWidth: 180 }}
             />
           </Group>
