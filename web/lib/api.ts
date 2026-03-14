@@ -184,13 +184,14 @@ export const api = {
     return res.json();
   },
 
-  /** Admin/supervisor only. Location reports (tracking during working hours). Offline-friendly: use page_size for poor network. */
+  /** Admin/supervisor only. Location reports (tracking during working hours). Same date params as visits: date or date_from+date_to. */
   async getTrackingReports(
-    params?: { user_id?: string; date_from?: string; date_to?: string; page_size?: number },
+    params?: { user_id?: string; date?: string; date_from?: string; date_to?: string; page_size?: number },
     options?: { signal?: AbortSignal }
   ): Promise<{ results: LocationReport[]; count: number }> {
     const search = new URLSearchParams();
     if (params?.user_id) search.set("user_id", params.user_id);
+    if (params?.date) search.set("date", params.date);
     if (params?.date_from) search.set("date_from", params.date_from);
     if (params?.date_to) search.set("date_to", params.date_to);
     if (params?.page_size != null) search.set("page_size", String(params.page_size));

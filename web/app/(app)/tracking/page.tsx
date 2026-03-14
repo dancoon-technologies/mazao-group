@@ -78,6 +78,14 @@ export default function TrackingPage() {
     [staffList]
   );
 
+  const reportParams = useMemo(() => {
+    const base = { user_id: userId ?? undefined, page_size: userId ? 500 : 200 };
+    if (dateFrom && dateTo && dateFrom === dateTo) {
+      return { ...base, date: dateFrom };
+    }
+    return { ...base, date_from: dateFrom, date_to: dateTo };
+  }, [dateFrom, dateTo, userId]);
+
   const {
     data: reportsData,
     error,
@@ -85,20 +93,10 @@ export default function TrackingPage() {
     refetch,
   } = useAsyncData(
     useCallback(
-      async (signal) => {
-        return api.getTrackingReports(
-          {
-            date_from: dateFrom,
-            date_to: dateTo,
-            user_id: userId ?? undefined,
-            page_size: userId ? 500 : 200,
-          },
-          { signal }
-        );
-      },
-      [dateFrom, dateTo, userId]
+      (signal) => api.getTrackingReports(reportParams, { signal }),
+      [reportParams]
     ),
-    [dateFrom, dateTo, userId]
+    [reportParams]
   );
 
   const reports: LocationReport[] = reportsData?.results ?? [];

@@ -14,6 +14,7 @@ import { logger } from '@/lib/logger';
 /** Default working hours (0–23) and interval when backend config is unavailable. */
 const DEFAULT_WORKING_HOUR_START = 6;
 const DEFAULT_WORKING_HOUR_END = 18;
+/** Default: collect location every 1 minute. Backend can override via options tracking_settings.interval_minutes (1–120). */
 const DEFAULT_INTERVAL_MINUTES = 1;
 
 /** Current config from admin (set by startTracking). */

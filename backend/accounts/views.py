@@ -54,7 +54,7 @@ class OptionsListView(APIView):
 
         tracking_working_start = 6
         tracking_working_end = 18
-        tracking_interval_minutes = 10
+        tracking_interval_minutes = 1
         try:
             from tracking.models import TrackingSettings
             ts = TrackingSettings.objects.first()
