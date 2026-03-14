@@ -237,7 +237,11 @@ export default function TrackingPage() {
                         <Text size="sm">{formatReportTime(r.reported_at)}</Text>
                       </Table.Td>
                       <Table.Td>
-                        <Text size="sm">{r.latitude.toFixed(5)}, {r.longitude.toFixed(5)}</Text>
+                        <Text size="sm">
+                          {[r.latitude, r.longitude]
+                            .map((n) => (n != null && !Number.isNaN(Number(n)) ? Number(n).toFixed(5) : "—"))
+                            .join(", ")}
+                        </Text>
                       </Table.Td>
                       <Table.Td>
                         <Text size="sm">{r.battery_percent != null ? `${r.battery_percent}%` : "—"}</Text>
