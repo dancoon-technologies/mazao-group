@@ -1,11 +1,33 @@
 name: push-core-v1
-on: [ push ]
+on:
+  push:
+    paths:
+      - 'backend/**'
+      - 'web/**'
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 jobs:
-  development:
+  detect:
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
+    outputs:
+      backend: ${{ steps.filter.outputs.backend }}
+      web: ${{ steps.filter.outputs.web }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            backend:
+              - 'backend/**'
+            web:
+              - 'web/**'
+
+  development:
+    needs: detect
+    if: github.ref == 'refs/heads/main' && needs.detect.outputs.backend == 'true'
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -28,8 +50,9 @@ jobs:
             pm2 restart all
 
   web-vercel:
+    needs: detect
+    if: github.ref == 'refs/heads/main' && needs.detect.outputs.web == 'true'
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
