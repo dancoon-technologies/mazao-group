@@ -9,6 +9,7 @@ import {
 } from "@vis.gl/react-google-maps";
 import React, { useEffect, useMemo, useState } from "react";
 import type { LocationReport } from "@/lib/types";
+import { TrackingMapOSM } from "./TrackingMapOSM";
 
 const MAP_CONTAINER_STYLE = { width: "100%", height: 400 };
 
@@ -208,25 +209,23 @@ function TrackingMapInner({
   );
 }
 
-export function TrackingMap(props: TrackingMapProps) {
-  const apiKey =
+/** True when Google Maps API key is set (non-empty string). */
+export function hasGoogleMapsApiKey(): boolean {
+  const key =
     typeof process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY === "string"
       ? process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
       : "";
+  return key.length > 0;
+}
+
+export function TrackingMap(props: TrackingMapProps) {
+  const apiKey =
+    typeof process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY === "string"
+      ? process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY.trim()
+      : "";
 
   if (!apiKey) {
-    return (
-      <div
-        style={MAP_CONTAINER_STYLE}
-        className="flex items-center justify-center bg-gray-100 rounded-md text-gray-600 p-4 text-center"
-      >
-        Set{" "}
-        <code className="bg-gray-200 px-1 rounded">
-          NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
-        </code>{" "}
-        in your environment to use Google Maps.
-      </div>
-    );
+    return <TrackingMapOSM {...props} />;
   }
 
   return (

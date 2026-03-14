@@ -139,16 +139,6 @@ class FarmListCreateView(generics.ListCreateAPIView):
             from rest_framework.exceptions import NotFound
 
             raise NotFound("Farmer not found.")
-        if user.role != "admin" and farmer.assigned_officer_id != user.pk:
-            logger.warning(
-                "POST /api/farms/ forbidden: user=%s not assigned to farmer_id=%s",
-                user.id,
-                farmer_id,
-            )
-            from rest_framework.exceptions import PermissionDenied
-
-            raise PermissionDenied("You can only add farms for farmers assigned to you.")
-
         # Extension officers must be at the farm location (GPS validation)
         if user.role == "officer":
             if device_lat is None or device_lon is None:
