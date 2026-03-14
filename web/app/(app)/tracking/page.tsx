@@ -53,12 +53,20 @@ function dateDaysAgo(days: number): string {
 }
 
 function formatReportTime(iso: string): string {
-  return new Date(iso).toLocaleString(undefined, {
-    dateStyle: "short",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-  });
+  try {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return iso;
+    return d.toLocaleString(undefined, {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+    });
+  } catch {
+    return iso;
+  }
 }
 
 export default function TrackingPage() {

@@ -160,9 +160,11 @@ export function TrackingMapOSM({
                   <div style={{ padding: 4, minWidth: 160 }}>
                     <strong>{r.user_display_name || r.user_email}</strong>
                     <br />
-                    {new Date(
-                      r.reported_at_server ?? r.reported_at
-                    ).toLocaleString()}
+                    {(() => {
+                      const t = r.reported_at_server ?? r.reported_at;
+                      const d = new Date(t);
+                      return Number.isNaN(d.getTime()) ? String(t) : d.toLocaleString();
+                    })()}
                     {r.accuracy != null && (
                       <> · Accuracy ±{Math.round(r.accuracy)} m</>
                     )}
