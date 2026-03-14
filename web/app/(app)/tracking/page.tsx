@@ -16,6 +16,7 @@ import { useCallback, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import { useAsyncData } from "@/hooks/useAsyncData";
 import { api } from "@/lib/api";
+import { formatLatLng } from "@/lib/format";
 import type { LocationReport } from "@/lib/types";
 import { useAuth } from "@/contexts/AuthContext";
 import { PageHeader, PageLoading, PageError } from "@/components/ui";
@@ -237,11 +238,7 @@ export default function TrackingPage() {
                         <Text size="sm">{formatReportTime(r.reported_at)}</Text>
                       </Table.Td>
                       <Table.Td>
-                        <Text size="sm">
-                          {[r.latitude, r.longitude]
-                            .map((n) => (n != null && !Number.isNaN(Number(n)) ? Number(n).toFixed(5) : "—"))
-                            .join(", ")}
-                        </Text>
+                        <Text size="sm">{formatLatLng(r.latitude, r.longitude)}</Text>
                       </Table.Td>
                       <Table.Td>
                         <Text size="sm">{r.battery_percent != null ? `${r.battery_percent}%` : "—"}</Text>

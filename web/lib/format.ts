@@ -30,3 +30,18 @@ export function formatActivityType(value: string): string {
     .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
     .join(" ");
 }
+
+/**
+ * Format latitude/longitude for display. Handles string or number from API; returns "—" for null/undefined/NaN.
+ */
+export function formatLatLng(lat: unknown, lng: unknown, decimals = 5): string {
+  const fmt = (n: unknown) => {
+    if (n == null) return null;
+    const num = Number(n);
+    return Number.isNaN(num) ? null : num.toFixed(decimals);
+  };
+  const a = fmt(lat);
+  const b = fmt(lng);
+  if (a != null && b != null) return `${a}, ${b}`;
+  return "—";
+}
