@@ -1,43 +1,132 @@
 name: push-core-v1
+
 on:
   push:
     paths:
-      - 'backend/**'
-      - 'web/**'
-      - 'mobile/**'
+      - "backend/**"
+      - "web/**"
+      - "mobile/**"
   workflow_dispatch:
+
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   detect:
+    name: Detect changed services
     runs-on: ubuntu-latest
     outputs:
       backend: ${{ steps.filter.outputs.backend }}
       web: ${{ steps.filter.outputs.web }}
       mobile: ${{ steps.filter.outputs.mobile }}
-    steps:
-      - uses: actions/checkout@v4
 
-      - uses: dorny/paths-filter@v3
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Detect folder changes
+        uses: dorny/paths-filter@v3
         id: filter
         with:
           filters: |
             backend:
-              - 'backend/**'
+              - "backend/**"
             web:
-              - 'web/**'
+              - "web/**"
             mobile:
-              - 'mobile/**'
+              - "mobile/**"
 
-  development:
+  backend-tests:
+    name: Backend tests
     needs: detect
+    if: needs.detect.outputs.backend == 'true'
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Cache pip dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('backend/requirements.txt') }}
+
+      - name: Install dependencies
+        working-directory: backend
+        run: |
+          pip install -r requirements.txt
+
+      - name: Run Django tests
+        working-directory: backend
+        run: |
+          python manage.py test
+
+
+# -------------------------------------------------
+# Web Tests
+# -------------------------------------------------
+  web-tests:
+    name: Web tests
+    needs: detect
+    if: needs.detect.outputs.web == 'true'
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+
+      - name: Install dependencies
+        working-directory: web
+        run: npm ci
+
+      - name: Run web tests
+        working-directory: web
+        run: npm test
+
+  mobile-tests:
+    name: Mobile tests
+    needs: detect
+    if: needs.detect.outputs.mobile == 'true'
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+
+      - name: Install dependencies
+        working-directory: mobile
+        run: npm ci
+
+      - name: Run mobile tests
+        working-directory: mobile
+        run: npm test
+
+  backend-deploy:
+    name: Deploy backend
+    needs: [detect, backend-tests]
     if: github.ref == 'refs/heads/main' && needs.detect.outputs.backend == 'true'
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout Code
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Deploying to development
+      - name: Deploy to server
         uses: appleboy/ssh-action@v0.1.3
         with:
           host: ${{ secrets.HOST }}
@@ -54,54 +143,56 @@ jobs:
             cd ..
             pm2 restart all
 
-  web-vercel:
-    needs: detect
+
+  web-deploy:
+    name: Deploy web (Vercel)
+    needs: [detect, web-tests]
     if: github.ref == 'refs/heads/main' && needs.detect.outputs.web == 'true'
     runs-on: ubuntu-latest
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
 
-      - name: Setup Node.js
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: "24"
+          cache: npm
 
-      - name: Deploy Web to Vercel
-        working-directory: ./web
-        run: npx vercel@latest deploy --prod --yes --token "$VERCEL_TOKEN"
+      - name: Deploy to Vercel
+        working-directory: web
+        run: npx vercel deploy --prod --yes --token "$VERCEL_TOKEN"
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
 
-  # Build Android APK when mobile/** changes on main, or when workflow is run manually.
-  # Push: ensure Android FCM is configured in EAS (see mobile/docs/PUSH_NOTIFICATIONS_SETUP.md).
-  build-android-apk:
-    needs: detect
-    if: >
-      (github.ref == 'refs/heads/main' && needs.detect.outputs.mobile == 'true') ||
-      github.event_name == 'workflow_dispatch'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
 
-      - name: Setup Node.js
+  mobile-build:
+    name: Build Android APK
+    needs: [detect, mobile-tests]
+    if: always() && !cancelled() && ((github.ref == 'refs/heads/main' && needs.detect.outputs.mobile == 'true' && needs.mobile-tests.result == 'success') || (github.event_name == 'workflow_dispatch' && (needs.mobile-tests.result == 'success' || needs.mobile-tests.result == 'skipped')))
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: "24"
+          cache: npm
 
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
-          distribution: "temurin"
+          distribution: temurin
           java-version: "17"
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Verify EAS authentication
+      - name: Verify EAS login
         working-directory: mobile
         run: npx -y eas-cli whoami --non-interactive
         env:
@@ -109,37 +200,25 @@ jobs:
 
       - name: Install dependencies
         working-directory: mobile
-        run: |
-          rm -f pnpm-lock.yaml yarn.lock
-          npm install
+        run: npm ci
 
-      - name: Build APK locally
+      - name: Build Android APK
         working-directory: mobile
         run: |
-          for i in 1 2; do
-            npx -y eas-cli build --platform android --profile preview --local --non-interactive --output ./build/app.apk 2>&1 | tee ../build.log
-            if [ ${PIPESTATUS[0]} -eq 0 ] || [ -f ./build/app.apk ]; then exit 0; fi
-            echo "Build attempt $i failed, retrying in 30s..."
-            sleep 30
-          done
-          exit 1
+          npx -y eas-cli build \
+            --platform android \
+            --profile preview \
+            --local \
+            --non-interactive \
+            --output ./build/app.apk
         env:
-          NODE_ENV: production
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          NODE_ENV: production
           EXPO_PUBLIC_API_URL: ${{ secrets.EXPO_PUBLIC_API_URL }}
-          GRADLE_OPTS: -Xmx3584m -Dfile.encoding=UTF-8 -Dorg.gradle.daemon=false
-
-      - name: Upload build log on failure
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: build-log
-          path: build.log
-          retention-days: 1
 
       - name: Upload APK artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
-          name: app-apk
+          name: android-apk
           path: mobile/build/app.apk
           retention-days: 7
