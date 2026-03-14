@@ -12,7 +12,7 @@ import {
   Keyboard,
   Platform,
 } from "react-native";
-import { Button, Text, TextInput } from "react-native-paper";
+import { Button, Searchbar, Text } from "react-native-paper";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { colors, spacing } from "@/constants/theme";
 
@@ -114,15 +114,11 @@ export function SelectFarmerModal({
               Close
             </Button>
           </View>
-          <TextInput
-            mode="outlined"
+          <Searchbar
             placeholder="Search by name or phone…"
             value={search}
             onChangeText={setSearch}
-            left={<TextInput.Icon icon="magnify" />}
             style={styles.searchInput}
-            outlineColor={colors.gray200}
-            activeOutlineColor={colors.primary}
           />
           <View style={styles.noFarmerRow}>
             <Button
@@ -190,7 +186,6 @@ const styles = StyleSheet.create({
   searchInput: {
     marginHorizontal: spacing.lg,
     marginBottom: spacing.sm,
-    backgroundColor: colors.white,
   },
   noFarmerRow: {
     paddingHorizontal: spacing.lg,

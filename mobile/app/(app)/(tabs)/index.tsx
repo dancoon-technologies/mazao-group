@@ -276,7 +276,7 @@ const styles = StyleSheet.create({
   safe: { flex: 1 },
   container: { flex: 1, backgroundColor: colors.backgroundWelcome },
   content: { padding: 0, flexGrow: 1 },
-  contentContainer: { flex: 1, paddingTop: spacing.lg, paddingHorizontal: spacing.lg, backgroundColor: colors.accentLight, borderTopLeftRadius: radius.card, borderTopRightRadius: radius.card, overflow: 'hidden', minHeight: 0 },
+  contentContainer: { flex: 1, paddingTop: spacing.lg, paddingHorizontal: spacing.lg, backgroundColor: colors.accentLight, borderTopLeftRadius: 24, borderTopRightRadius: 24, overflow: 'hidden', minHeight: 0 },
   centered: {
     flex: 1,
     justifyContent: 'center',
@@ -284,10 +284,10 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   loadingText: { marginTop: 16 },
-  welcome: { padding: spacing.lg, paddingTop: spacing.xs, marginBottom: spacing.xs },
+  welcome: { padding: spacing.lg, paddingTop: spacing.md, marginBottom: spacing.md },
   lastSync: { marginTop: 6, color: colors.gray500 },
-  welcomeEmail: { marginTop: 0, color: colors.gray700 },
-  welcomeGreeting: { marginTop: 0, color: colors.gray700, fontWeight: '800', fontSize: 24},
+  welcomeEmail: { marginTop: 0, color: colors.gray700, fontSize: 24, fontWeight: '600' },
+  welcomeGreeting: { marginTop: 0, color: colors.gray700, fontWeight: '800', fontSize: 32},
   tag: {
     marginTop: 8,
     alignSelf: 'flex-start',

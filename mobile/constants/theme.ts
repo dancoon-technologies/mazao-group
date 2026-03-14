@@ -26,7 +26,7 @@ export const radius = {
 // --- Color system (spec)
 export const colors = {
   background: '#F9FAFB',
-  backgroundWelcome: '#E8F5E9',
+  backgroundWelcome: '#A5D6A7',
   // Primary (Agriculture Green)
   primary: '#1B8F3A',
   primaryDark: '#15732E',
