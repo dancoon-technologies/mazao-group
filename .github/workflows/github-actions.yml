@@ -1,4 +1,4 @@
-name: push-core-v1
+name: CI/CD
 
 on:
   push:

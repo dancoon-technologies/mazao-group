@@ -70,20 +70,27 @@ class FarmersAPITests(TestCase):
         self.assertEqual(r.status_code, status.HTTP_200_OK)
         return r.json()["access"]
 
+    def _farmer_list_results(self, r):
+        """Return list of farmers from response (handles paginated or plain list)."""
+        data = r.json()
+        return data.get("results", data) if isinstance(data, dict) and "results" in data else data
+
     def test_admin_sees_all_farmers(self):
         token = self._login("admin@test.com", "admin123")
         self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
         r = self.client.get("/api/farmers/")
         self.assertEqual(r.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(r.json()), 3)
+        results = self._farmer_list_results(r)
+        self.assertEqual(len(results), 3)
 
     def test_officer_sees_only_assigned_farmers(self):
         token = self._login("officer@test.com", "officer123")
         self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
         r = self.client.get("/api/farmers/")
         self.assertEqual(r.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(r.json()), 1)
-        self.assertEqual(r.json()[0]["display_name"], "My Farmer")
+        results = self._farmer_list_results(r)
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0]["display_name"], "My Farmer")
 
     def test_supervisor_sees_farmers_in_region(self):
         token = self._login("super@test.com", "super123")
@@ -91,5 +98,6 @@ class FarmersAPITests(TestCase):
         r = self.client.get("/api/farmers/")
         self.assertEqual(r.status_code, status.HTTP_200_OK)
         # North region: officer is North, other_officer is South -> only farmer_assigned
-        self.assertEqual(len(r.json()), 1)
-        self.assertEqual(r.json()[0]["display_name"], "My Farmer")
+        results = self._farmer_list_results(r)
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0]["display_name"], "My Farmer")
