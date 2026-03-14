@@ -48,10 +48,12 @@ class EmailTokenObtainPairSerializer(TokenObtainPairSerializer):
 
 
 class SingleDeviceTokenRefreshSerializer(TokenRefreshSerializer):
-    """Reject refresh if the token is not the current one (user logged in on another device)."""
+    """Reject refresh if the token is not the current one. Return new tokens with full claims so
+    the web /api/auth/me can decode email/role from the access token after refresh."""
 
     def validate(self, attrs):
         from rest_framework_simplejwt.tokens import RefreshToken
+        from rest_framework.exceptions import AuthenticationFailed
 
         refresh_str = attrs.get("refresh")
         try:
@@ -67,25 +69,22 @@ class SingleDeviceTokenRefreshSerializer(TokenRefreshSerializer):
         except User.DoesNotExist:
             return super().validate(attrs)
         if user.current_refresh_jti != jti:
-            from rest_framework.exceptions import AuthenticationFailed
-
             logger.info("Token refresh rejected: user=%s logged in on another device", user_id)
             raise AuthenticationFailed(
                 "You are logged in on another device. Please log in again.",
                 code="logged_in_elsewhere",
             )
-        data = super().validate(attrs)
-        # Update stored jti to the new refresh token (rotation may issue a new one).
-        new_refresh_str = data.get("refresh")
-        if new_refresh_str:
-            try:
-                new_refresh = RefreshToken(new_refresh_str)
-                new_jti = new_refresh.get("jti")
-                if new_jti:
-                    User.objects.filter(pk=user_id).update(current_refresh_jti=new_jti)
-            except Exception:
-                pass
-        return data
+        # Issue new tokens with full claims (email, role, must_change_password, etc.) so
+        # the Next.js /api/auth/me can read user from the access token without 401.
+        new_refresh = EmailTokenObtainPairSerializer.get_token(user)
+        new_jti = new_refresh.get("jti")
+        if new_jti:
+            user.current_refresh_jti = new_jti
+            user.save(update_fields=["current_refresh_jti"])
+        return {
+            "access": str(new_refresh.access_token),
+            "refresh": str(new_refresh),
+        }
 
 
 class EmailTokenObtainPairView(TokenObtainPairView):

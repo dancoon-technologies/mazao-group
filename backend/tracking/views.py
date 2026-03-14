@@ -34,26 +34,37 @@ class LocationReportListCreateView(APIView):
         if not _can_list_reports(request.user):
             return Response({"detail": "Only admin or supervisor can list reports."}, status=status.HTTP_403_FORBIDDEN)
 
-        qs = LocationReport.objects.select_related("user").order_by("-reported_at")
-        if request.user.role == "supervisor":
-            if request.user.department_id:
-                qs = qs.filter(user__department=request.user.department)
-            else:
-                qs = qs.none()
-        user_id = request.query_params.get("user_id")
-        if user_id:
-            qs = qs.filter(user_id=user_id)
-        date_from = request.query_params.get("date_from")
-        date_to = request.query_params.get("date_to")
-        if date_from:
-            qs = qs.filter(reported_at__date__gte=date_from)
-        if date_to:
-            qs = qs.filter(reported_at__date__lte=date_to)
+        try:
+            qs = LocationReport.objects.select_related("user").order_by("-reported_at")
+            if request.user.role == "supervisor":
+                if request.user.department_id:
+                    qs = qs.filter(user__department=request.user.department)
+                else:
+                    qs = qs.none()
+            user_id = request.query_params.get("user_id")
+            if user_id:
+                qs = qs.filter(user_id=user_id)
+            date_from = request.query_params.get("date_from")
+            date_to = request.query_params.get("date_to")
+            if date_from:
+                qs = qs.filter(reported_at__date__gte=date_from)
+            if date_to:
+                qs = qs.filter(reported_at__date__lte=date_to)
 
-        page_size = min(500, max(1, int(request.query_params.get("page_size", 200))))
-        reports = list(qs[:page_size])
-        data = LocationReportSerializer(reports, many=True).data
-        return Response({"results": data, "count": len(data)})
+            try:
+                page_size = int(request.query_params.get("page_size", 200))
+            except (TypeError, ValueError):
+                page_size = 200
+            page_size = min(500, max(1, page_size))
+            reports = list(qs[:page_size])
+            data = LocationReportSerializer(reports, many=True).data
+            return Response({"results": data, "count": len(data)})
+        except Exception as e:
+            logger.exception("GET /api/tracking/reports/ error: %s", e)
+            return Response(
+                {"detail": "Failed to load tracking reports. Please try again."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
 
 
 class LocationReportBatchCreateView(APIView):

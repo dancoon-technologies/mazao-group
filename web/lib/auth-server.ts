@@ -54,10 +54,13 @@ export async function getAccessToken(): Promise<string | null> {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ refresh }),
     });
-    const data = (await res.json().catch(() => ({}))) as { access?: string };
+    const data = (await res.json().catch(() => ({}))) as { access?: string; refresh?: string };
     if (res.ok && data.access) {
       access = data.access;
       cookieStore.set(COOKIE_ACCESS, data.access, COOKIE_OPTIONS);
+      if (data.refresh) {
+        cookieStore.set(COOKIE_REFRESH, data.refresh, REFRESH_COOKIE_OPTIONS);
+      }
     }
   }
 
