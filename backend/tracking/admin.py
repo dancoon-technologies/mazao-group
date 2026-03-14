@@ -22,3 +22,4 @@ class LocationReportAdmin(admin.ModelAdmin):
     search_fields = ("user__email",)
     readonly_fields = ("created_at",)
     ordering = ("-reported_at",)
+    date_hierarchy = "reported_at"

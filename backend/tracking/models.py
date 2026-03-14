@@ -46,7 +46,8 @@ class LocationReport(models.Model):
         related_name="location_reports",
     )
     reported_at = models.DateTimeField(
-        help_text="Device timestamp when the location was captured (ISO from mobile).",
+        verbose_name="Captured (device time)",
+        help_text="Device time when the location was captured by the phone (even when offline; synced later).",
     )
     latitude = models.DecimalField(max_digits=10, decimal_places=7)
     longitude = models.DecimalField(max_digits=10, decimal_places=7)
@@ -65,7 +66,11 @@ class LocationReport(models.Model):
         blank=True,
         help_text="Device model, OS, app version, etc.",
     )
-    created_at = models.DateTimeField(auto_now_add=True)
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name="Received (server)",
+        help_text="When the server saved this record (can be later than capture if synced from offline).",
+    )
 
     class Meta:
         ordering = ["-reported_at"]
