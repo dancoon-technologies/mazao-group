@@ -24,6 +24,16 @@ import { PAGE_BOX_MIN_WIDTH, ROLES, ROLES_TRACKING } from "@/lib/constants";
 const DEFAULT_ZOOM = 8;
 const KENYA_CENTER: [number, number] = [-1.292066, 36.821946];
 
+const USER_MAP_COLORS = ["#228be6", "#40c057", "#fd7e14", "#be4bdb", "#fa5252", "#15aabf", "#fab005", "#7950f2"];
+function userColorIndex(userId: string): number {
+  let h = 0;
+  for (let i = 0; i < userId.length; i++) {
+    h = (h << 5) - h + userId.charCodeAt(i);
+    h |= 0;
+  }
+  return Math.abs(h) % USER_MAP_COLORS.length;
+}
+
 const MapView = dynamic(
   () =>
     import("@/components/tracking/TrackingMap").then((m) => ({ default: m.TrackingMap })),
@@ -81,7 +91,7 @@ export default function TrackingPage() {
             date_from: dateFrom,
             date_to: dateTo,
             user_id: userId ?? undefined,
-            page_size: 200,
+            page_size: userId ? 500 : 200,
           },
           { signal }
         );
@@ -103,6 +113,13 @@ export default function TrackingPage() {
     }
     return Array.from(map.values());
   }, [reports]);
+
+  const reportsForMap = userId ? reports : latestByUser;
+  const selectedUserLabel = userId
+    ? staffList.find((s) => s.id === userId)?.display_name ||
+      staffList.find((s) => s.id === userId)?.email ||
+      "User"
+    : null;
 
   const hasData = reports.length > 0;
   const showCachedMessage = hasData && error;
@@ -170,10 +187,35 @@ export default function TrackingPage() {
         {hasData && (
           <>
             <Text size="sm" c="dimmed">
-              Location reports during working hours (with battery & device info). One marker per user (latest). Poor network: use filters and Refresh.
+              {userId
+                ? `Path and points for ${selectedUserLabel} during work hours (${reports.length} reports).`
+                : `All people on map (latest location each). Select a user to see their full route and points.`}
             </Text>
+            {!userId && latestByUser.length > 0 && (
+              <Group gap="sm" wrap="wrap">
+                {latestByUser.map((r) => (
+                  <Group key={r.user_id} gap={6}>
+                    <Box
+                      style={{
+                        width: 12,
+                        height: 12,
+                        borderRadius: "50%",
+                        backgroundColor: USER_MAP_COLORS[userColorIndex(r.user_id)],
+                        flexShrink: 0,
+                      }}
+                    />
+                    <Text size="sm">{r.user_display_name || r.user_email}</Text>
+                  </Group>
+                ))}
+              </Group>
+            )}
             <Paper withBorder radius="md" style={{ overflow: "hidden", minHeight: 400 }}>
-              <MapView reports={latestByUser} center={KENYA_CENTER} zoom={DEFAULT_ZOOM} />
+              <MapView
+                reports={reportsForMap}
+                center={KENYA_CENTER}
+                zoom={DEFAULT_ZOOM}
+                singleUserPathMode={!!userId}
+              />
             </Paper>
             <Card withBorder p="md" radius="md">
               <Text fw={600} mb="xs">Recent reports ({reports.length})</Text>
