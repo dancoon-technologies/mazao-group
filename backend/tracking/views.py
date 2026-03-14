@@ -5,8 +5,10 @@ Location tracking API.
 """
 
 import logging
-from datetime import date as date_type
+from datetime import date as date_type, datetime, time
 
+from django.conf import settings
+from django.utils import timezone as tz_util
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -16,6 +18,37 @@ from .models import LocationReport
 from .serializers import LocationReportCreateSerializer, LocationReportSerializer
 
 logger = logging.getLogger(__name__)
+
+
+def _parse_date_filter(value: str | None):
+    """Parse YYYY-MM-DD to date, or None if invalid."""
+    if not value or not isinstance(value, str):
+        return None
+    try:
+        return date_type.fromisoformat(value.strip())
+    except (ValueError, TypeError):
+        return None
+
+
+def _date_bounds(from_date, to_date):
+    """
+    Return (start_dt, end_dt) for filtering reported_at, in default timezone.
+    Avoids __date lookup which can fail on SQLite/some backends.
+    """
+    if from_date is None and to_date is None:
+        return None, None
+    tz = tz_util.get_default_timezone() if settings.USE_TZ else None
+    start_dt = None
+    end_dt = None
+    if from_date is not None:
+        start_dt = datetime.combine(from_date, time.min)
+        if tz:
+            start_dt = tz_util.make_aware(start_dt, tz)
+    if to_date is not None:
+        end_dt = datetime.combine(to_date, time.max)
+        if tz:
+            end_dt = tz_util.make_aware(end_dt, tz)
+    return start_dt, end_dt
 
 
 def _can_list_reports(user):
@@ -44,20 +77,13 @@ class LocationReportListCreateView(APIView):
             user_id = request.query_params.get("user_id")
             if user_id:
                 qs = qs.filter(user_id=user_id)
-            date_from = request.query_params.get("date_from")
-            date_to = request.query_params.get("date_to")
-            if date_from:
-                try:
-                    from_date = date_type.fromisoformat(date_from)
-                    qs = qs.filter(reported_at__date__gte=from_date)
-                except (ValueError, TypeError):
-                    pass
-            if date_to:
-                try:
-                    to_date = date_type.fromisoformat(date_to)
-                    qs = qs.filter(reported_at__date__lte=to_date)
-                except (ValueError, TypeError):
-                    pass
+            from_date = _parse_date_filter(request.query_params.get("date_from"))
+            to_date = _parse_date_filter(request.query_params.get("date_to"))
+            start_dt, end_dt = _date_bounds(from_date, to_date)
+            if start_dt is not None:
+                qs = qs.filter(reported_at__gte=start_dt)
+            if end_dt is not None:
+                qs = qs.filter(reported_at__lte=end_dt)
 
             try:
                 page_size = int(request.query_params.get("page_size", 200))

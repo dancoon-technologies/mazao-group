@@ -4,6 +4,8 @@ on:
     paths:
       - 'backend/**'
       - 'web/**'
+      - 'mobile/**'
+  workflow_dispatch:
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 jobs:
@@ -12,6 +14,7 @@ jobs:
     outputs:
       backend: ${{ steps.filter.outputs.backend }}
       web: ${{ steps.filter.outputs.web }}
+      mobile: ${{ steps.filter.outputs.mobile }}
     steps:
       - uses: actions/checkout@v4
 
@@ -23,6 +26,8 @@ jobs:
               - 'backend/**'
             web:
               - 'web/**'
+            mobile:
+              - 'mobile/**'
 
   development:
     needs: detect
@@ -69,3 +74,72 @@ jobs:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+  # Build Android APK when mobile/** changes on main, or when workflow is run manually.
+  # Push: ensure Android FCM is configured in EAS (see mobile/docs/PUSH_NOTIFICATIONS_SETUP.md).
+  build-android-apk:
+    needs: detect
+    if: >
+      (github.ref == 'refs/heads/main' && needs.detect.outputs.mobile == 'true') ||
+      github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: "temurin"
+          java-version: "17"
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Verify EAS authentication
+        working-directory: mobile
+        run: npx -y eas-cli whoami --non-interactive
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Install dependencies
+        working-directory: mobile
+        run: |
+          rm -f pnpm-lock.yaml yarn.lock
+          npm install
+
+      - name: Build APK locally
+        working-directory: mobile
+        run: |
+          for i in 1 2; do
+            npx -y eas-cli build --platform android --profile preview --local --non-interactive --output ./build/app.apk 2>&1 | tee ../build.log
+            if [ ${PIPESTATUS[0]} -eq 0 ] || [ -f ./build/app.apk ]; then exit 0; fi
+            echo "Build attempt $i failed, retrying in 30s..."
+            sleep 30
+          done
+          exit 1
+        env:
+          NODE_ENV: production
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          EXPO_PUBLIC_API_URL: ${{ secrets.EXPO_PUBLIC_API_URL }}
+          GRADLE_OPTS: -Xmx3584m -Dfile.encoding=UTF-8 -Dorg.gradle.daemon=false
+
+      - name: Upload build log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log
+          path: build.log
+          retention-days: 1
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-apk
+          path: mobile/build/app.apk
+          retention-days: 7
