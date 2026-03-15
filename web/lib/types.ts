@@ -26,10 +26,14 @@ export interface Visit {
   latitude: string;
   longitude: string;
   photo: string;
+  /** All photo URLs (primary first, then extra). From API when available. */
+  photos?: string[];
   notes: string;
   distance_from_farmer: number | null;
   verification_status: "pending" | "verified" | "rejected";
   activity_type: string;
+  /** Multiple activities performed in this visit; activity_type is the first. */
+  activity_types?: string[];
   crop_stage?: string;
   germination_percent?: number | null;
   survival_rate?: string;

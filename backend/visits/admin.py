@@ -2,7 +2,7 @@ from django import forms
 from django.contrib import admin
 
 from .forms import FormFieldsFormField
-from .models import ActivityTypeConfig, Visit
+from .models import ActivityTypeConfig, Visit, VisitPhoto
 
 
 class ActivityTypeConfigAdminForm(forms.ModelForm):
@@ -44,6 +44,12 @@ class ActivityTypeConfigAdmin(admin.ModelAdmin):
     departments_display.short_description = "Departments"
 
 
+class VisitPhotoInline(admin.TabularInline):
+    model = VisitPhoto
+    extra = 0
+    readonly_fields = ("image",)
+
+
 @admin.register(Visit)
 class VisitAdmin(admin.ModelAdmin):
     list_display = (
@@ -56,3 +62,4 @@ class VisitAdmin(admin.ModelAdmin):
     list_filter = ("verification_status", "created_at")
     raw_id_fields = ("officer", "farmer")
     readonly_fields = ("created_at",)
+    inlines = (VisitPhotoInline,)

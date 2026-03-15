@@ -446,11 +446,13 @@ export const api = {
     latitude: number;
     longitude: number;
     notes?: string;
-    photo: { uri: string; type?: string; name?: string };
+    /** One or more photos (all appended as FormData "photo"). */
+    photos: { uri: string; type?: string; name?: string }[];
     photo_taken_at?: string;
     photo_device_info?: string;
     photo_place_name?: string;
     activity_type?: string;
+    activity_types?: string[];
     crop_stage?: string;
     germination_percent?: number | null;
     survival_rate?: string;
@@ -469,15 +471,20 @@ export const api = {
     form.append('latitude', String(params.latitude));
     form.append('longitude', String(params.longitude));
     if (params.notes) form.append('notes', params.notes);
-    form.append('photo', {
-      uri: params.photo.uri,
-      type: params.photo.type ?? 'image/jpeg',
-      name: params.photo.name ?? 'photo.jpg',
-    } as unknown as Blob);
+    for (const p of params.photos) {
+      form.append('photo', {
+        uri: p.uri,
+        type: p.type ?? 'image/jpeg',
+        name: p.name ?? 'photo.jpg',
+      } as unknown as Blob);
+    }
     if (params.photo_taken_at) form.append('photo_taken_at', params.photo_taken_at);
     if (params.photo_device_info) form.append('photo_device_info', params.photo_device_info);
     if (params.photo_place_name) form.append('photo_place_name', params.photo_place_name);
-    form.append('activity_type', params.activity_type ?? 'farm_to_farm_visits');
+    if (params.activity_types?.length) {
+      for (const v of params.activity_types) form.append('activity_types', v);
+    }
+    form.append('activity_type', params.activity_type ?? params.activity_types?.[0] ?? 'farm_to_farm_visits');
     if (params.crop_stage) form.append('crop_stage', params.crop_stage);
     if (params.germination_percent != null) form.append('germination_percent', String(params.germination_percent));
     if (params.survival_rate) form.append('survival_rate', params.survival_rate);

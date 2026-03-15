@@ -8,7 +8,7 @@ import type { Visit } from "@/lib/types";
 import { PageLoading, PageError } from "@/components/ui";
 import { DashboardCharts, type DashboardChartSection } from "@/components/dashboard/DashboardCharts";
 import { DASHBOARD_DAY_OPTIONS, PAGE_BOX_MIN_WIDTH, ROUTES } from "@/lib/constants";
-import { formatDateTime, formatActivityType } from "@/lib/format";
+import { formatDateTime, formatActivityType, formatActivityTypes } from "@/lib/format";
 import { useMemo, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -216,7 +216,7 @@ export default function DashboardPage() {
                         </Table.Td>
                         <Table.Td>
                           <Text size="sm" c="dimmed">
-                            {formatActivityType(v.activity_type ?? "")}
+                            {formatActivityTypes(v.activity_types?.length ? v.activity_types : undefined) || formatActivityType(v.activity_type ?? "")}
                           </Text>
                         </Table.Td>
                         <Table.Td>

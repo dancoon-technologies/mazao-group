@@ -19,7 +19,7 @@ import { useAsyncData } from "@/hooks/useAsyncData";
 import { api, photoUrl } from "@/lib/api";
 import type { Visit } from "@/lib/types";
 import { useAuth } from "@/contexts/AuthContext";
-import { formatDateTime, formatActivityType, pluralize } from "@/lib/format";
+import { formatDateTime, formatActivityType, formatActivityTypes, pluralize } from "@/lib/format";
 import { DataTable, type DataTableColumn, PageLoading, PageError, PageHeader } from "@/components/ui";
 import { PAGE_BOX_MIN_WIDTH } from "@/lib/constants";
 
@@ -168,7 +168,7 @@ function VisitDetailModal({
         ["Officer", ([visit.officer_display_name, visit.officer_email].filter(Boolean).join(" — ") || (visit.officer_email ?? visit.officer)) ?? "—"],
         ["Farmer", (visit.farmer_display_name ?? visit.farmer) ?? "—"],
         ["Farm visited", visit.farm_display_name ?? "—"],
-        ["Activity", formatActivityType(visit.activity_type ?? "")],
+        ["Activity", formatActivityTypes(visit.activity_types?.length ? visit.activity_types : undefined) || formatActivityType(visit.activity_type ?? "")],
         ["Status", visit.verification_status ?? "—"],
         ["Distance (m)", visit.distance_from_farmer != null ? String(Math.round(visit.distance_from_farmer)) : "—"],
         ["Crop stage", visit.crop_stage ?? "—"],
@@ -208,7 +208,7 @@ function VisitDetailModal({
         ))}
         {row("Farmer", visit.farmer_display_name ?? visit.farmer)}
         {row("Farm visited", visit.farm_display_name ?? "—")}
-        {row("Activity", formatActivityType(visit.activity_type ?? ""))}
+        {row("Activity", formatActivityTypes(visit.activity_types?.length ? visit.activity_types : undefined) || formatActivityType(visit.activity_type ?? ""))}
         {row("Status", (
           <Badge
             color={
@@ -238,10 +238,20 @@ function VisitDetailModal({
         {row("Harvest (kg)", visit.harvest_kgs != null ? String(visit.harvest_kgs) : null)}
         {row("Farmers feedback", visit.farmers_feedback)}
         {row("Notes", visit.notes)}
-        {visit.photo ? (
-          <Anchor href={photoUrl(visit.photo)} target="_blank" rel="noopener noreferrer" size="sm">
-            View photo
-          </Anchor>
+        {(visit.photos?.length ?? (visit.photo ? 1 : 0)) > 0 ? (
+          <Group gap="xs">
+            {(visit.photos ?? (visit.photo ? [visit.photo] : [])).map((url, i) => (
+              <Anchor
+                key={i}
+                href={photoUrl(url)}
+                target="_blank"
+                rel="noopener noreferrer"
+                size="sm"
+              >
+                View photo {visit.photos && visit.photos.length > 1 ? i + 1 : ""}
+              </Anchor>
+            ))}
+          </Group>
         ) : null}
         {canVerify && (
           <Group mt="md" gap="xs">
@@ -363,7 +373,7 @@ export default function VisitsPage() {
       Officer: [v.officer_display_name, v.officer_email].filter(Boolean).join(" — ") || (v.officer_email ?? v.officer),
       Farmer: v.farmer_display_name ?? v.farmer,
       "Farm visited": v.farm_display_name ?? "",
-      Activity: formatActivityType(v.activity_type ?? ""),
+      Activity: formatActivityTypes(v.activity_types?.length ? v.activity_types : undefined) || formatActivityType(v.activity_type ?? ""),
       "Crop stage": v.crop_stage ?? "",
       "Germination %": v.germination_percent ?? "",
       "Survival rate": v.survival_rate ?? "",
@@ -374,7 +384,7 @@ export default function VisitsPage() {
       Notes: v.notes ?? "",
       "Distance (m)": v.distance_from_farmer != null ? Math.round(v.distance_from_farmer) : "",
       Status: v.verification_status,
-      "Photo URL": v.photo ? photoUrl(v.photo) : "",
+      "Photo URL(s)": (v.photos?.length ? v.photos : (v.photo ? [v.photo] : [])).map(photoUrl).join("; ") || "",
     }));
     const ws = XLSX.utils.json_to_sheet(rows);
     const wb = XLSX.utils.book_new();
@@ -491,7 +501,7 @@ export default function VisitsPage() {
         visibleFrom: "md",
         render: (v) => (
           <Text size="sm" c="dimmed">
-            {formatActivityType(v.activity_type ?? "")}
+            {formatActivityTypes(v.activity_types?.length ? v.activity_types : undefined) || formatActivityType(v.activity_type ?? "")}
           </Text>
         ),
       },
@@ -533,22 +543,26 @@ export default function VisitsPage() {
       {
         key: "photo",
         label: "Photo",
-        render: (v) =>
-          v.photo ? (
-            <Anchor
-              size="sm"
-              href={photoUrl(v.photo)}
-              target="_blank"
-              rel="noopener noreferrer"
-              c="green"
-            >
-              View
-            </Anchor>
-          ) : (
-            <Text size="sm" c="dimmed">
-              —
-            </Text>
-          ),
+        render: (v) => {
+          const urls = v.photos?.length ? v.photos : (v.photo ? [v.photo] : []);
+          if (!urls.length) return <Text size="sm" c="dimmed">—</Text>;
+          return (
+            <Group gap="xs">
+              {urls.map((url, i) => (
+                <Anchor
+                  key={i}
+                  size="sm"
+                  href={photoUrl(url)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  c="green"
+                >
+                  {urls.length > 1 ? `${i + 1}` : "View"}
+                </Anchor>
+              ))}
+            </Group>
+          );
+        },
       },
       {
         key: "details",

@@ -91,8 +91,8 @@ export default function RecordVisitScreen() {
   const [permission, requestPermission] = useCameraPermissions();
   const [location, setLocation] = useState<Location.LocationObject | null>(null);
   const [locationError, setLocationError] = useState('');
-  const [photoUri, setPhotoUri] = useState<string | null>(null);
-  const [photoTakenAt, setPhotoTakenAt] = useState<string | null>(null);
+  const [photoUris, setPhotoUris] = useState<string[]>([]);
+  const [photoTakenAts, setPhotoTakenAts] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [farmers, setFarmers] = useState<Farmer[]>([]);
@@ -102,11 +102,10 @@ export default function RecordVisitScreen() {
   const [selectedScheduleId, setSelectedScheduleId] = useState<string | null>(params.scheduleId ?? null);
   const [selectedFarmerId, setSelectedFarmerId] = useState<string | null>(params.farmerId ?? null);
   const [selectedFarmId, setSelectedFarmId] = useState<string | null>(null);
-  const [activityType, setActivityType] = useState(DEFAULT_ACTIVITY_TYPE);
+  const [activityTypes, setActivityTypes] = useState<string[]>([DEFAULT_ACTIVITY_TYPE]);
   const [activityTypesList, setActivityTypesList] = useState<ActivityTypeOption[]>([]);
   const [farmerMenuOpen, setFarmerMenuOpen] = useState(false);
   const [farmModalOpen, setFarmModalOpen] = useState(false);
-  const [activityMenuOpen, setActivityMenuOpen] = useState(false);
   const [accordionExpanded, setAccordionExpanded] = useState(false);
   const [locationLoading, setLocationLoading] = useState(false);
   const [notes, setNotes] = useState('');
@@ -164,9 +163,11 @@ export default function RecordVisitScreen() {
       setVisitSettings(o.visit_settings ?? { max_distance_meters: DEFAULT_MAX_DISTANCE_METERS, warning_distance_meters: DEFAULT_WARNING_DISTANCE_METERS });
       if (o.activity_types?.length) {
         setActivityTypesList(o.activity_types);
-        setActivityType((prev) => {
+        setActivityTypes((prev) => {
           const allowed = o.activity_types!.map((a) => a.value);
-          return allowed.includes(prev) ? prev : (o.activity_types![0]?.value ?? prev);
+          const kept = prev.filter((v) => allowed.includes(v));
+          if (kept.length > 0) return kept;
+          return [o.activity_types![0]?.value ?? DEFAULT_ACTIVITY_TYPE];
         });
       } else {
         setActivityTypesList(ACTIVITY_TYPES.map((a) => ({ value: a.value, label: a.label })));
@@ -212,10 +213,20 @@ export default function RecordVisitScreen() {
   );
 
   const step3Fields = useMemo(() => {
-    const config = activityTypesList.find((a) => a.value === activityType);
-    const fields = config?.form_fields?.length ? config.form_fields : defaultStep3Fields;
-    return fields;
-  }, [activityType, activityTypesList, defaultStep3Fields]);
+    const seen = new Set<string>();
+    const out: ActivityFormFieldOption[] = [];
+    for (const value of activityTypes) {
+      const config = activityTypesList.find((a) => a.value === value);
+      const fields = config?.form_fields?.length ? config.form_fields : defaultStep3Fields;
+      for (const f of fields) {
+        if (!seen.has(f.key)) {
+          seen.add(f.key);
+          out.push(f);
+        }
+      }
+    }
+    return out.length > 0 ? out : defaultStep3Fields;
+  }, [activityTypes, activityTypesList, defaultStep3Fields]);
 
   useEffect(() => {
     let cancelled = false;
@@ -427,8 +438,8 @@ export default function RecordVisitScreen() {
         }),
       });
       if (photo?.uri) {
-        setPhotoUri(photo.uri);
-        setPhotoTakenAt(takenAt);
+        setPhotoUris((prev) => [...prev, photo.uri]);
+        setPhotoTakenAts((prev) => [...prev, takenAt]);
         setCameraModalVisible(false);
       }
     } catch (e) {
@@ -475,8 +486,12 @@ export default function RecordVisitScreen() {
       );
       return;
     }
-    if (!selectedFarmerId || !photoUri || !location) {
-      setError(`Select ${labels.partner.toLowerCase()}, capture photo, and ensure location is available.`);
+    if (!selectedFarmerId || !location) {
+      setError(`Select ${labels.partner.toLowerCase()} and ensure location is available.`);
+      return;
+    }
+    if (photoUris.length === 0) {
+      setError(`Capture at least one photo for verification.`);
       return;
     }
     setSubmitting(true);
@@ -497,11 +512,12 @@ export default function RecordVisitScreen() {
           schedule_id: scheduleIdForSubmit,
           latitude: location.coords.latitude,
           longitude: location.coords.longitude,
-          photo: { uri: photoUri, type: 'image/jpeg', name: 'visit.jpg' },
-          photo_taken_at: photoTakenAt ?? new Date().toISOString(),
+          photos: photoUris.map((uri, i) => ({ uri, type: 'image/jpeg', name: `visit_${i}.jpg` })),
+          photo_taken_at: photoTakenAts[0] ?? new Date().toISOString(),
           photo_device_info: getPhotoDeviceInfo(),
           photo_place_name: photoPlaceName,
-          activity_type: activityType,
+          activity_types: activityTypes.length > 0 ? activityTypes : [DEFAULT_ACTIVITY_TYPE],
+          activity_type: activityTypes[0] ?? DEFAULT_ACTIVITY_TYPE,
           notes: notes || undefined,
           crop_stage: cropStage || undefined,
           germination_percent: germinationPercent ? parseFloat(germinationPercent) : undefined,
@@ -527,12 +543,13 @@ export default function RecordVisitScreen() {
         schedule_id: scheduleIdForSubmit,
         latitude: location.coords.latitude,
         longitude: location.coords.longitude,
-        photo_uri: photoUri,
-        photo_taken_at: photoTakenAt ?? new Date().toISOString(),
+        photo_uris: photoUris,
+        photo_taken_at: photoTakenAts[0] ?? new Date().toISOString(),
         photo_device_info: getPhotoDeviceInfo(),
         photo_place_name: photoPlaceName,
         notes: notes || undefined,
-        activity_type: activityType,
+        activity_types: activityTypes.length > 0 ? activityTypes : [DEFAULT_ACTIVITY_TYPE],
+        activity_type: activityTypes[0] ?? DEFAULT_ACTIVITY_TYPE,
         crop_stage: cropStage || undefined,
         germination_percent: germinationPercent ? parseFloat(germinationPercent) : undefined,
         survival_rate: survivalRatePercent || undefined,
@@ -561,12 +578,18 @@ export default function RecordVisitScreen() {
     } finally {
       setSubmitting(false);
     }
-  }, [mustSelectSchedule, acceptedSchedules.length, selectedFarmerId, selectedFarmId, selectedScheduleId, scheduleIdForSubmit, photoUri, photoTakenAt, location, selectedFarm, selectedFarmer, activityType, notes, cropStage, germinationPercent, survivalRatePercent, orderValue, harvestKgs, pestsDiseases, farmersFeedback, labels, router]);
+  }, [mustSelectSchedule, acceptedSchedules.length, selectedFarmerId, selectedFarmId, selectedScheduleId, scheduleIdForSubmit, photoUris, photoTakenAts, location, selectedFarm, selectedFarmer, activityTypes, notes, cropStage, germinationPercent, survivalRatePercent, orderValue, harvestKgs, pestsDiseases, farmersFeedback, labels, router]);
 
-  const activityLabel =
-    activityTypesList.find((a) => a.value === activityType)?.label ??
-    ACTIVITY_TYPES.find((a) => a.value === activityType)?.label ??
-    activityType;
+  const activityLabel = useMemo(() => {
+    if (activityTypes.length === 0) return 'Select activities';
+    const labels = activityTypes.map(
+      (v) =>
+        activityTypesList.find((a) => a.value === v)?.label ??
+        ACTIVITY_TYPES.find((a) => a.value === v)?.label ??
+        v
+    );
+    return labels.join(', ');
+  }, [activityTypes, activityTypesList]);
 
   if (!permission) {
     return (
@@ -773,33 +796,32 @@ export default function RecordVisitScreen() {
                 )
               ) : null}
 
-              <Text variant="labelMedium" style={styles.step2SectionTitle}>ACTIVITY TYPE</Text>
-              <Menu
-                visible={activityMenuOpen}
-                onDismiss={() => setActivityMenuOpen(false)}
-                anchor={
-                  <TextInput
-                    placeholder="Select activity type"
-                    value={activityLabel}
-                    mode="outlined"
-                    right={<TextInput.Icon icon="chevron-down" onPress={() => setActivityMenuOpen(true)} />}
-                    style={styles.step2Input}
-                    onPressIn={() => setActivityMenuOpen(true)}
-                    editable={false}
-                  />
-                }
-              >
-                {activityTypeOptions.map((a) => (
-                  <Menu.Item
-                    key={a.value}
-                    onPress={() => {
-                      setActivityType(a.value);
-                      setActivityMenuOpen(false);
-                    }}
-                    title={a.label}
-                  />
-                ))}
-              </Menu>
+              <Text variant="labelMedium" style={styles.step2SectionTitle}>ACTIVITY TYPES (tap to add/remove)</Text>
+              <Text variant="bodySmall" style={styles.hint}>You can record more than one activity per visit.</Text>
+              <View style={styles.chipRow}>
+                {activityTypeOptions.map((a) => {
+                  const selected = activityTypes.includes(a.value);
+                  return (
+                    <Button
+                      key={a.value}
+                      mode={selected ? 'contained' : 'outlined'}
+                      compact
+                      onPress={() => {
+                        if (selected) {
+                          if (activityTypes.length > 1) {
+                            setActivityTypes((prev) => prev.filter((v) => v !== a.value));
+                          }
+                        } else {
+                          setActivityTypes((prev) => [...prev, a.value]);
+                        }
+                      }}
+                      style={styles.activityChip}
+                    >
+                      {a.label}
+                    </Button>
+                  );
+                })}
+              </View>
 
               {/* Location: green card when verified, otherwise neutral/warning */}
               <View style={[styles.locationCard, location && gpsValid && styles.locationCardVerified]}>
@@ -854,18 +876,37 @@ export default function RecordVisitScreen() {
               </View>
 
               <Text variant="labelMedium" style={styles.step2SectionTitle}>PHOTO EVIDENCE *</Text>
-              {photoUri ? (
-                <View style={styles.photoPreviewWrap}>
-                  <Image source={{ uri: photoUri }} style={styles.previewImg} contentFit="cover" />
-                  <Button mode="text" compact onPress={() => { setPhotoUri(null); openCameraModal(); }}>
-                    Retake photo
-                  </Button>
+              <Text variant="bodySmall" style={styles.hint}>You can add more than one photo. At least one required.</Text>
+              {photoUris.length > 0 ? (
+                <View style={styles.photosRow}>
+                  {photoUris.map((uri, index) => (
+                    <View key={`${uri}-${index}`} style={styles.photoThumbWrap}>
+                      <Image source={{ uri }} style={styles.photoThumb} contentFit="cover" />
+                      <Button
+                        mode="text"
+                        compact
+                        icon="close"
+                        onPress={() => {
+                          setPhotoUris((prev) => prev.filter((_, i) => i !== index));
+                          setPhotoTakenAts((prev) => prev.filter((_, i) => i !== index));
+                        }}
+                        style={styles.photoThumbRemove}
+                        accessibilityLabel="Remove photo"
+                      >
+                        {' '}
+                      </Button>
+                    </View>
+                  ))}
+                  <Pressable style={styles.photoAddBtn} onPress={openCameraModal}>
+                    <MaterialCommunityIcons name="camera-plus" size={40} color={colors.primary} />
+                    <Text variant="bodySmall" style={styles.photoAddLabel}>Add photo</Text>
+                  </Pressable>
                 </View>
               ) : (
                 <Pressable style={styles.photoPlaceholder} onPress={openCameraModal}>
                   <MaterialCommunityIcons name="camera" size={48} color={colors.gray500} />
                   <Text variant="bodyLarge" style={styles.photoPlaceholderText}>Tap to take photo</Text>
-                  <Text variant="bodySmall" style={styles.photoPlaceholderHint}>Required for verification</Text>
+                  <Text variant="bodySmall" style={styles.photoPlaceholderHint}>At least one required for verification</Text>
                 </Pressable>
               )}
 
@@ -877,7 +918,7 @@ export default function RecordVisitScreen() {
                   mode="contained"
                   onPress={() => setStep(2)}
                   disabled={
-                    !photoUri ||
+                    photoUris.length === 0 ||
                     !location ||
                     (location && distanceM !== null && !gpsValid)
                   }
@@ -1161,6 +1202,8 @@ const styles = StyleSheet.create({
   farmSelectBtnContent: { justifyContent: 'flex-start' },
   muted: { opacity: 0.7 },
   step2Input: { marginBottom: spacing.md },
+  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginBottom: spacing.md },
+  activityChip: { margin: 0 },
   locationCard: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1183,6 +1226,22 @@ const styles = StyleSheet.create({
   locationCardTitleVerified: { fontWeight: '600', color: colors.primary },
   locationCardDetail: { color: colors.gray700, marginTop: 2 },
   locationRefreshBtn: { padding: spacing.sm },
+  photosRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginBottom: spacing.md, alignItems: 'flex-start' },
+  photoThumbWrap: { position: 'relative' },
+  photoThumb: { width: 80, height: 80, borderRadius: radius.sm },
+  photoThumbRemove: { position: 'absolute', top: -4, right: -4, minWidth: 28, margin: 0 },
+  photoAddBtn: {
+    width: 80,
+    height: 80,
+    borderRadius: radius.sm,
+    borderWidth: 2,
+    borderStyle: 'dashed',
+    borderColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.primaryLight + '40',
+  },
+  photoAddLabel: { marginTop: 4, color: colors.primary },
   photoPlaceholder: {
     borderWidth: 2,
     borderStyle: 'dashed',

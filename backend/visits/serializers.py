@@ -13,6 +13,7 @@ class VisitSerializer(serializers.ModelSerializer):
     farmer_display_name = serializers.SerializerMethodField()
     farm_display_name = serializers.SerializerMethodField()
     schedule_display = serializers.SerializerMethodField()
+    photos = serializers.SerializerMethodField()
 
     class Meta:
         model = Visit
@@ -30,6 +31,7 @@ class VisitSerializer(serializers.ModelSerializer):
             "latitude",
             "longitude",
             "photo",
+            "photos",
             "photo_taken_at",
             "photo_device_info",
             "photo_place_name",
@@ -37,6 +39,7 @@ class VisitSerializer(serializers.ModelSerializer):
             "distance_from_farmer",
             "verification_status",
             "activity_type",
+            "activity_types",
             "crop_stage",
             "germination_percent",
             "survival_rate",
@@ -74,6 +77,23 @@ class VisitSerializer(serializers.ModelSerializer):
             return f"{obj.schedule.scheduled_date} — {obj.schedule.farmer.name if obj.schedule.farmer_id else 'N/A'}"
         return None
 
+    def get_photos(self, obj):
+        """List of photo URLs: primary first, then extra VisitPhotos in order."""
+        request = self.context.get("request")
+        urls = []
+        if obj.photo:
+            url = obj.photo.url
+            if request:
+                url = request.build_absolute_uri(url)
+            urls.append(url)
+        for vp in (obj.photos.all() if hasattr(obj, "photos") else []):
+            if vp.image:
+                url = vp.image.url
+                if request:
+                    url = request.build_absolute_uri(url)
+                urls.append(url)
+        return urls
+
 
 class VisitCreateSerializer(serializers.ModelSerializer):
     farmer_id = serializers.UUIDField(write_only=True)
@@ -82,6 +102,12 @@ class VisitCreateSerializer(serializers.ModelSerializer):
     photo_taken_at = serializers.DateTimeField(required=False, allow_null=True)
     photo_device_info = serializers.CharField(required=False, allow_blank=True, default="", max_length=120)
     photo_place_name = serializers.CharField(required=False, allow_blank=True, default="", max_length=120)
+    activity_types = serializers.ListField(
+        child=serializers.CharField(max_length=50),
+        required=False,
+        allow_empty=True,
+        help_text="List of activity type slugs. If provided, activity_type is the first.",
+    )
 
     class Meta:
         model = Visit
@@ -101,6 +127,7 @@ class VisitCreateSerializer(serializers.ModelSerializer):
             "photo_device_info",
             "photo_place_name",
             "activity_type",
+            "activity_types",
             "crop_stage",
             "germination_percent",
             "survival_rate",

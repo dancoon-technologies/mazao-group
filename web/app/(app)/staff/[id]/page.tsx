@@ -19,7 +19,7 @@ import type { StaffUser, Visit } from "@/lib/types";
 import { useAuth } from "@/contexts/AuthContext";
 import { DataTable, type DataTableColumn, PageLoading, PageError, PageHeader } from "@/components/ui";
 import { PAGE_BOX_MIN_WIDTH, ROLES, ROUTES } from "@/lib/constants";
-import { formatDateTime, formatActivityType } from "@/lib/format";
+import { formatDateTime, formatActivityType, formatActivityTypes } from "@/lib/format";
 
 export default function StaffDetailPage() {
   const params = useParams<{ id: string }>();
@@ -73,7 +73,7 @@ export default function StaffDetailPage() {
       {
         key: "activity_type",
         label: "Activity",
-        render: (v) => <Text size="sm">{formatActivityType(v.activity_type ?? "")}</Text>,
+        render: (v) => <Text size="sm">{formatActivityTypes(v.activity_types?.length ? v.activity_types : undefined) || formatActivityType(v.activity_type ?? "")}</Text>,
       },
       {
         key: "verification_status",
@@ -139,7 +139,7 @@ export default function StaffDetailPage() {
         formatDateTime(v.created_at),
         (v.farmer_display_name ?? v.farmer) ?? "",
         v.farm_display_name ?? "",
-        formatActivityType(v.activity_type ?? ""),
+        formatActivityTypes(v.activity_types?.length ? v.activity_types : undefined) || formatActivityType(v.activity_type ?? ""),
         v.verification_status ?? "",
         (v.notes ?? "").slice(0, 50),
       ]);

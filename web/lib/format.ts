@@ -31,6 +31,12 @@ export function formatActivityType(value: string): string {
     .join(" ");
 }
 
+/** Format multiple activity types for display (e.g. "Farm to farm visits, Group training"). */
+export function formatActivityTypes(types: string[] | undefined | null): string {
+  if (!types?.length) return "—";
+  return types.map(formatActivityType).join(", ");
+}
+
 /** Format duration in seconds as e.g. "5 min", "1 h 12 min". Returns "—" for null or negative. */
 export function formatDuration(seconds: number | null | undefined): string {
   if (seconds == null || seconds < 0 || !Number.isFinite(seconds)) return "—";

@@ -131,7 +131,12 @@ class Visit(MobileSyncModel):
     activity_type = models.CharField(
         max_length=50,
         default=ActivityType.FARM_TO_FARM_VISITS,
-        help_text="Value from ActivityTypeConfig (filtered by officer department).",
+        help_text="Primary activity (first in activity_types) for reporting.",
+    )
+    activity_types = models.JSONField(
+        blank=True,
+        default=list,
+        help_text="List of activity type slugs performed in this visit. activity_type is the first (primary).",
     )
     crop_stage = models.CharField(max_length=100, blank=True)
     germination_percent = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
@@ -150,3 +155,19 @@ class Visit(MobileSyncModel):
 
     def __str__(self):
         return f"{self.officer.email} @ {self.farmer.name} ({self.created_at})"
+
+
+class VisitPhoto(models.Model):
+    """Additional photos for a visit (Visit.photo is the primary/first)."""
+
+    visit = models.ForeignKey(
+        Visit,
+        on_delete=models.CASCADE,
+        related_name="photos",
+    )
+    image = models.ImageField(upload_to="visits/%Y/%m/")
+    order = models.PositiveSmallIntegerField(default=0, help_text="Display order (0 = first after primary).")
+
+    class Meta:
+        ordering = ["visit", "order"]
+        indexes = [models.Index(fields=["visit"], name="visitphoto_visit_id")]

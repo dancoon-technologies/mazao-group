@@ -69,6 +69,10 @@ async function pushQueue(accessToken: string): Promise<{ ok: boolean; error?: st
         if (!payload.schedule_id) {
           return { ok: false, error: 'Visits require a planned schedule. This visit cannot be synced.', pushedIds }
         }
+        const photoUris = (payload.photo_uris as string[] | undefined) ?? (payload.photo_uri ? [payload.photo_uri as string] : [])
+        if (photoUris.length === 0) {
+          return { ok: false, error: 'Visit has no photos and cannot be synced.', pushedIds }
+        }
         const form = new FormData()
         form.append('farmer_id', String(payload.farmer_id ?? payload.farmer))
         form.append('schedule_id', String(payload.schedule_id))
@@ -76,7 +80,9 @@ async function pushQueue(accessToken: string): Promise<{ ok: boolean; error?: st
         form.append('latitude', String(payload.latitude))
         form.append('longitude', String(payload.longitude))
         if (payload.notes) form.append('notes', String(payload.notes))
-        form.append('activity_type', String(payload.activity_type ?? 'farm_to_farm_visits'))
+        const activityTypesList = Array.isArray(payload.activity_types) ? payload.activity_types : [payload.activity_type ?? 'farm_to_farm_visits']
+        for (const v of activityTypesList) form.append('activity_types', String(v))
+        form.append('activity_type', String(payload.activity_type ?? activityTypesList[0] ?? 'farm_to_farm_visits'))
         if (payload.crop_stage) form.append('crop_stage', String(payload.crop_stage))
         if (payload.germination_percent != null) form.append('germination_percent', String(payload.germination_percent))
         if (payload.survival_rate) form.append('survival_rate', String(payload.survival_rate))
@@ -87,12 +93,11 @@ async function pushQueue(accessToken: string): Promise<{ ok: boolean; error?: st
         if (payload.photo_taken_at) form.append('photo_taken_at', String(payload.photo_taken_at))
         if (payload.photo_device_info) form.append('photo_device_info', String(payload.photo_device_info))
         if (payload.photo_place_name) form.append('photo_place_name', String(payload.photo_place_name))
-        const photoUri = payload.photo_uri as string | undefined
-        if (photoUri) {
+        for (let i = 0; i < photoUris.length; i++) {
           form.append('photo', {
-            uri: photoUri,
+            uri: photoUris[i],
             type: 'image/jpeg',
-            name: 'photo.jpg',
+            name: `photo_${i}.jpg`,
           } as unknown as Blob)
         }
         const res = await fetch(`${API_BASE}/visits/`, {
@@ -326,12 +331,14 @@ export async function enqueueVisit(payload: {
   schedule_id: string
   latitude: number
   longitude: number
-  photo_uri: string
+  /** Multiple photo URIs (local file paths). At least one required. */
+  photo_uris: string[]
   photo_taken_at?: string
   photo_device_info?: string
   photo_place_name?: string
   notes?: string
   activity_type?: string
+  activity_types?: string[]
   crop_stage?: string
   germination_percent?: number | null
   survival_rate?: string

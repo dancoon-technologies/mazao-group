@@ -58,7 +58,9 @@ class VisitListCreateView(generics.ListCreateAPIView):
 
     def get_queryset(self):
         user = self.request.user
-        qs = Visit.objects.select_related("officer", "officer__department", "farmer", "farm", "schedule", "schedule__farmer")
+        qs = Visit.objects.select_related(
+            "officer", "officer__department", "farmer", "farm", "schedule", "schedule__farmer"
+        ).prefetch_related("photos")
         if user.role == "admin":
             return qs
         if user.role == "supervisor":
@@ -99,21 +101,33 @@ class VisitListCreateView(generics.ListCreateAPIView):
         if not serializer.is_valid():
             logger.warning("POST /api/visits/ validation failed: %s", serializer.errors)
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-        data = serializer.validated_data
+        data = dict(serializer.validated_data)
+        # FormData sends activity_types as multiple keys; getlist returns the list
+        if hasattr(request.data, "getlist"):
+            activity_types_list = request.data.getlist("activity_types")
+            if activity_types_list:
+                data["activity_types"] = [str(a).strip() for a in activity_types_list if a]
         farmer_id = data["farmer_id"]
         farm_id = data.get("farm_id")
         schedule_id = data["schedule_id"]
         lat = float(data["latitude"])
         lon = float(data["longitude"])
-        photo = request.FILES.get("photo")
+        photo_list = request.FILES.getlist("photo") if hasattr(request.FILES, "getlist") else []
+        if not photo_list and request.FILES.get("photo"):
+            photo_list = [request.FILES.get("photo")]
         user = request.user
         from site_config.services import get_labels_for_user
         partner_label, location_label = get_labels_for_user(user)
 
-        err_msg = _validate_photo(photo)[1]
-        if err_msg:
-            logger.warning("POST /api/visits/ photo invalid: %s", err_msg)
-            return Response({"photo": [err_msg]}, status=status.HTTP_400_BAD_REQUEST)
+        if not photo_list:
+            return Response({"photo": ["At least one photo is required."]}, status=status.HTTP_400_BAD_REQUEST)
+        for i, f in enumerate(photo_list):
+            err_msg = _validate_photo(f)[1]
+            if err_msg:
+                logger.warning("POST /api/visits/ photo %s invalid: %s", i, err_msg)
+                return Response({"photo": [err_msg]}, status=status.HTTP_400_BAD_REQUEST)
+        primary_photo = photo_list[0]
+        extra_photos = photo_list[1:]
 
         try:
             farmer = Farmer.objects.prefetch_related("farms").get(pk=farmer_id)
@@ -121,18 +135,35 @@ class VisitListCreateView(generics.ListCreateAPIView):
             logger.warning("POST /api/visits/ farmer_id=%s not found", farmer_id)
             return Response({"farmer_id": [f"{partner_label} not found."]}, status=status.HTTP_404_NOT_FOUND)
         allowed_activities = _allowed_activity_type_values(user)
-        activity_type = data.get("activity_type") or Visit.ActivityType.FARM_TO_FARM_VISITS
-        if activity_type not in allowed_activities:
-            logger.warning(
-                "POST /api/visits/ activity_type=%s not allowed for user=%s department=%s",
-                activity_type,
-                user.id,
-                user.department.slug if user.department else "",
-            )
-            return Response(
-                {"activity_type": ["This activity type is not allowed for your department."]},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+        activity_types_raw = data.get("activity_types")
+        if activity_types_raw and isinstance(activity_types_raw, list) and len(activity_types_raw) > 0:
+            activity_types = [str(a).strip() for a in activity_types_raw if a]
+            invalid = [a for a in activity_types if a not in allowed_activities]
+            if invalid:
+                logger.warning(
+                    "POST /api/visits/ activity_types %s not allowed for user=%s",
+                    invalid,
+                    user.id,
+                )
+                return Response(
+                    {"activity_types": ["These activity types are not allowed for your department: " + ", ".join(invalid)]},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            activity_type = activity_types[0]
+        else:
+            activity_type = data.get("activity_type") or Visit.ActivityType.FARM_TO_FARM_VISITS
+            if activity_type not in allowed_activities:
+                logger.warning(
+                    "POST /api/visits/ activity_type=%s not allowed for user=%s department=%s",
+                    activity_type,
+                    user.id,
+                    user.department.slug if user.department else "",
+                )
+                return Response(
+                    {"activity_type": ["This activity type is not allowed for your department."]},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            activity_types = [activity_type]
 
         # Reject if this location is impossibly far from the officer's last visit (e.g. Thika then Naivasha in minutes).
         from site_config.services import get_visit_max_travel_speed_kmh, get_visit_travel_validation_window_hours
@@ -241,13 +272,14 @@ class VisitListCreateView(generics.ListCreateAPIView):
             latitude=lat,
             longitude=lon,
             notes=data.get("notes", ""),
-            photo=photo,
+            photo=primary_photo,
             photo_taken_at=data.get("photo_taken_at"),
             photo_device_info=data.get("photo_device_info") or "",
             photo_place_name=data.get("photo_place_name") or "",
             distance_from_farmer=distance,
             verification_status=Visit.VerificationStatus.PENDING,
             activity_type=activity_type,
+            activity_types=activity_types,
             crop_stage=data.get("crop_stage", ""),
             germination_percent=data.get("germination_percent"),
             survival_rate=data.get("survival_rate", ""),
@@ -256,6 +288,9 @@ class VisitListCreateView(generics.ListCreateAPIView):
             harvest_kgs=data.get("harvest_kgs"),
             farmers_feedback=data.get("farmers_feedback", ""),
         )
+        from .models import VisitPhoto
+        for i, f in enumerate(extra_photos):
+            VisitPhoto.objects.create(visit=visit, image=f, order=i)
         from django.contrib.auth import get_user_model
 
         from notifications.services import notify_user
