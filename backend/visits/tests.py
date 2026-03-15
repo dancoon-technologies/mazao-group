@@ -335,10 +335,14 @@ class VisitAPITests(TestCase):
             distance_from_farmer=0,
             verification_status=Visit.VerificationStatus.VERIFIED,
         )
+        # Pin created_at to a known date so date filter matches in all timezones/CI
+        today = timezone.now().date()
+        naive_noon = timezone.datetime(today.year, today.month, today.day, 12, 0, 0)
+        visit.created_at = timezone.make_aware(naive_noon) if timezone.is_naive(naive_noon) else naive_noon
+        visit.save(update_fields=["created_at"])
         token = self._login("officer@test.com", "officer123")
         self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
-        # Use the visit's created_at date so filter is timezone-safe in CI
-        date_str = visit.created_at.date().isoformat()
+        date_str = today.isoformat()
         r = self.client.get(f"/api/visits/?date={date_str}")
         self.assertEqual(r.status_code, status.HTTP_200_OK)
         self.assertEqual(len(self._visit_list_results(r)), 1)
