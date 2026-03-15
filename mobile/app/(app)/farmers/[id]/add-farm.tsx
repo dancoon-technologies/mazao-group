@@ -1,19 +1,13 @@
 import { enqueueFarm } from '@/lib/syncWithServer';
 import { api, getLabels } from '@/lib/api';
-import { appMeta$, locationsCache$ } from '@/store/observable';
+import { appMeta$, lastAddedFarm$, locationsCache$ } from '@/store/observable';
 import { useSelector } from '@legendapp/state/react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import NetInfo from '@react-native-community/netinfo';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import {
-  View,
-  StyleSheet,
-  ScrollView,
-  KeyboardAvoidingView,
-  Platform,
-  Alert,
-} from 'react-native';
-import { Appbar, Banner, Button, Text, TextInput, ActivityIndicator } from 'react-native-paper';
+import { View, StyleSheet, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
+import { Appbar, Banner, Button, Text, TextInput, ActivityIndicator, Dialog, Portal } from 'react-native-paper';
+import { useTheme } from 'react-native-paper';
 import * as Location from 'expo-location';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { appbarHeight, colors, scrollPaddingKeyboard } from '@/constants/theme';
@@ -28,6 +22,7 @@ type LocationState = {
 export default function AddFarmScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const theme = useTheme();
   const { id: farmerId } = useLocalSearchParams<{ id: string }>();
   const labels = useSelector(() => getLabels(appMeta$.cachedOptions.get()));
   const [locations, setLocations] = useState<LocationState | null>(null);
@@ -35,6 +30,9 @@ export default function AddFarmScreen() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [isOnline, setIsOnline] = useState<boolean | null>(null);
+  const [dialogVisible, setDialogVisible] = useState(false);
+  const [dialogSuccess, setDialogSuccess] = useState(true);
+  const [dialogMessage, setDialogMessage] = useState('');
 
   const [regionId, setRegionId] = useState<number | null>(null);
   const [countyId, setCountyId] = useState<number | null>(null);
@@ -184,11 +182,13 @@ export default function AddFarmScreen() {
           device_latitude: deviceLat,
           device_longitude: deviceLon,
         });
-        Alert.alert('Saved offline', `${labels.location} will sync when you are back online.`, [
-          { text: 'OK', onPress: () => router.back() },
-        ]);
+        setDialogSuccess(true);
+        setDialogMessage(`${labels.location} will sync when you are back online.`);
+        setDialogVisible(true);
       } catch (e) {
-        setError(e instanceof Error ? e.message : 'Failed to save for sync');
+        setDialogSuccess(false);
+        setDialogMessage(e instanceof Error ? e.message : 'Failed to save for sync');
+        setDialogVisible(true);
       } finally {
         setSubmitting(false);
       }
@@ -199,7 +199,7 @@ export default function AddFarmScreen() {
       return;
     }
     try {
-      await api.createFarm({
+      const farm = await api.createFarm({
         farmer_id: farmerId,
         region_id: regionId,
         county_id: countyId,
@@ -212,11 +212,14 @@ export default function AddFarmScreen() {
         device_latitude: deviceLat,
         device_longitude: deviceLon,
       });
-      Alert.alert('Success', `${labels.location} added.`, [
-        { text: 'OK', onPress: () => router.back() },
-      ]);
+      lastAddedFarm$.set({ farmerId, farm });
+      setDialogSuccess(true);
+      setDialogMessage(`${labels.location} added.`);
+      setDialogVisible(true);
     } catch (e) {
-      setError(e instanceof Error ? e.message : `Failed to add ${labels.location.toLowerCase()}`);
+      setDialogSuccess(false);
+      setDialogMessage(e instanceof Error ? e.message : `Failed to add ${labels.location.toLowerCase()}`);
+      setDialogVisible(true);
     } finally {
       setSubmitting(false);
     }
@@ -234,6 +237,8 @@ export default function AddFarmScreen() {
     router,
     isOnline,
     getDeviceLocation,
+    labels.location,
+    labels.partner,
   ]);
 
   const counties = locations ? locations.counties.filter((c) => c.region_id === regionId) : [];
@@ -442,6 +447,37 @@ export default function AddFarmScreen() {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      <Portal>
+        <Dialog
+          visible={dialogVisible}
+          onDismiss={() => {
+            setDialogVisible(false);
+            setDialogMessage('');
+            router.back();
+          }}
+        >
+          <Dialog.Icon
+            icon={dialogSuccess ? 'check-circle' : 'alert'}
+            color={dialogSuccess ? theme.colors.primary : theme.colors.error}
+          />
+          <Dialog.Title>{dialogSuccess ? 'Success' : 'Error'}</Dialog.Title>
+          <Dialog.Content>
+            <Text variant="bodyMedium">{dialogMessage}</Text>
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button
+              onPress={() => {
+                setDialogVisible(false);
+                setDialogMessage('');
+                router.back();
+              }}
+            >
+              OK
+            </Button>
+          </Dialog.Actions>
+        </Dialog>
+      </Portal>
     </SafeAreaView>
   );
 }

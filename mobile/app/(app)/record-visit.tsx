@@ -482,17 +482,19 @@ export default function RecordVisitScreen() {
     setSubmitting(true);
     setError('');
     try {
-      // Re-check connectivity at submit time — NetInfo listener can be stale, so user may be online even if UI said offline
-      const netState = await NetInfo.fetch();
-      const connected = netState.isConnected === true;
+      if (!scheduleIdForSubmit) {
+        setError('A planned schedule is required to record a visit.');
+        setSubmitting(false);
+        return;
+      }
+      const photoPlaceName = selectedFarm?.village ?? selectedFarmer?.display_name ?? 'Visit location';
 
-      if (connected) {
-        const photoPlaceName = selectedFarm?.village ?? selectedFarmer?.display_name ?? 'Visit location';
-        try {
-          await api.createVisit({
+      // Always try API first so we don't rely on NetInfo (which can be wrong when online)
+      try {
+        await api.createVisit({
           farmer_id: selectedFarmerId,
           farm_id: selectedFarmId || undefined,
-          schedule_id: scheduleIdForSubmit ?? undefined,
+          schedule_id: scheduleIdForSubmit,
           latitude: location.coords.latitude,
           longitude: location.coords.longitude,
           photo: { uri: photoUri, type: 'image/jpeg', name: 'visit.jpg' },
@@ -509,21 +511,16 @@ export default function RecordVisitScreen() {
           harvest_kgs: harvestKgs ? parseFloat(harvestKgs) : undefined,
           farmers_feedback: farmersFeedback || undefined,
         });
-          if (scheduleIdForSubmit) {
-            setScheduleIdsWithRecordedVisits((prev) => new Set(prev).add(scheduleIdForSubmit));
-          }
-          setDialogSuccess(true);
-          setDialogVisible(true);
-          return;
-        } catch {
-          setSnackbarMsg('Offline or server error — saving for sync.');
+        if (scheduleIdForSubmit) {
+          setScheduleIdsWithRecordedVisits((prev) => new Set(prev).add(scheduleIdForSubmit));
         }
-      }
-      if (!scheduleIdForSubmit) {
-        setError('A planned schedule is required to record a visit.');
+        setDialogSuccess(true);
+        setDialogVisible(true);
         return;
+      } catch {
+        // API failed (network or server error) — save for sync and try once now
       }
-      const photoPlaceName = selectedFarm?.village ?? selectedFarmer?.display_name ?? 'Visit location';
+
       await enqueueVisit({
         farmer_id: selectedFarmerId,
         farm_id: selectedFarmId || undefined,
@@ -547,9 +544,15 @@ export default function RecordVisitScreen() {
       if (scheduleIdForSubmit) {
         setScheduleIdsWithRecordedVisits((prev) => new Set(prev).add(scheduleIdForSubmit));
       }
-      setSnackbarMsg('Saved for sync when online.');
-      // Try sync once so if we're actually online (stale NetInfo), the visit uploads immediately
-      syncWithServer().catch(() => {});
+
+      const syncResult = await syncWithServer();
+      if (syncResult.success) {
+        setSnackbarMsg('Visit saved and synced.');
+      } else {
+        setSnackbarMsg(
+          `Visit saved. Could not sync now${syncResult.error ? `: ${syncResult.error}` : ''}. Will retry automatically.`
+        );
+      }
       setTimeout(() => router.back(), 1500);
     } catch (e) {
       setSubmitError(e instanceof Error ? e.message : 'Failed to submit visit.');

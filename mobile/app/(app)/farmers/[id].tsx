@@ -2,7 +2,7 @@ import { colors, radius, spacing } from '@/constants/theme';
 import { getFarmers as getFarmersDb, getFarms as getFarmsDb } from '@/database';
 import { api, getLabels, type Farm, type Farmer } from '@/lib/api';
 import { farmRowToFarm, farmerRowToFarmer } from '@/lib/offline-helpers';
-import { appMeta$ } from '@/store/observable';
+import { appMeta$, lastAddedFarm$ } from '@/store/observable';
 import { useSelector } from '@legendapp/state/react';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import NetInfo from '@react-native-community/netinfo';
@@ -43,6 +43,17 @@ export default function FarmerDetailScreen() {
 
   const load = useCallback(async () => {
     if (!id) return;
+    const pending = lastAddedFarm$.get();
+    if (pending?.farmerId === id && pending.farm) {
+      lastAddedFarm$.set(null);
+      setFarms((prev) => {
+        if (prev.some((f) => f.id === pending.farm.id)) return prev;
+        return [...prev, pending.farm];
+      });
+      setLoading(false);
+      setRefreshing(false);
+      return;
+    }
     const connected = await NetInfo.fetch().then((s) => s.isConnected ?? false);
     if (connected) {
       try {
@@ -63,7 +74,7 @@ export default function FarmerDetailScreen() {
     }
     setLoading(false);
     setRefreshing(false);
-  }, [id, loadFromDb]);
+  }, [id, loadFromDb, labels.partner]);
 
   const isFocused = useIsFocused();
   useEffect(() => {

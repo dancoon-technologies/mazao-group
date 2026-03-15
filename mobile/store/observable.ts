@@ -10,7 +10,7 @@ import {
 } from '@legendapp/state/persist';
 import { ObservablePersistAsyncStorage } from '@legendapp/state/persist-plugins/async-storage';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import type { LocationData, OptionsResponse } from '@/lib/api';
+import type { Farm, LocationData, OptionsResponse } from '@/lib/api';
 import type { FarmerRow, FarmRow, ScheduleRow, SyncQueueRow, VisitRow } from './types';
 
 configureObservablePersistence({
@@ -57,5 +57,8 @@ persistObservable(visits$, { local: 'mazao_visits' });
 /** Pending sync queue. */
 export const syncQueue$ = observable<SyncQueueRow[]>([]);
 persistObservable(syncQueue$, { local: 'mazao_sync_queue' });
+
+/** Last farm added via Add Farm (online). Detail screen merges it and clears. Not persisted. */
+export const lastAddedFarm$ = observable<{ farmerId: string; farm: Farm } | null>(null);
 
 /** Rehydration: persist loads from AsyncStorage asynchronously. Avoid critical reads before first paint if you need guaranteed hydrated data; otherwise reads return last in-memory value (may be []). */

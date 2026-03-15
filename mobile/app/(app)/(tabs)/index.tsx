@@ -298,7 +298,7 @@ const styles = StyleSheet.create({
   welcome: { padding: spacing.lg, paddingTop: spacing.md, marginBottom: spacing.md },
   lastSync: { marginTop: 6, color: colors.gray500 },
   welcomeEmail: { marginTop: 0, color: colors.gray700, fontSize: 24, fontWeight: '600' },
-  welcomeGreeting: { marginTop: 0, color: colors.gray700, fontWeight: '800', fontSize: 32},
+  welcomeGreeting: { marginTop: 0, color: colors.gray700, fontWeight: '800', fontSize: 28,},
   tag: {
     marginTop: 8,
     alignSelf: 'flex-start',
