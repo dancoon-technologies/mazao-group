@@ -167,7 +167,11 @@ class OptionsAPITests(TestCase):
         self.assertIsInstance(data["products"], list)
 
     def test_options_returns_products_when_user_has_department(self):
-        dept = Department.objects.create(name="AgriPrice", slug="agriprice")
+        # Use unique slug so we don't conflict with migration-seeded "agriprice"
+        dept, _ = Department.objects.get_or_create(
+            slug="options-test-dept",
+            defaults={"name": "Options Test Dept"},
+        )
         user_dept = User.objects.create_user(
             email="dept@test.com",
             password="pass123",
