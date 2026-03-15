@@ -27,10 +27,7 @@ export function flattenVisitsToSales(visits: Visit[]): SalesRow[] {
   for (const v of visits) {
     const lines = v.product_lines ?? [];
     const officerDisplay =
-      [v.officer_display_name, v.officer_email].filter(Boolean).join(" — ") ||
-      v.officer_email ??
-      v.officer ??
-      "—";
+      [v.officer_display_name, v.officer_email].filter(Boolean).join(" — ") || "—";
     const partnerDisplay = v.farmer_display_name ?? v.farmer ?? "—";
     const locationDisplay = v.farm_display_name ?? v.farm ?? "—";
     for (let idx = 0; idx < lines.length; idx++) {

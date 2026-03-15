@@ -44,6 +44,7 @@ import {
 } from 'react-native-paper';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ListItemRow } from '@/components/ListItemRow';
+import { SelectActivityTypesModal } from '@/components/SelectActivityTypesModal';
 import { SelectFarmModal } from '@/components/SelectFarmModal';
 import {
   colors,
@@ -106,6 +107,7 @@ export default function RecordVisitScreen() {
   const [activityTypesList, setActivityTypesList] = useState<ActivityTypeOption[]>([]);
   const [farmerMenuOpen, setFarmerMenuOpen] = useState(false);
   const [farmModalOpen, setFarmModalOpen] = useState(false);
+  const [activityTypesModalOpen, setActivityTypesModalOpen] = useState(false);
   const [accordionExpanded, setAccordionExpanded] = useState(false);
   const [locationLoading, setLocationLoading] = useState(false);
   const [notes, setNotes] = useState('');
@@ -479,9 +481,10 @@ export default function RecordVisitScreen() {
     }
   }, []);
 
-  const mustSelectSchedule = !selectedScheduleId || selectedSchedule?.status !== 'accepted';
+  // When schedule list didn't load we may have selectedScheduleId from params but no selectedSchedule — allow submit and let server validate
+  const mustSelectSchedule = !selectedScheduleId || (selectedSchedule != null && selectedSchedule.status !== 'accepted');
   const scheduleLocked = !!selectedScheduleId && selectedSchedule?.status === 'accepted';
-  const scheduleIdForSubmit = scheduleLocked ? selectedScheduleId : undefined;
+  const scheduleIdForSubmit = selectedScheduleId ?? undefined;
 
   const submit = useCallback(async () => {
     if (mustSelectSchedule) {
@@ -543,8 +546,17 @@ export default function RecordVisitScreen() {
         setDialogSuccess(true);
         setDialogVisible(true);
         return;
-      } catch {
-        // API failed (network or server error) — save for sync and try once now
+      } catch (apiError) {
+        // Validation (4xx): show error and do not enqueue so user can fix and retry
+        const isValidation = apiError && typeof apiError === 'object' && 'isValidation' in apiError && (apiError as Error & { isValidation?: boolean }).isValidation;
+        if (isValidation) {
+          setSubmitError(apiError instanceof Error ? apiError.message : 'Failed to submit visit.');
+          setDialogSuccess(false);
+          setDialogVisible(true);
+          setSubmitting(false);
+          return;
+        }
+        // Network or server error — save for sync and try once now
       }
 
       await enqueueVisit({
@@ -810,32 +822,25 @@ export default function RecordVisitScreen() {
                 )
               ) : null}
 
-              <Text variant="labelMedium" style={styles.step2SectionTitle}>ACTIVITY TYPES (tap to add/remove)</Text>
+              <Text variant="labelMedium" style={styles.step2SectionTitle}>ACTIVITY TYPES</Text>
               <Text variant="bodySmall" style={styles.hint}>You can record more than one activity per visit.</Text>
-              <View style={styles.chipRow}>
-                {activityTypeOptions.map((a) => {
-                  const selected = activityTypes.includes(a.value);
-                  return (
-                    <Button
-                      key={a.value}
-                      mode={selected ? 'contained' : 'outlined'}
-                      compact
-                      onPress={() => {
-                        if (selected) {
-                          if (activityTypes.length > 1) {
-                            setActivityTypes((prev) => prev.filter((v) => v !== a.value));
-                          }
-                        } else {
-                          setActivityTypes((prev) => [...prev, a.value]);
-                        }
-                      }}
-                      style={styles.activityChip}
-                    >
-                      {a.label}
-                    </Button>
-                  );
-                })}
-              </View>
+              <Button
+                mode="outlined"
+                onPress={() => setActivityTypesModalOpen(true)}
+                style={styles.farmSelectBtn}
+                contentStyle={styles.farmSelectBtnContent}
+                icon="format-list-checks"
+              >
+                {activityLabel}
+              </Button>
+              <SelectActivityTypesModal
+                visible={activityTypesModalOpen}
+                onClose={() => setActivityTypesModalOpen(false)}
+                options={activityTypeOptions}
+                selectedValues={activityTypes}
+                onSelect={setActivityTypes}
+                title="Select activities"
+              />
 
               {/* Location: green card when verified, otherwise neutral/warning */}
               <View style={[styles.locationCard, location && gpsValid && styles.locationCardVerified]}>
@@ -1292,8 +1297,6 @@ const styles = StyleSheet.create({
   farmSelectBtnContent: { justifyContent: 'flex-start' },
   muted: { opacity: 0.7 },
   step2Input: { marginBottom: spacing.md },
-  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginBottom: spacing.md },
-  activityChip: { margin: 0 },
   locationCard: {
     flexDirection: 'row',
     alignItems: 'center',

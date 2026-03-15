@@ -3,6 +3,7 @@ import {
   ROUTES,
   ROLES,
   ROLES_CAN_ACCESS_DASHBOARD,
+  ROLES_CAN_LIST_VISITS,
   ROLES_TRACKING,
   ROLES_STAFF_PAGE,
   ROLES_SCHEDULES_PAGE,
@@ -18,8 +19,18 @@ describe("ROUTES", () => {
     expect(ROUTES.DASHBOARD).toBe("/dashboard");
     expect(ROUTES.FARMERS).toBe("/farmers");
     expect(ROUTES.VISITS).toBe("/visits");
+    expect(ROUTES.SALES).toBe("/sales");
     expect(ROUTES.TRACKING).toBe("/tracking");
     expect(ROUTES.CHANGE_PASSWORD).toBe("/change-password");
+  });
+});
+
+describe("ROLES_CAN_LIST_VISITS", () => {
+  it("includes admin and supervisor only", () => {
+    expect(ROLES_CAN_LIST_VISITS).toContain(ROLES.ADMIN);
+    expect(ROLES_CAN_LIST_VISITS).toContain(ROLES.SUPERVISOR);
+    expect(ROLES_CAN_LIST_VISITS).not.toContain(ROLES.OFFICER);
+    expect(ROLES_CAN_LIST_VISITS).toHaveLength(2);
   });
 });
 

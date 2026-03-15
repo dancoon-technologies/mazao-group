@@ -2,6 +2,7 @@
 Tests for visits: Haversine, create visit (GPS, photo, assignment), list, dashboard.
 """
 
+import json
 from io import BytesIO
 
 from django.test import TestCase
@@ -17,7 +18,7 @@ from datetime import timedelta
 
 from schedules.models import Schedule
 
-from .models import Visit
+from .models import Product, Visit, VisitProduct
 from .utils import (
     MAX_VISIT_DISTANCE_METERS,
     check_travel_from_last_visit,
@@ -532,3 +533,107 @@ class VisitVerifyAPITests(TestCase):
             format="json",
         )
         self.assertEqual(r.status_code, status.HTTP_403_FORBIDDEN)
+
+
+class VisitProductLinesAPITests(TestCase):
+    """Create visit with product_lines; list/retrieve include product_lines."""
+
+    def setUp(self):
+        import json as _json
+
+        self.json = _json
+        self.client = APIClient()
+        region = Region.objects.create(name="North")
+        dept = Department.objects.create(name="Extension", slug="extension")
+        self.admin = User.objects.create_user(
+            email="admin@test.com", password="admin123", role=User.Role.ADMIN
+        )
+        self.officer = User.objects.create_user(
+            email="officer@test.com",
+            password="officer123",
+            role=User.Role.OFFICER,
+            region_id=region,
+            department=dept,
+        )
+        self.farmer = Farmer.objects.create(
+            first_name="Test",
+            last_name="Farmer",
+            phone="+255111",
+            latitude=-6.0,
+            longitude=39.0,
+            assigned_officer=self.officer,
+        )
+        self.schedule = Schedule.objects.create(
+            created_by=self.admin,
+            officer=self.officer,
+            farmer=self.farmer,
+            scheduled_date=timezone.now().date(),
+            status=Schedule.Status.ACCEPTED,
+        )
+        self.product = Product.objects.create(
+            department=dept,
+            name="Seeds A",
+            code="SA01",
+            unit="kg",
+        )
+
+    def _login(self, email, password):
+        r = self.client.post(
+            "/api/auth/login/", {"email": email, "password": password}, format="json"
+        )
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        return r.json()["access"]
+
+    def test_create_visit_with_product_lines(self):
+        token = self._login("officer@test.com", "officer123")
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
+        product_lines = [
+            {"product_id": str(self.product.pk), "quantity_sold": 10, "quantity_given": 2},
+        ]
+        data = {
+            "farmer_id": str(self.farmer.pk),
+            "schedule_id": str(self.schedule.pk),
+            "latitude": -6.0,
+            "longitude": 39.0,
+            "notes": "Visit with sales",
+            "product_lines": json.dumps(product_lines),
+        }
+        photo = make_jpeg_file()
+        r = self.client.post("/api/visits/", {**data, "photo": photo}, format="multipart")
+        self.assertEqual(r.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(Visit.objects.count(), 1)
+        self.assertEqual(VisitProduct.objects.count(), 1)
+        resp = r.json()
+        self.assertIn("product_lines", resp)
+        self.assertEqual(len(resp["product_lines"]), 1)
+        self.assertEqual(resp["product_lines"][0]["product_id"], str(self.product.pk))
+        self.assertEqual(resp["product_lines"][0]["product_name"], "Seeds A")
+        self.assertEqual(resp["product_lines"][0]["quantity_sold"], "10")
+        self.assertEqual(resp["product_lines"][0]["quantity_given"], "2")
+
+    def test_retrieve_visit_includes_product_lines(self):
+        visit = Visit.objects.create(
+            officer=self.officer,
+            farmer=self.farmer,
+            schedule=self.schedule,
+            latitude=-6.0,
+            longitude=39.0,
+            distance_from_farmer=0,
+            verification_status=Visit.VerificationStatus.VERIFIED,
+        )
+        VisitProduct.objects.create(
+            visit=visit,
+            product=self.product,
+            quantity_sold=5,
+            quantity_given=1,
+        )
+        token = self._login("officer@test.com", "officer123")
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
+        r = self.client.get(f"/api/visits/{visit.pk}/")
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        self.assertIn("product_lines", r.json())
+        lines = r.json()["product_lines"]
+        self.assertEqual(len(lines), 1)
+        self.assertEqual(lines[0]["product_name"], "Seeds A")
+        self.assertEqual(lines[0]["quantity_sold"], "5")
+        self.assertEqual(lines[0]["quantity_given"], "1")

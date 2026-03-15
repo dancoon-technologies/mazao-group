@@ -551,7 +551,9 @@ export const api = {
           : undefined) ||
         'Failed to submit visit';
       logger.warn(`Create visit failed ${res.status}: ${msg ?? 'Failed to submit visit'}`);
-      throw new Error(msg ?? 'Failed to submit visit');
+      const err = new Error(msg ?? 'Failed to submit visit') as Error & { isValidation?: boolean };
+      err.isValidation = res.status >= 400 && res.status < 500;
+      throw err;
     }
     logger.info(`Visit created id=${(data as Visit).id} farmer_id=${params.farmer_id}`);
     return data as Visit;

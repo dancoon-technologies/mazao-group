@@ -1,12 +1,12 @@
 """
-Tests for auth: login with email, refresh token.
+Tests for auth: login with email, refresh token; options API.
 """
 
 from django.test import TestCase
 from rest_framework import status
 from rest_framework.test import APIClient
 
-from .models import User
+from .models import Department, User
 
 
 class AuthTests(TestCase):
@@ -126,3 +126,69 @@ class AuthTests(TestCase):
             format="json",
         )
         self.assertEqual(r2.status_code, status.HTTP_400_BAD_REQUEST)
+
+
+class OptionsAPITests(TestCase):
+    """GET /api/options/ returns option sets (departments, activity_types, products by department)."""
+
+    def setUp(self):
+        self.client = APIClient()
+        self.user = User.objects.create_user(
+            email="user@test.com",
+            password="pass123",
+            role=User.Role.OFFICER,
+        )
+
+    def _login(self, email, password):
+        r = self.client.post(
+            "/api/auth/login/", {"email": email, "password": password}, format="json"
+        )
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        return r.json()["access"]
+
+    def test_options_requires_auth(self):
+        r = self.client.get("/api/options/")
+        self.assertEqual(r.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_options_returns_structure(self):
+        token = self._login("user@test.com", "pass123")
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
+        r = self.client.get("/api/options/")
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        data = r.json()
+        self.assertIn("departments", data)
+        self.assertIn("staff_roles", data)
+        self.assertIn("activity_types", data)
+        self.assertIn("products", data)
+        self.assertIn("labels", data)
+        self.assertIn("visit_settings", data)
+        self.assertIn("tracking_settings", data)
+        self.assertIsInstance(data["activity_types"], list)
+        self.assertIsInstance(data["products"], list)
+
+    def test_options_returns_products_when_user_has_department(self):
+        dept = Department.objects.create(name="AgriPrice", slug="agriprice")
+        user_dept = User.objects.create_user(
+            email="dept@test.com",
+            password="pass123",
+            role=User.Role.OFFICER,
+            department=dept,
+        )
+        from visits.models import Product
+
+        product = Product.objects.create(
+            department=dept,
+            name="Test Product",
+            code="TP01",
+            unit="kg",
+        )
+        token = self._login("dept@test.com", "pass123")
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
+        r = self.client.get("/api/options/")
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        products = r.json()["products"]
+        self.assertEqual(len(products), 1)
+        self.assertEqual(products[0]["name"], "Test Product")
+        self.assertEqual(products[0]["id"], str(product.pk))
+        self.assertEqual(products[0]["code"], "TP01")
+        self.assertEqual(products[0]["unit"], "kg")
