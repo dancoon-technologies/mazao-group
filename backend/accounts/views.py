@@ -52,6 +52,18 @@ class OptionsListView(APIView):
         except Exception as e:
             logger.warning("Options activity_types: %s", e)
 
+        # Products for the user's department (for recording sales/given during visits).
+        products = []
+        try:
+            from visits.models import Product
+            if request.user.department_id:
+                products = [
+                    {"id": str(p.id), "name": p.name, "code": p.code or "", "unit": p.unit or ""}
+                    for p in Product.objects.filter(department_id=request.user.department_id).order_by("name")
+                ]
+        except Exception as e:
+            logger.warning("Options products: %s", e)
+
         tracking_working_start = 6
         tracking_working_end = 18
         tracking_interval_minutes = 1
@@ -78,6 +90,7 @@ class OptionsListView(APIView):
                     "location": location_label,
                 },
                 "activity_types": activity_types,
+                "products": products,
                 "tracking_settings": {
                     "working_hour_start": tracking_working_start,
                     "working_hour_end": tracking_working_end,

@@ -2,13 +2,13 @@ from django import forms
 from django.contrib import admin
 
 from .forms import FormFieldsFormField
-from .models import ActivityTypeConfig, Visit, VisitPhoto
+from .models import ActivityTypeConfig, Product, Visit, VisitPhoto, VisitProduct
 
 
 class ActivityTypeConfigAdminForm(forms.ModelForm):
     form_fields = FormFieldsFormField(
         required=False,
-        help_text="Optional list of {key, label, required} for visit form step 3. Keys: crop_stage, germination_percent, survival_rate, pests_diseases, order_value, harvest_kgs, farmers_feedback. Empty = show all.",
+        help_text="Optional list of {key, label, required} for visit form step 3. Keys: crop_stage, germination_percent, survival_rate, pests_diseases, order_value, harvest_kgs, farmers_feedback, number_of_stockists_visited, product_focus, merchandising, counter_training. Empty = show all.",
     )
 
     class Meta:
@@ -31,7 +31,7 @@ class ActivityTypeConfigAdmin(admin.ModelAdmin):
             "Step 3 form fields",
             {
                 "fields": ("form_fields",),
-                "description": "Optional. List of {key, label, required} for record-visit step 3. Keys: crop_stage, germination_percent, survival_rate, pests_diseases, order_value, harvest_kgs, farmers_feedback. Empty = show all.",
+                "description": "Optional. List of {key, label, required} for record-visit step 3. Keys: crop_stage, germination_percent, survival_rate, pests_diseases, order_value, harvest_kgs, farmers_feedback, number_of_stockists_visited, product_focus, merchandising, counter_training. Empty = show all.",
             },
         ),
     )
@@ -50,16 +50,36 @@ class VisitPhotoInline(admin.TabularInline):
     readonly_fields = ("image",)
 
 
+class VisitProductInline(admin.TabularInline):
+    model = VisitProduct
+    extra = 0
+    raw_id_fields = ("product",)
+
+
 @admin.register(Visit)
 class VisitAdmin(admin.ModelAdmin):
     list_display = (
         "officer",
         "farmer",
+        "activity_type",
         "verification_status",
         "distance_from_farmer",
         "created_at",
     )
-    list_filter = ("verification_status", "created_at")
-    raw_id_fields = ("officer", "farmer")
+    list_filter = ("verification_status", "activity_type", "created_at")
+    raw_id_fields = ("officer", "farmer", "product_focus")
     readonly_fields = ("created_at",)
-    inlines = (VisitPhotoInline,)
+    inlines = (VisitPhotoInline, VisitProductInline)
+    fieldsets = (
+        (None, {"fields": ("officer", "farmer", "farm", "schedule", "activity_type", "activity_types", "verification_status")}),
+        ("Location", {"fields": ("latitude", "longitude", "distance_from_farmer", "photo", "photo_taken_at", "photo_device_info", "photo_place_name", "notes")}),
+        ("Step 3 / Additional", {"fields": ("crop_stage", "germination_percent", "survival_rate", "pests_diseases", "order_value", "harvest_kgs", "farmers_feedback")}),
+        ("Stockists visit (AgriPrice)", {"fields": ("number_of_stockists_visited", "product_focus", "merchandising", "counter_training"), "classes": ("collapse",)}),
+    )
+
+
+@admin.register(Product)
+class ProductAdmin(admin.ModelAdmin):
+    list_display = ("name", "code", "unit", "department")
+    list_filter = ("department",)
+    search_fields = ("name", "code")

@@ -80,6 +80,14 @@ export interface Visit {
   photo_taken_at?: string | null;
   photo_device_info?: string | null;
   photo_place_name?: string | null;
+  activity_types?: string[];
+  photos?: string[];
+  product_lines?: { product_id: string; product_name: string; product_code?: string; product_unit?: string; quantity_sold: string; quantity_given: string }[];
+  number_of_stockists_visited?: number | null;
+  product_focus?: string | null;
+  product_focus_display?: string | null;
+  merchandising?: string;
+  counter_training?: string;
 }
 
 export interface LocationData {
@@ -152,6 +160,13 @@ export interface TrackingSettings {
   interval_minutes?: number;
 }
 
+export interface ProductOption {
+  id: string;
+  name: string;
+  code: string;
+  unit: string;
+}
+
 export interface OptionsResponse {
   departments: { value: string; label: string }[];
   staff_roles: { value: string; label: string }[];
@@ -159,6 +174,8 @@ export interface OptionsResponse {
   /** Partner/location terminology (e.g. Farmer/Farm or Stockist/Outlet). */
   labels?: PartnerLocationLabels;
   activity_types?: ActivityTypeOption[];
+  /** Products for the user's department (for recording sales/given during visits). */
+  products?: ProductOption[];
   tracking_settings?: TrackingSettings;
 }
 
@@ -460,6 +477,11 @@ export const api = {
     order_value?: number | null;
     harvest_kgs?: number | null;
     farmers_feedback?: string;
+    product_lines?: { product_id: string; quantity_sold?: number; quantity_given?: number }[];
+    number_of_stockists_visited?: number | null;
+    product_focus_id?: string | null;
+    merchandising?: string;
+    counter_training?: string;
   }) {
     const access = await getAccessToken();
     if (!access) throw new Error('Not authenticated');
@@ -492,6 +514,13 @@ export const api = {
     if (params.order_value != null) form.append('order_value', String(params.order_value));
     if (params.harvest_kgs != null) form.append('harvest_kgs', String(params.harvest_kgs));
     if (params.farmers_feedback) form.append('farmers_feedback', params.farmers_feedback);
+    if (params.product_lines?.length) {
+      form.append('product_lines', JSON.stringify(params.product_lines));
+    }
+    if (params.number_of_stockists_visited != null) form.append('number_of_stockists_visited', String(params.number_of_stockists_visited));
+    if (params.product_focus_id) form.append('product_focus_id', params.product_focus_id);
+    if (params.merchandising) form.append('merchandising', params.merchandising);
+    if (params.counter_training) form.append('counter_training', params.counter_training);
 
     let res = await fetch(`${API_BASE}/visits/`, {
       method: 'POST',

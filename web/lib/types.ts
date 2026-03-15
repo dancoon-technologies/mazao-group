@@ -41,6 +41,21 @@ export interface Visit {
   order_value?: number | null;
   harvest_kgs?: number | null;
   farmers_feedback?: string;
+  /** Sales and products given per product (from API). */
+  product_lines?: {
+    product_id: string;
+    product_name: string;
+    product_code?: string;
+    product_unit?: string;
+    quantity_sold: string;
+    quantity_given: string;
+  }[];
+  /** Stockists visit (AgriPrice): number visited, product focus, merchandising, counter training. */
+  number_of_stockists_visited?: number | null;
+  product_focus?: string | null;
+  product_focus_display?: string | null;
+  merchandising?: string;
+  counter_training?: string;
   created_at: string;
 }
 
@@ -164,9 +179,32 @@ export interface OptionItem {
   label: string;
 }
 
+/** Form field descriptor for activity type step 3 (from GET /api/options/ activity_types[].form_fields). */
+export interface ActivityFormFieldOption {
+  key: string;
+  label: string;
+  required?: boolean;
+}
+
+export interface ActivityTypeOption {
+  value: string;
+  label: string;
+  form_fields?: ActivityFormFieldOption[];
+}
+
+/** Partner/location terminology from GET /api/options/ (e.g. Farmer/Farm or Stockist/Outlet). */
+export interface PartnerLocationLabels {
+  partner: string;
+  location: string;
+}
+
 export interface OptionsResponse {
   departments: OptionItem[];
   staff_roles: OptionItem[];
+  /** Partner/location labels by department (e.g. Farmer/Farm or Stockist/Outlet). */
+  labels?: PartnerLocationLabels;
+  /** Activity types for the current user's department (with optional form_fields for visit detail labels). */
+  activity_types?: ActivityTypeOption[];
 }
 
 export interface StaffUser {

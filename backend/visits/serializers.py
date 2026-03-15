@@ -1,6 +1,7 @@
 from rest_framework import serializers
 
-from .models import Visit
+from accounts.models import Department
+from .models import Product, Visit, VisitProduct
 
 
 class VisitSerializer(serializers.ModelSerializer):
@@ -14,6 +15,9 @@ class VisitSerializer(serializers.ModelSerializer):
     farm_display_name = serializers.SerializerMethodField()
     schedule_display = serializers.SerializerMethodField()
     photos = serializers.SerializerMethodField()
+    product_lines = serializers.SerializerMethodField()
+    product_focus = serializers.UUIDField(source="product_focus_id", read_only=True, allow_null=True)
+    product_focus_display = serializers.SerializerMethodField()
 
     class Meta:
         model = Visit
@@ -47,6 +51,12 @@ class VisitSerializer(serializers.ModelSerializer):
             "order_value",
             "harvest_kgs",
             "farmers_feedback",
+            "number_of_stockists_visited",
+            "product_focus",
+            "product_focus_display",
+            "merchandising",
+            "counter_training",
+            "product_lines",
             "created_at",
             "updated_at",
         )
@@ -94,6 +104,30 @@ class VisitSerializer(serializers.ModelSerializer):
                 urls.append(url)
         return urls
 
+    def get_product_focus_display(self, obj):
+        if obj.product_focus_id and obj.product_focus:
+            return obj.product_focus.name
+        return None
+
+    def get_product_lines(self, obj):
+        """Sales and products given per product for this visit."""
+        lines = getattr(obj, "product_lines_prefetched", None)
+        if lines is None and hasattr(obj, "product_lines"):
+            lines = obj.product_lines.select_related("product").all()
+        if not lines:
+            return []
+        return [
+            {
+                "product_id": str(vp.product_id),
+                "product_name": vp.product.name,
+                "product_code": vp.product.code or "",
+                "product_unit": vp.product.unit or "",
+                "quantity_sold": str(vp.quantity_sold),
+                "quantity_given": str(vp.quantity_given),
+            }
+            for vp in lines
+        ]
+
 
 class VisitCreateSerializer(serializers.ModelSerializer):
     farmer_id = serializers.UUIDField(write_only=True)
@@ -108,6 +142,13 @@ class VisitCreateSerializer(serializers.ModelSerializer):
         allow_empty=True,
         help_text="List of activity type slugs. If provided, activity_type is the first.",
     )
+    product_lines = serializers.ListField(
+        child=serializers.DictField(),
+        required=False,
+        allow_empty=True,
+        help_text="List of {product_id, quantity_sold, quantity_given} for sales/given during visit.",
+    )
+    product_focus_id = serializers.UUIDField(required=False, allow_null=True)
 
     class Meta:
         model = Visit
@@ -135,4 +176,27 @@ class VisitCreateSerializer(serializers.ModelSerializer):
             "order_value",
             "harvest_kgs",
             "farmers_feedback",
+            "number_of_stockists_visited",
+            "product_focus_id",
+            "merchandising",
+            "counter_training",
+            "product_lines",
         )
+
+
+class ProductSerializer(serializers.ModelSerializer):
+    department_slug = serializers.CharField(source="department.slug", read_only=True)
+    department_name = serializers.CharField(source="department.name", read_only=True)
+
+    class Meta:
+        model = Product
+        fields = ("id", "name", "code", "unit", "department", "department_slug", "department_name")
+        read_only_fields = ("id",)
+
+
+class ProductCreateSerializer(serializers.ModelSerializer):
+    department = serializers.SlugRelatedField(slug_field="slug", queryset=Department.objects.all())
+
+    class Meta:
+        model = Product
+        fields = ("name", "code", "unit", "department")

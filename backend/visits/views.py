@@ -1,3 +1,4 @@
+import json
 import logging
 
 from django.conf import settings as django_settings
@@ -11,8 +12,13 @@ from rest_framework.views import APIView
 from farmers.models import Farm, Farmer
 from schedules.models import Schedule
 
-from .models import ActivityTypeConfig, Visit
-from .serializers import VisitCreateSerializer, VisitSerializer
+from .models import ActivityTypeConfig, Product, Visit, VisitProduct
+from .serializers import (
+    ProductCreateSerializer,
+    ProductSerializer,
+    VisitCreateSerializer,
+    VisitSerializer,
+)
 from .utils import check_travel_from_last_visit, haversine_meters
 
 
@@ -25,6 +31,21 @@ def _allowed_activity_type_values(user):
         if not depts or (user_dept_slug and any(d.slug == user_dept_slug for d in depts)):
             allowed.add(at.value)
     return allowed if allowed else {Visit.ActivityType.FARM_TO_FARM_VISITS}
+
+
+def _resolve_product_focus(product_focus_id, department_id):
+    """If product_focus_id is a product in the given department, return its UUID; else None."""
+    if not product_focus_id or not department_id:
+        return None
+    try:
+        product = Product.objects.filter(
+            department_id=department_id,
+            id=product_focus_id,
+        ).values_list("id", flat=True).first()
+        return product
+    except Exception:
+        return None
+
 
 logger = logging.getLogger(__name__)
 
@@ -59,8 +80,8 @@ class VisitListCreateView(generics.ListCreateAPIView):
     def get_queryset(self):
         user = self.request.user
         qs = Visit.objects.select_related(
-            "officer", "officer__department", "farmer", "farm", "schedule", "schedule__farmer"
-        ).prefetch_related("photos")
+            "officer", "officer__department", "farmer", "farm", "schedule", "schedule__farmer", "product_focus"
+        ).prefetch_related("photos", "product_lines__product")
         if user.role == "admin":
             return qs
         if user.role == "supervisor":
@@ -287,10 +308,54 @@ class VisitListCreateView(generics.ListCreateAPIView):
             order_value=data.get("order_value"),
             harvest_kgs=data.get("harvest_kgs"),
             farmers_feedback=data.get("farmers_feedback", ""),
+            number_of_stockists_visited=data.get("number_of_stockists_visited"),
+            product_focus_id=_resolve_product_focus(data.get("product_focus_id"), user.department_id),
+            merchandising=data.get("merchandising", ""),
+            counter_training=data.get("counter_training", ""),
         )
         from .models import VisitPhoto
         for i, f in enumerate(extra_photos):
             VisitPhoto.objects.create(visit=visit, image=f, order=i)
+
+        product_lines_raw = data.get("product_lines")
+        if product_lines_raw is None and hasattr(request.data, "get"):
+            product_lines_raw = request.data.get("product_lines")
+        if isinstance(product_lines_raw, str) and product_lines_raw.strip():
+            try:
+                product_lines_raw = json.loads(product_lines_raw)
+            except json.JSONDecodeError:
+                product_lines_raw = []
+        if isinstance(product_lines_raw, list) and product_lines_raw and user.department_id:
+            allowed_product_ids = set(
+                Product.objects.filter(department_id=user.department_id).values_list("id", flat=True)
+            )
+            for line in product_lines_raw:
+                if not isinstance(line, dict):
+                    continue
+                pid = line.get("product_id")
+                if not pid or str(pid) not in {str(a) for a in allowed_product_ids}:
+                    continue
+                qty_sold = line.get("quantity_sold")
+                qty_given = line.get("quantity_given")
+                if qty_sold is None and qty_given is None:
+                    continue
+                from decimal import Decimal
+                try:
+                    sold = Decimal(str(qty_sold)) if qty_sold is not None else Decimal("0")
+                    given = Decimal(str(qty_given)) if qty_given is not None else Decimal("0")
+                except Exception:
+                    continue
+                if sold < 0 or given < 0:
+                    continue
+                if sold == 0 and given == 0:
+                    continue
+                product_id = next(a for a in allowed_product_ids if str(a) == str(pid))
+                VisitProduct.objects.update_or_create(
+                    visit=visit,
+                    product_id=product_id,
+                    defaults={"quantity_sold": sold, "quantity_given": given},
+                )
+
         from django.contrib.auth import get_user_model
 
         from notifications.services import notify_user
@@ -319,7 +384,7 @@ class VisitListCreateView(generics.ListCreateAPIView):
         )
         visit = Visit.objects.select_related(
             "officer", "farmer", "farm", "schedule", "schedule__farmer"
-        ).get(pk=visit.pk)
+        ).prefetch_related("product_lines__product").get(pk=visit.pk)
         out_serializer = VisitSerializer(visit)
         return Response(out_serializer.data, status=status.HTTP_201_CREATED)
 
@@ -330,7 +395,7 @@ class VisitRetrieveView(generics.RetrieveAPIView):
     serializer_class = VisitSerializer
     queryset = Visit.objects.select_related(
         "officer", "officer__department", "farmer", "farm", "schedule", "schedule__farmer"
-    )
+    ).prefetch_related("photos", "product_lines__product")
 
     def get_queryset(self):
         user = self.request.user
@@ -404,3 +469,39 @@ class VisitVerifyView(APIView):
             {"action": ["Must be 'accept' or 'reject'."]},
             status=status.HTTP_400_BAD_REQUEST,
         )
+
+
+class ProductListCreateView(generics.ListCreateAPIView):
+    """GET: List products (by user's department; admin can pass ?department=slug). POST: Create product (admin only)."""
+
+    permission_classes = [IsAuthenticated]
+
+    def get_serializer_class(self):
+        if self.request.method == "POST":
+            return ProductCreateSerializer
+        return ProductSerializer
+
+    def get_queryset(self):
+        from accounts.models import Department
+        user = self.request.user
+        qs = Product.objects.select_related("department").order_by("department__name", "name")
+        if user.role == "admin":
+            dept_slug = (self.request.query_params.get("department") or "").strip()
+            if dept_slug:
+                qs = qs.filter(department__slug=dept_slug)
+            return qs
+        if user.department_id:
+            return qs.filter(department_id=user.department_id)
+        return qs.none()
+
+    def create(self, request, *args, **kwargs):
+        if request.user.role != "admin":
+            return Response(
+                {"detail": "Only admins can create products."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        product = serializer.save()
+        out = ProductSerializer(product)
+        return Response(out.data, status=status.HTTP_201_CREATED)

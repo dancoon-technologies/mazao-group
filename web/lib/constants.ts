@@ -12,6 +12,7 @@ export const ROUTES = {
   FARMERS: "/farmers",
   FARMS: "/farms",
   VISITS: "/visits",
+  SALES: "/sales",
   SCHEDULES: "/schedules",
   STAFF: "/staff",
   TRACKING: "/tracking",

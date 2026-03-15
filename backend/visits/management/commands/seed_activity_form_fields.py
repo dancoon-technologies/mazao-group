@@ -107,6 +107,13 @@ ACTIVITY_FORM_FIELDS = {
         {"key": "order_value", "label": "Orders generated", "required": False},
         {"key": "farmers_feedback", "label": "Discussion topics / Product feedback / New opportunities", "required": False},
     ],
+    "stockists_visit": [
+        {"key": "number_of_stockists_visited", "label": "Number of Stockists visited", "required": False},
+        {"key": "product_focus", "label": "Product focus", "required": False},
+        {"key": "order_value", "label": "Total Sales done", "required": False},
+        {"key": "merchandising", "label": "Merchandising", "required": False},
+        {"key": "counter_training", "label": "Counter training", "required": False},
+    ],
 }
 
 

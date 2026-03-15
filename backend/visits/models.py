@@ -145,6 +145,24 @@ class Visit(MobileSyncModel):
     order_value = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
     harvest_kgs = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     farmers_feedback = models.TextField(blank=True, validators=[MaxLengthValidator(FEEDBACK_MAX_LENGTH)])
+    # Stockists visit (AgriPrice): number visited, product focus, total sales, merchandising, counter training
+    number_of_stockists_visited = models.PositiveIntegerField(
+        null=True, blank=True, help_text="Number of stockists visited (e.g. for stockists_visit activity)."
+    )
+    product_focus = models.ForeignKey(
+        "Product",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="visits_as_focus",
+        help_text="Primary product focus for this visit (e.g. stockists_visit).",
+    )
+    merchandising = models.CharField(
+        max_length=500, blank=True, help_text="Merchandising notes (e.g. shelf placement, display)."
+    )
+    counter_training = models.CharField(
+        max_length=500, blank=True, help_text="Counter training notes."
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -171,3 +189,59 @@ class VisitPhoto(models.Model):
     class Meta:
         ordering = ["visit", "order"]
         indexes = [models.Index(fields=["visit"], name="visitphoto_visit_id")]
+
+
+class Product(models.Model):
+    """Product per department; used to record sales and products given during visits."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    department = models.ForeignKey(
+        "accounts.Department",
+        on_delete=models.CASCADE,
+        related_name="products",
+    )
+    name = models.CharField(max_length=120)
+    code = models.CharField(max_length=60, blank=True, help_text="Optional SKU or product code.")
+    unit = models.CharField(max_length=30, blank=True, help_text="e.g. kg, litres, sachets.")
+
+    class Meta:
+        ordering = ["department", "name"]
+        unique_together = [["department", "name"]]
+        indexes = [models.Index(fields=["department"], name="product_department_id")]
+
+    def __str__(self):
+        return f"{self.name} ({self.department.name})"
+
+
+class VisitProduct(models.Model):
+    """Sales and products given per product during a visit."""
+
+    visit = models.ForeignKey(
+        Visit,
+        on_delete=models.CASCADE,
+        related_name="product_lines",
+    )
+    product = models.ForeignKey(
+        Product,
+        on_delete=models.CASCADE,
+        related_name="visit_products",
+    )
+    quantity_sold = models.DecimalField(
+        max_digits=12,
+        decimal_places=3,
+        default=0,
+        help_text="Quantity sold during this visit.",
+    )
+    quantity_given = models.DecimalField(
+        max_digits=12,
+        decimal_places=3,
+        default=0,
+        help_text="Quantity given (e.g. samples) during this visit.",
+    )
+
+    class Meta:
+        ordering = ["visit", "product"]
+        constraints = [
+            models.UniqueConstraint(fields=["visit", "product"], name="visitproduct_visit_product_unique"),
+        ]
+        indexes = [models.Index(fields=["visit"], name="visitproduct_visit_id")]

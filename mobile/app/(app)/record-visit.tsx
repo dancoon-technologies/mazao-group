@@ -116,7 +116,12 @@ export default function RecordVisitScreen() {
   const [harvestKgs, setHarvestKgs] = useState('');
   const [pestsDiseases, setPestsDiseases] = useState('');
   const [farmersFeedback, setFarmersFeedback] = useState('');
+  const [numberOfStockistsVisited, setNumberOfStockistsVisited] = useState('');
+  const [productFocusId, setProductFocusId] = useState<string | null>(null);
+  const [merchandising, setMerchandising] = useState('');
+  const [counterTraining, setCounterTraining] = useState('');
   const [step3Extra, setStep3Extra] = useState<Record<string, string>>({});
+  const [productFocusMenuOpen, setProductFocusMenuOpen] = useState(false);
   const [snackbarMsg, setSnackbarMsg] = useState('');
   const [dialogVisible, setDialogVisible] = useState(false);
   const [dialogSuccess, setDialogSuccess] = useState(true);
@@ -128,6 +133,7 @@ export default function RecordVisitScreen() {
   const [step, setStep] = useState(0); // 0 = schedule, 1 = details & photo, 2 = additional fields
 
   const labels = useSelector(() => getLabels(appMeta$.cachedOptions.get()));
+  const products = useSelector(() => appMeta$.cachedOptions.get()?.products ?? []);
   const selectedFarmer = farmers.find((f) => f.id === selectedFarmerId);
   const selectedFarm = farms.find((f) => f.id === selectedFarmId);
 
@@ -526,6 +532,10 @@ export default function RecordVisitScreen() {
           order_value: orderValue ? parseFloat(orderValue) : undefined,
           harvest_kgs: harvestKgs ? parseFloat(harvestKgs) : undefined,
           farmers_feedback: farmersFeedback || undefined,
+          number_of_stockists_visited: (() => { const n = parseInt(numberOfStockistsVisited, 10); return numberOfStockistsVisited.trim() && !Number.isNaN(n) ? n : undefined; })(),
+          product_focus_id: productFocusId || undefined,
+          merchandising: merchandising || undefined,
+          counter_training: counterTraining || undefined,
         });
         if (scheduleIdForSubmit) {
           setScheduleIdsWithRecordedVisits((prev) => new Set(prev).add(scheduleIdForSubmit));
@@ -557,6 +567,10 @@ export default function RecordVisitScreen() {
         order_value: orderValue ? parseFloat(orderValue) : undefined,
         harvest_kgs: harvestKgs ? parseFloat(harvestKgs) : undefined,
         farmers_feedback: farmersFeedback || undefined,
+        number_of_stockists_visited: (() => { const n = parseInt(numberOfStockistsVisited, 10); return numberOfStockistsVisited.trim() && !Number.isNaN(n) ? n : undefined; })(),
+        product_focus_id: productFocusId || undefined,
+        merchandising: merchandising || undefined,
+        counter_training: counterTraining || undefined,
       });
       if (scheduleIdForSubmit) {
         setScheduleIdsWithRecordedVisits((prev) => new Set(prev).add(scheduleIdForSubmit));
@@ -578,7 +592,7 @@ export default function RecordVisitScreen() {
     } finally {
       setSubmitting(false);
     }
-  }, [mustSelectSchedule, acceptedSchedules.length, selectedFarmerId, selectedFarmId, selectedScheduleId, scheduleIdForSubmit, photoUris, photoTakenAts, location, selectedFarm, selectedFarmer, activityTypes, notes, cropStage, germinationPercent, survivalRatePercent, orderValue, harvestKgs, pestsDiseases, farmersFeedback, labels, router]);
+  }, [mustSelectSchedule, acceptedSchedules.length, selectedFarmerId, selectedFarmId, selectedScheduleId, scheduleIdForSubmit, photoUris, photoTakenAts, location, selectedFarm, selectedFarmer, activityTypes, notes, cropStage, germinationPercent, survivalRatePercent, orderValue, harvestKgs, pestsDiseases, farmersFeedback, numberOfStockistsVisited, productFocusId, merchandising, counterTraining, labels, router]);
 
   const activityLabel = useMemo(() => {
     if (activityTypes.length === 0) return 'Select activities';
@@ -989,6 +1003,81 @@ export default function RecordVisitScreen() {
                       <TextInput key={f.key} label={f.label} value={farmersFeedback} onChangeText={setFarmersFeedback} mode="outlined" multiline numberOfLines={2} placeholder={`${labels.partner}'s comments`} style={styles.input} />
                     );
                   }
+                  if (f.key === 'number_of_stockists_visited') {
+                    return (
+                      <TextInput
+                        key={f.key}
+                        label={f.label}
+                        value={numberOfStockistsVisited}
+                        onChangeText={setNumberOfStockistsVisited}
+                        keyboardType="number-pad"
+                        mode="outlined"
+                        placeholder="e.g. 5"
+                        style={styles.input}
+                      />
+                    );
+                  }
+                  if (f.key === 'product_focus') {
+                    const selectedProduct = products.find((p) => p.id === productFocusId);
+                    return (
+                      <View key={f.key} style={styles.input}>
+                        <Text variant="labelLarge" style={styles.fieldLabel}>{f.label}</Text>
+                        <Menu
+                          visible={productFocusMenuOpen}
+                          onDismiss={() => setProductFocusMenuOpen(false)}
+                          anchor={
+                            <Button
+                              mode="outlined"
+                              onPress={() => setProductFocusMenuOpen(true)}
+                              contentStyle={{ justifyContent: 'flex-start' }}
+                              style={styles.productFocusButton}
+                            >
+                              {selectedProduct ? `${selectedProduct.name}${selectedProduct.unit ? ` (${selectedProduct.unit})` : ''}` : 'Select product'}
+                            </Button>
+                          }
+                        >
+                          <List.Item title="None" onPress={() => { setProductFocusId(null); setProductFocusMenuOpen(false); }} />
+                          {products.map((p) => (
+                            <List.Item
+                              key={p.id}
+                              title={`${p.name}${p.unit ? ` (${p.unit})` : ''}`}
+                              onPress={() => { setProductFocusId(p.id); setProductFocusMenuOpen(false); }}
+                            />
+                          ))}
+                        </Menu>
+                      </View>
+                    );
+                  }
+                  if (f.key === 'merchandising') {
+                    return (
+                      <TextInput
+                        key={f.key}
+                        label={f.label}
+                        value={merchandising}
+                        onChangeText={setMerchandising}
+                        mode="outlined"
+                        multiline
+                        numberOfLines={2}
+                        placeholder="Merchandising notes"
+                        style={styles.input}
+                      />
+                    );
+                  }
+                  if (f.key === 'counter_training') {
+                    return (
+                      <TextInput
+                        key={f.key}
+                        label={f.label}
+                        value={counterTraining}
+                        onChangeText={setCounterTraining}
+                        mode="outlined"
+                        multiline
+                        numberOfLines={2}
+                        placeholder="Counter training notes"
+                        style={styles.input}
+                      />
+                    );
+                  }
                   return (
                     <TextInput
                       key={f.key}
@@ -1151,6 +1240,7 @@ const styles = StyleSheet.create({
   hint: { marginTop: spacing.xs, opacity: 0.85 },
   input: { marginBottom: spacing.md },
   inputHalf: { flex: 1, marginBottom: spacing.md },
+  productFocusButton: { marginBottom: spacing.md },
   twoColRow: { flexDirection: 'row', gap: spacing.md, marginBottom: 0 },
   addFarmerBtn: { marginTop: -2, marginBottom: 2 },
   farmList: { marginTop: spacing.xs },

@@ -9,6 +9,7 @@ import {
   Modal,
   Select,
   Stack,
+  Table,
   Text,
   TextInput,
 } from "@mantine/core";
@@ -22,32 +23,18 @@ import { useAuth } from "@/contexts/AuthContext";
 import { formatDateTime, formatActivityType, formatActivityTypes, pluralize } from "@/lib/format";
 import { DataTable, type DataTableColumn, PageLoading, PageError, PageHeader } from "@/components/ui";
 import { PAGE_BOX_MIN_WIDTH } from "@/lib/constants";
-
-type ReportPeriod = "daily" | "weekly" | "monthly";
-
-function getWeekBounds(dateStr: string): { from: string; to: string } {
-  const d = new Date(dateStr + "T12:00:00");
-  const day = d.getDay();
-  const diffToMonday = day === 0 ? 6 : day - 1;
-  d.setDate(d.getDate() - diffToMonday);
-  const from = d.toISOString().slice(0, 10);
-  d.setDate(d.getDate() + 6);
-  const to = d.toISOString().slice(0, 10);
-  return { from, to };
-}
-
-function getMonthBounds(ym: string): { from: string; to: string } {
-  const from = ym + "-01";
-  const d = new Date(ym + "-01T12:00:00");
-  d.setMonth(d.getMonth() + 1);
-  d.setDate(0);
-  const to = d.toISOString().slice(0, 10);
-  return { from, to };
-}
-
-function todayISO(): string {
-  return new Date().toISOString().slice(0, 10);
-}
+import {
+  buildVisitParams,
+  getExportFilenameBase,
+  getReportPeriodLabel,
+  REPORT_PERIOD_OPTIONS,
+  todayISO,
+  type ReportPeriod,
+} from "@/lib/reportFilters";
+import {
+  buildAdditionalVisitFieldsFromOptions,
+  getVisitValueKey,
+} from "@/lib/visitFormFields";
 
 /** PDF styling: mobile app colors (primary green, grays) for consistent report branding */
 const PDF_COLORS = {
@@ -123,12 +110,14 @@ function VisitDetailModal({
   onClose,
   canVerify,
   onVerify,
+  additionalVisitFields,
 }: {
   visit: Visit | null;
   opened: boolean;
   onClose: () => void;
   canVerify: boolean;
   onVerify: (visitId: string, action: "accept" | "reject") => Promise<void>;
+  additionalVisitFields: { key: string; label: string }[];
 }) {
   const [verifying, setVerifying] = useState<"accept" | "reject" | null>(null);
   const [exportingPdf, setExportingPdf] = useState(false);
@@ -238,6 +227,38 @@ function VisitDetailModal({
         {row("Harvest (kg)", visit.harvest_kgs != null ? String(visit.harvest_kgs) : null)}
         {row("Farmers feedback", visit.farmers_feedback)}
         {row("Notes", visit.notes)}
+        {additionalVisitFields.filter(({ key }) => {
+          const valueKey = getVisitValueKey(key);
+          const v = visit[valueKey];
+          return v != null && v !== "";
+        }).map(({ key, label }) => {
+          const valueKey = getVisitValueKey(key);
+          const v = visit[valueKey];
+          return row(label, v != null ? String(v) : null);
+        })}
+        {visit.product_lines && visit.product_lines.length > 0 ? (
+          <Stack gap="xs" mt="xs">
+            <Text size="sm" fw={600} c="dimmed">Products (sold / given)</Text>
+            <Table withTableBorder withColumnBorders>
+              <Table.Thead>
+                <Table.Tr>
+                  <Table.Th>Product</Table.Th>
+                  <Table.Th>Sold</Table.Th>
+                  <Table.Th>Given</Table.Th>
+                </Table.Tr>
+              </Table.Thead>
+              <Table.Tbody>
+                {visit.product_lines.map((line, i) => (
+                  <Table.Tr key={i}>
+                    <Table.Td>{line.product_name}{line.product_unit ? ` (${line.product_unit})` : ""}</Table.Td>
+                    <Table.Td>{line.quantity_sold}</Table.Td>
+                    <Table.Td>{line.quantity_given}</Table.Td>
+                  </Table.Tr>
+                ))}
+              </Table.Tbody>
+            </Table>
+          </Stack>
+        ) : null}
         {(visit.photos?.length ?? (visit.photo ? 1 : 0)) > 0 ? (
           <Group gap="xs">
             {(visit.photos ?? (visit.photo ? [visit.photo] : [])).map((url, i) => (
@@ -303,21 +324,15 @@ export default function VisitsPage() {
   const [selectedVisit, setSelectedVisit] = useState<Visit | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
 
-  const visitParams = useMemo(() => {
-    const base: Parameters<typeof api.getVisits>[0] = {
-      ...(officerFilter ? { officer: officerFilter } : {}),
-      ...(isAdmin && departmentFilter ? { department: departmentFilter } : {}),
-    };
-    if (reportPeriod === "daily") {
-      return { ...base, date: reportDate };
-    }
-    if (reportPeriod === "weekly") {
-      const { from, to } = getWeekBounds(reportDate);
-      return { ...base, date_from: from, date_to: to };
-    }
-    const { from, to } = getMonthBounds(reportDate.slice(0, 7));
-    return { ...base, date_from: from, date_to: to };
-  }, [reportPeriod, reportDate, officerFilter, departmentFilter, isAdmin]);
+  const visitParams = useMemo(
+    () =>
+      buildVisitParams(reportPeriod, reportDate, {
+        officerFilter,
+        departmentFilter,
+        isAdmin,
+      }),
+    [reportPeriod, reportDate, officerFilter, departmentFilter, isAdmin]
+  );
 
   const fetchVisits = useCallback(
     (signal: AbortSignal) => api.getVisits(visitParams, { signal }),
@@ -332,40 +347,34 @@ export default function VisitsPage() {
   const officers = useMemo(() => officersData ?? [], [officersData]);
 
   const { data: optionsData } = useAsyncData(
-    (signal) => (isAdmin ? api.getOptions({ signal }) : Promise.resolve({ departments: [], staff_roles: [] })),
-    [isAdmin]
+    (signal) => api.getOptions({ signal }),
+    []
   );
   const departmentOptions = useMemo(
     () => (optionsData?.departments ?? []).map((d) => ({ value: d.value, label: d.label })),
     [optionsData?.departments]
   );
+  const additionalVisitFields = useMemo(
+    () => buildAdditionalVisitFieldsFromOptions(optionsData?.activity_types),
+    [optionsData?.activity_types]
+  );
 
   const visits = visitsData ?? [];
 
-  const reportPeriodLabel = useMemo(() => {
-    if (reportPeriod === "daily") return `Daily report — ${reportDate}`;
-    if (reportPeriod === "weekly") {
-      const { from, to } = getWeekBounds(reportDate);
-      return `Weekly report — ${from} to ${to}`;
-    }
-    const [y, m] = reportDate.slice(0, 7).split("-");
-    const monthName = new Date(Number(y), Number(m) - 1, 1).toLocaleString("default", { month: "long" });
-    return `Monthly report — ${monthName} ${y}`;
-  }, [reportPeriod, reportDate]);
+  const reportPeriodLabel = useMemo(
+    () => getReportPeriodLabel(reportPeriod, reportDate),
+    [reportPeriod, reportDate]
+  );
 
   const officerOptions = useMemo(
     () => officers.map((o) => ({ value: o.id, label: o.display_name ? `${o.display_name} (${o.email})` : o.email })),
     [officers]
   );
 
-  const exportFilenameBase = useMemo(() => {
-    if (reportPeriod === "daily") return `visits-daily-${reportDate}`;
-    if (reportPeriod === "weekly") {
-      const { from, to } = getWeekBounds(reportDate);
-      return `visits-weekly-${from}-to-${to}`;
-    }
-    return `visits-monthly-${reportDate.slice(0, 7)}`;
-  }, [reportPeriod, reportDate]);
+  const exportFilenameBase = useMemo(
+    () => getExportFilenameBase("visits", reportPeriod, reportDate),
+    [reportPeriod, reportDate]
+  );
 
   const handleExportExcel = () => {
     const rows = visits.map((v) => ({
@@ -590,11 +599,7 @@ export default function VisitsPage() {
             <Select
               label="Report period"
               size="sm"
-              data={[
-                { value: "daily", label: "Daily" },
-                { value: "weekly", label: "Weekly" },
-                { value: "monthly", label: "Monthly" },
-              ]}
+              data={REPORT_PERIOD_OPTIONS}
               value={reportPeriod}
               onChange={(v) => v && setReportPeriod(v as ReportPeriod)}
               style={{ minWidth: 120 }}
@@ -663,6 +668,7 @@ export default function VisitsPage() {
         visit={selectedVisit}
         opened={detailOpen}
         onClose={() => setDetailOpen(false)}
+        additionalVisitFields={additionalVisitFields}
         canVerify={isAdminOrSupervisor}
         onVerify={async (visitId, action) => {
           try {
