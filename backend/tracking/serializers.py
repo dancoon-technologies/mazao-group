@@ -15,6 +15,7 @@ class LocationReportCreateSerializer(serializers.ModelSerializer):
     accuracy = serializers.FloatField(required=False, allow_null=True)
     battery_percent = serializers.FloatField(required=False, allow_null=True)
     device_info = serializers.JSONField(required=False, default=dict)
+    device_integrity = serializers.JSONField(required=False, allow_null=True)
 
     class Meta:
         model = LocationReport
@@ -26,6 +27,7 @@ class LocationReportCreateSerializer(serializers.ModelSerializer):
             "accuracy",
             "battery_percent",
             "device_info",
+            "device_integrity",
         )
 
 
@@ -50,6 +52,8 @@ class LocationReportSerializer(serializers.ModelSerializer):
             "accuracy",
             "battery_percent",
             "device_info",
+            "device_integrity",
+            "integrity_warning",
             "created_at",
         )
 

@@ -412,6 +412,12 @@ export async function enqueueLocationReport(payload: {
   accuracy?: number | null
   battery_percent?: number | null
   device_info?: Record<string, unknown>
+  device_integrity?: {
+    mock_provider?: boolean
+    rooted?: boolean
+    speed_kmh?: number | null
+    integrity_flags?: string[]
+  }
 }): Promise<void> {
   await enqueueSyncItem('location_report', 'CREATE', payload)
 }

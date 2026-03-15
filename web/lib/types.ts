@@ -210,5 +210,9 @@ export interface LocationReport {
   accuracy: number | null;
   battery_percent: number | null;
   device_info: Record<string, unknown>;
+  /** Client-side integrity: mock_provider, rooted, speed_kmh, integrity_flags. */
+  device_integrity?: Record<string, unknown> | null;
+  /** Server-side fraud flag e.g. impossible_travel, mock_provider. */
+  integrity_warning?: string | null;
   created_at: string;
 }

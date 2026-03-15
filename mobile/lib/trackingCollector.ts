@@ -16,6 +16,7 @@ import {
   updateFromLocation,
 } from '@/lib/deadReckoning';
 import { getDeviceClockOffsetSeconds } from '@/lib/deviceClockSync';
+import { getDeviceIntegrityAsync } from '@/lib/trackingIntegrity';
 import { enqueueLocationReport } from '@/lib/syncWithServer';
 import { logger } from '@/lib/logger';
 
@@ -31,9 +32,10 @@ const DEFAULT_INTERVAL_MINUTES = 1;
 /** Only record a new point when the user has moved at least this many meters from the last recorded point. */
 const MIN_MOVEMENT_METERS = 10;
 
-/** Last position we sent to the server (so we only record when change is detected). */
+/** Last position and time we sent (for change detection and integrity speed check). */
 let lastEnqueuedLat: number | null = null;
 let lastEnqueuedLon: number | null = null;
+let lastEnqueuedAt: string | null = null;
 
 function haversineMeters(
   lat1: number,
@@ -124,11 +126,19 @@ TaskManager.defineTask(LOCATION_TRACKING_TASK, async ({ data, error }) => {
           continue;
         }
       }
-      lastEnqueuedLat = lat;
-      lastEnqueuedLon = lon;
-
       const batteryPercent = await getBatteryPercent();
       const deviceClockOffsetSeconds = await getDeviceClockOffsetSeconds();
+      const deviceIntegrity = await getDeviceIntegrityAsync({
+        latitude: lat,
+        longitude: lon,
+        reportedAt,
+        lastLat: lastEnqueuedLat,
+        lastLon: lastEnqueuedLon,
+        lastReportedAt: lastEnqueuedAt,
+      });
+      if (deviceIntegrity.integrity_flags.length > 0) {
+        logger.warn('Tracking: integrity flags', { flags: deviceIntegrity.integrity_flags, speed_kmh: deviceIntegrity.speed_kmh });
+      }
       await enqueueLocationReport({
         reported_at: reportedAt,
         ...(deviceClockOffsetSeconds != null && { device_clock_offset_seconds: deviceClockOffsetSeconds }),
@@ -137,7 +147,16 @@ TaskManager.defineTask(LOCATION_TRACKING_TASK, async ({ data, error }) => {
         accuracy: coords.accuracy ?? null,
         battery_percent: batteryPercent,
         device_info: deviceInfo,
+        device_integrity: {
+          mock_provider: deviceIntegrity.mock_provider,
+          rooted: deviceIntegrity.rooted,
+          speed_kmh: deviceIntegrity.speed_kmh,
+          integrity_flags: deviceIntegrity.integrity_flags,
+        },
       });
+      lastEnqueuedLat = lat;
+      lastEnqueuedLon = lon;
+      lastEnqueuedAt = reportedAt;
       logger.info('Tracking: enqueued location report (change detected)', { lat, lon, battery: batteryPercent });
     } catch (e) {
       logger.warn('Tracking: enqueue failed', e instanceof Error ? e.message : e);

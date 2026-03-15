@@ -322,6 +322,7 @@ export default function TrackingPage() {
                     <Table.Th>Location</Table.Th>
                     <Table.Th>Battery</Table.Th>
                     <Table.Th>Device</Table.Th>
+                    <Table.Th>Integrity</Table.Th>
                   </Table.Tr>
                 </Table.Thead>
                 <Table.Tbody>
@@ -348,6 +349,15 @@ export default function TrackingPage() {
                             ? String(r.device_info.device_name)
                             : "—"}
                         </Text>
+                      </Table.Td>
+                      <Table.Td>
+                        {r.integrity_warning ? (
+                          <Text size="sm" c="orange" title="Fraud or tampering flag">
+                            {r.integrity_warning}
+                          </Text>
+                        ) : (
+                          <Text size="sm" c="dimmed">—</Text>
+                        )}
                       </Table.Td>
                     </Table.Tr>
                   ))}

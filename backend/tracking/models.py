@@ -72,6 +72,17 @@ class LocationReport(models.Model):
         blank=True,
         help_text="Device model, OS, app version, etc.",
     )
+    device_integrity = models.JSONField(
+        null=True,
+        blank=True,
+        help_text="Client-side integrity: mock_provider, rooted, speed_kmh, integrity_flags.",
+    )
+    integrity_warning = models.CharField(
+        max_length=64,
+        null=True,
+        blank=True,
+        help_text="Server-side fraud flag e.g. impossible_travel, mock_provider.",
+    )
     created_at = models.DateTimeField(
         auto_now_add=True,
         verbose_name="Received (server)",
