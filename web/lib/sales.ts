@@ -28,8 +28,8 @@ export function flattenVisitsToSales(visits: Visit[]): SalesRow[] {
     const lines = v.product_lines ?? [];
     const officerDisplay =
       [v.officer_display_name, v.officer_email].filter(Boolean).join(" — ") || "—";
-    const partnerDisplay = v.farmer_display_name ?? v.farmer ?? "—";
-    const locationDisplay = v.farm_display_name ?? v.farm ?? "—";
+    const partnerDisplay = v.farmer_display_name ?? "\u2014";
+    const locationDisplay = v.farm_display_name ?? "\u2014";
     for (let idx = 0; idx < lines.length; idx++) {
       const line = lines[idx];
       const sold = line.quantity_sold ?? "0";
