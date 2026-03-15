@@ -103,11 +103,7 @@ class FarmListCreateView(generics.ListCreateAPIView):
         if user.role == "admin":
             pass  # Admin sees all farms
         elif user.role == "supervisor":
-            # Supervisors see only farms whose farmer is assigned to an officer in their department.
-            if user.department_id:
-                qs = qs.filter(farmer__assigned_officer__department=user.department)
-            else:
-                qs = qs.none()
+            pass  # Supervisors see all farms (not scoped to department)
         else:
             # Officers see only farms of farmers assigned to them
             qs = qs.filter(farmer__assigned_officer=user)

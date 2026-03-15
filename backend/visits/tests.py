@@ -327,7 +327,7 @@ class VisitAPITests(TestCase):
         self.assertEqual(len(self._visit_list_results(r)), 1)
 
     def test_list_visits_filter_by_date(self):
-        Visit.objects.create(
+        visit = Visit.objects.create(
             officer=self.officer,
             farmer=self.farmer,
             latitude=-6.0,
@@ -337,10 +337,9 @@ class VisitAPITests(TestCase):
         )
         token = self._login("officer@test.com", "officer123")
         self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
-        from django.utils import timezone
-
-        today = timezone.now().date().isoformat()
-        r = self.client.get(f"/api/visits/?date={today}")
+        # Use the visit's created_at date so filter is timezone-safe in CI
+        date_str = visit.created_at.date().isoformat()
+        r = self.client.get(f"/api/visits/?date={date_str}")
         self.assertEqual(r.status_code, status.HTTP_200_OK)
         self.assertEqual(len(self._visit_list_results(r)), 1)
 
@@ -544,7 +543,8 @@ class VisitProductLinesAPITests(TestCase):
         self.json = _json
         self.client = APIClient()
         region = Region.objects.create(name="North")
-        dept = Department.objects.create(name="Extension", slug="extension")
+        # Use unique slug to avoid UNIQUE constraint with VisitVerifyAPITests when tests run in parallel
+        dept = Department.objects.create(name="Extension Product", slug="extension-pl")
         self.admin = User.objects.create_user(
             email="admin@test.com", password="admin123", role=User.Role.ADMIN
         )
@@ -608,8 +608,9 @@ class VisitProductLinesAPITests(TestCase):
         self.assertEqual(len(resp["product_lines"]), 1)
         self.assertEqual(resp["product_lines"][0]["product_id"], str(self.product.pk))
         self.assertEqual(resp["product_lines"][0]["product_name"], "Seeds A")
-        self.assertEqual(resp["product_lines"][0]["quantity_sold"], "10")
-        self.assertEqual(resp["product_lines"][0]["quantity_given"], "2")
+        # Serializer may return Decimal as "10" or "10.000"
+        self.assertEqual(float(resp["product_lines"][0]["quantity_sold"]), 10)
+        self.assertEqual(float(resp["product_lines"][0]["quantity_given"]), 2)
 
     def test_retrieve_visit_includes_product_lines(self):
         visit = Visit.objects.create(
@@ -635,5 +636,6 @@ class VisitProductLinesAPITests(TestCase):
         lines = r.json()["product_lines"]
         self.assertEqual(len(lines), 1)
         self.assertEqual(lines[0]["product_name"], "Seeds A")
-        self.assertEqual(lines[0]["quantity_sold"], "5")
-        self.assertEqual(lines[0]["quantity_given"], "1")
+        # Serializer returns Decimal as string (e.g. "5.000" with decimal_places=3)
+        self.assertEqual(float(lines[0]["quantity_sold"]), 5)
+        self.assertEqual(float(lines[0]["quantity_given"]), 1)

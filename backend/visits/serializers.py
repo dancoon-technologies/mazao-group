@@ -1,7 +1,25 @@
+import json
+
 from rest_framework import serializers
 
 from accounts.models import Department
 from .models import Product, Visit, VisitProduct
+
+
+class ProductLinesField(serializers.Field):
+    """Accept product_lines as list or JSON string (e.g. from multipart form)."""
+
+    def to_internal_value(self, data):
+        if data is None:
+            return []
+        if isinstance(data, list):
+            return data
+        if isinstance(data, str) and data.strip():
+            try:
+                return json.loads(data)
+            except json.JSONDecodeError:
+                return []
+        return []
 
 
 class VisitSerializer(serializers.ModelSerializer):
@@ -142,11 +160,9 @@ class VisitCreateSerializer(serializers.ModelSerializer):
         allow_empty=True,
         help_text="List of activity type slugs. If provided, activity_type is the first.",
     )
-    product_lines = serializers.ListField(
-        child=serializers.DictField(),
+    product_lines = ProductLinesField(
         required=False,
-        allow_empty=True,
-        help_text="List of {product_id, quantity_sold, quantity_given} for sales/given during visit.",
+        help_text="List of {product_id, quantity_sold, quantity_given} for sales/given during visit (list or JSON string).",
     )
     product_focus_id = serializers.UUIDField(required=False, allow_null=True)
 
