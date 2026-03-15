@@ -171,11 +171,54 @@ export interface TrackingConfig {
 }
 
 let isTrackingStarted = false;
+/** Interval that starts/stops location updates at working-hour boundaries. */
+let workingHoursCheckIntervalId: ReturnType<typeof setInterval> | null = null;
+
+const WORKING_HOURS_CHECK_MS = 60 * 1000; // check every minute
+
+/**
+ * Start or stop location updates based on current time and working hours.
+ * Called on a timer so we stop at working_hour_end and start at working_hour_start.
+ */
+async function applyWorkingHoursState(): Promise<void> {
+  const within = isWithinWorkingHours();
+  if (within && !isTrackingStarted) {
+    const { status: foregroundStatus } = await Location.getForegroundPermissionsAsync();
+    if (foregroundStatus !== 'granted') return;
+    try {
+      await Location.startLocationUpdatesAsync(LOCATION_TRACKING_TASK, {
+        accuracy: Location.LocationAccuracy.Highest,
+        timeInterval: trackingIntervalMs,
+        distanceInterval: 0,
+        foregroundService: {
+          notificationTitle: 'Mazao tracking',
+          notificationBody: 'Recording your location during field work.',
+        },
+      });
+      startSensorSubscription();
+      isTrackingStarted = true;
+      logger.info('Tracking: started (within working hours)', { workingHourStart, workingHourEnd });
+    } catch (e) {
+      logger.warn('Tracking: startLocationUpdatesAsync failed', e instanceof Error ? e.message : e);
+    }
+  } else if (!within && isTrackingStarted) {
+    stopSensorSubscription();
+    try {
+      await Location.stopLocationUpdatesAsync(LOCATION_TRACKING_TASK);
+      isTrackingStarted = false;
+      logger.info('Tracking: stopped (outside working hours)', { workingHourStart, workingHourEnd });
+    } catch (e) {
+      logger.warn('Tracking: stop failed', e instanceof Error ? e.message : e);
+    }
+  }
+}
 
 /**
  * Start location tracking during working hours. Uses background location so updates
- * continue when the app is in the background. Request background permission first.
- * Call stopTracking() when user logs out.
+ * continue when the app is in the background. Location updates are started only when
+ * the current time is within working hours and are stopped automatically at
+ * working_hour_end; they start again at working_hour_start. Request background
+ * permission first. Call stopTracking() when user logs out.
  */
 export async function startTracking(config?: TrackingConfig): Promise<void> {
   if (config?.working_hour_start != null) {
@@ -212,25 +255,23 @@ export async function startTracking(config?: TrackingConfig): Promise<void> {
   lastEnqueuedLat = null;
   lastEnqueuedLon = null;
 
-  try {
-    await Location.startLocationUpdatesAsync(LOCATION_TRACKING_TASK, {
-      accuracy: Location.LocationAccuracy.Highest,
-      timeInterval: trackingIntervalMs,
-      distanceInterval: 0,
-      foregroundService: {
-        notificationTitle: 'Mazao tracking',
-        notificationBody: 'Recording your location during field work.',
-      },
-    });
-    startSensorSubscription();
-    isTrackingStarted = true;
-    logger.info('Tracking: started', { workingHourStart, workingHourEnd, intervalMin: trackingIntervalMs / 60000 });
-  } catch (e) {
-    logger.warn('Tracking: startLocationUpdatesAsync failed', e instanceof Error ? e.message : e);
+  if (workingHoursCheckIntervalId != null) {
+    clearInterval(workingHoursCheckIntervalId);
+    workingHoursCheckIntervalId = null;
   }
+
+  await applyWorkingHoursState();
+  workingHoursCheckIntervalId = setInterval(() => {
+    applyWorkingHoursState();
+  }, WORKING_HOURS_CHECK_MS);
+  logger.info('Tracking: scheduled by working hours', { workingHourStart, workingHourEnd, intervalMin: trackingIntervalMs / 60000 });
 }
 
 export async function stopTracking(): Promise<void> {
+  if (workingHoursCheckIntervalId != null) {
+    clearInterval(workingHoursCheckIntervalId);
+    workingHoursCheckIntervalId = null;
+  }
   if (!isTrackingStarted) return;
   stopSensorSubscription();
   try {
