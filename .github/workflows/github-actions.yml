@@ -127,8 +127,7 @@ jobs:
   backend-deploy:
     name: Deploy backend
     needs: [detect, backend-tests]
-    # When only backend changed, run tests but do not deploy (no web/mobile change)
-    if: github.ref == 'refs/heads/main' && needs.detect.outputs.backend == 'true' && (needs.detect.outputs.web == 'true' || needs.detect.outputs.mobile == 'true')
+    if: github.ref == 'refs/heads/main' && needs.detect.outputs.backend == 'true'
     runs-on: ubuntu-latest
 
     steps:
