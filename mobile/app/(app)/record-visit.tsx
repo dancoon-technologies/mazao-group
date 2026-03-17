@@ -172,7 +172,7 @@ export default function RecordVisitScreen() {
         return [activeOnly[0]?.value ?? DEFAULT_ACTIVITY_TYPE];
       });
     } else {
-      setActivityTypesList(ACTIVITY_TYPES.map((a) => ({ value: a.value, label: a.label })));
+      setActivityTypesList([]);
     }
   }, []);
 
@@ -189,16 +189,14 @@ export default function RecordVisitScreen() {
           applyOptions(cached);
         } else {
           setVisitSettings({ max_distance_meters: DEFAULT_MAX_DISTANCE_METERS, warning_distance_meters: DEFAULT_WARNING_DISTANCE_METERS });
-          setActivityTypesList(ACTIVITY_TYPES.map((a) => ({ value: a.value, label: a.label })));
+          setActivityTypesList([]);
         }
       });
   }, [applyOptions]);
 
-  // Activity types for modal and chips: prefer options from store (GET /api/options/, refreshed on focus and when modal opens). Only active (is_active !== false). Fallback to activityTypesList or hardcoded only when no options.
+  // Activity types only from backend (options or activityTypesList from applyOptions). No hardcoded list — show only active types from GET /api/options/.
   const activityTypeOptions = useMemo(() => {
-    const list =
-      (options?.activity_types?.length ? options.activity_types : null) ??
-      (activityTypesList.length ? activityTypesList : ACTIVITY_TYPES.map((a) => ({ value: a.value, label: a.label })));
+    const list = options?.activity_types ?? activityTypesList;
     return list.filter((a) => (a as ActivityTypeOption).is_active !== false);
   }, [options?.activity_types, activityTypesList]);
 
