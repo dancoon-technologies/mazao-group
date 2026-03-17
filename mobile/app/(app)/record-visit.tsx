@@ -200,7 +200,7 @@ export default function RecordVisitScreen() {
     return list.filter((a) => (a as ActivityTypeOption).is_active !== false);
   }, [options?.activity_types, activityTypesList]);
 
-  // Additional fields (step 3): always from backend. For each selected activity we use that activity's form_fields from GET /api/options/ (activity_types[].form_fields). Only when the backend sent an empty form_fields for that activity do we use default_visit_form_fields (also from options).
+  // Additional fields (step 3): only from the selected activity type(s). Use each activity's form_fields from backend (activity_types[].form_fields). Do not fall back to default_visit_form_fields — if the backend sent no form_fields for that activity, show no fields for it.
   const step3Fields = useMemo(() => {
     const list = options?.activity_types ?? activityTypesList;
     const activeOnlyList = list.filter((a) => (a as ActivityTypeOption).is_active !== false);
@@ -211,8 +211,7 @@ export default function RecordVisitScreen() {
       if (!activeSet.has(value)) continue;
       const config = activeOnlyList.find((a) => a.value === value);
       const activityFormFields = config?.form_fields;
-      const useActivityFields = Array.isArray(activityFormFields) && activityFormFields.length > 0;
-      const fields = useActivityFields ? activityFormFields : defaultVisitFormFields;
+      const fields = Array.isArray(activityFormFields) && activityFormFields.length > 0 ? activityFormFields : [];
       for (const f of fields) {
         if (!seen.has(f.key)) {
           seen.add(f.key);
@@ -221,7 +220,7 @@ export default function RecordVisitScreen() {
       }
     }
     return out;
-  }, [activityTypes, activityTypesList, options?.activity_types, defaultVisitFormFields]);
+  }, [activityTypes, activityTypesList, options?.activity_types]);
 
   // Keep step3Values in sync with step3Fields: drop values for fields no longer in the form (e.g. after changing activity type).
   useEffect(() => {
