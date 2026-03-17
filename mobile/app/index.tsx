@@ -6,7 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 
 export default function IndexScreen() {
   const router = useRouter();
-  const { isAuthenticated, isLoading, mustChangePassword } = useAuth();
+  const { isAuthenticated, isLoading } = useAuth();
 
   useEffect(() => {
     if (isLoading) return;
@@ -14,16 +14,12 @@ export default function IndexScreen() {
       await SplashScreen.hideAsync();
       if (!isAuthenticated) {
         router.replace('/login');
-        return;
-      }
-      if (mustChangePassword) {
-        router.replace('/change-password');
       } else {
         router.replace('/(app)');
       }
     };
     navigate();
-  }, [isAuthenticated, isLoading, mustChangePassword, router]);
+  }, [isAuthenticated, isLoading, router]);
 
   return (
     <View style={styles.centered}>

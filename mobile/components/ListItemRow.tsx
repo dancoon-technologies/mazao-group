@@ -7,6 +7,10 @@ type ListItemRowProps = {
   avatarLetter: string;
   title: string;
   subtitle?: string;
+  /** Max lines for title (default 1). Use a large number (e.g. 99) to show all. */
+  titleNumberOfLines?: number;
+  /** Max lines for subtitle (default 1). Use a large number (e.g. 99) to show all. */
+  subtitleNumberOfLines?: number;
   right?: React.ReactNode;
   onPress?: () => void;
 };
@@ -15,6 +19,8 @@ export const ListItemRow = memo(function ListItemRow({
   avatarLetter,
   title,
   subtitle,
+  titleNumberOfLines = 1,
+  subtitleNumberOfLines = 1,
   right,
   onPress,
 }: ListItemRowProps) {
@@ -26,11 +32,11 @@ export const ListItemRow = memo(function ListItemRow({
         </Text>
       </View>
       <View style={styles.body}>
-        <Text variant="titleMedium" style={styles.title} numberOfLines={1}>
+        <Text variant="titleMedium" style={styles.title} numberOfLines={titleNumberOfLines}>
           {title}
         </Text>
         {subtitle != null && (
-          <Text variant="bodySmall" style={styles.subtitle} numberOfLines={1}>
+          <Text variant="bodySmall" style={styles.subtitle} numberOfLines={subtitleNumberOfLines}>
             {subtitle}
           </Text>
         )}

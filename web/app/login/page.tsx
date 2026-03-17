@@ -38,7 +38,7 @@ function LoginForm() {
     setLoading(true);
     try {
       const user = await login(email, password);
-      router.replace(user.must_change_password ? ROUTES.CHANGE_PASSWORD : redirect);
+      router.replace(redirect);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Login failed");
     } finally {

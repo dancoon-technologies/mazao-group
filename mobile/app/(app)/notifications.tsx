@@ -163,6 +163,8 @@ export default function NotificationsScreen() {
                 avatarLetter={((n?.title ?? '').charAt(0) || '?').toUpperCase()}
                 title={n?.title ?? ''}
                 subtitle={n?.message ?? ''}
+                titleNumberOfLines={99}
+                subtitleNumberOfLines={99}
                 onPress={() => handleMarkRead(n)}
                 right={
                   <View style={styles.rowRight}>

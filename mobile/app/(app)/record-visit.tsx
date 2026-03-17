@@ -8,6 +8,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { appMeta$ } from '@/store/observable';
 import { api, getLabels, type ActivityFormFieldOption, type ActivityTypeOption, type Farm, type Farmer, type Schedule, type VisitSettings } from '@/lib/api';
 import { ACTIVITY_TYPES, DEFAULT_ACTIVITY_TYPE } from '@/lib/constants/activityTypes';
+import { buildStep3Payload, getStep3InputType, type Step3Values } from '@/lib/constants/visitFormFields';
+import { validateRecordVisit } from '@/lib/validateRecordVisit';
 import { enqueueVisit, syncWithServer } from '@/lib/syncWithServer';
 import NetInfo from '@react-native-community/netinfo';
 import Constants from 'expo-constants';
@@ -111,18 +113,7 @@ export default function RecordVisitScreen() {
   const [accordionExpanded, setAccordionExpanded] = useState(false);
   const [locationLoading, setLocationLoading] = useState(false);
   const [notes, setNotes] = useState('');
-  const [cropStage, setCropStage] = useState('');
-  const [germinationPercent, setGerminationPercent] = useState('');
-  const [survivalRatePercent, setSurvivalRatePercent] = useState('');
-  const [orderValue, setOrderValue] = useState('');
-  const [harvestKgs, setHarvestKgs] = useState('');
-  const [pestsDiseases, setPestsDiseases] = useState('');
-  const [farmersFeedback, setFarmersFeedback] = useState('');
-  const [numberOfStockistsVisited, setNumberOfStockistsVisited] = useState('');
-  const [productFocusId, setProductFocusId] = useState<string | null>(null);
-  const [merchandising, setMerchandising] = useState('');
-  const [counterTraining, setCounterTraining] = useState('');
-  const [step3Extra, setStep3Extra] = useState<Record<string, string>>({});
+  const [step3Values, setStep3Values] = useState<Step3Values>({});
   const [productFocusMenuOpen, setProductFocusMenuOpen] = useState(false);
   const [snackbarMsg, setSnackbarMsg] = useState('');
   const [dialogVisible, setDialogVisible] = useState(false);
@@ -134,8 +125,11 @@ export default function RecordVisitScreen() {
   const [visitSettings, setVisitSettings] = useState<VisitSettings | null>(null);
   const [step, setStep] = useState(0); // 0 = schedule, 1 = details & photo, 2 = additional fields
 
-  const labels = useSelector(() => getLabels(appMeta$.cachedOptions.get()));
-  const products = useSelector(() => appMeta$.cachedOptions.get()?.products ?? []);
+  const options = useSelector(() => appMeta$.cachedOptions.get());
+  const labels = useSelector(() => getLabels(options));
+  const products = useSelector(() => options?.products ?? []);
+  const visitFormFieldSchema = useSelector(() => options?.visit_form_field_schema ?? null);
+  const defaultVisitFormFields = useSelector(() => options?.default_visit_form_fields ?? []);
   const selectedFarmer = farmers.find((f) => f.id === selectedFarmerId);
   const selectedFarm = farms.find((f) => f.id === selectedFarmId);
 
@@ -206,26 +200,12 @@ export default function RecordVisitScreen() {
     [activityTypesList]
   );
 
-  /** Default form fields for step 3 when activity has no form_fields config (show all). */
-  const defaultStep3Fields = useMemo<ActivityFormFieldOption[]>(
-    () => [
-      { key: 'crop_stage', label: 'Crop Stage', required: false },
-      { key: 'germination_percent', label: 'Germination %', required: false },
-      { key: 'survival_rate', label: 'Survival Rate %', required: false },
-      { key: 'pests_diseases', label: 'Pests/Diseases', required: false },
-      { key: 'order_value', label: 'Order Value', required: false },
-      { key: 'harvest_kgs', label: 'Harvest (kg)', required: false },
-      { key: 'farmers_feedback', label: `${labels.partner}'s Feedback`, required: false },
-    ],
-    [labels.partner]
-  );
-
   const step3Fields = useMemo(() => {
     const seen = new Set<string>();
     const out: ActivityFormFieldOption[] = [];
     for (const value of activityTypes) {
       const config = activityTypesList.find((a) => a.value === value);
-      const fields = config?.form_fields?.length ? config.form_fields : defaultStep3Fields;
+      const fields = config?.form_fields?.length ? config.form_fields : defaultVisitFormFields;
       for (const f of fields) {
         if (!seen.has(f.key)) {
           seen.add(f.key);
@@ -233,8 +213,8 @@ export default function RecordVisitScreen() {
         }
       }
     }
-    return out.length > 0 ? out : defaultStep3Fields;
-  }, [activityTypes, activityTypesList, defaultStep3Fields]);
+    return out.length > 0 ? out : defaultVisitFormFields;
+  }, [activityTypes, activityTypesList, defaultVisitFormFields]);
 
   useEffect(() => {
     let cancelled = false;
@@ -487,31 +467,32 @@ export default function RecordVisitScreen() {
   const scheduleIdForSubmit = selectedScheduleId ?? undefined;
 
   const submit = useCallback(async () => {
-    if (mustSelectSchedule) {
-      setError(
-        acceptedSchedules.length === 0
-          ? 'You need an accepted schedule for today or a past date to record a visit. Future dates are not allowed.'
-          : 'Select a planned visit (accepted schedule) with date today or in the past.'
-      );
-      return;
-    }
-    if (!selectedFarmerId || !location) {
-      setError(`Select ${labels.partner.toLowerCase()} and ensure location is available.`);
-      return;
-    }
-    if (photoUris.length === 0) {
-      setError(`Capture at least one photo for verification.`);
+    const validation = validateRecordVisit({
+      scheduleIdForSubmit,
+      mustSelectSchedule,
+      acceptedSchedulesLength: acceptedSchedules.length,
+      selectedFarmerId,
+      location,
+      photoUrisLength: photoUris.length,
+      step3Fields,
+      step3Values,
+      visitFormFieldSchema,
+      activityTypes,
+      activityTypesList,
+      notes,
+      distanceM,
+      maxDistanceM: maxM,
+      partnerLabel: labels.partner,
+    });
+    if (!validation.valid) {
+      setError(validation.error ?? 'Please fix the errors below.');
       return;
     }
     setSubmitting(true);
     setError('');
     try {
-      if (!scheduleIdForSubmit) {
-        setError('A planned schedule is required to record a visit.');
-        setSubmitting(false);
-        return;
-      }
       const photoPlaceName = selectedFarm?.village ?? selectedFarmer?.display_name ?? 'Visit location';
+      const step3Payload = buildStep3Payload(step3Values, visitFormFieldSchema);
 
       // Always try API first so we don't rely on NetInfo (which can be wrong when online)
       try {
@@ -528,17 +509,7 @@ export default function RecordVisitScreen() {
           activity_types: activityTypes.length > 0 ? activityTypes : [DEFAULT_ACTIVITY_TYPE],
           activity_type: activityTypes[0] ?? DEFAULT_ACTIVITY_TYPE,
           notes: notes || undefined,
-          crop_stage: cropStage || undefined,
-          germination_percent: germinationPercent ? parseFloat(germinationPercent) : undefined,
-          survival_rate: survivalRatePercent || undefined,
-          pests_diseases: pestsDiseases || undefined,
-          order_value: orderValue ? parseFloat(orderValue) : undefined,
-          harvest_kgs: harvestKgs ? parseFloat(harvestKgs) : undefined,
-          farmers_feedback: farmersFeedback || undefined,
-          number_of_stockists_visited: (() => { const n = parseInt(numberOfStockistsVisited, 10); return numberOfStockistsVisited.trim() && !Number.isNaN(n) ? n : undefined; })(),
-          product_focus_id: productFocusId || undefined,
-          merchandising: merchandising || undefined,
-          counter_training: counterTraining || undefined,
+          ...step3Payload,
         });
         if (scheduleIdForSubmit) {
           setScheduleIdsWithRecordedVisits((prev) => new Set(prev).add(scheduleIdForSubmit));
@@ -550,7 +521,9 @@ export default function RecordVisitScreen() {
         // Validation (4xx): show error and do not enqueue so user can fix and retry
         const isValidation = apiError && typeof apiError === 'object' && 'isValidation' in apiError && (apiError as Error & { isValidation?: boolean }).isValidation;
         if (isValidation) {
-          setSubmitError(apiError instanceof Error ? apiError.message : 'Failed to submit visit.');
+          const msg = apiError instanceof Error ? apiError.message : 'Failed to submit visit.';
+          setSubmitError(msg);
+          setError(msg);
           setDialogSuccess(false);
           setDialogVisible(true);
           setSubmitting(false);
@@ -572,17 +545,7 @@ export default function RecordVisitScreen() {
         notes: notes || undefined,
         activity_types: activityTypes.length > 0 ? activityTypes : [DEFAULT_ACTIVITY_TYPE],
         activity_type: activityTypes[0] ?? DEFAULT_ACTIVITY_TYPE,
-        crop_stage: cropStage || undefined,
-        germination_percent: germinationPercent ? parseFloat(germinationPercent) : undefined,
-        survival_rate: survivalRatePercent || undefined,
-        pests_diseases: pestsDiseases || undefined,
-        order_value: orderValue ? parseFloat(orderValue) : undefined,
-        harvest_kgs: harvestKgs ? parseFloat(harvestKgs) : undefined,
-        farmers_feedback: farmersFeedback || undefined,
-        number_of_stockists_visited: (() => { const n = parseInt(numberOfStockistsVisited, 10); return numberOfStockistsVisited.trim() && !Number.isNaN(n) ? n : undefined; })(),
-        product_focus_id: productFocusId || undefined,
-        merchandising: merchandising || undefined,
-        counter_training: counterTraining || undefined,
+        ...step3Payload,
       });
       if (scheduleIdForSubmit) {
         setScheduleIdsWithRecordedVisits((prev) => new Set(prev).add(scheduleIdForSubmit));
@@ -604,7 +567,7 @@ export default function RecordVisitScreen() {
     } finally {
       setSubmitting(false);
     }
-  }, [mustSelectSchedule, acceptedSchedules.length, selectedFarmerId, selectedFarmId, selectedScheduleId, scheduleIdForSubmit, photoUris, photoTakenAts, location, selectedFarm, selectedFarmer, activityTypes, notes, cropStage, germinationPercent, survivalRatePercent, orderValue, harvestKgs, pestsDiseases, farmersFeedback, numberOfStockistsVisited, productFocusId, merchandising, counterTraining, labels, router]);
+  }, [scheduleIdForSubmit, mustSelectSchedule, acceptedSchedules.length, selectedFarmerId, selectedFarmId, location, photoUris, photoTakenAts, step3Fields, step3Values, visitFormFieldSchema, activityTypes, activityTypesList, notes, distanceM, maxM, labels.partner, router]);
 
   const activityLabel = useMemo(() => {
     if (activityTypes.length === 0) return 'Select activities';
@@ -973,60 +936,15 @@ export default function RecordVisitScreen() {
                   {step3Fields.length ? 'Relevant fields for this activity type.' : 'Optional details.'}
                 </Text>
                 {step3Fields.map((f) => {
-                  if (f.key === 'crop_stage') {
-                    return (
-                      <TextInput key={f.key} label={f.label} value={cropStage} onChangeText={setCropStage} mode="outlined" placeholder="e.g., Flowering" style={styles.input} />
-                    );
-                  }
-                  if (f.key === 'germination_percent') {
-                    return (
-                      <TextInput key={f.key} label={f.label} value={germinationPercent} onChangeText={setGerminationPercent} keyboardType="decimal-pad" mode="outlined" placeholder="0-100" style={styles.input} />
-                    );
-                  }
-                  if (f.key === 'survival_rate') {
-                    return (
-                      <TextInput key={f.key} label={f.label} value={survivalRatePercent} onChangeText={setSurvivalRatePercent} keyboardType="decimal-pad" mode="outlined" placeholder="0-100" style={styles.input} />
-                    );
-                  }
-                  if (f.key === 'pests_diseases') {
-                    return (
-                      <TextInput key={f.key} label={f.label} value={pestsDiseases} onChangeText={setPestsDiseases} mode="outlined" placeholder="List any pests or diseases" style={styles.input} />
-                    );
-                  }
-                  if (f.key === 'order_value') {
-                    return (
-                      <TextInput key={f.key} label={f.label} value={orderValue} onChangeText={setOrderValue} keyboardType="decimal-pad" mode="outlined" placeholder="Amount" style={styles.input} />
-                    );
-                  }
-                  if (f.key === 'harvest_kgs') {
-                    return (
-                      <TextInput key={f.key} label={f.label} value={harvestKgs} onChangeText={setHarvestKgs} keyboardType="decimal-pad" mode="outlined" placeholder="Harvest in kilograms" style={styles.input} />
-                    );
-                  }
-                  if (f.key === 'farmers_feedback') {
-                    return (
-                      <TextInput key={f.key} label={f.label} value={farmersFeedback} onChangeText={setFarmersFeedback} mode="outlined" multiline numberOfLines={2} placeholder={`${labels.partner}'s comments`} style={styles.input} />
-                    );
-                  }
-                  if (f.key === 'number_of_stockists_visited') {
-                    return (
-                      <TextInput
-                        key={f.key}
-                        label={f.label}
-                        value={numberOfStockistsVisited}
-                        onChangeText={setNumberOfStockistsVisited}
-                        keyboardType="number-pad"
-                        mode="outlined"
-                        placeholder="e.g. 5"
-                        style={styles.input}
-                      />
-                    );
-                  }
-                  if (f.key === 'product_focus') {
-                    const selectedProduct = products.find((p) => p.id === productFocusId);
+                  const requiredLabel = f.required ? `${f.label} (required)` : f.label;
+                  const value = step3Values[f.key] ?? '';
+                  const setValue = (v: string) => setStep3Values((prev) => ({ ...prev, [f.key]: v }));
+                  const inputType = getStep3InputType(f.key, visitFormFieldSchema);
+                  if (inputType === 'product') {
+                    const selectedProduct = products.find((p) => p.id === value);
                     return (
                       <View key={f.key} style={styles.input}>
-                        <Text variant="labelLarge" style={styles.fieldLabel}>{f.label}</Text>
+                        <Text variant="labelLarge" style={styles.fieldLabel}>{requiredLabel}</Text>
                         <Menu
                           visible={productFocusMenuOpen}
                           onDismiss={() => setProductFocusMenuOpen(false)}
@@ -1041,55 +959,28 @@ export default function RecordVisitScreen() {
                             </Button>
                           }
                         >
-                          <List.Item title="None" onPress={() => { setProductFocusId(null); setProductFocusMenuOpen(false); }} />
+                          <List.Item title="None" onPress={() => { setValue(''); setProductFocusMenuOpen(false); }} />
                           {products.map((p) => (
                             <List.Item
                               key={p.id}
                               title={`${p.name}${p.unit ? ` (${p.unit})` : ''}`}
-                              onPress={() => { setProductFocusId(p.id); setProductFocusMenuOpen(false); }}
+                              onPress={() => { setValue(p.id); setProductFocusMenuOpen(false); }}
                             />
                           ))}
                         </Menu>
                       </View>
                     );
                   }
-                  if (f.key === 'merchandising') {
-                    return (
-                      <TextInput
-                        key={f.key}
-                        label={f.label}
-                        value={merchandising}
-                        onChangeText={setMerchandising}
-                        mode="outlined"
-                        multiline
-                        numberOfLines={2}
-                        placeholder="Merchandising notes"
-                        style={styles.input}
-                      />
-                    );
-                  }
-                  if (f.key === 'counter_training') {
-                    return (
-                      <TextInput
-                        key={f.key}
-                        label={f.label}
-                        value={counterTraining}
-                        onChangeText={setCounterTraining}
-                        mode="outlined"
-                        multiline
-                        numberOfLines={2}
-                        placeholder="Counter training notes"
-                        style={styles.input}
-                      />
-                    );
-                  }
                   return (
                     <TextInput
                       key={f.key}
-                      label={f.label}
-                      value={step3Extra[f.key] ?? ''}
-                      onChangeText={(t) => setStep3Extra((prev) => ({ ...prev, [f.key]: t }))}
+                      label={requiredLabel}
+                      value={value}
+                      onChangeText={setValue}
                       mode="outlined"
+                      keyboardType={inputType === 'number' ? 'decimal-pad' : inputType === 'integer' ? 'number-pad' : undefined}
+                      multiline={inputType === 'multiline'}
+                      numberOfLines={inputType === 'multiline' ? 2 : undefined}
                       placeholder={f.label}
                       style={styles.input}
                     />

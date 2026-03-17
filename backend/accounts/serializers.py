@@ -89,7 +89,6 @@ class StaffCreateSerializer(serializers.ModelSerializer):
         temporary_password = generate_temporary_password()
         user = User.objects.create_user(
             password=temporary_password,
-            must_change_password=True,
             **validated_data,
         )
         try:
@@ -106,7 +105,7 @@ class StaffCreateSerializer(serializers.ModelSerializer):
         notify_user(
             user,
             title="You have been registered",
-            message="Check your email for your temporary login credentials. You must change your password on first login.",
+            message="Check your email for your temporary login credentials.",
             channels=["in_app", "push"],
         )
         return user

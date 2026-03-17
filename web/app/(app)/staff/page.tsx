@@ -478,7 +478,7 @@ export default function StaffPage() {
             Register staff
           </Text>
           <Text size="sm" c="dimmed" mb="md">
-            A temporary password will be generated and sent to the staff member&apos;s email. They must change it on first login.
+            A temporary password will be generated and sent to the staff member&apos;s email.
           </Text>
           <form onSubmit={handleSubmit}>
             <Stack gap="md">

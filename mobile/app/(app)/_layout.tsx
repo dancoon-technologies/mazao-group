@@ -15,7 +15,7 @@ import { AppState, type AppStateStatus } from 'react-native';
 
 function AppLayoutInner() {
   const router = useRouter();
-  const { isAuthenticated, isLoading, mustChangePassword } = useAuth();
+  const { isAuthenticated, isLoading } = useAuth();
   const { triggerRefresh } = useAppRefresh();
   const wasOffline = useRef<boolean | null>(null);
 
@@ -23,12 +23,8 @@ function AppLayoutInner() {
     if (isLoading) return;
     if (!isAuthenticated) {
       router.replace('/login');
-      return;
     }
-    if (mustChangePassword) {
-      router.replace('/change-password');
-    }
-  }, [isAuthenticated, isLoading, mustChangePassword, router]);
+  }, [isAuthenticated, isLoading, router]);
 
   // Hydrate "Last synced" from SecureStore so UI shows previous session's sync time
   useEffect(() => {
@@ -175,7 +171,7 @@ function AppLayoutInner() {
     };
   }, [router]);
 
-  if (!isAuthenticated || mustChangePassword) return null;
+  if (!isAuthenticated) return null;
 
   return (
     <Stack screenOptions={{ headerShown: false }}>

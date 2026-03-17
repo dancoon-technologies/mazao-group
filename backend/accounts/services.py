@@ -35,8 +35,6 @@ Your temporary login credentials:
 
 Sign in here: {login_url}
 
-You will be required to set a new password after your first login.
-
 Do not share this email. If you did not expect this, please contact your administrator.
 """
     from_email = getattr(settings, "DEFAULT_FROM_EMAIL", "noreply@mazao.local")
@@ -57,8 +55,7 @@ def resend_staff_credentials(user):
         raise ValueError("User is not staff (supervisor or officer).")
     temporary_password = generate_temporary_password()
     user.set_password(temporary_password)
-    user.must_change_password = True
-    user.save(update_fields=["password", "must_change_password"])
+    user.save(update_fields=["password"])
     send_staff_credentials_email(
         email=user.email,
         temporary_password=temporary_password,

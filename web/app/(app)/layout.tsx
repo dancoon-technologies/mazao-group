@@ -25,7 +25,7 @@ export default function AppLayout({
 }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { isAuthenticated, isLoading, logout, email, role, canAccessDashboard, mustChangePassword } =
+  const { isAuthenticated, isLoading, logout, email, role, canAccessDashboard } =
     useAuth();
   const [opened, { toggle, close }] = useDisclosure();
 
@@ -33,12 +33,8 @@ export default function AppLayout({
     if (isLoading) return;
     if (!isAuthenticated) {
       router.replace(`${ROUTES.LOGIN}?redirect=${encodeURIComponent(pathname)}`);
-      return;
     }
-    if (mustChangePassword && pathname !== ROUTES.CHANGE_PASSWORD) {
-      router.replace(ROUTES.CHANGE_PASSWORD);
-    }
-  }, [isAuthenticated, isLoading, mustChangePassword, pathname, router]);
+  }, [isAuthenticated, isLoading, pathname, router]);
 
   useEffect(() => {
     close();

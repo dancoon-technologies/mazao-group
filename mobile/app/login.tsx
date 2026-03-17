@@ -40,12 +40,8 @@ export default function LoginScreen() {
     }
     setLoading(true);
     try {
-      const { mustChangePassword } = await login(email.trim(), password);
-      if (mustChangePassword) {
-        router.replace('/change-password');
-      } else {
-        router.replace('/(app)');
-      }
+      await login(email.trim(), password);
+      router.replace('/(app)');
     } catch (e) {
       const message = e instanceof Error ? e.message : 'Login failed';
       setError(message === 'The user aborted a request.' ? 'Request was cancelled. Please try again.' : message);

@@ -167,6 +167,13 @@ export interface ProductOption {
   unit: string;
 }
 
+/** Schema for one step-3 field: how to render (input_type) and how to send (value_type, api_key). From backend options. */
+export interface VisitFormFieldSchemaItem {
+  input_type: 'text' | 'number' | 'integer' | 'multiline' | 'product';
+  value_type: 'string' | 'number' | 'integer';
+  api_key?: string;
+}
+
 export interface OptionsResponse {
   departments: { value: string; label: string }[];
   staff_roles: { value: string; label: string }[];
@@ -176,6 +183,10 @@ export interface OptionsResponse {
   activity_types?: ActivityTypeOption[];
   /** Products for the user's department (for recording sales/given during visits). */
   products?: ProductOption[];
+  /** Step-3 fields: key -> input_type, value_type, api_key. Single source of truth from backend. */
+  visit_form_field_schema?: Record<string, VisitFormFieldSchemaItem>;
+  /** Default step-3 fields when activity has no form_fields. From backend. */
+  default_visit_form_fields?: ActivityFormFieldOption[];
   tracking_settings?: TrackingSettings;
 }
 
@@ -292,6 +303,47 @@ async function request<T>(
     throw new Error(errMsg);
   }
   return res.json();
+}
+
+/** Build a readable validation error from visit create 400 response (serializer.errors style). */
+function formatVisitValidationError(data: unknown): string {
+  if (data != null && typeof data === 'object' && 'detail' in data && typeof (data as { detail: unknown }).detail === 'string') {
+    return (data as { detail: string }).detail;
+  }
+  if (data != null && typeof data === 'object' && !Array.isArray(data)) {
+    const obj = data as Record<string, unknown>;
+    const fieldLabels: Record<string, string> = {
+      photo: 'Photo',
+      farmer_id: 'Farmer',
+      farm_id: 'Farm',
+      schedule_id: 'Schedule',
+      latitude: 'Latitude',
+      longitude: 'Longitude',
+      crop_stage: 'Crop stage',
+      germination_percent: 'Germination %',
+      survival_rate: 'Survival rate',
+      pests_diseases: 'Pests/diseases',
+      order_value: 'Order value',
+      harvest_kgs: 'Harvest (kg)',
+      farmers_feedback: 'Feedback',
+      number_of_stockists_visited: 'Number of stockists visited',
+      product_focus_id: 'Product focus',
+      merchandising: 'Merchandising',
+      counter_training: 'Counter training',
+      product_lines: 'Product lines',
+      travel_validation: 'Travel',
+    };
+    const parts: string[] = [];
+    for (const [key, value] of Object.entries(obj)) {
+      const msg = Array.isArray(value) ? (value.find((v) => typeof v === 'string') as string | undefined) : typeof value === 'string' ? value : undefined;
+      if (msg) {
+        const label = fieldLabels[key] ?? key.replace(/_/g, ' ');
+        parts.push(`${label}: ${msg}`);
+      }
+    }
+    if (parts.length > 0) return parts.join('. ');
+  }
+  return 'Failed to submit visit';
 }
 
 // --- API ---
@@ -551,18 +603,9 @@ export const api = {
 
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
-      const msg =
-        data.detail ||
-        data.photo?.[0] ||
-        data.farmer_id?.[0] ||
-        data.farm_id?.[0] ||
-        data.schedule_id?.[0] ||
-        (typeof data === 'object' && data !== null
-          ? (Object.values(data).flat().find((v) => typeof v === 'string') as string | undefined)
-          : undefined) ||
-        'Failed to submit visit';
-      logger.warn(`Create visit failed ${res.status}: ${msg ?? 'Failed to submit visit'}`);
-      const err = new Error(msg ?? 'Failed to submit visit') as Error & { isValidation?: boolean };
+      const msg = formatVisitValidationError(data);
+      logger.warn(`Create visit failed ${res.status}: ${msg}`);
+      const err = new Error(msg) as Error & { isValidation?: boolean };
       err.isValidation = res.status >= 400 && res.status < 500;
       throw err;
     }

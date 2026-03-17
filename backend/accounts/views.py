@@ -32,6 +32,8 @@ class OptionsListView(APIView):
             get_visit_max_distance_meters,
             get_visit_warning_distance_meters,
         )
+        from visits.visit_form_schema import DEFAULT_VISIT_FORM_FIELDS, VISIT_FORM_FIELD_SCHEMA
+
         visit_max_m = get_visit_max_distance_meters()
         visit_warning_m = get_visit_warning_distance_meters()
         partner_label, location_label = get_labels_for_user(request.user)
@@ -77,6 +79,11 @@ class OptionsListView(APIView):
         except Exception as e:
             logger.warning("Options tracking_settings: %s", e)
 
+        # Step-3 form: schema (key -> input_type, value_type, api_key) and default fields when activity has none
+        default_visit_form_fields = [
+            {**item, "label": item["label"].format(partner=partner_label) if "{partner}" in item.get("label", "") else item["label"]}
+            for item in DEFAULT_VISIT_FORM_FIELDS
+        ]
         return Response(
             {
                 "departments": departments,
@@ -91,6 +98,8 @@ class OptionsListView(APIView):
                 },
                 "activity_types": activity_types,
                 "products": products,
+                "visit_form_field_schema": VISIT_FORM_FIELD_SCHEMA,
+                "default_visit_form_fields": default_visit_form_fields,
                 "tracking_settings": {
                     "working_hour_start": tracking_working_start,
                     "working_hour_end": tracking_working_end,
