@@ -88,7 +88,7 @@ export const api = {
   },
 
   async getFarmer(id: string, options?: { signal?: AbortSignal }): Promise<Farmer> {
-    const res = await authFetch(`${API_BASE}/api/farmers/${encodeURIComponent(id)}`, { signal: options?.signal });
+    const res = await authFetch(`${API_BASE}/api/farmers/${encodeURIComponent(id)}/`, { signal: options?.signal });
     if (!res.ok) {
       if (res.status === 404) throw new Error("Farmer not found.");
       throw new Error("Failed to fetch farmer");
@@ -136,7 +136,7 @@ export const api = {
   },
 
   async getFarm(id: string, options?: { signal?: AbortSignal }): Promise<Farm> {
-    const res = await authFetch(`${API_BASE}/api/farms/${encodeURIComponent(id)}`, { signal: options?.signal });
+    const res = await authFetch(`${API_BASE}/api/farms/${encodeURIComponent(id)}/`, { signal: options?.signal });
     if (!res.ok) {
       if (res.status === 404) throw new Error("Farm not found.");
       throw new Error("Failed to fetch farm");
