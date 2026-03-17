@@ -26,7 +26,7 @@ def _allowed_activity_type_values(user):
     """Return set of activity_type values allowed for this user's department (uses prefetch, no N+1)."""
     user_dept_slug = (user.department.slug if user.department else "")
     allowed = set()
-    for at in ActivityTypeConfig.objects.prefetch_related("departments"):
+    for at in ActivityTypeConfig.objects.filter(is_active=True).prefetch_related("departments"):
         depts = list(at.departments.all())
         if not depts or (user_dept_slug and any(d.slug == user_dept_slug for d in depts)):
             allowed.add(at.value)

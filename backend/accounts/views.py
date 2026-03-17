@@ -44,7 +44,7 @@ class OptionsListView(APIView):
         try:
             from visits.models import ActivityTypeConfig
             user_dept_slug = (request.user.department.slug if request.user.department else "")
-            for at in ActivityTypeConfig.objects.prefetch_related("departments"):
+            for at in ActivityTypeConfig.objects.filter(is_active=True).prefetch_related("departments"):
                 depts = list(at.departments.all())
                 if not depts or (user_dept_slug and any(d.slug == user_dept_slug for d in depts)):
                     item = {"value": at.value, "label": at.label}

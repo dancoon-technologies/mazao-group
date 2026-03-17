@@ -85,14 +85,7 @@ export default function FarmerDetailPage() {
       {
         key: "village",
         label: "Village",
-        render: (f) => (
-          <Link
-            href={`/farms/${f.id}`}
-            style={{ color: "var(--mantine-color-green-7)", fontWeight: 500, textDecoration: "none" }}
-          >
-            {f.village}
-          </Link>
-        ),
+        render: (f) => <Text size="sm" c="dimmed">{f.village}</Text>,
       },
       { key: "county", label: "County", render: (f) => <Text size="sm" c="dimmed">{f.county || "—"}</Text> },
       { key: "sub_county", label: "Sub-county", render: (f) => <Text size="sm" c="dimmed">{f.sub_county || "—"}</Text> },
@@ -165,6 +158,11 @@ export default function FarmerDetailPage() {
       <PageHeader
         title={farmer.display_name}
         subtitle={farmer.phone ? `Phone: ${farmer.phone}` : farmer.crop_type ? farmer.crop_type : undefined}
+        badges={
+          farmer.is_stockist
+            ? [{ label: "Stockist", color: "yellow" as const }]
+            : undefined
+        }
         action={
           <Button variant="light" component={Link} href={ROUTES.FARMERS}>
             Back to {labels.partner}s

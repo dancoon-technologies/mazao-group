@@ -20,6 +20,10 @@ class ActivityTypeConfig(models.Model):
 
     value = models.SlugField(max_length=50, unique=True)
     label = models.CharField(max_length=150)
+    is_active = models.BooleanField(
+        default=True,
+        help_text="Uncheck to hide this activity from record-visit; existing visits remain unaffected.",
+    )
     departments = models.ManyToManyField(
         "accounts.Department",
         blank=True,

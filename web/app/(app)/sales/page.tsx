@@ -1,6 +1,6 @@
 "use client";
 
-import { Anchor, Box, Group, Select, Stack, Text } from "@mantine/core";
+import { Anchor, Box, Group, Paper, Select, Stack, Text } from "@mantine/core";
 import Link from "next/link";
 import { useCallback, useMemo, useState } from "react";
 import { useAsyncData } from "@/hooks/useAsyncData";
@@ -228,7 +228,11 @@ export default function SalesPage() {
         </Group>
 
         {salesRows.length === 0 ? (
-          <Text c="dimmed">No sales recorded in the selected period. Sales are taken from product lines on visits.</Text>
+          <Paper p="lg" withBorder style={{ minHeight: 80 }}>
+            <Text c="dimmed" size="sm" style={{ lineHeight: 1.5 }}>
+              No sales recorded in the selected period. Sales are taken from product lines on visits.
+            </Text>
+          </Paper>
         ) : (
           <DataTable<SalesRow>
             data={salesRows}

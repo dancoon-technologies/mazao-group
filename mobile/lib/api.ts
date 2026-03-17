@@ -9,6 +9,8 @@ export interface Farmer {
   last_name: string;
   display_name: string;
   phone?: string;
+  /** When true this record represents a stockist rather than a traditional farmer. */
+  is_stockist?: boolean;
   latitude?: string;
   longitude?: string;
   crop_type?: string;
@@ -30,6 +32,8 @@ export interface Farm {
   longitude: number;
   plot_size?: string;
   crop_type?: string;
+  /** When true this location is an outlet/shop rather than a traditional farm. */
+  is_outlet?: boolean;
   created_at?: string;
 }
 

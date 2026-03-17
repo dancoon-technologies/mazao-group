@@ -23,6 +23,7 @@ class FarmerSerializer(serializers.ModelSerializer):
             "last_name",
             "display_name",
             "phone",
+            "is_stockist",
             "latitude",
             "longitude",
             "crop_type",
@@ -45,6 +46,7 @@ class FarmerCreateSerializer(serializers.ModelSerializer):
             "middle_name",
             "last_name",
             "phone",
+            "is_stockist",
             "latitude",
             "longitude",
             "crop_type",
@@ -74,6 +76,7 @@ class FarmSerializer(serializers.ModelSerializer):
             "longitude",
             "plot_size",
             "crop_type",
+            "is_outlet",
             "created_at",
         )
         read_only_fields = ("created_at",)
@@ -117,6 +120,7 @@ class FarmCreateSerializer(serializers.ModelSerializer):
             "longitude",
             "plot_size",
             "crop_type",
+            "is_outlet",
             "device_latitude",
             "device_longitude",
         )

@@ -125,6 +125,7 @@ export default function FarmerDetailScreen() {
               </View>
               <Text variant="headlineSmall" style={styles.heroName}>
                 {farmer.display_name}
+                {farmer.is_stockist ? ' · Stockist' : ''}
               </Text>
               {(farmer.phone || farmer.crop_type) && (
                 <View style={styles.heroMeta}>

@@ -19,13 +19,13 @@ class ActivityTypeConfigAdminForm(forms.ModelForm):
 @admin.register(ActivityTypeConfig)
 class ActivityTypeConfigAdmin(admin.ModelAdmin):
     form = ActivityTypeConfigAdminForm
-    list_display = ("value", "label", "order", "departments_display")
-    list_editable = ("order",)
-    list_filter = ("departments",)
+    list_display = ("value", "label", "order", "is_active", "departments_display")
+    list_editable = ("order", "is_active")
+    list_filter = ("is_active", "departments")
     search_fields = ("value", "label")
     filter_horizontal = ("departments",)
     fieldsets = (
-        (None, {"fields": ("value", "label", "order")}),
+        (None, {"fields": ("value", "label", "order", "is_active")}),
         ("Departments", {"fields": ("departments",)}),
         (
             "Step 3 form fields",

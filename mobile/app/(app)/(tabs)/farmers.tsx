@@ -134,7 +134,7 @@ export default function FarmersScreen() {
       return (
         <ListItemRow
           avatarLetter={farmer.display_name}
-          title={farmer.display_name}
+          title={farmer.is_stockist ? `${farmer.display_name} (Stockist)` : farmer.display_name}
           subtitle={subtitle || '—'}
           onPress={() => openFarmer(farmer.id)}
         />

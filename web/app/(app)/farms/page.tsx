@@ -20,7 +20,6 @@ import {
   Text,
   TextInput,
 } from "@mantine/core";
-import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 const INITIAL_FARM_FORM = {
@@ -49,9 +48,10 @@ function farmColumns(farmers: Farmer[], partnerLabel: string): DataTableColumn<F
       key: "village",
       label: "Village",
       render: (f) => (
-        <Link href={`/farms/${f.id}`} style={{ color: "var(--mantine-color-green-7)", fontWeight: 500, textDecoration: "none" }}>
+        <Text size="sm" fw={500}>
           {f.village}
-        </Link>
+          {f.is_outlet ? " (Outlet)" : ""}
+        </Text>
       ),
     },
     { key: "county", label: "County", render: (f) => <Text size="sm" c="dimmed">{f.county}</Text> },

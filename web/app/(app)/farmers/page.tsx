@@ -1,10 +1,9 @@
 "use client";
 
-import dynamic from "next/dynamic";
-import Link from "next/link";
 import {
   Alert,
   Box,
+  Badge,
   Button,
   Grid,
   Group,
@@ -13,6 +12,8 @@ import {
   Text,
   TextInput,
 } from "@mantine/core";
+import dynamic from "next/dynamic";
+import Link from "next/link";
 import { useCallback, useMemo, useState } from "react";
 import { useAsyncData } from "@/hooks/useAsyncData";
 import { useFormFields } from "@/hooks/useFormFields";
@@ -33,12 +34,17 @@ const FARMER_COLUMNS: DataTableColumn<Farmer>[] = [
     key: "name",
     label: "Name",
     render: (f) => (
-      <Link
-        href={`/farmers/${f.id}`}
-        style={{ color: "var(--mantine-color-green-7)", fontWeight: 500, textDecoration: "none", wordBreak: "break-word" }}
-      >
-        {f.display_name}
-      </Link>
+      <Group gap={6} wrap="nowrap">
+        <Link
+          href={`/farmers/${f.id}`}
+          style={{ color: "var(--mantine-color-green-7)", fontWeight: 500, textDecoration: "none", wordBreak: "break-word" }}
+        >
+          {f.display_name}
+        </Link>
+          <Badge color={f.is_stockist ? "yellow" : "green"} variant="light" size="xs">
+            {f.is_stockist ? "Stockist" : "Farmer"}
+          </Badge>
+      </Group>
     ),
   },
   {
