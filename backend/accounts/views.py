@@ -52,7 +52,11 @@ class OptionsListView(APIView):
                     continue
                 depts = list(at.departments.all())
                 if not depts or (user_dept_slug and any(d.slug == user_dept_slug for d in depts)):
-                    item = {"value": at.value, "label": at.label}
+                    item = {
+                        "value": at.value,
+                        "label": at.label,
+                        "is_active": getattr(at, "is_active", True),
+                    }
                     item["form_fields"] = getattr(at, "form_fields", None) or []
                     activity_types.append(item)
         except Exception as e:

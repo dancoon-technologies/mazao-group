@@ -67,7 +67,8 @@ export function SelectActivityTypesModal({
   }, [visible, selectedValues]);
 
   const filtered = useMemo(() => {
-    return options.filter((o) => matchOption(o, search));
+    const activeOnly = options.filter((o) => o.is_active !== false);
+    return activeOnly.filter((o) => matchOption(o, search));
   }, [options, search]);
 
   const handleToggle = (value: string) => {
@@ -79,7 +80,7 @@ export function SelectActivityTypesModal({
   };
 
   const handleDone = () => {
-    const next = pending.length > 0 ? pending : [options[0]?.value].filter(Boolean);
+    const next = pending.length > 0 ? pending : [filtered[0]?.value].filter(Boolean);
     onSelect(next);
     onClose();
   };

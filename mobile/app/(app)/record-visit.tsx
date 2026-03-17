@@ -163,12 +163,13 @@ export default function RecordVisitScreen() {
   const applyOptions = useCallback((o: import('@/lib/api').OptionsResponse) => {
     setVisitSettings(o.visit_settings ?? { max_distance_meters: DEFAULT_MAX_DISTANCE_METERS, warning_distance_meters: DEFAULT_WARNING_DISTANCE_METERS });
     if (o.activity_types?.length) {
-      setActivityTypesList(o.activity_types);
+      const activeOnly = o.activity_types.filter((a) => a.is_active !== false);
+      setActivityTypesList(activeOnly);
       setActivityTypes((prev) => {
-        const allowed = o.activity_types!.map((a) => a.value);
+        const allowed = activeOnly.map((a) => a.value);
         const kept = prev.filter((v) => allowed.includes(v));
         if (kept.length > 0) return kept;
-        return [o.activity_types![0]?.value ?? DEFAULT_ACTIVITY_TYPE];
+        return [activeOnly[0]?.value ?? DEFAULT_ACTIVITY_TYPE];
       });
     } else {
       setActivityTypesList(ACTIVITY_TYPES.map((a) => ({ value: a.value, label: a.label })));
@@ -193,22 +194,22 @@ export default function RecordVisitScreen() {
       });
   }, [applyOptions]);
 
-  const activityTypeOptions = useMemo(
-    () =>
-      activityTypesList.length
-        ? activityTypesList
-        : ACTIVITY_TYPES.map((a) => ({ value: a.value, label: a.label })),
-    [activityTypesList]
-  );
+  const activityTypeOptions = useMemo(() => {
+    const list = activityTypesList.length
+      ? activityTypesList
+      : ACTIVITY_TYPES.map((a) => ({ value: a.value, label: a.label }));
+    return list.filter((a) => (a as ActivityTypeOption).is_active !== false);
+  }, [activityTypesList]);
 
-  // Step 3 form fields: only from active activity types (those in options). Skip any selected value not in activityTypesList.
+  // Step 3 form fields: only from selected activity types that are active. No fields from inactive or non-selected activities.
   const step3Fields = useMemo(() => {
+    const activeOnlyList = activityTypesList.filter((a) => (a as ActivityTypeOption).is_active !== false);
+    const activeSet = new Set(activeOnlyList.map((a) => a.value));
     const seen = new Set<string>();
     const out: ActivityFormFieldOption[] = [];
-    const activeSet = new Set(activityTypesList.map((a) => a.value));
     for (const value of activityTypes) {
-      if (!activeSet.has(value)) continue; // only use form_fields from active (in-options) activity types
-      const config = activityTypesList.find((a) => a.value === value);
+      if (!activeSet.has(value)) continue; // only selected activities that are active
+      const config = activeOnlyList.find((a) => a.value === value);
       const fields = config?.form_fields?.length ? config.form_fields : defaultVisitFormFields;
       for (const f of fields) {
         if (!seen.has(f.key)) {
@@ -217,7 +218,7 @@ export default function RecordVisitScreen() {
         }
       }
     }
-    return out.length > 0 ? out : defaultVisitFormFields;
+    return out;
   }, [activityTypes, activityTypesList, defaultVisitFormFields]);
 
   useEffect(() => {

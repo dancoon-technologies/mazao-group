@@ -153,6 +153,8 @@ export interface ActivityFormFieldOption {
 export interface ActivityTypeOption {
   value: string;
   label: string;
+  /** When false, hide from "Select activities" modal. Omitted or true = show. */
+  is_active?: boolean;
   /** Optional: which fields to show in step 3 for this activity. Empty/undefined = show all. */
   form_fields?: ActivityFormFieldOption[];
 }
