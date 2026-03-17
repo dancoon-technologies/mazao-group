@@ -201,9 +201,10 @@ export default function RecordVisitScreen() {
     return list.filter((a) => (a as ActivityTypeOption).is_active !== false);
   }, [activityTypesList]);
 
-  // Step 3 form fields: only from selected activity types that are active. No fields from inactive or non-selected activities.
+  // Step 3 form fields: only from selected activity types that are active. Use options from store so form_fields match latest API (correct additional fields per activity).
   const step3Fields = useMemo(() => {
-    const activeOnlyList = activityTypesList.filter((a) => (a as ActivityTypeOption).is_active !== false);
+    const list = options?.activity_types ?? activityTypesList;
+    const activeOnlyList = list.filter((a) => (a as ActivityTypeOption).is_active !== false);
     const activeSet = new Set(activeOnlyList.map((a) => a.value));
     const seen = new Set<string>();
     const out: ActivityFormFieldOption[] = [];
@@ -219,7 +220,21 @@ export default function RecordVisitScreen() {
       }
     }
     return out;
-  }, [activityTypes, activityTypesList, defaultVisitFormFields]);
+  }, [activityTypes, activityTypesList, options?.activity_types, defaultVisitFormFields]);
+
+  // Keep step3Values in sync with step3Fields: drop values for fields no longer in the form (e.g. after changing activity type).
+  useEffect(() => {
+    const keys = new Set(step3Fields.map((f) => f.key));
+    setStep3Values((prev) => {
+      let changed = false;
+      const next: Step3Values = {};
+      for (const [k, v] of Object.entries(prev)) {
+        if (keys.has(k)) next[k] = v;
+        else changed = true;
+      }
+      return changed ? next : prev;
+    });
+  }, [step3Fields]);
 
   useEffect(() => {
     let cancelled = false;

@@ -206,13 +206,6 @@ class VisitListCreateView(generics.ListCreateAPIView):
                 payload["travel_validation"] = travel_extra
             return Response(payload, status=status.HTTP_400_BAD_REQUEST)
 
-        if user.role != "admin" and farmer.assigned_officer_id != user.pk:
-            logger.warning("POST /api/visits/ forbidden user=%s not assigned to farmer_id=%s", user.id, farmer_id)
-            return Response(
-                {"farmer_id": [f"You are not assigned to this {partner_label.lower()}."]},
-                status=status.HTTP_403_FORBIDDEN,
-            )
-
         ref_lat, ref_lon = None, None
         farm = None
         if farm_id:

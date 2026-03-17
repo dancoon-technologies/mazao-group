@@ -1,17 +1,11 @@
-from django.contrib.auth import get_user_model
 from rest_framework import serializers
 
 from locations.models import County, Region, SubCounty
 
 from .models import Farm, Farmer
 
-User = get_user_model()
-
 
 class FarmerSerializer(serializers.ModelSerializer):
-    assigned_officer = serializers.UUIDField(
-        source="assigned_officer_id", read_only=True, allow_null=True
-    )
     display_name = serializers.ReadOnlyField(source="name")
 
     class Meta:
@@ -26,18 +20,11 @@ class FarmerSerializer(serializers.ModelSerializer):
             "is_stockist",
             "latitude",
             "longitude",
-            "assigned_officer",
             "created_at",
         )
 
 
 class FarmerCreateSerializer(serializers.ModelSerializer):
-    assigned_officer = serializers.PrimaryKeyRelatedField(
-        queryset=User.objects.filter(role="officer"),
-        required=False,
-        allow_null=True,
-    )
-
     class Meta:
         model = Farmer
         fields = (
@@ -48,7 +35,6 @@ class FarmerCreateSerializer(serializers.ModelSerializer):
             "is_stockist",
             "latitude",
             "longitude",
-            "assigned_officer",
         )
 
 

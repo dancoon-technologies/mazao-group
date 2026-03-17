@@ -1,6 +1,5 @@
 import uuid
 
-from django.conf import settings
 from django.db import models
 
 
@@ -14,14 +13,6 @@ class Farmer(models.Model):
     is_stockist = models.BooleanField(default=False)
     latitude = models.DecimalField(max_digits=10, decimal_places=7)
     longitude = models.DecimalField(max_digits=10, decimal_places=7)
-    assigned_officer = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name="assigned_farmers",
-        limit_choices_to={"role": "officer"},
-    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

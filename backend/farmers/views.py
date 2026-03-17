@@ -32,7 +32,7 @@ class FarmerListCreateView(generics.ListCreateAPIView):
         return self.list_serializer_class
 
     def get_queryset(self):
-        qs = Farmer.objects.all().select_related("assigned_officer", "assigned_officer__department")
+        qs = Farmer.objects.all()
         search = (self.request.query_params.get("search") or "").strip()
         if search:
             qs = qs.filter(
@@ -69,31 +69,14 @@ class FarmerListCreateView(generics.ListCreateAPIView):
         return Response(out.data, status=status.HTTP_201_CREATED)
 
     def perform_create(self, serializer):
-        user = self.request.user
-        assigned = serializer.validated_data.get("assigned_officer")
-        if user.role == "officer" and not assigned:
-            farmer = serializer.save(assigned_officer=user)
-        else:
-            farmer = serializer.save()
-        if getattr(farmer, "assigned_officer", None) and farmer.assigned_officer != user:
-            from notifications.services import notify_user
-
-            notify_user(
-                farmer.assigned_officer,
-                title="New farmer assigned to you",
-                message=f"A new farmer has been assigned to you: {farmer.name}.",
-                channels=["in_app", "email", "sms", "push"],
-            )
+        serializer.save()
 
 
 class FarmerRetrieveView(generics.RetrieveAPIView):
     """Retrieve a single farmer by id. Same visibility as list (all authenticated users)."""
 
     serializer_class = FarmerSerializer
-    queryset = Farmer.objects.select_related(
-        "assigned_officer",
-        "assigned_officer__department",
-    ).order_by()
+    queryset = Farmer.objects.all().order_by()
 
     def get_object(self):
         try:
@@ -116,8 +99,6 @@ class FarmListCreateView(generics.ListCreateAPIView):
     def get_queryset(self):
         qs = Farm.objects.select_related(
             "farmer",
-            "farmer__assigned_officer",
-            "farmer__assigned_officer__department",
             "region_id",
             "county_id",
             "sub_county_id",
@@ -150,7 +131,7 @@ class FarmListCreateView(generics.ListCreateAPIView):
         device_lon = serializer.validated_data.pop("device_longitude", None)
         user = request.user
         try:
-            farmer = Farmer.objects.select_related("assigned_officer").get(pk=farmer_id)
+            farmer = Farmer.objects.get(pk=farmer_id)
         except Farmer.DoesNotExist:
             logger.warning("POST /api/farms/ farmer_id=%s not found", farmer_id)
             from rest_framework.exceptions import NotFound
@@ -196,7 +177,6 @@ class FarmRetrieveView(generics.RetrieveAPIView):
     serializer_class = FarmSerializer
     queryset = Farm.objects.select_related(
         "farmer",
-        "farmer__assigned_officer",
         "region_id",
         "county_id",
         "sub_county_id",

@@ -9,11 +9,9 @@ class FarmerAdmin(admin.ModelAdmin):
         "first_name",
         "last_name",
         "phone",
-        "assigned_officer",
         "created_at",
     )
     search_fields = ("first_name", "middle_name", "last_name", "phone")
-    raw_id_fields = ("assigned_officer",)
 
 
 @admin.register(Farm)
