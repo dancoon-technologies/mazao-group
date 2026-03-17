@@ -6,8 +6,8 @@ import {
   StyleSheet,
   FlatList,
   Pressable,
-  KeyboardAvoidingView,
   Platform,
+  Keyboard,
 } from "react-native";
 import { Button, Searchbar, Text } from "react-native-paper";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
@@ -41,6 +41,23 @@ export function SelectActivityTypesModal({
 }: SelectActivityTypesModalProps) {
   const [search, setSearch] = useState("");
   const [pending, setPending] = useState<string[]>(selectedValues);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+
+  React.useEffect(() => {
+    if (!visible) return;
+    const showSub = Keyboard.addListener(
+      Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow",
+      (e) => setKeyboardHeight(e.endCoordinates.height)
+    );
+    const hideSub = Keyboard.addListener(
+      Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide",
+      () => setKeyboardHeight(0)
+    );
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, [visible]);
 
   React.useEffect(() => {
     if (visible) {
@@ -74,11 +91,11 @@ export function SelectActivityTypesModal({
         style={[styles.option, selected && styles.optionSelected]}
         onPress={() => handleToggle(item.value)}
       >
-        <Text variant="bodyMedium" numberOfLines={2} style={styles.optionText}>
+        <Text variant="bodyMedium" numberOfLines={1} style={styles.optionText}>
           {item.label ?? item.value}
         </Text>
         {selected && (
-          <MaterialCommunityIcons name="check-circle" size={22} color={colors.primary} />
+          <MaterialCommunityIcons name="check" size={20} color={colors.primary} />
         )}
       </Pressable>
     );
@@ -94,54 +111,46 @@ export function SelectActivityTypesModal({
     >
       <View style={styles.overlay}>
         <Pressable style={styles.backdrop} onPress={onClose} />
-        <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : "height"}
-          keyboardVerticalOffset={Platform.OS === "ios" ? 24 : 0}
-        >
-          <View style={styles.sheet}>
-            <View style={styles.header}>
-              <Text variant="titleMedium" style={styles.title}>
-                {title}
-              </Text>
-              <Button mode="text" compact onPress={onClose} style={styles.closeBtn}>
-                Cancel
-              </Button>
-            </View>
-            <Text variant="bodySmall" style={styles.hint}>
-              Tap to add or remove. At least one activity is required.
+        <View style={[styles.sheet, { marginBottom: keyboardHeight }]}>
+          <View style={styles.header}>
+            <Text variant="titleMedium" style={styles.title}>
+              {title}
             </Text>
-            <Searchbar
-              placeholder="Search activities…"
-              value={search}
-              onChangeText={setSearch}
-              style={styles.searchInput}
-            />
-            <FlatList
-              data={filtered}
-              keyExtractor={(item) => item.value}
-              renderItem={renderItem}
-              style={styles.list}
-              keyboardShouldPersistTaps="handled"
-              ListEmptyComponent={
-                search.trim() ? (
-                  <View style={styles.empty}>
-                    <Text variant="bodySmall" style={styles.emptyText}>
-                      No activities match "{search.trim()}"
-                    </Text>
-                  </View>
-                ) : null
-              }
-            />
-            <View style={styles.footer}>
-              <Text variant="bodySmall" style={styles.count}>
-                {pending.length} selected
-              </Text>
-              <Button mode="contained" onPress={handleDone} style={styles.doneBtn}>
-                Done
-              </Button>
-            </View>
+            <Button mode="text" compact onPress={onClose} style={styles.closeBtn}>
+              Close
+            </Button>
           </View>
-        </KeyboardAvoidingView>
+          <Searchbar
+            placeholder="Search activities…"
+            value={search}
+            onChangeText={setSearch}
+            style={styles.searchInput}
+          />
+          <FlatList
+            data={filtered}
+            keyExtractor={(item) => item.value}
+            renderItem={renderItem}
+            style={styles.list}
+            keyboardShouldPersistTaps="handled"
+            ListEmptyComponent={
+              search.trim() ? (
+                <View style={styles.empty}>
+                  <Text variant="bodySmall" style={styles.emptyText}>
+                    No activities match "{search.trim()}"
+                  </Text>
+                </View>
+              ) : null
+            }
+          />
+          <View style={styles.footer}>
+            <Text variant="bodySmall" style={styles.count}>
+              {pending.length} selected
+            </Text>
+            <Button mode="contained" onPress={handleDone} style={styles.doneBtn}>
+              Done
+            </Button>
+          </View>
+        </View>
       </View>
     </Modal>
   );
@@ -169,7 +178,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.lg,
-    paddingBottom: spacing.xs,
+    paddingBottom: spacing.sm,
   },
   title: {
     fontWeight: "600",
@@ -177,11 +186,6 @@ const styles = StyleSheet.create({
   },
   closeBtn: {
     marginRight: -8,
-  },
-  hint: {
-    color: colors.gray500,
-    paddingHorizontal: spacing.lg,
-    marginBottom: spacing.sm,
   },
   searchInput: {
     marginHorizontal: spacing.lg,

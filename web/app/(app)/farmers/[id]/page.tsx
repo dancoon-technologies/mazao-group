@@ -157,7 +157,7 @@ export default function FarmerDetailPage() {
     <Box style={{ minWidth: PAGE_BOX_MIN_WIDTH }}>
       <PageHeader
         title={farmer.display_name}
-        subtitle={farmer.phone ? `Phone: ${farmer.phone}` : farmer.crop_type ? farmer.crop_type : undefined}
+        subtitle={farmer.phone ? `Phone: ${farmer.phone}` : undefined}
         badges={
           farmer.is_stockist
             ? [{ label: "Stockist", color: "yellow" as const }]

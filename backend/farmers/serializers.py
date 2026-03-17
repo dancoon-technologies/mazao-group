@@ -26,7 +26,6 @@ class FarmerSerializer(serializers.ModelSerializer):
             "is_stockist",
             "latitude",
             "longitude",
-            "crop_type",
             "assigned_officer",
             "created_at",
         )
@@ -49,7 +48,6 @@ class FarmerCreateSerializer(serializers.ModelSerializer):
             "is_stockist",
             "latitude",
             "longitude",
-            "crop_type",
             "assigned_officer",
         )
 

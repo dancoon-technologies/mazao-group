@@ -106,7 +106,6 @@ export const api = {
     phone?: string;
     latitude: number;
     longitude: number;
-    crop_type?: string;
     assigned_officer?: string;
     is_stockist?: boolean;
   }): Promise<Farmer> {

@@ -11,7 +11,6 @@ export interface Farmer {
   is_stockist?: boolean;
   latitude: string;
   longitude: string;
-  crop_type: string;
   assigned_officer: string | null;
   created_at: string;
 }

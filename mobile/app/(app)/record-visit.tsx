@@ -201,10 +201,13 @@ export default function RecordVisitScreen() {
     [activityTypesList]
   );
 
+  // Step 3 form fields: only from active activity types (those in options). Skip any selected value not in activityTypesList.
   const step3Fields = useMemo(() => {
     const seen = new Set<string>();
     const out: ActivityFormFieldOption[] = [];
+    const activeSet = new Set(activityTypesList.map((a) => a.value));
     for (const value of activityTypes) {
+      if (!activeSet.has(value)) continue; // only use form_fields from active (in-options) activity types
       const config = activityTypesList.find((a) => a.value === value);
       const fields = config?.form_fields?.length ? config.form_fields : defaultVisitFormFields;
       for (const f of fields) {
@@ -232,7 +235,6 @@ export default function RecordVisitScreen() {
           phone: r.phone ?? undefined,
           latitude: r.latitude ?? undefined,
           longitude: r.longitude ?? undefined,
-          crop_type: r.crop_type ?? undefined,
           assigned_officer: r.assigned_officer ?? undefined,
           created_at: r.created_at ? new Date(r.created_at).toISOString() : undefined,
         }));
@@ -253,6 +255,15 @@ export default function RecordVisitScreen() {
   useEffect(() => {
     if (params.farmerId) setSelectedFarmerId(params.farmerId);
   }, [params.farmerId]);
+
+  // When Select Activity modal opens and we're online, refresh options so only active activity types are shown
+  useEffect(() => {
+    if (!activityTypesModalOpen || !isOnline) return;
+    api.getOptions().then((o) => {
+      appMeta$.cachedOptions.set(o);
+      applyOptions(o);
+    }).catch(() => { /* keep existing cache */ });
+  }, [activityTypesModalOpen, isOnline, applyOptions]);
 
   useFocusEffect(
     useCallback(() => {
@@ -278,7 +289,6 @@ export default function RecordVisitScreen() {
             phone: r.phone ?? undefined,
             latitude: r.latitude ?? undefined,
             longitude: r.longitude ?? undefined,
-            crop_type: r.crop_type ?? undefined,
             assigned_officer: r.assigned_officer ?? undefined,
             created_at: r.created_at ? new Date(r.created_at).toISOString() : undefined,
           }));
@@ -496,6 +506,7 @@ export default function RecordVisitScreen() {
       setError(validation.error ?? 'Please fix the errors below.');
       return;
     }
+    if (!selectedFarmerId || !location) return; // validation ensures these; narrows types for TS
     setSubmitting(true);
     setError('');
     try {

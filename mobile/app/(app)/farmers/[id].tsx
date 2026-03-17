@@ -86,7 +86,7 @@ export default function FarmerDetailScreen() {
     load();
   }, [load]);
 
-  const openAddFarm = () => router.push({ pathname: '/farmers/[id]/add-farm', params: { id: id! } });
+  const openAddFarm = () => router.push({ pathname: '/(app)/farmers/[id]/add-farm', params: { id: id! } });
 
   return (
     <SafeAreaView style={styles.safe} edges={['bottom']}>
@@ -127,22 +127,14 @@ export default function FarmerDetailScreen() {
                 {farmer.display_name}
                 {farmer.is_stockist ? ' · Stockist' : ''}
               </Text>
-              {(farmer.phone || farmer.crop_type) && (
+              {farmer.phone ? (
                 <View style={styles.heroMeta}>
-                  {farmer.phone ? (
-                    <View style={styles.metaRow}>
-                      <MaterialCommunityIcons name="phone" size={18} color={colors.gray700} />
-                      <Text variant="bodyMedium" style={styles.metaText}>{farmer.phone}</Text>
-                    </View>
-                  ) : null}
-                  {farmer.crop_type ? (
-                    <View style={styles.metaRow}>
-                      <MaterialCommunityIcons name="sprout" size={18} color={colors.gray700} />
-                      <Text variant="bodyMedium" style={styles.metaText}>{farmer.crop_type}</Text>
-                    </View>
-                  ) : null}
+                  <View style={styles.metaRow}>
+                    <MaterialCommunityIcons name="phone" size={18} color={colors.gray700} />
+                    <Text variant="bodyMedium" style={styles.metaText}>{farmer.phone}</Text>
+                  </View>
                 </View>
-              )}
+              ) : null}
             </View>
 
             <View style={styles.section}>
@@ -167,7 +159,7 @@ export default function FarmerDetailScreen() {
                   {farms.map((farm) => (
                     <Pressable
                       key={farm.id}
-                      onPress={() => router.push({ pathname: '/farmers/[id]/farm/[farmId]', params: { id: id!, farmId: farm.id } })}
+                      onPress={() => router.push({ pathname: '/(app)/farmers/[id]/farm/[farmId]', params: { id: id!, farmId: farm.id } } as never)}
                     >
                       <Card style={styles.farmCard} elevation={0}>
                         <Card.Content style={styles.farmCardContent}>

@@ -14,7 +14,8 @@ from .services import resend_staff_credentials
 
 
 class OptionsListView(APIView):
-    """GET: Option sets for forms (departments, staff_roles, activity_types by department). Requires auth for activity_types."""
+    """GET: Option sets for forms (departments, staff_roles, activity_types by department). Requires auth.
+    activity_types: only active ones (is_active=True); each includes form_fields for visit step 3."""
 
     permission_classes = [IsAuthenticated]
 

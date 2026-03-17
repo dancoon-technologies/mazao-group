@@ -7,6 +7,7 @@ import { colors, shadows } from '@/constants/theme';
 const TAB_ICONS: Record<string, keyof typeof MaterialCommunityIcons.glyphMap> = {
   index: 'home',
   visits: 'format-list-bulleted',
+  schedules: 'calendar',
   record: 'plus-circle',
   farmers: 'account-group',
   stockists: 'store-outline',
@@ -92,6 +93,16 @@ export default function AppTabsLayout() {
           title: 'Visits',
           tabBarIcon: ({ color, size }) => (
             <MaterialCommunityIcons name={TAB_ICONS.visits} size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="schedules"
+        options={{
+          headerShown: false,
+          title: 'Schedules',
+          tabBarIcon: ({ color, size }) => (
+            <MaterialCommunityIcons name={TAB_ICONS.schedules} size={size} color={color} />
           ),
         }}
       />

@@ -11,7 +11,6 @@ export interface FarmerRow {
   is_stockist?: number;
   latitude: string | null;
   longitude: string | null;
-  crop_type: string | null;
   assigned_officer: string | null;
   created_at: number;
 }

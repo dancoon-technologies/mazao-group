@@ -161,7 +161,6 @@ async function pushQueue(accessToken: string): Promise<{ ok: boolean; error?: st
             middle_name: farmerPayload.middle_name ?? undefined,
             last_name: farmerPayload.last_name,
             phone: farmerPayload.phone ?? undefined,
-            crop_type: farmerPayload.crop_type ?? undefined,
             latitude: farmerPayload.latitude,
             longitude: farmerPayload.longitude,
             is_stockist: farmerPayload.is_stockist ?? false,
@@ -350,7 +349,7 @@ export { getLastSync, setLastSync }
 export async function enqueueVisit(payload: {
   farmer_id: string
   farm_id?: string | null
-  schedule_id: string
+  schedule_id?: string | null
   latitude: number
   longitude: number
   /** Multiple photo URIs (local file paths). At least one required. */
@@ -395,7 +394,6 @@ export async function enqueueFarmerWithFarm(payload: {
     middle_name?: string
     last_name: string
     phone?: string
-    crop_type?: string
     latitude: number
     longitude: number
     is_stockist?: boolean

@@ -55,7 +55,6 @@ export default function AddFarmerScreen() {
   const [middleName, setMiddleName] = useState('');
   const [lastName, setLastName] = useState('');
   const [phone, setPhone] = useState('');
-  const [cropType, setCropType] = useState('');
   const [lat, setLat] = useState('');
   const [lon, setLon] = useState('');
 
@@ -217,7 +216,6 @@ export default function AddFarmerScreen() {
             middle_name: middleName.trim() || undefined,
             last_name: lastName.trim(),
             phone: phone.trim() || undefined,
-            crop_type: cropType.trim() || undefined,
             latitude: Number.isNaN(farmerLatNum) ? 0 : farmerLatNum,
             longitude: Number.isNaN(farmerLonNum) ? 0 : farmerLonNum,
             is_stockist: isStockist,
@@ -257,7 +255,6 @@ export default function AddFarmerScreen() {
         middle_name: middleName.trim() || undefined,
         last_name: lastName.trim(),
         phone: phone.trim() || undefined,
-        crop_type: cropType.trim() || undefined,
         latitude: isNaN(farmerLatNum) ? 0 : farmerLatNum,
         longitude: isNaN(farmerLonNum) ? 0 : farmerLonNum,
         is_stockist: isStockist,
@@ -321,7 +318,6 @@ export default function AddFarmerScreen() {
     lon,
     middleName,
     phone,
-    cropType,
     plotSize,
     farmCropType,
     router,
@@ -396,13 +392,6 @@ export default function AddFarmerScreen() {
           value={phone}
           onChangeText={setPhone}
           keyboardType="phone-pad"
-          mode="outlined"
-          style={styles.input}
-        />
-        <TextInput
-          label="Crop type"
-          value={cropType}
-          onChangeText={setCropType}
           mode="outlined"
           style={styles.input}
         />

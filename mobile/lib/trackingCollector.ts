@@ -17,11 +17,14 @@ import {
 } from '@/lib/deadReckoning';
 import { getDeviceClockOffsetSeconds } from '@/lib/deviceClockSync';
 import { getDeviceIntegrityAsync } from '@/lib/trackingIntegrity';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { enqueueLocationReport } from '@/lib/syncWithServer';
 import { logger } from '@/lib/logger';
 
 /** Task name for background location updates (must be defined at top level). */
 export const LOCATION_TRACKING_TASK = 'mazao-location-tracking';
+
+const TRACKING_LAST_SENT_KEY = 'mazao_tracking_last_sent';
 
 /** Default working hours (0–23) and interval when backend config is unavailable. */
 const DEFAULT_WORKING_HOUR_START = 6;
@@ -30,12 +33,41 @@ const DEFAULT_WORKING_HOUR_END = 18;
 const DEFAULT_INTERVAL_MINUTES = 1;
 
 /** Only record a new point when the user has moved at least this many meters from the last recorded point. */
-const MIN_MOVEMENT_METERS = 10;
+const MIN_MOVEMENT_METERS = 15;
 
-/** Last position and time we sent (for change detection and integrity speed check). */
+/** Minimum seconds between reports when stationary (avoids duplicate same-place rows and fixes duration). */
+const MIN_INTERVAL_SECONDS = 45;
+
+/** Last position and time we sent (in-memory; also persisted so background task runs see it). */
 let lastEnqueuedLat: number | null = null;
 let lastEnqueuedLon: number | null = null;
 let lastEnqueuedAt: string | null = null;
+
+async function loadLastEnqueued(): Promise<void> {
+  try {
+    const raw = await AsyncStorage.getItem(TRACKING_LAST_SENT_KEY);
+    if (!raw) return;
+    const o = JSON.parse(raw) as { lat: number; lon: number; at: string };
+    if (typeof o?.lat === 'number' && typeof o?.lon === 'number' && typeof o?.at === 'string') {
+      lastEnqueuedLat = o.lat;
+      lastEnqueuedLon = o.lon;
+      lastEnqueuedAt = o.at;
+    }
+  } catch {
+    // ignore
+  }
+}
+
+async function saveLastEnqueued(lat: number, lon: number, at: string): Promise<void> {
+  lastEnqueuedLat = lat;
+  lastEnqueuedLon = lon;
+  lastEnqueuedAt = at;
+  try {
+    await AsyncStorage.setItem(TRACKING_LAST_SENT_KEY, JSON.stringify({ lat, lon, at }));
+  } catch {
+    // ignore
+  }
+}
 
 function haversineMeters(
   lat1: number,
@@ -88,7 +120,7 @@ async function getBatteryPercent(): Promise<number | null> {
   }
 }
 
-/** Background/foreground location task: receives batched locations and enqueues each (during working hours). */
+/** Background/foreground location task: receives batched locations and enqueues only on change or min interval. */
 TaskManager.defineTask(LOCATION_TRACKING_TASK, async ({ data, error }) => {
   if (error) {
     logger.warn('Tracking: location task error', error.message);
@@ -96,6 +128,7 @@ TaskManager.defineTask(LOCATION_TRACKING_TASK, async ({ data, error }) => {
   }
   const locations = (data as { locations?: Location.LocationObject[] })?.locations ?? [];
   if (!isWithinWorkingHours()) return;
+  await loadLastEnqueued();
   const deviceInfo = getDeviceInfo();
   const seenTimestamps = new Set<string>();
   for (const location of locations) {
@@ -110,7 +143,6 @@ TaskManager.defineTask(LOCATION_TRACKING_TASK, async ({ data, error }) => {
       const rawTs = (location as { timestamp?: number }).timestamp;
       if (typeof rawTs === 'number') {
         reportedAt = new Date(rawTs).toISOString();
-        // If OS batches locations with the same timestamp, ensure distinct reported_at per row
         while (seenTimestamps.has(reportedAt)) {
           const d = new Date(reportedAt);
           d.setMilliseconds(d.getMilliseconds() + 1);
@@ -120,11 +152,16 @@ TaskManager.defineTask(LOCATION_TRACKING_TASK, async ({ data, error }) => {
       } else {
         reportedAt = new Date().toISOString();
       }
-      if (lastEnqueuedLat != null && lastEnqueuedLon != null) {
-        const dist = haversineMeters(lastEnqueuedLat, lastEnqueuedLon, lat, lon);
-        if (dist < MIN_MOVEMENT_METERS) {
-          continue;
-        }
+      const dist = (lastEnqueuedLat != null && lastEnqueuedLon != null)
+        ? haversineMeters(lastEnqueuedLat, lastEnqueuedLon, lat, lon)
+        : Infinity;
+      const secondsSinceLast = lastEnqueuedAt
+        ? (new Date(reportedAt).getTime() - new Date(lastEnqueuedAt).getTime()) / 1000
+        : Infinity;
+      const movedEnough = dist >= MIN_MOVEMENT_METERS;
+      const intervalElapsed = secondsSinceLast >= MIN_INTERVAL_SECONDS;
+      if (!movedEnough && !intervalElapsed) {
+        continue;
       }
       const batteryPercent = await getBatteryPercent();
       const deviceClockOffsetSeconds = await getDeviceClockOffsetSeconds();
@@ -154,10 +191,8 @@ TaskManager.defineTask(LOCATION_TRACKING_TASK, async ({ data, error }) => {
           integrity_flags: deviceIntegrity.integrity_flags,
         },
       });
-      lastEnqueuedLat = lat;
-      lastEnqueuedLon = lon;
-      lastEnqueuedAt = reportedAt;
-      logger.info('Tracking: enqueued location report (change detected)', { lat, lon, battery: batteryPercent });
+      await saveLastEnqueued(lat, lon, reportedAt);
+      logger.info('Tracking: enqueued location report (change or interval)', { lat, lon, battery: batteryPercent });
     } catch (e) {
       logger.warn('Tracking: enqueue failed', e instanceof Error ? e.message : e);
     }
@@ -271,6 +306,14 @@ export async function stopTracking(): Promise<void> {
   if (workingHoursCheckIntervalId != null) {
     clearInterval(workingHoursCheckIntervalId);
     workingHoursCheckIntervalId = null;
+  }
+  lastEnqueuedLat = null;
+  lastEnqueuedLon = null;
+  lastEnqueuedAt = null;
+  try {
+    await AsyncStorage.removeItem(TRACKING_LAST_SENT_KEY);
+  } catch {
+    // ignore
   }
   if (!isTrackingStarted) return;
   stopSensorSubscription();

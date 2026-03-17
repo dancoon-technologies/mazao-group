@@ -72,7 +72,7 @@ Authorization: Bearer <access_token>
 - **Supervisor:** farmers whose assigned officer is in supervisor’s department (or region if no department).
 - **Officer:** only farmers assigned to that officer.
 
-**Response (200):** Array of farmers; each has `id`, `title`, `first_name`, `middle_name`, `last_name`, `display_name`, `phone`, `latitude`, `longitude`, `crop_type`, `assigned_officer`, `created_at`.
+**Response (200):** Array of farmers; each has `id`, `title`, `first_name`, `middle_name`, `last_name`, `display_name`, `phone`, `latitude`, `longitude`, `assigned_officer`, `created_at`.
 
 ---
 

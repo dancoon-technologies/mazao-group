@@ -46,12 +46,6 @@ const STOCKIST_COLUMNS: DataTableColumn<Farmer>[] = [
     render: (f) => <Text size="sm" c="dimmed">{f.phone || "—"}</Text>,
   },
   {
-    key: "crop",
-    label: "Crop",
-    visibleFrom: "sm",
-    render: (f) => <Text size="sm" c="dimmed">{f.crop_type || "—"}</Text>,
-  },
-  {
     key: "location",
     label: "Location",
     visibleFrom: "md",
@@ -70,7 +64,6 @@ const INITIAL_FORM = {
   phone: "",
   latitude: "",
   longitude: "",
-  crop_type: "",
 };
 
 export default function StockistsPage() {
@@ -111,7 +104,6 @@ export default function StockistsPage() {
           phone: form.phone.trim() || undefined,
           latitude: lat,
           longitude: lon,
-          crop_type: form.crop_type.trim() || undefined,
           is_stockist: true,
         });
         resetForm();
@@ -205,11 +197,6 @@ export default function StockistsPage() {
                   Lat: {form.latitude || "—"} · Lng: {form.longitude || "—"}
                 </Text>
               </Box>
-              <TextInput
-                label="Crop type"
-                value={form.crop_type}
-                onChange={(e) => updateField("crop_type", e.target.value)}
-              />
               <Group>
                 <Button type="submit" color="yellow" loading={submitting}>
                   {submitting ? "Saving…" : "Add stockist"}

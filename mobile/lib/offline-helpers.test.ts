@@ -20,7 +20,6 @@ describe('farmerRowToFarmer', () => {
       phone: '+255111',
       latitude: '-6.1',
       longitude: '39.2',
-      crop_type: 'Maize',
       assigned_officer: 'o1',
       created_at: 1700000000000,
     };
@@ -45,7 +44,6 @@ describe('farmerRowToFarmer', () => {
       phone: null,
       latitude: null,
       longitude: null,
-      crop_type: null,
       assigned_officer: null,
       created_at: 0,
     };

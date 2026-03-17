@@ -27,6 +27,10 @@ logger = logging.getLogger(__name__)
 # Speed above this (km/h) is flagged as impossible for ground travel (fraud detection).
 IMPOSSIBLE_SPEED_KMH = 150
 
+# Dedupe: skip a report if the same user already has one within this many seconds and meters (fixes duplicate same-place rows and duration).
+DEDUPE_SECONDS = 40
+DEDUPE_METERS = 25
+
 
 def _haversine_km(lat1, lon1, lat2, lon2):
     """Return distance in km between two (lat, lon) in decimal degrees."""
@@ -37,6 +41,16 @@ def _haversine_km(lat1, lon1, lat2, lon2):
     a = sin(dlat / 2) ** 2 + cos(lat1) * cos(lat2) * sin(dlon / 2) ** 2
     c = 2 * asin(sqrt(min(1, a)))
     return R * c
+
+
+def _is_duplicate_report(user, reported_at, reported_at_server, lat, lon, last_t, last_lat, last_lon):
+    """True if this report is within DEDUPE_SECONDS and DEDUPE_METERS of last (same user)."""
+    if last_t is None or last_lat is None or last_lon is None:
+        return False
+    t_curr = reported_at_server or reported_at
+    dt_sec = abs((t_curr - last_t).total_seconds())
+    dist_m = _haversine_km(last_lat, last_lon, float(lat), float(lon)) * 1000
+    return dt_sec <= DEDUPE_SECONDS and dist_m <= DEDUPE_METERS
 
 
 def _compute_speed_kmh(lat1, lon1, t1, lat2, lon2, t2):
@@ -172,6 +186,19 @@ class LocationReportBatchCreateView(APIView):
                 {"detail": f"Maximum {max_batch} reports per request."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+        last_t = None
+        last_lat = None
+        last_lon = None
+        latest = (
+            LocationReport.objects.filter(user=request.user)
+            .annotate(t=Coalesce(F("reported_at_server"), F("reported_at")))
+            .order_by("-t")
+            .first()
+        )
+        if latest:
+            last_t = latest.reported_at_server or latest.reported_at
+            last_lat = float(latest.latitude)
+            last_lon = float(latest.longitude)
         created = 0
         errors = []
         for i, item in enumerate(reports_data):
@@ -184,12 +211,18 @@ class LocationReportBatchCreateView(APIView):
             reported_at_server = None
             if offset_sec is not None:
                 reported_at_server = reported_at - timedelta(seconds=float(offset_sec))
+            lat = ser.validated_data["latitude"]
+            lon = ser.validated_data["longitude"]
+            if _is_duplicate_report(
+                request.user, reported_at, reported_at_server, lat, lon, last_t, last_lat, last_lon
+            ):
+                continue
             device_integrity = ser.validated_data.get("device_integrity")
             integrity_warning = _server_integrity_warning(
                 reported_at,
                 reported_at_server,
-                ser.validated_data["latitude"],
-                ser.validated_data["longitude"],
+                lat,
+                lon,
                 request.user,
                 device_integrity,
             )
@@ -202,8 +235,8 @@ class LocationReportBatchCreateView(APIView):
                 user=request.user,
                 reported_at=reported_at,
                 reported_at_server=reported_at_server,
-                latitude=ser.validated_data["latitude"],
-                longitude=ser.validated_data["longitude"],
+                latitude=lat,
+                longitude=lon,
                 accuracy=ser.validated_data.get("accuracy"),
                 battery_percent=ser.validated_data.get("battery_percent"),
                 device_info=ser.validated_data.get("device_info") or {},
@@ -211,6 +244,9 @@ class LocationReportBatchCreateView(APIView):
                 integrity_warning=integrity_warning,
             )
             created += 1
+            last_t = reported_at_server or reported_at
+            last_lat = float(lat)
+            last_lon = float(lon)
         if errors and created == 0:
             return Response({"detail": "Validation failed.", "errors": errors}, status=status.HTTP_400_BAD_REQUEST)
         logger.info("Location reports batch: user=%s created=%d errors=%d", request.user.id, created, len(errors))

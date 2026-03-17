@@ -14,7 +14,6 @@ class Farmer(models.Model):
     is_stockist = models.BooleanField(default=False)
     latitude = models.DecimalField(max_digits=10, decimal_places=7)
     longitude = models.DecimalField(max_digits=10, decimal_places=7)
-    crop_type = models.CharField(max_length=100, blank=True)
     assigned_officer = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
