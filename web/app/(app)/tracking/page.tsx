@@ -283,13 +283,16 @@ export default function TrackingPage() {
           </Group>
           {showCachedMessage && (
             <Alert mt="sm" color="yellow" title="Network issue">
-              Showing last loaded data. {error} <Button variant="subtle" size="xs" onClick={() => refetch()}>Retry</Button>
+              Showing last loaded data. {error}{" "}
+              <Button variant="subtle" size="xs" onClick={() => loadReports()}>
+                Retry
+              </Button>
             </Alert>
           )}
         </Card>
 
         {loading && !hasData && <PageLoading />}
-        {error && !hasData && <PageError message={error} onRetry={refetch} />}
+        {error && !hasData && <PageError message={error} onRetry={loadReports} />}
 
         {hasData && (
           <>
