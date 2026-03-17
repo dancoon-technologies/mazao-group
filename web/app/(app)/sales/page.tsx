@@ -1,6 +1,6 @@
 "use client";
 
-import { Anchor, Box, Select, Stack, Text } from "@mantine/core";
+import { Anchor, Box, Group, Select, Stack, Text } from "@mantine/core";
 import Link from "next/link";
 import { useCallback, useMemo, useState } from "react";
 import { useAsyncData } from "@/hooks/useAsyncData";
@@ -152,14 +152,14 @@ export default function SalesPage() {
       <PageHeader title="Sales from visits" />
 
       <Stack gap="md" mt="md">
-        <Stack gap="xs">
+        <Group wrap="wrap" align="flex-end" gap="md">
           <Select
             label="Period"
             data={REPORT_PERIOD_OPTIONS}
             value={reportPeriod}
             onChange={(v) => v && setReportPeriod(v as ReportPeriod)}
             size="sm"
-            style={{ maxWidth: 140 }}
+            style={{ minWidth: 120 }}
           />
           <Select
             label={reportPeriod === "daily" ? "Date" : reportPeriod === "weekly" ? "Week starting" : "Month"}
@@ -201,7 +201,7 @@ export default function SalesPage() {
               return out;
             })()}
             size="sm"
-            style={{ maxWidth: 220 }}
+            style={{ minWidth: 200 }}
           />
           {isAdminOrSupervisor && (
             <Select
@@ -211,7 +211,7 @@ export default function SalesPage() {
               onChange={(v) => setOfficerFilter(v || null)}
               size="sm"
               clearable
-              style={{ maxWidth: 280 }}
+              style={{ minWidth: 220 }}
             />
           )}
           {isAdmin && (
@@ -222,10 +222,10 @@ export default function SalesPage() {
               onChange={(v) => setDepartmentFilter(v || null)}
               size="sm"
               clearable
-              style={{ maxWidth: 200 }}
+              style={{ minWidth: 180 }}
             />
           )}
-        </Stack>
+        </Group>
 
         {salesRows.length === 0 ? (
           <Text c="dimmed">No sales recorded in the selected period. Sales are taken from product lines on visits.</Text>
