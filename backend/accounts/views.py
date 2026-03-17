@@ -61,6 +61,7 @@ class OptionsListView(APIView):
                         "label": at.label,
                         "is_active": getattr(at, "is_active", True),
                     }
+                    # form_fields: per-activity step-3 fields from DB; mobile uses these for "Additional details".
                     item["form_fields"] = getattr(at, "form_fields", None) or []
                     activity_types.append(item)
         except Exception as e:

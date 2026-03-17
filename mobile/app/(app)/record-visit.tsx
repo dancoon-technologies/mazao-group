@@ -194,14 +194,15 @@ export default function RecordVisitScreen() {
       });
   }, [applyOptions]);
 
+  // Activity types for modal and chips: prefer options from store (GET /api/options/, refreshed on focus and when modal opens). Only active (is_active !== false). Fallback to activityTypesList or hardcoded only when no options.
   const activityTypeOptions = useMemo(() => {
-    const list = activityTypesList.length
-      ? activityTypesList
-      : ACTIVITY_TYPES.map((a) => ({ value: a.value, label: a.label }));
+    const list =
+      (options?.activity_types?.length ? options.activity_types : null) ??
+      (activityTypesList.length ? activityTypesList : ACTIVITY_TYPES.map((a) => ({ value: a.value, label: a.label })));
     return list.filter((a) => (a as ActivityTypeOption).is_active !== false);
-  }, [activityTypesList]);
+  }, [options?.activity_types, activityTypesList]);
 
-  // Step 3 form fields: only from selected activity types that are active. Use options from store so form_fields match latest API (correct additional fields per activity).
+  // Additional fields (step 3): from backend activity_types[].form_fields per selected activity. Prefer options from store (same GET /api/options/); refreshed on focus and when modal opens so form_fields are not stale.
   const step3Fields = useMemo(() => {
     const list = options?.activity_types ?? activityTypesList;
     const activeOnlyList = list.filter((a) => (a as ActivityTypeOption).is_active !== false);
