@@ -32,6 +32,25 @@ export default function AppLayout({
     useAuth();
   const [opened, { toggle, close }] = useDisclosure();
 
+  const { data: optionsData } = useAsyncData(
+    (signal) => (isAuthenticated ? api.getOptions({ signal }) : Promise.resolve(null)),
+    [isAuthenticated]
+  );
+  const labels = useMemo(() => getLabelsFromOptions(optionsData), [optionsData]);
+  const navWithLabels = useMemo(() => {
+    const partnerPlural = pluralPartner(labels.partner);
+    const locationPlural = pluralLocation(labels.location);
+    return APP_NAV.map((item) => {
+      if (item.href === ROUTES.FARMERS) return { ...item, label: partnerPlural };
+      if (item.href === ROUTES.FARMS) return { ...item, label: locationPlural };
+      return item;
+    });
+  }, [labels.partner, labels.location]);
+  const filteredNav = useMemo(
+    () => filterNavByRole(navWithLabels, role ?? null, canAccessDashboard),
+    [navWithLabels, role, canAccessDashboard]
+  );
+
   useEffect(() => {
     if (isLoading) return;
     if (!isAuthenticated) {
@@ -48,22 +67,6 @@ export default function AppLayout({
   if (!isAuthenticated) {
     return null;
   }
-
-  const { data: optionsData } = useAsyncData(
-    (signal) => (isAuthenticated ? api.getOptions({ signal }) : Promise.resolve(null)),
-    [isAuthenticated]
-  );
-  const labels = useMemo(() => getLabelsFromOptions(optionsData), [optionsData]);
-  const navWithLabels = useMemo(() => {
-    const partnerPlural = pluralPartner(labels.partner);
-    const locationPlural = pluralLocation(labels.location);
-    return APP_NAV.map((item) => {
-      if (item.href === ROUTES.FARMERS) return { ...item, label: partnerPlural };
-      if (item.href === ROUTES.FARMS) return { ...item, label: locationPlural };
-      return item;
-    });
-  }, [labels.partner, labels.location]);
-  const filteredNav = filterNavByRole(navWithLabels, role ?? null, canAccessDashboard);
 
   return (
     <AppShell

@@ -181,7 +181,7 @@ export default function FarmerDetailPage() {
         </Tabs.List>
 
         <Tabs.Panel value="farms" pt="md">
-          <Paper p="md" radius="md" withBorder>
+          <div>
             <Title order={3} size="h4" mb="md">
               {locationPlural}
             </Title>
@@ -197,11 +197,11 @@ export default function FarmerDetailPage() {
                 pageSize={15}
               />
             )}
-          </Paper>
+          </div>
         </Tabs.Panel>
 
         <Tabs.Panel value="visits" pt="md">
-          <Paper p="md" radius="md" withBorder>
+          <div>
             <Title order={3} size="h4" mb="md">
               Visits to this {labels.partner.toLowerCase()}
             </Title>
@@ -217,11 +217,11 @@ export default function FarmerDetailPage() {
                 pageSize={15}
               />
             )}
-          </Paper>
+          </div>
         </Tabs.Panel>
 
         <Tabs.Panel value="map" pt="md">
-          <Paper p="md" radius="md" withBorder>
+          <div>
             <Title order={3} size="h4" mb="md">
               Map — {labels.partner}&apos;s {locationPlural}
             </Title>
@@ -232,11 +232,11 @@ export default function FarmerDetailPage() {
               farms={farms}
               locationLabel={labels.location}
             />
-          </Paper>
+          </div>
         </Tabs.Panel>
 
         <Tabs.Panel value="products" pt="md">
-          <Paper p="md" radius="md" withBorder>
+          <div>
             <Title order={3} size="h4" mb="md">
               Products sold to this {labels.partner.toLowerCase()}
             </Title>
@@ -270,7 +270,7 @@ export default function FarmerDetailPage() {
                 </Table.Tbody>
               </Table>
             )}
-          </Paper>
+          </div>
         </Tabs.Panel>
       </Tabs>
     </Box>
