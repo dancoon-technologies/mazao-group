@@ -32,7 +32,7 @@ const FarmsMapView = dynamic(
 export default function FarmerDetailPage() {
   useAuth();
   const params = useParams<{ id: string }>();
-  const farmerId = params?.id ?? "";
+  const farmerId = (typeof params?.id === "string" ? params.id : Array.isArray(params?.id) ? params.id[0] : params?.id) ?? "";
 
   const { data: farmer, error: farmerError, loading: farmerLoading } = useAsyncData(
     (signal) => (farmerId ? api.getFarmer(farmerId, { signal }) : Promise.reject(new Error("Missing farmer id"))),
@@ -155,7 +155,10 @@ export default function FarmerDetailPage() {
 
   if (!farmerId) return <PageError message="Missing farmer id." />;
   if (farmerLoading) return <PageLoading message={`Loading ${labels.partner.toLowerCase()}…`} />;
-  if (farmerError || !farmer) return <PageError message={farmerError ?? `${labels.partner} not found.`} />;
+  if (farmerError || !farmer) {
+    const message = farmerError || `${labels.partner} not found.`;
+    return <PageError message={message} />;
+  }
 
   return (
     <Box style={{ minWidth: PAGE_BOX_MIN_WIDTH }}>
