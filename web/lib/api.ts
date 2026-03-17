@@ -106,7 +106,6 @@ export const api = {
     phone?: string;
     latitude: number;
     longitude: number;
-    assigned_officer?: string;
     is_stockist?: boolean;
   }): Promise<Farmer> {
     const res = await authFetch(`${API_BASE}/api/farmers`, {

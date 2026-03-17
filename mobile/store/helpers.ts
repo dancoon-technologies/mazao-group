@@ -61,7 +61,6 @@ export function normalizeServerFarmer(record: Record<string, unknown>): Record<s
     phone: record.phone ?? null,
     latitude: record.latitude != null ? String(record.latitude) : null,
     longitude: record.longitude != null ? String(record.longitude) : null,
-    assigned_officer: record.assigned_officer ?? null,
     created_at: isoToTimestamp(record.created_at as string) ?? 0,
   };
 }

@@ -87,7 +87,6 @@ describe('normalizeServerFarmer', () => {
       phone: '+255111',
       latitude: '-6.1',
       longitude: '39.2',
-      assigned_officer: 'o1',
       created_at: '2025-01-01T00:00:00Z',
     };
     const out = normalizeServerFarmer(record) as any;

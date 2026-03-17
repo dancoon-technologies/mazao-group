@@ -196,7 +196,6 @@ function toFarmerRow(data: Record<string, unknown>): FarmerRow {
     is_stockist: isStockist ? 1 : 0,
     latitude: data.latitude != null ? String(data.latitude) : null,
     longitude: data.longitude != null ? String(data.longitude) : null,
-    assigned_officer: data.assigned_officer != null ? String(data.assigned_officer) : null,
     created_at: Number(data.created_at) ?? 0,
   };
 }

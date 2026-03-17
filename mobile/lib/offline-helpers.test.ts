@@ -20,7 +20,6 @@ describe('farmerRowToFarmer', () => {
       phone: '+255111',
       latitude: '-6.1',
       longitude: '39.2',
-      assigned_officer: 'o1',
       created_at: 1700000000000,
     };
     const out = farmerRowToFarmer(row as any);
@@ -30,7 +29,6 @@ describe('farmerRowToFarmer', () => {
     expect(out.last_name).toBe('Doe');
     expect(out.display_name).toBe('Jane Doe');
     expect(out.phone).toBe('+255111');
-    expect(out.assigned_officer).toBe('o1');
     expect(out.created_at).toBe(new Date(1700000000000).toISOString());
   });
 
@@ -44,7 +42,6 @@ describe('farmerRowToFarmer', () => {
       phone: null,
       latitude: null,
       longitude: null,
-      assigned_officer: null,
       created_at: 0,
     };
     const out = farmerRowToFarmer(row as any);

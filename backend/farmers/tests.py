@@ -38,7 +38,6 @@ class FarmersAPITests(TestCase):
             phone="+255111",
             latitude=-6.0,
             longitude=39.0,
-            assigned_officer=self.officer,
         )
         self.other_officer = User.objects.create_user(
             email="other@test.com",
@@ -52,7 +51,6 @@ class FarmersAPITests(TestCase):
             phone="+255222",
             latitude=-6.01,
             longitude=39.01,
-            assigned_officer=self.other_officer,
         )
         self.farmer_unassigned = Farmer.objects.create(
             first_name="Unassigned",
@@ -60,7 +58,6 @@ class FarmersAPITests(TestCase):
             phone="+255333",
             latitude=-6.02,
             longitude=39.02,
-            assigned_officer=None,
         )
 
     def _login(self, email, password):
@@ -116,7 +113,7 @@ class FarmersAPITests(TestCase):
         self.assertEqual(len(results), 1)
         self.assertEqual(results[0]["display_name"], "My Farmer")
 
-    def test_create_farmer_as_admin_with_assignment(self):
+    def test_create_farmer_as_admin(self):
         token = self._login("admin@test.com", "admin123")
         self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
         payload = {
@@ -125,16 +122,14 @@ class FarmersAPITests(TestCase):
             "phone": "+255444",
             "latitude": -6.03,
             "longitude": 39.03,
-            "assigned_officer": str(self.officer.pk),
         }
         r = self.client.post("/api/farmers/", payload, format="json")
         self.assertEqual(r.status_code, status.HTTP_201_CREATED)
         data = r.json()
         self.assertEqual(data["display_name"], "New Partner")
-        self.assertEqual(data["assigned_officer"], str(self.officer.pk))
         self.assertEqual(Farmer.objects.count(), 4)
 
-    def test_create_farmer_as_officer_auto_assigns_self(self):
+    def test_create_farmer_as_officer(self):
         token = self._login("officer@test.com", "officer123")
         self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
         payload = {
@@ -146,7 +141,6 @@ class FarmersAPITests(TestCase):
         }
         r = self.client.post("/api/farmers/", payload, format="json")
         self.assertEqual(r.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(r.json()["assigned_officer"], str(self.officer.pk))
         results = self._farmer_list_results(
             self.client.get("/api/farmers/")
         )

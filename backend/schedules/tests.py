@@ -54,7 +54,6 @@ class ScheduleAPITests(TestCase):
             phone="+255111",
             latitude=-6.0,
             longitude=39.0,
-            assigned_officer=self.officer,
         )
 
     def _login(self, email, password):

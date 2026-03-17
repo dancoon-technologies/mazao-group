@@ -15,7 +15,6 @@ export function farmerRowToFarmer(r: FarmerRow): Farmer {
     is_stockist: (r.is_stockist ?? 0) === 1,
     latitude: r.latitude ?? undefined,
     longitude: r.longitude ?? undefined,
-    assigned_officer: r.assigned_officer ?? undefined,
     created_at: r.created_at ? new Date(r.created_at).toISOString() : undefined,
   };
 }

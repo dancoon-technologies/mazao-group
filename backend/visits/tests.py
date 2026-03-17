@@ -88,7 +88,6 @@ class TravelValidationTests(TestCase):
             phone="+255111",
             latitude=-6.0,
             longitude=39.0,
-            assigned_officer=self.officer,
         )
 
     def test_no_previous_visit_allowed(self):
@@ -163,7 +162,6 @@ class VisitAPITests(TestCase):
             phone="+255111",
             latitude=-6.0,
             longitude=39.0,
-            assigned_officer=self.officer,
         )
         self.other_officer = User.objects.create_user(
             email="other@test.com",
@@ -177,7 +175,6 @@ class VisitAPITests(TestCase):
             phone="+255222",
             latitude=-6.01,
             longitude=39.01,
-            assigned_officer=self.other_officer,
         )
         today = timezone.now().date()
         self.schedule = Schedule.objects.create(
@@ -256,10 +253,10 @@ class VisitAPITests(TestCase):
         self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("photo", r.json())
 
-    def test_create_visit_officer_not_assigned_forbidden(self):
+    def test_create_visit_officer_can_record_for_any_farmer(self):
+        """Any officer can record a visit for any farmer (no assignment required)."""
         token = self._login("officer@test.com", "officer123")
         self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
-        # Try to visit farmer assigned to other_officer (schedule is for officer+farmer_other but officer not assigned to farmer_other)
         data = {
             "farmer_id": str(self.farmer_other.pk),
             "schedule_id": str(self.schedule_officer_other_farmer.pk),
@@ -268,8 +265,8 @@ class VisitAPITests(TestCase):
         }
         photo = make_jpeg_file()
         r = self.client.post("/api/visits/", {**data, "photo": photo}, format="multipart")
-        self.assertEqual(r.status_code, status.HTTP_403_FORBIDDEN)
-        self.assertEqual(Visit.objects.count(), 0)
+        self.assertEqual(r.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(Visit.objects.count(), 1)
 
     def test_create_visit_farmer_not_found(self):
         import uuid
@@ -459,7 +456,6 @@ class VisitVerifyAPITests(TestCase):
             phone="+255111",
             latitude=-6.0,
             longitude=39.0,
-            assigned_officer=self.officer,
         )
         self.schedule = Schedule.objects.create(
             created_by=self.admin,
@@ -565,7 +561,6 @@ class VisitProductLinesAPITests(TestCase):
             phone="+255111",
             latitude=-6.0,
             longitude=39.0,
-            assigned_officer=self.officer,
         )
         self.schedule = Schedule.objects.create(
             created_by=self.admin,

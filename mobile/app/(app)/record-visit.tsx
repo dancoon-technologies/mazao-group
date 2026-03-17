@@ -251,7 +251,6 @@ export default function RecordVisitScreen() {
           phone: r.phone ?? undefined,
           latitude: r.latitude ?? undefined,
           longitude: r.longitude ?? undefined,
-          assigned_officer: r.assigned_officer ?? undefined,
           created_at: r.created_at ? new Date(r.created_at).toISOString() : undefined,
         }));
         setFarmers(list);
@@ -314,7 +313,6 @@ export default function RecordVisitScreen() {
             phone: r.phone ?? undefined,
             latitude: r.latitude ?? undefined,
             longitude: r.longitude ?? undefined,
-            assigned_officer: r.assigned_officer ?? undefined,
             created_at: r.created_at ? new Date(r.created_at).toISOString() : undefined,
           }));
           setFarmers(list);

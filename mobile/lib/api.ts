@@ -13,7 +13,6 @@ export interface Farmer {
   is_stockist?: boolean;
   latitude?: string;
   longitude?: string;
-  assigned_officer?: string | null;
   created_at?: string;
 }
 
@@ -404,7 +403,6 @@ export const api = {
     phone?: string;
     latitude?: number;
     longitude?: number;
-    assigned_officer?: string | null;
     is_stockist?: boolean;
   }) {
     return request<Farmer>('/farmers/', {
