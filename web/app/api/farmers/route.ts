@@ -1,13 +1,18 @@
+import { NextRequest } from "next/server";
 import { getAccessToken } from "@/lib/auth-server";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   const access = await getAccessToken();
   if (!access) {
     return Response.json({ detail: "Not authenticated" }, { status: 401 });
   }
 
   const { BACKEND_API } = await import("@/lib/auth-server");
-  const res = await fetch(`${BACKEND_API}/farmers/`, {
+  const { searchParams } = new URL(request.url);
+  const qs = searchParams.toString();
+  const base = BACKEND_API.replace(/\/$/, "");
+  const url = qs ? `${base}/farmers/?${qs}` : `${base}/farmers/`;
+  const res = await fetch(url, {
     headers: { Authorization: `Bearer ${access}` },
   });
 

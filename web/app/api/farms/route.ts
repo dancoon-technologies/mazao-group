@@ -9,9 +9,9 @@ export async function GET(request: NextRequest) {
   }
 
   const { searchParams } = new URL(request.url);
-  const farmer = searchParams.get("farmer");
+  const qs = searchParams.toString();
   const base = BACKEND_API.replace(/\/$/, "");
-  const url = farmer ? `${base}/farms/?farmer=${encodeURIComponent(farmer)}` : `${base}/farms/`;
+  const url = qs ? `${base}/farms/?${qs}` : `${base}/farms/`;
 
   const res = await fetch(url, {
     headers: { Authorization: `Bearer ${access}` },
