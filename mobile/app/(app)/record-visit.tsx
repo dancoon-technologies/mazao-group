@@ -257,13 +257,22 @@ export default function RecordVisitScreen() {
     if (params.farmerId) setSelectedFarmerId(params.farmerId);
   }, [params.farmerId]);
 
-  // When Select Activity modal opens and we're online, refresh options so only active activity types are shown
+  // When Select Activity modal opens, refresh options when online so the list is never stale (backend returns only is_active=True).
+  const [activityTypesOptionsRefreshing, setActivityTypesOptionsRefreshing] = useState(false);
   useEffect(() => {
-    if (!activityTypesModalOpen || !isOnline) return;
+    if (!activityTypesModalOpen) {
+      setActivityTypesOptionsRefreshing(false);
+      return;
+    }
+    if (!isOnline) {
+      setActivityTypesOptionsRefreshing(false);
+      return;
+    }
+    setActivityTypesOptionsRefreshing(true);
     api.getOptions().then((o) => {
       appMeta$.cachedOptions.set(o);
       applyOptions(o);
-    }).catch(() => { /* keep existing cache */ });
+    }).catch(() => { /* keep existing cache */ }).finally(() => setActivityTypesOptionsRefreshing(false));
   }, [activityTypesModalOpen, isOnline, applyOptions]);
 
   useFocusEffect(
@@ -823,6 +832,7 @@ export default function RecordVisitScreen() {
                 selectedValues={activityTypes}
                 onSelect={setActivityTypes}
                 title="Select activities"
+                refreshing={activityTypesOptionsRefreshing}
               />
 
               {/* Location: green card when verified, otherwise neutral/warning */}

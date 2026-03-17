@@ -39,19 +39,23 @@ class OptionsListView(APIView):
         visit_warning_m = get_visit_warning_distance_meters()
         partner_label, location_label = get_labels_for_user(request.user)
 
-        # Activity types: only active ones, for the user's department (prefetch used to avoid N+1).
-        # form_fields: optional list of {key, label, required} for step 3; always include key for consistent client shape.
+        # Activity types: only is_active=True, scoped by department (prefetch used to avoid N+1).
+        # - Activity with no departments = visible to all.
+        # - Activity with departments = visible only to users in one of those departments.
+        # - User with no department = sees all active types (e.g. admin/unassigned).
         activity_types = []
         try:
             from visits.models import ActivityTypeConfig
             user_dept_slug = (request.user.department.slug if request.user.department else "")
-            # Filter in Python so we work even if is_active migration not applied (getattr(at, 'is_active', True))
-            qs = ActivityTypeConfig.objects.prefetch_related("departments").order_by("order", "label")
+            qs = ActivityTypeConfig.objects.filter(is_active=True).prefetch_related("departments").order_by("order", "label")
             for at in qs:
-                if not getattr(at, "is_active", True):
-                    continue
                 depts = list(at.departments.all())
-                if not depts or (user_dept_slug and any(d.slug == user_dept_slug for d in depts)):
+                visible = (
+                    not depts
+                    or not user_dept_slug
+                    or any(d.slug == user_dept_slug for d in depts)
+                )
+                if visible:
                     item = {
                         "value": at.value,
                         "label": at.label,

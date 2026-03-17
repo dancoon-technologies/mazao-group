@@ -9,7 +9,7 @@ import {
   Platform,
   Keyboard,
 } from "react-native";
-import { Button, Searchbar, Text } from "react-native-paper";
+import { ActivityIndicator, Button, Searchbar, Text } from "react-native-paper";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { colors, spacing } from "@/constants/theme";
 
@@ -20,6 +20,8 @@ export interface SelectActivityTypesModalProps {
   selectedValues: string[];
   onSelect: (values: string[]) => void;
   title?: string;
+  /** When true, show loading instead of list so stale options are not shown while refetching. */
+  refreshing?: boolean;
 }
 
 function matchOption(opt: ActivityTypeOption, q: string): boolean {
@@ -38,6 +40,7 @@ export function SelectActivityTypesModal({
   selectedValues,
   onSelect,
   title = "Select activities",
+  refreshing = false,
 }: SelectActivityTypesModalProps) {
   const [search, setSearch] = useState("");
   const [pending, setPending] = useState<string[]>(selectedValues);
@@ -127,22 +130,29 @@ export function SelectActivityTypesModal({
             onChangeText={setSearch}
             style={styles.searchInput}
           />
-          <FlatList
-            data={filtered}
-            keyExtractor={(item) => item.value}
-            renderItem={renderItem}
-            style={styles.list}
-            keyboardShouldPersistTaps="handled"
-            ListEmptyComponent={
-              search.trim() ? (
-                <View style={styles.empty}>
-                  <Text variant="bodySmall" style={styles.emptyText}>
-                    No activities match "{search.trim()}"
-                  </Text>
-                </View>
-              ) : null
-            }
-          />
+          {refreshing ? (
+            <View style={styles.refreshing}>
+              <ActivityIndicator size="small" />
+              <Text variant="bodySmall" style={styles.emptyText}>Loading activities…</Text>
+            </View>
+          ) : (
+            <FlatList
+              data={filtered}
+              keyExtractor={(item) => item.value}
+              renderItem={renderItem}
+              style={styles.list}
+              keyboardShouldPersistTaps="handled"
+              ListEmptyComponent={
+                search.trim() ? (
+                  <View style={styles.empty}>
+                    <Text variant="bodySmall" style={styles.emptyText}>
+                      No activities match "{search.trim()}"
+                    </Text>
+                  </View>
+                ) : null
+              }
+            />
+          )}
           <View style={styles.footer}>
             <Text variant="bodySmall" style={styles.count}>
               {pending.length} selected
@@ -194,6 +204,13 @@ const styles = StyleSheet.create({
   },
   list: {
     maxHeight: 320,
+  },
+  refreshing: {
+    minHeight: 200,
+    maxHeight: 320,
+    justifyContent: "center",
+    alignItems: "center",
+    gap: spacing.sm,
   },
   option: {
     flexDirection: "row",
