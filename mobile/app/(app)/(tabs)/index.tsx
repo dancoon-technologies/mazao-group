@@ -18,6 +18,7 @@ import NetInfo from '@react-native-community/netinfo';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  Pressable,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -27,6 +28,7 @@ import {
   ActivityIndicator,
   Card,
   Chip,
+  IconButton,
   Surface,
   Text,
 } from 'react-native-paper';
@@ -198,28 +200,46 @@ function HomeScreenInner() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.welcome}>
-          <Text variant="bodyLarge" style={styles.welcomeGreeting}>{greeting}, </Text>
-          <Text variant="bodyLarge" style={styles.welcomeEmail}>
-            {displayName ?? email ?? (isSupervisor ? 'Supervisor' : 'Field officer')}
-          </Text>
-          {department ? (
-            <Chip style={styles.tag} textStyle={styles.tagText}>
-              {department}
-            </Chip>
-          ) : null}
-          {(() => {
-            const last = appMeta$.lastSyncAt.get();
-            if (!last) return null;
-            const mins = Math.round((Date.now() - new Date(last).getTime()) / 60000);
-            const label = mins < 1 ? 'Just now' : mins === 1 ? '1 min ago' : `${mins} min ago`;
-            return (
-              <Text variant="bodySmall" style={styles.lastSync}>
-                Last synced {label}
+        <Surface style={styles.welcomeCard} elevation={0}>
+          <View style={styles.welcomeRow}>
+            <Pressable
+              style={styles.notificationTouch}
+              onPress={() => { /* TODO: navigate to notifications */ }}
+              android_ripple={{ color: 'rgba(0,0,0,0.1)', borderless: true }}
+            >
+              <IconButton
+                icon="bell-outline"
+                size={24}
+                iconColor={colors.gray700}
+                style={styles.notificationIcon}
+              />
+            </Pressable>
+            <View style={styles.welcomeTextBlock}>
+              <Text variant="bodyLarge" style={styles.welcomeGreeting}>{greeting}</Text>
+              <Text variant="bodyLarge" style={styles.welcomeName}>
+                {displayName ?? email ?? (isSupervisor ? 'Supervisor' : 'Field officer')}
               </Text>
-            );
-          })()}
-        </View>
+              <View style={styles.welcomeMeta}>
+                {department ? (
+                  <Chip style={styles.tag} textStyle={styles.tagText} compact>
+                    {department}
+                  </Chip>
+                ) : null}
+                {(() => {
+                  const last = appMeta$.lastSyncAt.get();
+                  if (!last) return null;
+                  const mins = Math.round((Date.now() - new Date(last).getTime()) / 60000);
+                  const label = mins < 1 ? 'Just now' : mins === 1 ? '1 min ago' : `${mins} min ago`;
+                  return (
+                    <Text variant="bodySmall" style={styles.lastSync}>
+                      Synced {label}
+                    </Text>
+                  );
+                })()}
+              </View>
+            </View>
+          </View>
+        </Surface>
 
         <View style={styles.contentContainer}>
           <View style={styles.actionRow}>
@@ -295,16 +315,56 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   loadingText: { marginTop: 16 },
-  welcome: { padding: spacing.lg, paddingTop: spacing.md, marginBottom: spacing.md },
-  lastSync: { marginTop: 6, color: colors.gray500 },
-  welcomeEmail: { marginTop: 0, color: colors.gray700, fontSize: 24, fontWeight: '600' },
-  welcomeGreeting: { marginTop: 0, color: colors.gray700, fontWeight: '800', fontSize: 28,},
+  welcomeCard: {
+    marginHorizontal: spacing.lg,
+    marginTop: spacing.md,
+    marginBottom: spacing.lg,
+    paddingVertical: spacing.lg,
+    paddingLeft: spacing.sm,
+    paddingRight: spacing.lg,
+    backgroundColor: 'rgba(255,255,255,0.85)',
+    borderRadius: radius.card,
+    overflow: 'hidden',
+  },
+  welcomeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  notificationTouch: {
+    borderRadius: radius.full,
+    marginRight: spacing.xs,
+  },
+  notificationIcon: { margin: 0 },
+  welcomeTextBlock: { flex: 1, justifyContent: 'center', minWidth: 0 },
+  welcomeGreeting: {
+    color: colors.gray500,
+    fontSize: 14,
+    fontWeight: '600',
+    letterSpacing: 0.2,
+    textTransform: 'uppercase',
+  },
+  welcomeName: {
+    color: colors.gray900,
+    fontSize: 22,
+    fontWeight: '700',
+    lineHeight: 28,
+    marginTop: 2,
+  },
+  welcomeMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+    marginTop: spacing.sm,
+  },
+  lastSync: { color: colors.gray500, fontSize: 12 },
   tag: {
-    marginTop: 8,
     alignSelf: 'flex-start',
     backgroundColor: colors.primaryLight,
+    height: 28,
   },
-  tagText: { color: colors.primary, fontWeight: '600' },
+  tagText: { color: colors.primary, fontWeight: '600', fontSize: 12 },
   actionRow: {
     flexDirection: 'row',
     gap: spacing.md,
