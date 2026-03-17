@@ -200,7 +200,7 @@ export default function RecordVisitScreen() {
     return list.filter((a) => (a as ActivityTypeOption).is_active !== false);
   }, [options?.activity_types, activityTypesList]);
 
-  // Additional fields (step 3): from backend activity_types[].form_fields per selected activity. Prefer options from store (same GET /api/options/); refreshed on focus and when modal opens so form_fields are not stale.
+  // Additional fields (step 3): always from backend. For each selected activity we use that activity's form_fields from GET /api/options/ (activity_types[].form_fields). Only when the backend sent an empty form_fields for that activity do we use default_visit_form_fields (also from options).
   const step3Fields = useMemo(() => {
     const list = options?.activity_types ?? activityTypesList;
     const activeOnlyList = list.filter((a) => (a as ActivityTypeOption).is_active !== false);
@@ -208,9 +208,11 @@ export default function RecordVisitScreen() {
     const seen = new Set<string>();
     const out: ActivityFormFieldOption[] = [];
     for (const value of activityTypes) {
-      if (!activeSet.has(value)) continue; // only selected activities that are active
+      if (!activeSet.has(value)) continue;
       const config = activeOnlyList.find((a) => a.value === value);
-      const fields = config?.form_fields?.length ? config.form_fields : defaultVisitFormFields;
+      const activityFormFields = config?.form_fields;
+      const useActivityFields = Array.isArray(activityFormFields) && activityFormFields.length > 0;
+      const fields = useActivityFields ? activityFormFields : defaultVisitFormFields;
       for (const f of fields) {
         if (!seen.has(f.key)) {
           seen.add(f.key);
