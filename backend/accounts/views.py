@@ -38,18 +38,21 @@ class OptionsListView(APIView):
         visit_warning_m = get_visit_warning_distance_meters()
         partner_label, location_label = get_labels_for_user(request.user)
 
-        # Activity types: only those for the user's department (prefetch used to avoid N+1).
-        # form_fields: optional list of {key, label, required} for step 3; empty = show all known fields.
+        # Activity types: only active ones, for the user's department (prefetch used to avoid N+1).
+        # form_fields: optional list of {key, label, required} for step 3; always include key for consistent client shape.
         activity_types = []
         try:
             from visits.models import ActivityTypeConfig
             user_dept_slug = (request.user.department.slug if request.user.department else "")
-            for at in ActivityTypeConfig.objects.filter(is_active=True).prefetch_related("departments"):
+            # Filter in Python so we work even if is_active migration not applied (getattr(at, 'is_active', True))
+            qs = ActivityTypeConfig.objects.prefetch_related("departments").order_by("order", "label")
+            for at in qs:
+                if not getattr(at, "is_active", True):
+                    continue
                 depts = list(at.departments.all())
                 if not depts or (user_dept_slug and any(d.slug == user_dept_slug for d in depts)):
                     item = {"value": at.value, "label": at.label}
-                    if getattr(at, "form_fields", None):
-                        item["form_fields"] = at.form_fields
+                    item["form_fields"] = getattr(at, "form_fields", None) or []
                     activity_types.append(item)
         except Exception as e:
             logger.warning("Options activity_types: %s", e)

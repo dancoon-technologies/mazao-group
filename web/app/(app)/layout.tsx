@@ -11,7 +11,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { api } from "@/lib/api";
 import { APP_NAV, filterNavByRole } from "@/config/navigation";
 import { ROUTES } from "@/lib/constants";
-import { getLabelsFromOptions, pluralLocation, pluralPartner } from "@/lib/options";
+import { getLabelsFromOptions, pluralPartner } from "@/lib/options";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { LoadingScreen } from "@/components/ui";
 
@@ -39,13 +39,11 @@ export default function AppLayout({
   const labels = useMemo(() => getLabelsFromOptions(optionsData), [optionsData]);
   const navWithLabels = useMemo(() => {
     const partnerPlural = pluralPartner(labels.partner);
-    const locationPlural = pluralLocation(labels.location);
     return APP_NAV.map((item) => {
       if (item.href === ROUTES.FARMERS) return { ...item, label: partnerPlural };
-      if (item.href === ROUTES.FARMS) return { ...item, label: locationPlural };
       return item;
     });
-  }, [labels.partner, labels.location]);
+  }, [labels.partner]);
   const filteredNav = useMemo(
     () => filterNavByRole(navWithLabels, role ?? null, canAccessDashboard),
     [navWithLabels, role, canAccessDashboard]

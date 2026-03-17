@@ -1,4 +1,4 @@
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter, useNavigation } from 'expo-router';
 import NetInfo from '@react-native-community/netinfo';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
@@ -30,11 +30,17 @@ import { colors, scrollPaddingKeyboard } from '@/constants/theme';
 
 export default function AddFarmerScreen() {
   const router = useRouter();
+  const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const theme = useTheme();
-  const params = useLocalSearchParams<{ returnTo?: string }>();
+  const params = useLocalSearchParams<{ returnTo?: string; asStockist?: string }>();
   const returnTo = params.returnTo;
+  const isStockist = params.asStockist === '1' || params.asStockist === 'true';
   const labels = useSelector(() => getLabels(appMeta$.cachedOptions.get()));
+
+  useEffect(() => {
+    navigation.setOptions({ title: isStockist ? 'Add stockist' : 'Add farmer' });
+  }, [navigation, isStockist]);
   const [locations, setLocations] = useState<LocationState | null>(null);
   const [loadingLocations, setLoadingLocations] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -214,6 +220,7 @@ export default function AddFarmerScreen() {
             crop_type: cropType.trim() || undefined,
             latitude: Number.isNaN(farmerLatNum) ? 0 : farmerLatNum,
             longitude: Number.isNaN(farmerLonNum) ? 0 : farmerLonNum,
+            is_stockist: isStockist,
           },
           farm: {
             region_id: regionId,
@@ -253,6 +260,7 @@ export default function AddFarmerScreen() {
         crop_type: cropType.trim() || undefined,
         latitude: isNaN(farmerLatNum) ? 0 : farmerLatNum,
         longitude: isNaN(farmerLonNum) ? 0 : farmerLonNum,
+        is_stockist: isStockist,
       });
 
       const farmerId = farmer?.id;
@@ -292,7 +300,7 @@ export default function AddFarmerScreen() {
       setDialogSuccess(true);
       setDialogVisible(true);
     } catch (e) {
-      setSubmitError(e instanceof Error ? e.message : 'Failed to add farmer');
+      setSubmitError(e instanceof Error ? e.message : (isStockist ? 'Failed to add stockist' : 'Failed to add farmer'));
       setDialogSuccess(false);
       setDialogVisible(true);
     } finally {
@@ -319,6 +327,7 @@ export default function AddFarmerScreen() {
     router,
     returnTo,
     isOnline,
+    isStockist,
   ]);
 
   const counties = locations
@@ -359,7 +368,7 @@ export default function AddFarmerScreen() {
           </Banner>
         )}
         <Text variant="titleMedium" style={styles.sectionTitle}>
-          {labels.partner} details
+          {isStockist ? 'Stockist' : 'Farmer'} details
         </Text>
         <TextInput
           label="First name *"
@@ -571,7 +580,7 @@ export default function AddFarmerScreen() {
             loading={submitting}
             disabled={submitting || !firstName.trim() || !lastName.trim() || !regionId || !countyId || !subCountyId || !village.trim()}
           >
-            Add {labels.partner.toLowerCase()}
+            {isStockist ? 'Add stockist' : 'Add farmer'}
           </Button>
           <Button mode="text" onPress={() => router.back()}>
             Cancel
@@ -586,7 +595,7 @@ export default function AddFarmerScreen() {
           <Dialog.Title>{dialogSuccess ? 'Success' : 'Error'}</Dialog.Title>
           <Dialog.Content>
             <Text variant="bodyMedium">
-              {dialogSuccess ? `${labels.partner} and ${labels.location.toLowerCase()} added.` : (submitError || `Failed to add ${labels.partner.toLowerCase()}.`)}
+              {dialogSuccess ? (isStockist ? 'Stockist' : 'Farmer') + ` and ${labels.location.toLowerCase()} added.` : (submitError || (isStockist ? 'Failed to add stockist.' : 'Failed to add farmer.'))}
             </Text>
           </Dialog.Content>
           <Dialog.Actions>

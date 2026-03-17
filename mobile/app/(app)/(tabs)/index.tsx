@@ -147,6 +147,7 @@ function HomeScreenInner() {
     [routerInstance]
   );
   const openAddFarmer = useCallback(() => routerInstance.push('/(app)/add-farmer'), [routerInstance]);
+  const openAddStockist = useCallback(() => routerInstance.push({ pathname: '/(app)/add-farmer', params: { asStockist: '1' } }), [routerInstance]);
   const openProposeSchedule = useCallback(() => routerInstance.push('/(app)/propose-schedule'), [routerInstance]);
 
   const today = new Date().toISOString().slice(0, 10);
@@ -253,8 +254,13 @@ function HomeScreenInner() {
             )}
             <ActionCard
               icon="account-plus"
-              label={`Add ${labels.partner}`}
+              label="Add farmer"
               onPress={openAddFarmer}
+            />
+            <ActionCard
+              icon="store-outline"
+              label="Add stockist"
+              onPress={openAddStockist}
             />
             <ActionCard
               icon="calendar"

@@ -405,6 +405,7 @@ export const api = {
     longitude?: number;
     crop_type?: string;
     assigned_officer?: string | null;
+    is_stockist?: boolean;
   }) {
     return request<Farmer>('/farmers/', {
       method: 'POST',
@@ -412,9 +413,12 @@ export const api = {
     });
   },
 
-  /** Fetch farms (optionally for one farmer). Fetches all pages when response is paginated. */
-  async getFarms(farmerId?: string) {
-    const base = farmerId ? `/farms/?farmer=${encodeURIComponent(farmerId)}` : '/farms/';
+  /** Fetch farms (optionally for one farmer, optionally filter by is_outlet). Fetches all pages when response is paginated. */
+  async getFarms(farmerId?: string, opts?: { is_outlet?: boolean }) {
+    const params = new URLSearchParams();
+    if (farmerId) params.set('farmer', farmerId);
+    if (opts?.is_outlet !== undefined) params.set('is_outlet', String(opts.is_outlet));
+    const base = params.toString() ? `/farms/?${params.toString()}` : '/farms/';
     const all: Farm[] = [];
     let page = 1;
     type PageResponse = { results?: Farm[]; next?: string | null };
@@ -440,6 +444,7 @@ export const api = {
     longitude: number;
     plot_size?: string;
     crop_type?: string;
+    is_outlet?: boolean;
     device_latitude?: number;
     device_longitude?: number;
   }) {
@@ -657,8 +662,11 @@ export const api = {
     return request<OptionsResponse>('/options/');
   },
 
-  async getFarmers(params?: { search?: string }) {
-    const q = params?.search?.trim() ? `?search=${encodeURIComponent(params.search.trim())}` : '';
+  async getFarmers(params?: { search?: string; is_stockist?: boolean }) {
+    const searchParams = new URLSearchParams();
+    if (params?.search?.trim()) searchParams.set('search', params.search.trim());
+    if (params?.is_stockist !== undefined) searchParams.set('is_stockist', String(params.is_stockist));
+    const q = searchParams.toString() ? `?${searchParams.toString()}` : '';
     const data = await request<Farmer[] | { results: Farmer[] }>(`/farmers/${q}`);
     return ensureArray(data);
   },

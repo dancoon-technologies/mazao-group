@@ -15,7 +15,6 @@ import {
 } from "@mantine/core";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
-import { useAsyncData } from "@/hooks/useAsyncData";
 import { api } from "@/lib/api";
 import { formatDuration, formatLatLng } from "@/lib/format";
 import type { LocationReport } from "@/lib/types";
@@ -77,26 +76,12 @@ export default function TrackingPage() {
   const [userId, setUserId] = useState<string | null>(null);
   const [tablePage, setTablePage] = useState(1);
 
-  const { data: staffData } = useAsyncData(
-    (signal) => (role === ROLES.ADMIN ? api.getStaff({ signal }) : Promise.resolve([])),
-    [role]
-  );
-  const staffList = staffData ?? [];
-  const userOptions = useMemo(() => {
-    const seen = new Set<string>();
-    return staffList
-      .filter((s) => s.id && !seen.has(s.id) && seen.add(s.id))
-      .map((s) => ({
-        value: String(s.id),
-        label: s.display_name || s.email || String(s.id),
-      }));
-  }, [staffList]);
-  const validUserIds = useMemo(
-    () => new Set(userOptions.map((o) => o.value)),
-    [userOptions]
-  );
-  const userSelectValue =
-    userId && validUserIds.has(userId) ? userId : "__all__";
+  // User filter options are derived from tracking reports themselves so that
+  // supervisors are automatically scoped to their department by the backend,
+  // while admins can see all tracked users.
+  const [knownUsers, setKnownUsers] = useState<
+    { id: string; email: string; display_name: string | null }[]
+  >([]);
 
   const dateFromOptions = useMemo(() => {
     const base = [
@@ -132,20 +117,63 @@ export default function TrackingPage() {
     return { ...base, date_from: dateFrom, date_to: dateTo };
   }, [dateFrom, dateTo, userId]);
 
-  const {
-    data: reportsData,
-    error,
-    loading,
-    refetch,
-  } = useAsyncData(
-    useCallback(
-      (signal) => api.getTrackingReports(reportParams, { signal }),
-      [reportParams]
-    ),
+  const [reports, setReports] = useState<LocationReport[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const loadReports = useCallback(
+    async (signal?: AbortSignal | null) => {
+      setLoading(true);
+      setError(null);
+      try {
+        const data = await api.getTrackingReports(reportParams, { signal: signal ?? undefined });
+        const list: LocationReport[] = data?.results ?? [];
+        setReports(list);
+        // Update known users for the User select.
+        const byId = new Map<string, { id: string; email: string; display_name: string | null }>();
+        for (const r of list) {
+          if (!r.user_id) continue;
+          if (!byId.has(r.user_id)) {
+            byId.set(r.user_id, {
+              id: r.user_id,
+              email: r.user_email,
+              display_name: r.user_display_name,
+            });
+          }
+        }
+        setKnownUsers(Array.from(byId.values()));
+      } catch (e) {
+        if (e instanceof Error) setError(e.message);
+        else setError("Failed to load tracking reports");
+      } finally {
+        setLoading(false);
+      }
+    },
     [reportParams]
   );
 
-  const reports: LocationReport[] = reportsData?.results ?? [];
+  useEffect(() => {
+    const controller = new AbortController();
+    loadReports(controller.signal);
+    return () => controller.abort();
+  }, [loadReports]);
+
+  const userOptions = useMemo(() => {
+    const seen = new Set<string>();
+    return knownUsers
+      .filter((u) => u.id && !seen.has(u.id) && seen.add(u.id))
+      .map((u) => ({
+        value: String(u.id),
+        label: u.display_name || u.email || String(u.id),
+      }));
+  }, [knownUsers]);
+
+  const validUserIds = useMemo(
+    () => new Set(userOptions.map((o) => o.value)),
+    [userOptions]
+  );
+  const userSelectValue =
+    userId && validUserIds.has(userId) ? userId : "__all__";
 
   const REPORTS_TABLE_PAGE_SIZE = 25;
   const totalTablePages = Math.max(1, Math.ceil(reports.length / REPORTS_TABLE_PAGE_SIZE));
@@ -165,11 +193,11 @@ export default function TrackingPage() {
     if (!canView) return;
     const id = setInterval(() => {
       if (typeof document !== "undefined" && !document.hidden) {
-        refetch();
+        loadReports();
       }
     }, POLL_INTERVAL_MS);
     return () => clearInterval(id);
-  }, [canView, refetch]);
+  }, [canView, loadReports]);
 
   const reportTime = (r: LocationReport) => r.reported_at_server ?? r.reported_at;
   const durationByReportId = useMemo(() => {
@@ -210,9 +238,7 @@ export default function TrackingPage() {
 
   const reportsForMap = userId ? reports : latestByUser;
   const selectedUserLabel = userId
-    ? staffList.find((s) => s.id === userId)?.display_name ||
-      staffList.find((s) => s.id === userId)?.email ||
-      "User"
+    ? userOptions.find((o) => o.value === userId)?.label ?? "User"
     : null;
 
   const hasData = reports.length > 0;

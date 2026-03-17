@@ -32,18 +32,31 @@ function capSchedules(list: ScheduleRow[]): ScheduleRow[] {
   return [...list].sort((a, b) => b.scheduled_date - a.scheduled_date).slice(0, MAX_SCHEDULES);
 }
 
-export async function getFarmers(): Promise<FarmerRow[]> {
-  const list = farmers$.get() ?? [];
+export async function getFarmers(opts?: { is_stockist?: boolean }): Promise<FarmerRow[]> {
+  let list = farmers$.get() ?? [];
+  if (opts?.is_stockist !== undefined) {
+    const want = opts.is_stockist ? 1 : 0;
+    list = list.filter((f) => (f.is_stockist ?? 0) === want);
+  }
   return [...list].sort((a, b) => (a.display_name || a.first_name).localeCompare(b.display_name || b.first_name));
 }
 
-export async function getFarms(farmerId: string): Promise<FarmRow[]> {
-  const list = farms$.get() ?? [];
-  return list.filter((f) => f.farmer_id === farmerId).sort((a, b) => a.village.localeCompare(b.village));
+export async function getFarms(farmerId: string, opts?: { is_outlet?: boolean }): Promise<FarmRow[]> {
+  let list = farms$.get() ?? [];
+  list = list.filter((f) => f.farmer_id === farmerId);
+  if (opts?.is_outlet !== undefined) {
+    const want = opts.is_outlet ? 1 : 0;
+    list = list.filter((f) => (f.is_outlet ?? 0) === want);
+  }
+  return [...list].sort((a, b) => a.village.localeCompare(b.village));
 }
 
-export async function getAllFarms(): Promise<FarmRow[]> {
-  const list = farms$.get() ?? [];
+export async function getAllFarms(opts?: { is_outlet?: boolean }): Promise<FarmRow[]> {
+  let list = farms$.get() ?? [];
+  if (opts?.is_outlet !== undefined) {
+    const want = opts.is_outlet ? 1 : 0;
+    list = list.filter((f) => (f.is_outlet ?? 0) === want);
+  }
   return [...list].sort((a, b) => a.farmer_id.localeCompare(b.farmer_id) || a.village.localeCompare(b.village));
 }
 
@@ -123,6 +136,11 @@ export async function markSyncItemSynced(id: string): Promise<void> {
   );
 }
 
+/** Remove a queue item (e.g. after permanent upload failure so it no longer blocks sync). */
+export async function removeSyncItem(id: string): Promise<void> {
+  syncQueue$.set((prev) => (prev ?? []).filter((q) => q.id !== id));
+}
+
 export async function getPendingSyncCount(): Promise<number> {
   const list = syncQueue$.get() ?? [];
   return list.filter((q) => q.status === 'pending').length;
@@ -167,6 +185,7 @@ function toScheduleRow(data: Record<string, unknown>): ScheduleRow {
 }
 
 function toFarmerRow(data: Record<string, unknown>): FarmerRow {
+  const isStockist = data.is_stockist === true || data.is_stockist === 'true' || data.is_stockist === 1;
   return {
     id: String(data.id),
     first_name: String(data.first_name ?? ''),
@@ -174,6 +193,7 @@ function toFarmerRow(data: Record<string, unknown>): FarmerRow {
     last_name: String(data.last_name ?? ''),
     display_name: data.display_name != null ? String(data.display_name) : null,
     phone: data.phone != null ? String(data.phone) : null,
+    is_stockist: isStockist ? 1 : 0,
     latitude: data.latitude != null ? String(data.latitude) : null,
     longitude: data.longitude != null ? String(data.longitude) : null,
     crop_type: data.crop_type != null ? String(data.crop_type) : null,
@@ -183,14 +203,16 @@ function toFarmerRow(data: Record<string, unknown>): FarmerRow {
 }
 
 function toFarmRow(data: Record<string, unknown>): FarmRow {
+  const isOutlet = data.is_outlet === true || data.is_outlet === 'true' || data.is_outlet === 1;
   return {
     id: String(data.id),
-    farmer_id: String(data.farmer_id ?? ''),
+    farmer_id: String(data.farmer_id ?? data.farmer ?? ''),
     village: String(data.village ?? ''),
     latitude: Number(data.latitude) || 0,
     longitude: Number(data.longitude) || 0,
     plot_size: data.plot_size != null ? String(data.plot_size) : null,
     crop_type: data.crop_type != null ? String(data.crop_type) : null,
+    is_outlet: isOutlet ? 1 : 0,
     region_id: data.region_id != null ? Number(data.region_id) : null,
     county_id: data.county_id != null ? Number(data.county_id) : null,
     sub_county_id: data.sub_county_id != null ? Number(data.sub_county_id) : null,

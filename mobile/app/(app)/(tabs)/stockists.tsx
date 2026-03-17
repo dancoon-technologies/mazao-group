@@ -27,12 +27,12 @@ function formatFarmLocations(farms: Farm[]): string {
     .join(' • ');
 }
 
-export default function FarmersScreen() {
+export default function StockistsScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { refreshTrigger } = useAppRefresh();
   const prevRefreshTrigger = useRef(0);
-  const [farmers, setFarmers] = useState<Farmer[]>([]);
+  const [stockists, setStockists] = useState<Farmer[]>([]);
   const [farmsByFarmer, setFarmsByFarmer] = useState<Record<string, Farm[]>>({});
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -41,11 +41,11 @@ export default function FarmersScreen() {
 
   const loadFromDb = useCallback(async () => {
     const [farmerRows, farmRows] = await Promise.all([
-      getFarmersDb({ is_stockist: false }),
+      getFarmersDb({ is_stockist: true }),
       getAllFarms(),
     ]);
     const list = farmerRows.map(farmerRowToFarmer);
-    setFarmers(list);
+    setStockists(list);
     const byFarmer: Record<string, Farm[]> = {};
     for (const row of farmRows) {
       const farm = farmRowToFarm(row);
@@ -60,16 +60,16 @@ export default function FarmersScreen() {
     const connected = await NetInfo.fetch().then((s) => s.isConnected ?? false);
     if (connected) {
       try {
-        const [farmersData, farmsData] = await Promise.all([
+        const [stockistsData, farmsData] = await Promise.all([
           api.getFarmers(
             searchQuery?.trim()
-              ? { search: searchQuery.trim(), is_stockist: false }
-              : { is_stockist: false }
+              ? { search: searchQuery.trim(), is_stockist: true }
+              : { is_stockist: true }
           ),
           api.getFarms(),
         ]);
-        const list = Array.isArray(farmersData) ? farmersData : [];
-        setFarmers(list);
+        const list = Array.isArray(stockistsData) ? stockistsData : [];
+        setStockists(list);
         const byFarmer: Record<string, Farm[]> = {};
         const farms = Array.isArray(farmsData) ? farmsData : [];
         for (const farm of farms) {
@@ -88,7 +88,6 @@ export default function FarmersScreen() {
     setRefreshing(false);
   }, [loadFromDb]);
 
-  // Refetch when app returns to foreground and sync completed (e.g. after unlock)
   useEffect(() => {
     if (refreshTrigger > 0 && refreshTrigger !== prevRefreshTrigger.current) {
       prevRefreshTrigger.current = refreshTrigger;
@@ -110,41 +109,47 @@ export default function FarmersScreen() {
     load(search.trim() || undefined);
   }, [load, search]);
 
-  const filteredFarmers = useMemo(() => {
-    if (!search.trim()) return farmers;
+  const filteredStockists = useMemo(() => {
+    if (!search.trim()) return stockists;
     const q = search.trim().toLowerCase();
-    return farmers.filter(
+    return stockists.filter(
       (f) =>
         f.display_name.toLowerCase().includes(q) ||
         (f.phone ?? '').toLowerCase().includes(q)
     );
-  }, [farmers, search]);
+  }, [stockists, search]);
 
-  const openAddFarmer = useCallback(() => router.push('/(app)/add-farmer'), [router]);
-  const openFarmer = useCallback((id: string) => router.push({ pathname: '/farmers/[id]', params: { id } }), [router]);
+  const openAddStockist = useCallback(
+    () => router.push({ pathname: '/(app)/add-farmer', params: { asStockist: '1' } }),
+    [router]
+  );
+  const openStockist = useCallback(
+    (id: string) => router.push({ pathname: '/farmers/[id]', params: { id } }),
+    [router]
+  );
 
-  const renderFarmerItem = useCallback(
-    ({ item: farmer }: { item: Farmer }) => {
-      const farms = farmsByFarmer[farmer.id] ?? [];
+  const renderItem = useCallback(
+    ({ item: stockist }: { item: Farmer }) => {
+      const farms = farmsByFarmer[stockist.id] ?? [];
       const farmCount = farms.length;
       const locations = formatFarmLocations(farms);
       const subtitle = [
-        farmer.phone ? farmer.phone : null,
-        farmCount === 1 ? '1 Farm' : `${farmCount} Farms`,
+        stockist.phone ? stockist.phone : null,
+        farmCount === 1 ? '1 location' : `${farmCount} locations`,
         locations ? locations : null,
       ]
         .filter(Boolean)
         .join(' · ');
       return (
         <ListItemRow
-          avatarLetter={farmer.display_name}
-          title={farmer.display_name}
+          avatarLetter={stockist.display_name}
+          title={stockist.display_name}
           subtitle={subtitle || '—'}
-          onPress={() => openFarmer(farmer.id)}
+          onPress={() => openStockist(stockist.id)}
         />
       );
     },
-    [farmsByFarmer, openFarmer]
+    [farmsByFarmer, openStockist]
   );
 
   const listEmptyComponent = useMemo(
@@ -152,79 +157,79 @@ export default function FarmersScreen() {
       <Card style={styles.card} elevation={0}>
         <Card.Content>
           <Text variant="bodyMedium">
-            {search.trim() ? 'No farmers match your search.' : 'No farmers'}
+            {search.trim() ? 'No stockists match your search.' : 'No stockists'}
           </Text>
           {!search.trim() && (
-            <Button mode="contained" onPress={openAddFarmer} style={styles.addBtn}>
-              Add farmer
+            <Button mode="contained" onPress={openAddStockist} style={[styles.addBtn, styles.fabStockistBtn]}>
+              Add stockist
             </Button>
           )}
         </Card.Content>
       </Card>
     ),
-    [search.trim(), openAddFarmer]
+    [search.trim(), openAddStockist]
   );
 
   return (
     <View style={styles.container}>
-    <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
-      <View style={styles.header}>
-        <View style={styles.headerText}>
-          <Text variant="bodyLarge" style={styles.title}>Farmers</Text>
-          <Text variant="bodyMedium" style={styles.subtitle}>
-            Manage assigned farmers.
-          </Text>
-        </View>
-      </View>
-
-      <Searchbar
-        placeholder="Search by name or phone..."
-        value={search}
-        onChangeText={setSearch}
-        onSubmitEditing={onSearchSubmit}
-        style={styles.searchbar}
-      />
-
-      {loading ? (
-        <ActivityIndicator size="large" style={styles.loader} />
-      ) : error ? (
-        <Card style={styles.card} elevation={0}>
-          <Card.Content>
-            <Text variant="bodyMedium" style={styles.error}>
-              {error}
+      <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
+        <View style={styles.header}>
+          <View style={styles.headerText}>
+            <Text variant="bodyLarge" style={styles.title}>Stockists</Text>
+            <Text variant="bodyMedium" style={styles.subtitle}>
+              Manage stockists and outlets.
             </Text>
-            <Button mode="outlined" onPress={() => load()}>
-              Retry
-            </Button>
-          </Card.Content>
-        </Card>
-      ) : (
-        <FlatList
-          data={filteredFarmers}
-          keyExtractor={(item) => item.id}
-          renderItem={renderFarmerItem}
-          ListEmptyComponent={listEmptyComponent}
-          initialNumToRender={12}
-          maxToRenderPerBatch={10}
-          windowSize={5}
-          removeClippedSubviews={true}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-          }
-          style={styles.scroll}
-          contentContainerStyle={styles.content}
-          keyboardShouldPersistTaps="handled"
+          </View>
+        </View>
+
+        <Searchbar
+          placeholder="Search by name or phone..."
+          value={search}
+          onChangeText={setSearch}
+          onSubmitEditing={onSearchSubmit}
+          style={styles.searchbar}
         />
-      )}
-    </SafeAreaView>
+
+        {loading ? (
+          <ActivityIndicator size="large" style={styles.loader} />
+        ) : error ? (
+          <Card style={styles.card} elevation={0}>
+            <Card.Content>
+              <Text variant="bodyMedium" style={styles.error}>
+                {error}
+              </Text>
+              <Button mode="outlined" onPress={() => load()}>
+                Retry
+              </Button>
+            </Card.Content>
+          </Card>
+        ) : (
+          <FlatList
+            data={filteredStockists}
+            keyExtractor={(item) => item.id}
+            renderItem={renderItem}
+            ListEmptyComponent={listEmptyComponent}
+            initialNumToRender={12}
+            maxToRenderPerBatch={10}
+            windowSize={5}
+            removeClippedSubviews={true}
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+            }
+            style={styles.scroll}
+            contentContainerStyle={styles.content}
+            keyboardShouldPersistTaps="handled"
+          />
+        )}
+      </SafeAreaView>
       <View
         style={[styles.fabWrap, { bottom: insets.bottom + TAB_BAR_HEIGHT + 4 }]}
         pointerEvents="box-none"
       >
         <FAB
-          icon="account-plus"
-          onPress={openAddFarmer}
-          style={styles.fab}
+          icon="store-outline"
+          onPress={openAddStockist}
+          style={[styles.fab, styles.fabStockist]}
           color="#fff"
         />
       </View>
@@ -246,16 +251,6 @@ const styles = StyleSheet.create({
   headerText: { flex: 1 },
   title: { fontWeight: '700', fontSize: 20 },
   subtitle: { opacity: 0.7, marginTop: 2 },
-  addButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: 10,
-    borderRadius: 8,
-    gap: 6,
-  },
-  addButtonLabel: { color: '#fff', fontWeight: '600', fontSize: 15 },
   searchbar: {
     marginHorizontal: spacing.lg,
     marginTop: spacing.sm,
@@ -267,7 +262,7 @@ const styles = StyleSheet.create({
   card: { ...cardStyle, ...cardShadow, marginBottom: 16 },
   error: { marginBottom: 8 },
   addBtn: { marginTop: 12 },
-  cardList: { gap: 0 },
+  fabStockistBtn: { backgroundColor: colors.accent },
   fabWrap: {
     position: 'absolute',
     left: 0,
@@ -277,5 +272,8 @@ const styles = StyleSheet.create({
   },
   fab: {
     backgroundColor: colors.primary,
+  },
+  fabStockist: {
+    backgroundColor: colors.accent,
   },
 });

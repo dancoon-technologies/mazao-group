@@ -160,21 +160,22 @@ export default function RecordVisitScreen() {
     return () => sub();
   }, []);
 
+  const applyOptions = useCallback((o: import('@/lib/api').OptionsResponse) => {
+    setVisitSettings(o.visit_settings ?? { max_distance_meters: DEFAULT_MAX_DISTANCE_METERS, warning_distance_meters: DEFAULT_WARNING_DISTANCE_METERS });
+    if (o.activity_types?.length) {
+      setActivityTypesList(o.activity_types);
+      setActivityTypes((prev) => {
+        const allowed = o.activity_types!.map((a) => a.value);
+        const kept = prev.filter((v) => allowed.includes(v));
+        if (kept.length > 0) return kept;
+        return [o.activity_types![0]?.value ?? DEFAULT_ACTIVITY_TYPE];
+      });
+    } else {
+      setActivityTypesList(ACTIVITY_TYPES.map((a) => ({ value: a.value, label: a.label })));
+    }
+  }, []);
+
   useEffect(() => {
-    const applyOptions = (o: import('@/lib/api').OptionsResponse) => {
-      setVisitSettings(o.visit_settings ?? { max_distance_meters: DEFAULT_MAX_DISTANCE_METERS, warning_distance_meters: DEFAULT_WARNING_DISTANCE_METERS });
-      if (o.activity_types?.length) {
-        setActivityTypesList(o.activity_types);
-        setActivityTypes((prev) => {
-          const allowed = o.activity_types!.map((a) => a.value);
-          const kept = prev.filter((v) => allowed.includes(v));
-          if (kept.length > 0) return kept;
-          return [o.activity_types![0]?.value ?? DEFAULT_ACTIVITY_TYPE];
-        });
-      } else {
-        setActivityTypesList(ACTIVITY_TYPES.map((a) => ({ value: a.value, label: a.label })));
-      }
-    };
     api
       .getOptions()
       .then((o) => {
@@ -190,7 +191,7 @@ export default function RecordVisitScreen() {
           setActivityTypesList(ACTIVITY_TYPES.map((a) => ({ value: a.value, label: a.label })));
         }
       });
-  }, []);
+  }, [applyOptions]);
 
   const activityTypeOptions = useMemo(
     () =>
@@ -257,6 +258,13 @@ export default function RecordVisitScreen() {
     useCallback(() => {
       let cancelled = false;
       const farmerId = params.farmerId;
+      // Refetch options on focus so active activity types and form_fields are up to date
+      api.getOptions().then((o) => {
+        if (!cancelled) {
+          appMeta$.cachedOptions.set(o);
+          applyOptions(o);
+        }
+      }).catch(() => { /* keep existing cache */ });
       (async () => {
         try {
           const rows = await getFarmersDb();
@@ -307,7 +315,7 @@ export default function RecordVisitScreen() {
         }
       })();
       return () => { cancelled = true; };
-    }, [params.farmerId, userId])
+    }, [params.farmerId, userId, applyOptions])
   );
 
   const acceptedSchedules = useMemo(() => {

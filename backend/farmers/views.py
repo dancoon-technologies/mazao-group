@@ -41,6 +41,12 @@ class FarmerListCreateView(generics.ListCreateAPIView):
                 | Q(last_name__icontains=search)
                 | Q(phone__icontains=search)
             )
+        is_stockist = self.request.query_params.get("is_stockist")
+        if is_stockist is not None:
+            if is_stockist.lower() in ("true", "1", "yes"):
+                qs = qs.filter(is_stockist=True)
+            elif is_stockist.lower() in ("false", "0", "no"):
+                qs = qs.filter(is_stockist=False)
         return qs
 
     def create(self, request, *args, **kwargs):
@@ -116,10 +122,15 @@ class FarmListCreateView(generics.ListCreateAPIView):
             "county_id",
             "sub_county_id",
         ).order_by("farmer", "created_at")
-        # Admin, supervisor, and officers all see all farms (e.g. for propose schedule when picking any farmer)
         farmer_id = self.request.query_params.get("farmer")
         if farmer_id:
             qs = qs.filter(farmer_id=farmer_id)
+        is_outlet = self.request.query_params.get("is_outlet")
+        if is_outlet is not None:
+            if is_outlet.lower() in ("true", "1", "yes"):
+                qs = qs.filter(is_outlet=True)
+            elif is_outlet.lower() in ("false", "0", "no"):
+                qs = qs.filter(is_outlet=False)
         return qs
 
     def create(self, request, *args, **kwargs):

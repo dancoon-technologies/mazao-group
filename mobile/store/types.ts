@@ -7,6 +7,8 @@ export interface FarmerRow {
   last_name: string;
   display_name: string | null;
   phone: string | null;
+  /** When true this record is a stockist. */
+  is_stockist?: number;
   latitude: string | null;
   longitude: string | null;
   crop_type: string | null;
@@ -22,6 +24,8 @@ export interface FarmRow {
   longitude: number;
   plot_size: string | null;
   crop_type: string | null;
+  /** When true this location is an outlet/shop rather than a farm. */
+  is_outlet?: number;
   region_id: number | null;
   county_id: number | null;
   sub_county_id: number | null;

@@ -81,8 +81,11 @@ export const api = {
     return res.json();
   },
 
-  async getFarmers(options?: { signal?: AbortSignal }): Promise<Farmer[]> {
-    const res = await authFetch(`${API_BASE}/api/farmers`, { signal: options?.signal });
+  async getFarmers(options?: { signal?: AbortSignal; is_stockist?: boolean }): Promise<Farmer[]> {
+    const params = new URLSearchParams();
+    if (options?.is_stockist !== undefined) params.set("is_stockist", String(options.is_stockist));
+    const qs = params.toString() ? `?${params.toString()}` : "";
+    const res = await authFetch(`${API_BASE}/api/farmers${qs}`, { signal: options?.signal });
     if (!res.ok) throw new Error("Failed to fetch farmers");
     return unwrapList(await res.json());
   },
@@ -105,6 +108,7 @@ export const api = {
     longitude: number;
     crop_type?: string;
     assigned_officer?: string;
+    is_stockist?: boolean;
   }): Promise<Farmer> {
     const res = await authFetch(`${API_BASE}/api/farmers`, {
       method: "POST",
@@ -125,12 +129,13 @@ export const api = {
 
   async getFarms(
     farmerId?: string | null,
-    options?: { signal?: AbortSignal }
+    options?: { signal?: AbortSignal; is_outlet?: boolean }
   ): Promise<Farm[]> {
-    const url = farmerId
-      ? `${API_BASE}/api/farms?farmer=${encodeURIComponent(farmerId)}`
-      : `${API_BASE}/api/farms`;
-    const res = await authFetch(url, { signal: options?.signal });
+    const params = new URLSearchParams();
+    if (farmerId) params.set("farmer", farmerId);
+    if (options?.is_outlet !== undefined) params.set("is_outlet", String(options.is_outlet));
+    const qs = params.toString() ? `?${params.toString()}` : "";
+    const res = await authFetch(`${API_BASE}/api/farms${qs}`, { signal: options?.signal });
     if (!res.ok) throw new Error("Failed to fetch farms");
     return unwrapList(await res.json());
   },
@@ -153,6 +158,7 @@ export const api = {
     longitude: number;
     plot_size?: string;
     crop_type?: string;
+    is_outlet?: boolean;
   }): Promise<Farm> {
     const res = await authFetch(`${API_BASE}/api/farms`, {
       method: "POST",

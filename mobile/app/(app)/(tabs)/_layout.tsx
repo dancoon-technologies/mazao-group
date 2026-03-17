@@ -2,9 +2,6 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Tabs, useRouter } from 'expo-router';
 import { Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { getLabels } from '@/lib/api';
-import { appMeta$ } from '@/store/observable';
-import { useSelector } from '@legendapp/state/react';
 import { colors, shadows } from '@/constants/theme';
 
 const TAB_ICONS: Record<string, keyof typeof MaterialCommunityIcons.glyphMap> = {
@@ -12,13 +9,13 @@ const TAB_ICONS: Record<string, keyof typeof MaterialCommunityIcons.glyphMap> = 
   visits: 'format-list-bulleted',
   record: 'plus-circle',
   farmers: 'account-group',
+  stockists: 'store-outline',
   profile: 'account',
 };
 
 export default function AppTabsLayout() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const labels = useSelector(() => getLabels(appMeta$.cachedOptions.get()));
 
   return (
     <Tabs
@@ -110,9 +107,19 @@ export default function AppTabsLayout() {
         name="farmers"
         options={{
           headerShown: false,
-          title: `${labels.partner}s`,
+          title: 'Farmers',
           tabBarIcon: ({ color, size }) => (
             <MaterialCommunityIcons name={TAB_ICONS.farmers} size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="stockists"
+        options={{
+          headerShown: false,
+          title: 'Stockists',
+          tabBarIcon: ({ color, size }) => (
+            <MaterialCommunityIcons name={TAB_ICONS.stockists} size={size} color={color} />
           ),
         }}
       />

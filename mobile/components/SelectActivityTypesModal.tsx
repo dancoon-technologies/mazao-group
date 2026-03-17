@@ -6,6 +6,8 @@ import {
   StyleSheet,
   FlatList,
   Pressable,
+  KeyboardAvoidingView,
+  Platform,
 } from "react-native";
 import { Button, Searchbar, Text } from "react-native-paper";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
@@ -92,49 +94,54 @@ export function SelectActivityTypesModal({
     >
       <View style={styles.overlay}>
         <Pressable style={styles.backdrop} onPress={onClose} />
-        <View style={styles.sheet}>
-          <View style={styles.header}>
-            <Text variant="titleMedium" style={styles.title}>
-              {title}
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          keyboardVerticalOffset={Platform.OS === "ios" ? 24 : 0}
+        >
+          <View style={styles.sheet}>
+            <View style={styles.header}>
+              <Text variant="titleMedium" style={styles.title}>
+                {title}
+              </Text>
+              <Button mode="text" compact onPress={onClose} style={styles.closeBtn}>
+                Cancel
+              </Button>
+            </View>
+            <Text variant="bodySmall" style={styles.hint}>
+              Tap to add or remove. At least one activity is required.
             </Text>
-            <Button mode="text" compact onPress={onClose} style={styles.closeBtn}>
-              Cancel
-            </Button>
+            <Searchbar
+              placeholder="Search activities…"
+              value={search}
+              onChangeText={setSearch}
+              style={styles.searchInput}
+            />
+            <FlatList
+              data={filtered}
+              keyExtractor={(item) => item.value}
+              renderItem={renderItem}
+              style={styles.list}
+              keyboardShouldPersistTaps="handled"
+              ListEmptyComponent={
+                search.trim() ? (
+                  <View style={styles.empty}>
+                    <Text variant="bodySmall" style={styles.emptyText}>
+                      No activities match "{search.trim()}"
+                    </Text>
+                  </View>
+                ) : null
+              }
+            />
+            <View style={styles.footer}>
+              <Text variant="bodySmall" style={styles.count}>
+                {pending.length} selected
+              </Text>
+              <Button mode="contained" onPress={handleDone} style={styles.doneBtn}>
+                Done
+              </Button>
+            </View>
           </View>
-          <Text variant="bodySmall" style={styles.hint}>
-            Tap to add or remove. At least one activity is required.
-          </Text>
-          <Searchbar
-            placeholder="Search activities…"
-            value={search}
-            onChangeText={setSearch}
-            style={styles.searchInput}
-          />
-          <FlatList
-            data={filtered}
-            keyExtractor={(item) => item.value}
-            renderItem={renderItem}
-            style={styles.list}
-            keyboardShouldPersistTaps="handled"
-            ListEmptyComponent={
-              search.trim() ? (
-                <View style={styles.empty}>
-                  <Text variant="bodySmall" style={styles.emptyText}>
-                    No activities match "{search.trim()}"
-                  </Text>
-                </View>
-              ) : null
-            }
-          />
-          <View style={styles.footer}>
-            <Text variant="bodySmall" style={styles.count}>
-              {pending.length} selected
-            </Text>
-            <Button mode="contained" onPress={handleDone} style={styles.doneBtn}>
-              Done
-            </Button>
-          </View>
-        </View>
+        </KeyboardAvoidingView>
       </View>
     </Modal>
   );

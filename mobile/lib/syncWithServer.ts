@@ -9,6 +9,7 @@ import {
   getPendingSyncCount as getPendingSyncCountDb,
   getPendingSyncQueue,
   markSyncItemSynced,
+  removeSyncItem,
   enqueueSyncItem,
 } from '@/store/database'
 import {
@@ -33,7 +34,7 @@ async function setLastSync(iso: string): Promise<void> {
   await SecureStore.setItemAsync(LAST_SYNC_KEY, iso)
 }
 
-/** Push pending sync queue items to the server. Fail fast: on first item error returns immediately (remaining items stay pending for next sync). */
+/** Push pending sync queue items to the server. Failing items are removed so they do not block sync; successful items are returned for marking synced. */
 async function pushQueue(accessToken: string): Promise<{ ok: boolean; error?: string; pushedIds: string[] }> {
   await refreshDeviceClockOffset(accessToken)
   const toSync = await getPendingSyncQueue()
@@ -119,7 +120,9 @@ async function pushQueue(accessToken: string): Promise<{ ok: boolean; error?: st
         })
         if (!res.ok) {
           const err = await res.json().catch(() => ({}))
-          return { ok: false, error: (err.detail || err.photo?.[0] || 'Visit upload failed') as string, pushedIds }
+          logger.warn('pushQueue: visit upload failed, removing from queue', item.id, (err.detail || err.photo?.[0] || 'Visit upload failed') as string)
+          await removeSyncItem(item.id)
+          continue
         }
         pushedIds.push(item.id)
       } else if (item.entity === 'schedule') {
@@ -139,7 +142,9 @@ async function pushQueue(accessToken: string): Promise<{ ok: boolean; error?: st
         })
         if (!res.ok) {
           const err = await res.json().catch(() => ({}))
-          return { ok: false, error: (err.detail || 'Schedule upload failed') as string, pushedIds }
+          logger.warn('pushQueue: schedule upload failed, removing from queue', item.id, (err.detail || 'Schedule upload failed') as string)
+          await removeSyncItem(item.id)
+          continue
         }
         pushedIds.push(item.id)
       } else if (item.entity === 'farmer_with_farm') {
@@ -159,12 +164,15 @@ async function pushQueue(accessToken: string): Promise<{ ok: boolean; error?: st
             crop_type: farmerPayload.crop_type ?? undefined,
             latitude: farmerPayload.latitude,
             longitude: farmerPayload.longitude,
+            is_stockist: farmerPayload.is_stockist ?? false,
           }),
         })
         if (!farmerRes.ok) {
           const err = await farmerRes.json().catch(() => ({}))
-          const errObj = err as { detail?: string; first_name?: string[] };
-          return { ok: false, error: (errObj.detail || errObj.first_name?.[0] || 'Farmer create failed') as string, pushedIds }
+          const errObj = err as { detail?: string; first_name?: string[] }
+          logger.warn('pushQueue: farmer_with_farm upload failed, removing from queue', item.id, (errObj.detail || errObj.first_name?.[0] || 'Farmer create failed') as string)
+          await removeSyncItem(item.id)
+          continue
         }
         const farmerCreated = (await farmerRes.json()) as { id: string }
         const farmRes = await fetch(`${API_BASE}/farms/`, {
@@ -189,8 +197,11 @@ async function pushQueue(accessToken: string): Promise<{ ok: boolean; error?: st
         })
         if (!farmRes.ok) {
           const err = await farmRes.json().catch(() => ({}))
-          return { ok: false, error: (err.detail || 'Farm create failed') as string, pushedIds }
+          logger.warn('pushQueue: farm (farmer_with_farm) upload failed, removing from queue', item.id, (err.detail || 'Farm create failed') as string)
+          await removeSyncItem(item.id)
+          continue
         }
+        pushedIds.push(item.id)
       } else if (item.entity === 'farm') {
         const res = await fetch(`${API_BASE}/farms/`, {
           method: 'POST',
@@ -214,18 +225,17 @@ async function pushQueue(accessToken: string): Promise<{ ok: boolean; error?: st
         })
         if (!res.ok) {
           const err = await res.json().catch(() => ({}))
-          return { ok: false, error: (err.detail || 'Farm create failed') as string, pushedIds }
+          logger.warn('pushQueue: farm upload failed, removing from queue', item.id, (err.detail || 'Farm create failed') as string)
+          await removeSyncItem(item.id)
+          continue
         }
         pushedIds.push(item.id)
       }
 
       // Don't mark synced here; caller marks only after pull succeeds
     } catch (e) {
-      return {
-        ok: false,
-        error: e instanceof Error ? e.message : 'Sync queue item failed',
-        pushedIds,
-      }
+      logger.warn('pushQueue: item failed, removing from queue', item.id, e instanceof Error ? e.message : String(e))
+      await removeSyncItem(item.id)
     }
   }
   return { ok: true, pushedIds }
@@ -378,7 +388,7 @@ export async function enqueueSchedule(payload: {
   await enqueueSyncItem('schedule', 'CREATE', payload)
 }
 
-/** Enqueue farmer + farm for later sync (offline add-farmer). */
+/** Enqueue farmer + farm for later sync (offline add-farmer/add-stockist). */
 export async function enqueueFarmerWithFarm(payload: {
   farmer: {
     first_name: string
@@ -388,6 +398,7 @@ export async function enqueueFarmerWithFarm(payload: {
     crop_type?: string
     latitude: number
     longitude: number
+    is_stockist?: boolean
   }
   farm: {
     region_id: number

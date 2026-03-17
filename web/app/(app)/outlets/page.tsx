@@ -22,7 +22,7 @@ import {
 } from "@mantine/core";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-const INITIAL_FARM_FORM = {
+const INITIAL_FORM = {
   farmer_id: "",
   county_id: "",
   sub_county_id: "",
@@ -34,7 +34,7 @@ const INITIAL_FARM_FORM = {
   crop_type: "",
 };
 
-function farmColumns(farmers: Farmer[], partnerLabel: string): DataTableColumn<Farm>[] {
+function outletColumns(farmers: Farmer[], partnerLabel: string): DataTableColumn<Farm>[] {
   return [
     {
       key: "farmer",
@@ -46,7 +46,7 @@ function farmColumns(farmers: Farmer[], partnerLabel: string): DataTableColumn<F
     },
     {
       key: "village",
-      label: "Village",
+      label: "Village / Area",
       render: (f) => <Text size="sm" fw={500}>{f.village}</Text>,
     },
     { key: "county", label: "County", render: (f) => <Text size="sm" c="dimmed">{f.county}</Text> },
@@ -56,9 +56,9 @@ function farmColumns(farmers: Farmer[], partnerLabel: string): DataTableColumn<F
   ];
 }
 
-export default function FarmsPage() {
+export default function OutletsPage() {
   useAuth();
-  const [farms, setFarms] = useState<Farm[]>([]);
+  const [outlets, setOutlets] = useState<Farm[]>([]);
   const [farmers, setFarmers] = useState<Farmer[]>([]);
   const [farmerFilter, setFarmerFilter] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -66,11 +66,11 @@ export default function FarmsPage() {
   const [showForm, setShowForm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState("");
-  const [form, updateField, resetForm] = useFormFields(INITIAL_FARM_FORM);
+  const [form, updateField, resetForm] = useFormFields(INITIAL_FORM);
 
-  const loadFarms = useCallback(async () => {
-    const data = await api.getFarms(farmerFilter ?? undefined, { is_outlet: false });
-    setFarms(data);
+  const loadOutlets = useCallback(async () => {
+    const data = await api.getFarms(farmerFilter ?? undefined, { is_outlet: true });
+    setOutlets(data);
   }, [farmerFilter]);
 
   const loadFarmers = useCallback(async () => {
@@ -105,14 +105,13 @@ export default function FarmsPage() {
       .map((s) => ({ value: String(s.id), label: s.name }));
   }, [locations.sub_counties, form.county_id]);
 
-
   useEffect(() => {
     setError("");
     setLoading(true);
-    Promise.all([loadFarms(), loadFarmers()])
+    Promise.all([loadOutlets(), loadFarmers()])
       .catch((err) => setError(err instanceof Error ? err.message : "Failed to load"))
       .finally(() => setLoading(false));
-  }, [loadFarms, loadFarmers]);
+  }, [loadOutlets, loadFarmers]);
 
   const farmerOptions = farmers.map((f) => ({ value: f.id, label: f.display_name }));
 
@@ -121,7 +120,7 @@ export default function FarmsPage() {
       e.preventDefault();
       setFormError("");
       if (!form.farmer_id || !form.region_id || !form.county_id || !form.sub_county_id || !form.village.trim()) {
-        setFormError("Farmer, county, sub-county and village are required.");
+        setFormError("Stockist, county, sub-county and village are required.");
         return;
       }
       const lat = parseFloat(form.latitude);
@@ -141,28 +140,28 @@ export default function FarmsPage() {
           longitude: lon,
           plot_size: form.plot_size.trim() || undefined,
           crop_type: form.crop_type.trim() || undefined,
-          is_outlet: false,
+          is_outlet: true,
         });
         resetForm();
         setShowForm(false);
-        await loadFarms();
+        await loadOutlets();
       } catch (err) {
-        setFormError(err instanceof Error ? err.message : "Failed to create farm");
+        setFormError(err instanceof Error ? err.message : "Failed to create outlet");
       } finally {
         setSubmitting(false);
       }
     },
-    [form, resetForm, loadFarms]
+    [form, resetForm, loadOutlets]
   );
 
-  if (loading) return <PageLoading message="Loading farms…" />;
+  if (loading) return <PageLoading message="Loading outlets…" />;
   if (error) return <PageError message={error} />;
 
   return (
     <Box style={{ minWidth: PAGE_BOX_MIN_WIDTH }}>
       <PageHeader
-        title="Farms"
-        subtitle={pluralize(farms.length, "farm") + " listed"}
+        title="Outlets"
+        subtitle={pluralize(outlets.length, "outlet") + " listed"}
         action={
           <Group>
             <Select
@@ -173,8 +172,8 @@ export default function FarmsPage() {
               onChange={setFarmerFilter}
               style={{ minWidth: 200 }}
             />
-            <Button color="green" onClick={() => setShowForm(true)}>
-              Add farm
+            <Button color="yellow" onClick={() => setShowForm(true)}>
+              Add outlet
             </Button>
           </Group>
         }
@@ -183,7 +182,7 @@ export default function FarmsPage() {
       {showForm && (
         <Paper mt="md" p="md" radius="md" shadow="sm" withBorder>
           <Text size="lg" fw={600} mb="md">
-            New farm
+            New outlet
           </Text>
           <form onSubmit={handleSubmit}>
             <Stack gap="md">
@@ -231,7 +230,7 @@ export default function FarmsPage() {
                 onChange={(v) => updateField("sub_county_id", v ?? "")}
               />
               <TextInput
-                label="Village"
+                label="Village / Area"
                 required
                 value={form.village}
                 onChange={(e) => updateField("village", e.target.value)}
@@ -270,8 +269,8 @@ export default function FarmsPage() {
                 placeholder="e.g. Maize"
               />
               <Group>
-                <Button type="submit" color="green" loading={submitting}>
-                  {submitting ? "Saving…" : "Add farm"}
+                <Button type="submit" color="yellow" loading={submitting}>
+                  {submitting ? "Saving…" : "Add outlet"}
                 </Button>
                 <Button type="button" variant="default" onClick={() => setShowForm(false)}>
                   Cancel
@@ -283,11 +282,11 @@ export default function FarmsPage() {
       )}
 
       <DataTable
-        data={farms}
+        data={outlets}
         rowKey="id"
-        columns={farmColumns(farmers, labels.partner)}
+        columns={outletColumns(farmers, labels.partner)}
         minWidth={500}
-        emptyMessage="No farms found"
+        emptyMessage="No outlets found"
         pageSize={15}
       />
     </Box>

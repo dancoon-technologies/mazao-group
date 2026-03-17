@@ -12,6 +12,7 @@ export function farmerRowToFarmer(r: FarmerRow): Farmer {
     last_name: r.last_name,
     display_name: r.display_name ?? [r.first_name, r.last_name].filter(Boolean).join(' '),
     phone: r.phone ?? undefined,
+    is_stockist: (r.is_stockist ?? 0) === 1,
     latitude: r.latitude ?? undefined,
     longitude: r.longitude ?? undefined,
     crop_type: r.crop_type ?? undefined,
@@ -35,6 +36,7 @@ export function farmRowToFarm(r: FarmRow): Farm {
     longitude: r.longitude,
     plot_size: r.plot_size ?? undefined,
     crop_type: r.crop_type ?? undefined,
+    is_outlet: (r.is_outlet ?? 0) === 1,
     created_at: r.created_at ? new Date(r.created_at).toISOString() : undefined,
   };
 }

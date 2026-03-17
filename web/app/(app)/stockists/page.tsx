@@ -27,14 +27,14 @@ const MapPicker = dynamic(
   { ssr: false }
 );
 
-const FARMER_COLUMNS: DataTableColumn<Farmer>[] = [
+const STOCKIST_COLUMNS: DataTableColumn<Farmer>[] = [
   {
     key: "name",
     label: "Name",
     render: (f) => (
       <Link
         href={`/farmers/${f.id}`}
-        style={{ color: "var(--mantine-color-green-7)", fontWeight: 500, textDecoration: "none", wordBreak: "break-word" }}
+        style={{ color: "var(--mantine-color-yellow-7)", fontWeight: 500, textDecoration: "none", wordBreak: "break-word" }}
       >
         {f.display_name}
       </Link>
@@ -63,7 +63,7 @@ const FARMER_COLUMNS: DataTableColumn<Farmer>[] = [
   },
 ];
 
-const INITIAL_FARMER_FORM = {
+const INITIAL_FORM = {
   first_name: "",
   middle_name: "",
   last_name: "",
@@ -73,18 +73,18 @@ const INITIAL_FARMER_FORM = {
   crop_type: "",
 };
 
-export default function FarmersPage() {
-  const { data: farmersData, error, loading, refetch } = useAsyncData(
-    (signal) => api.getFarmers({ signal, is_stockist: false }),
+export default function StockistsPage() {
+  const { data: stockistsData, error, loading, refetch } = useAsyncData(
+    (signal) => api.getFarmers({ signal, is_stockist: true }),
     []
   );
-  const farmers = farmersData ?? [];
+  const stockists = stockistsData ?? [];
   const [showForm, setShowForm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState("");
-  const [form, updateField, resetForm] = useFormFields(INITIAL_FARMER_FORM);
+  const [form, updateField, resetForm] = useFormFields(INITIAL_FORM);
 
-  const openAddFarmer = useCallback(() => setShowForm(true), []);
+  const openAddStockist = useCallback(() => setShowForm(true), []);
 
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {
@@ -112,14 +112,14 @@ export default function FarmersPage() {
           latitude: lat,
           longitude: lon,
           crop_type: form.crop_type.trim() || undefined,
-          is_stockist: false,
+          is_stockist: true,
         });
         resetForm();
         setShowForm(false);
         await refetch();
       } catch (err) {
         setFormError(
-          err instanceof Error ? err.message : "Failed to create farmer"
+          err instanceof Error ? err.message : "Failed to create stockist"
         );
       } finally {
         setSubmitting(false);
@@ -128,17 +128,17 @@ export default function FarmersPage() {
     [form, resetForm, refetch]
   );
 
-  if (loading) return <PageLoading message="Loading farmers…" />;
+  if (loading) return <PageLoading message="Loading stockists…" />;
   if (error) return <PageError message={error} />;
 
   return (
     <Box style={{ minWidth: PAGE_BOX_MIN_WIDTH }}>
       <PageHeader
-        title="Farmers"
-        subtitle={pluralize(farmers.length, "farmer") + " listed"}
+        title="Stockists"
+        subtitle={pluralize(stockists.length, "stockist") + " listed"}
         action={
-          <Button color="green" variant="light" onClick={openAddFarmer}>
-            Add farmer
+          <Button color="yellow" variant="light" onClick={openAddStockist}>
+            Add stockist
           </Button>
         }
       />
@@ -146,7 +146,7 @@ export default function FarmersPage() {
       {showForm && (
         <Paper mt="md" p="md" radius="md" shadow="sm" withBorder>
           <Text size="lg" fw={600} mb="md">
-            New farmer
+            New stockist
           </Text>
           <form onSubmit={handleSubmit}>
             <Stack gap="md">
@@ -211,8 +211,8 @@ export default function FarmersPage() {
                 onChange={(e) => updateField("crop_type", e.target.value)}
               />
               <Group>
-                <Button type="submit" color="green" loading={submitting}>
-                  {submitting ? "Saving…" : "Add farmer"}
+                <Button type="submit" color="yellow" loading={submitting}>
+                  {submitting ? "Saving…" : "Add stockist"}
                 </Button>
                 <Button
                   type="button"
@@ -228,11 +228,11 @@ export default function FarmersPage() {
       )}
 
       <DataTable
-        data={farmers}
+        data={stockists}
         rowKey="id"
-        columns={FARMER_COLUMNS}
+        columns={STOCKIST_COLUMNS}
         minWidth={400}
-        emptyMessage="No farmers found"
+        emptyMessage="No stockists found"
         pageSize={15}
       />
     </Box>
