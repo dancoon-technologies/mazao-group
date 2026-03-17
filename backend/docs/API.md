@@ -88,7 +88,7 @@ A farmer can have **more than one farm** (piece of farming land). Each farm has 
 
 - `farmer` — filter by farmer UUID.
 
-**Access:** Admin: all farms. Supervisor: all farms (not scoped to department). Officer: farms of farmers assigned to them.
+**Access:** Admin, supervisor, and officers all see all farms (e.g. for propose schedule when picking any farmer).
 
 **Response (200):** Array of objects with `id`, `farmer`, `county`, `sub_county`, `village`, `latitude`, `longitude`, `plot_size`, `crop_type`, `created_at`.
 

@@ -80,7 +80,7 @@ class FarmerListCreateView(generics.ListCreateAPIView):
 
 
 class FarmListCreateView(generics.ListCreateAPIView):
-    """List farms: all authenticated users see all farms (optional ?farmer=uuid). Create: admin or officer assigned to farmer."""
+    """List farms: all authenticated users (admin, supervisor, officers) see all farms (optional ?farmer=uuid). Create: admin or officer (with GPS validation for officers)."""
 
     list_serializer_class = FarmSerializer
     create_serializer_class = FarmCreateSerializer
@@ -91,7 +91,6 @@ class FarmListCreateView(generics.ListCreateAPIView):
         return self.list_serializer_class
 
     def get_queryset(self):
-        user = self.request.user
         qs = Farm.objects.select_related(
             "farmer",
             "farmer__assigned_officer",
@@ -100,13 +99,7 @@ class FarmListCreateView(generics.ListCreateAPIView):
             "county_id",
             "sub_county_id",
         ).order_by("farmer", "created_at")
-        if user.role == "admin":
-            pass  # Admin sees all farms
-        elif user.role == "supervisor":
-            pass  # Supervisors see all farms (not scoped to department)
-        else:
-            # Officers see only farms of farmers assigned to them
-            qs = qs.filter(farmer__assigned_officer=user)
+        # Admin, supervisor, and officers all see all farms (e.g. for propose schedule when picking any farmer)
         farmer_id = self.request.query_params.get("farmer")
         if farmer_id:
             qs = qs.filter(farmer_id=farmer_id)

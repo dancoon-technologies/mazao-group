@@ -356,11 +356,22 @@ export const api = {
     });
   },
 
+  /** Fetch farms (optionally for one farmer). Fetches all pages when response is paginated. */
   async getFarms(farmerId?: string) {
-    const data = await request<Farm[] | { results: Farm[] }>(
-      farmerId ? `/farms/?farmer=${farmerId}` : '/farms/'
-    );
-    return ensureArray(data);
+    const base = farmerId ? `/farms/?farmer=${encodeURIComponent(farmerId)}` : '/farms/';
+    const all: Farm[] = [];
+    let page = 1;
+    type PageResponse = { results?: Farm[]; next?: string | null };
+    while (true) {
+      const url = base + (base.includes('?') ? '&' : '?') + `page=${page}`;
+      const data = await request<Farm[] | PageResponse>(url);
+      const batch = ensureArray(Array.isArray(data) ? data : (data as PageResponse).results);
+      all.push(...batch);
+      const hasNext = !Array.isArray(data) && data != null && typeof data === 'object' && (data as PageResponse).next;
+      if (!hasNext || batch.length === 0) break;
+      page += 1;
+    }
+    return all;
   },
 
   async createFarm(body: {

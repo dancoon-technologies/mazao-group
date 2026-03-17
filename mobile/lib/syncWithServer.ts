@@ -67,11 +67,15 @@ async function pushQueue(accessToken: string): Promise<{ ok: boolean; error?: st
       const payload = JSON.parse(item.payload) as Record<string, unknown>
       if (item.entity === 'visit') {
         if (!payload.schedule_id) {
-          return { ok: false, error: 'Visits require a planned schedule. This visit cannot be synced.', pushedIds }
+          logger.warn('pushQueue: skipping legacy visit without schedule_id; marking as synced', item.id)
+          pushedIds.push(item.id)
+          continue
         }
         const photoUris = (payload.photo_uris as string[] | undefined) ?? (payload.photo_uri ? [payload.photo_uri as string] : [])
         if (photoUris.length === 0) {
-          return { ok: false, error: 'Visit has no photos and cannot be synced.', pushedIds }
+          logger.warn('pushQueue: skipping legacy visit without photos; marking as synced', item.id)
+          pushedIds.push(item.id)
+          continue
         }
         const form = new FormData()
         form.append('farmer_id', String(payload.farmer_id ?? payload.farmer))

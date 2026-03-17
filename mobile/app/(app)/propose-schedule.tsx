@@ -1,6 +1,6 @@
 import { useAuth } from '@/contexts/AuthContext';
 import { getFarmers as getFarmersDb, getFarms as getFarmsDb, getAllSchedulesForOfficer } from '@/database';
-import { farmerRowToFarmer, scheduleRowToSchedule } from '@/lib/offline-helpers';
+import { farmerRowToFarmer, farmRowToFarm, scheduleRowToSchedule } from '@/lib/offline-helpers';
 import { enqueueSchedule } from '@/lib/syncWithServer';
 import { api, getLabels, type Farm, type Farmer, type Officer, type Schedule } from '@/lib/api';
 import { appMeta$ } from '@/store/observable';
@@ -153,10 +153,18 @@ export default function ProposeScheduleScreen() {
     const loadFarms = async () => {
       try {
         const connected = await NetInfo.fetch().then((s) => s.isConnected ?? false);
-        const list = connected
-          ? await api.getFarms(selectedFarmerId)
-          : (await getFarmsDb(selectedFarmerId)).map((r) => ({ id: r.id, farmer: r.farmer_id, village: r.village, latitude: r.latitude, longitude: r.longitude }));
-        if (!cancelled) setFarms(list);
+        if (connected) {
+          try {
+            const list = await api.getFarms(selectedFarmerId);
+            if (!cancelled) setFarms(list);
+          } catch {
+            const local = (await getFarmsDb(selectedFarmerId)).map(farmRowToFarm);
+            if (!cancelled) setFarms(local);
+          }
+        } else {
+          const local = (await getFarmsDb(selectedFarmerId)).map(farmRowToFarm);
+          if (!cancelled) setFarms(local);
+        }
       } catch {
         if (!cancelled) setFarms([]);
       }
