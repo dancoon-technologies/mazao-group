@@ -5,10 +5,13 @@ import { useDisclosure } from "@mantine/hooks";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
+import { useAsyncData } from "@/hooks/useAsyncData";
 import { useAuth } from "@/contexts/AuthContext";
+import { api } from "@/lib/api";
 import { APP_NAV, filterNavByRole } from "@/config/navigation";
 import { ROUTES } from "@/lib/constants";
+import { getLabelsFromOptions, pluralLocation, pluralPartner } from "@/lib/options";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { LoadingScreen } from "@/components/ui";
 
@@ -46,7 +49,21 @@ export default function AppLayout({
     return null;
   }
 
-  const filteredNav = filterNavByRole(APP_NAV, role ?? null, canAccessDashboard);
+  const { data: optionsData } = useAsyncData(
+    (signal) => (isAuthenticated ? api.getOptions({ signal }) : Promise.resolve(null)),
+    [isAuthenticated]
+  );
+  const labels = useMemo(() => getLabelsFromOptions(optionsData), [optionsData]);
+  const navWithLabels = useMemo(() => {
+    const partnerPlural = pluralPartner(labels.partner);
+    const locationPlural = pluralLocation(labels.location);
+    return APP_NAV.map((item) => {
+      if (item.href === ROUTES.FARMERS) return { ...item, label: partnerPlural };
+      if (item.href === ROUTES.FARMS) return { ...item, label: locationPlural };
+      return item;
+    });
+  }, [labels.partner, labels.location]);
+  const filteredNav = filterNavByRole(navWithLabels, role ?? null, canAccessDashboard);
 
   return (
     <AppShell

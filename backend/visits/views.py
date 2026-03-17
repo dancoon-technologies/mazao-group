@@ -96,6 +96,12 @@ class VisitListCreateView(generics.ListCreateAPIView):
         officer_id = request.query_params.get("officer")
         if officer_id:
             queryset = queryset.filter(officer_id=officer_id)
+        farmer_id = request.query_params.get("farmer")
+        if farmer_id:
+            queryset = queryset.filter(farmer_id=farmer_id)
+        farm_id = request.query_params.get("farm")
+        if farm_id:
+            queryset = queryset.filter(farm_id=farm_id)
         date_str = request.query_params.get("date")
         date_from = request.query_params.get("date_from")
         date_to = request.query_params.get("date_to")

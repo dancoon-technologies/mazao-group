@@ -9,6 +9,7 @@ import { PageLoading, PageError } from "@/components/ui";
 import { DashboardCharts, type DashboardChartSection } from "@/components/dashboard/DashboardCharts";
 import { DASHBOARD_DAY_OPTIONS, PAGE_BOX_MIN_WIDTH, ROUTES } from "@/lib/constants";
 import { formatDateTime, formatActivityType, formatActivityTypes } from "@/lib/format";
+import { getLabelsFromOptions } from "@/lib/options";
 import { useMemo, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -49,6 +50,11 @@ export default function DashboardPage() {
     (signal) => api.getVisits(undefined, { signal }),
     []
   );
+  const { data: optionsData } = useAsyncData(
+    (signal) => api.getOptions({ signal }),
+    []
+  );
+  const labels = useMemo(() => getLabelsFromOptions(optionsData), [optionsData]);
   const recentVisits: Visit[] = (recentVisitsData ?? []).slice(0, 5);
 
   const statsChartData = useMemo(() => {
@@ -198,7 +204,7 @@ export default function DashboardPage() {
                   <Table.Thead>
                     <Table.Tr>
                       <Table.Th>Date</Table.Th>
-                      <Table.Th>Farmer</Table.Th>
+                      <Table.Th>{labels.partner}</Table.Th>
                       <Table.Th>Activity</Table.Th>
                       <Table.Th>Status</Table.Th>
                     </Table.Tr>

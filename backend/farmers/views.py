@@ -3,6 +3,7 @@ import logging
 from django.db.models import Q
 from rest_framework import generics, status
 from rest_framework.response import Response
+from rest_framework.exceptions import NotFound
 
 from .geo_validation import (
     validate_device_in_admin_area,
@@ -77,6 +78,22 @@ class FarmerListCreateView(generics.ListCreateAPIView):
                 message=f"A new farmer has been assigned to you: {farmer.name}.",
                 channels=["in_app", "email", "sms", "push"],
             )
+
+
+class FarmerRetrieveView(generics.RetrieveAPIView):
+    """Retrieve a single farmer by id. Same visibility as list (all authenticated users)."""
+
+    serializer_class = FarmerSerializer
+    queryset = Farmer.objects.select_related(
+        "assigned_officer",
+        "assigned_officer__department",
+    ).order_by()
+
+    def get_object(self):
+        try:
+            return self.get_queryset().get(pk=self.kwargs["pk"])
+        except Farmer.DoesNotExist:
+            raise NotFound("Farmer not found.")
 
 
 class FarmListCreateView(generics.ListCreateAPIView):
@@ -160,3 +177,22 @@ class FarmListCreateView(generics.ListCreateAPIView):
         ).get(pk=farm.pk)
         out = FarmSerializer(farm)
         return Response(out.data, status=status.HTTP_201_CREATED)
+
+
+class FarmRetrieveView(generics.RetrieveAPIView):
+    """Retrieve a single farm by id. Same visibility as list (all authenticated users)."""
+
+    serializer_class = FarmSerializer
+    queryset = Farm.objects.select_related(
+        "farmer",
+        "farmer__assigned_officer",
+        "region_id",
+        "county_id",
+        "sub_county_id",
+    ).order_by()
+
+    def get_object(self):
+        try:
+            return self.get_queryset().get(pk=self.kwargs["pk"])
+        except Farm.DoesNotExist:
+            raise NotFound("Farm not found.")

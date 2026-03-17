@@ -504,10 +504,13 @@ export const api = {
     });
   },
 
-  getVisits: async (params?: { officer?: string; date?: string }) => {
+  getVisits: async (params?: { officer?: string; date?: string; date_from?: string; date_to?: string; farm?: string }) => {
     const q = new URLSearchParams();
     if (params?.officer) q.set('officer', params.officer);
     if (params?.date) q.set('date', params.date);
+    if (params?.date_from) q.set('date_from', params.date_from);
+    if (params?.date_to) q.set('date_to', params.date_to);
+    if (params?.farm) q.set('farm', params.farm);
     const query = q.toString();
     const path = query ? `/visits/?${query}` : '/visits/';
     const data = await request<Visit[] | { results: Visit[] }>(path);

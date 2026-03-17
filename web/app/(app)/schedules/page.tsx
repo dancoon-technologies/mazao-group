@@ -7,6 +7,7 @@ import { useFormFields } from "@/hooks/useFormFields";
 import { api } from "@/lib/api";
 import { PAGE_BOX_MIN_WIDTH, ROLES_CAN_CREATE_SCHEDULES } from "@/lib/constants";
 import { pluralize } from "@/lib/format";
+import { getLabelsFromOptions } from "@/lib/options";
 import type { Farm, Farmer, Schedule, StaffUser } from "@/lib/types";
 import { Alert, Box, Button, Group, Modal, Select, Stack, Textarea } from "@mantine/core";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -188,6 +189,7 @@ export default function SchedulesPage() {
       })),
     [optionsData?.departments]
   );
+  const labels = useMemo(() => getLabelsFromOptions(optionsData), [optionsData]);
 
   useEffect(() => {
     if (!form.farmer) {
@@ -305,9 +307,10 @@ export default function SchedulesPage() {
               onRejectClick,
               onOpenEdit: openEdit,
             }
-          : null
+          : null,
+        labels
       ),
-    [canApprove, canEditSchedule, approvingId, handleApprove, onRejectClick, openEdit]
+    [canApprove, canEditSchedule, approvingId, handleApprove, onRejectClick, openEdit, labels]
   );
 
   if (loading) return <PageLoading message="Loading schedules…" />;
@@ -368,6 +371,8 @@ export default function SchedulesPage() {
           }}
           onSubmit={handleSubmit}
           onCancel={() => setShowForm(false)}
+          partnerLabel={labels.partner}
+          locationLabel={labels.location}
         />
       )}
 
@@ -463,6 +468,8 @@ export default function SchedulesPage() {
           setFarmSearch("");
           setFarmModalOpen(true);
         }}
+        partnerLabel={labels.partner}
+        locationLabel={labels.location}
       />
 
       <DataTable

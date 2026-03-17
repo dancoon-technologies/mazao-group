@@ -10,7 +10,7 @@ from accounts.views import (
     StaffResendCredentialsView,
     StaffUpdateView,
 )
-from farmers.views import FarmerListCreateView, FarmListCreateView
+from farmers.views import FarmerListCreateView, FarmerRetrieveView, FarmListCreateView, FarmRetrieveView
 from locations.views import LocationListView
 from tracking.views import (
     LocationReportBatchCreateView,
@@ -48,7 +48,9 @@ urlpatterns = [
     path("auth/refresh/", SingleDeviceTokenRefreshView.as_view(), name="token_refresh"),
     path("auth/change-password/", ChangePasswordView.as_view(), name="change_password"),
     path("farmers/", FarmerListCreateView.as_view(), name="farmer-list-create"),
+    path("farmers/<uuid:pk>/", FarmerRetrieveView.as_view(), name="farmer-retrieve"),
     path("farms/", FarmListCreateView.as_view(), name="farm-list-create"),
+    path("farms/<uuid:pk>/", FarmRetrieveView.as_view(), name="farm-retrieve"),
     path("visits/", VisitListCreateView.as_view(), name="visit-list-create"),
     path("visits/<uuid:pk>/", VisitRetrieveView.as_view(), name="visit-retrieve"),
     path("visits/<uuid:pk>/verify/", VisitVerifyView.as_view(), name="visit-verify"),

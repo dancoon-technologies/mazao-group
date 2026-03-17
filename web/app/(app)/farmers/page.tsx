@@ -1,6 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import Link from "next/link";
 import {
   Alert,
   Box,
@@ -12,12 +13,13 @@ import {
   Text,
   TextInput,
 } from "@mantine/core";
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useAsyncData } from "@/hooks/useAsyncData";
 import { useFormFields } from "@/hooks/useFormFields";
 import { api } from "@/lib/api";
 import type { Farmer } from "@/lib/types";
 import { pluralize } from "@/lib/format";
+import { getLabelsFromOptions, pluralPartner } from "@/lib/options";
 import { DataTable, type DataTableColumn, PageLoading, PageError, PageHeader } from "@/components/ui";
 import { PAGE_BOX_MIN_WIDTH } from "@/lib/constants";
 
@@ -31,9 +33,12 @@ const FARMER_COLUMNS: DataTableColumn<Farmer>[] = [
     key: "name",
     label: "Name",
     render: (f) => (
-      <Text size="sm" fw={500} style={{ wordBreak: "break-word" }}>
+      <Link
+        href={`/farmers/${f.id}`}
+        style={{ color: "var(--mantine-color-green-7)", fontWeight: 500, textDecoration: "none", wordBreak: "break-word" }}
+      >
         {f.display_name}
-      </Text>
+      </Link>
     ),
   },
   {
@@ -74,7 +79,13 @@ export default function FarmersPage() {
     (signal) => api.getFarmers({ signal }),
     []
   );
+  const { data: optionsData } = useAsyncData(
+    (signal) => api.getOptions({ signal }),
+    []
+  );
   const farmers = farmersData ?? [];
+  const labels = useMemo(() => getLabelsFromOptions(optionsData), [optionsData]);
+  const partnerPlural = pluralPartner(labels.partner);
   const [showForm, setShowForm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState("");
@@ -112,26 +123,26 @@ export default function FarmersPage() {
         await refetch();
       } catch (err) {
         setFormError(
-          err instanceof Error ? err.message : "Failed to create farmer"
+          err instanceof Error ? err.message : `Failed to create ${labels.partner.toLowerCase()}`
         );
       } finally {
         setSubmitting(false);
       }
     },
-    [form, resetForm, refetch]
+    [form, resetForm, refetch, labels.partner]
   );
 
-  if (loading) return <PageLoading message="Loading farmers…" />;
+  if (loading) return <PageLoading message={`Loading ${labels.partner.toLowerCase()}s…`} />;
   if (error) return <PageError message={error} />;
 
   return (
     <Box style={{ minWidth: PAGE_BOX_MIN_WIDTH }}>
       <PageHeader
-        title="Farmers"
-        subtitle={pluralize(farmers.length, "farmer") + " listed"}
+        title={partnerPlural}
+        subtitle={pluralize(farmers.length, labels.partner.toLowerCase()) + " listed"}
         action={
           <Button color="green" onClick={() => setShowForm(true)}>
-            Add farmer
+            Add {labels.partner.toLowerCase()}
           </Button>
         }
       />
@@ -139,7 +150,7 @@ export default function FarmersPage() {
       {showForm && (
         <Paper mt="md" p="md" radius="md" shadow="sm" withBorder>
           <Text size="lg" fw={600} mb="md">
-            New farmer
+            New {labels.partner.toLowerCase()}
           </Text>
           <form onSubmit={handleSubmit}>
             <Stack gap="md">
@@ -225,7 +236,7 @@ export default function FarmersPage() {
         rowKey="id"
         columns={FARMER_COLUMNS}
         minWidth={400}
-        emptyMessage="No farmers found"
+        emptyMessage={`No ${labels.partner.toLowerCase()}s found`}
         pageSize={15}
       />
     </Box>

@@ -9,7 +9,7 @@ import NetInfo from '@react-native-community/netinfo';
 import { useIsFocused } from '@react-navigation/native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
-import { RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { Appbar, Button, Card, Text } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -164,26 +164,31 @@ export default function FarmerDetailScreen() {
               ) : (
                 <View style={styles.farmList}>
                   {farms.map((farm) => (
-                    <Card key={farm.id} style={styles.farmCard} elevation={0}>
-                      <Card.Content style={styles.farmCardContent}>
-                        <View style={styles.farmRow}>
-                          <View style={styles.farmIconWrap}>
-                            <MaterialCommunityIcons name="map-marker" size={20} color={colors.primary} />
-                          </View>
-                          <View style={styles.farmBody}>
-                            <Text variant="titleSmall" style={styles.farmVillage}>{farm.village}</Text>
-                            <Text variant="bodySmall" style={styles.farmLocation}>
-                              {farmLocationLabel(farm)}
-                            </Text>
-                            {(farm.plot_size || farm.crop_type) && (
-                              <Text variant="bodySmall" style={styles.farmMeta}>
-                                {[farm.plot_size, farm.crop_type].filter(Boolean).join(' · ')}
+                    <Pressable
+                      key={farm.id}
+                      onPress={() => router.push({ pathname: '/farmers/[id]/farm/[farmId]', params: { id: id!, farmId: farm.id } })}
+                    >
+                      <Card style={styles.farmCard} elevation={0}>
+                        <Card.Content style={styles.farmCardContent}>
+                          <View style={styles.farmRow}>
+                            <View style={styles.farmIconWrap}>
+                              <MaterialCommunityIcons name="map-marker" size={20} color={colors.primary} />
+                            </View>
+                            <View style={styles.farmBody}>
+                              <Text variant="titleSmall" style={styles.farmVillage}>{farm.village}</Text>
+                              <Text variant="bodySmall" style={styles.farmLocation}>
+                                {farmLocationLabel(farm)}
                               </Text>
-                            )}
+                              {(farm.plot_size || farm.crop_type) && (
+                                <Text variant="bodySmall" style={styles.farmMeta}>
+                                  {[farm.plot_size, farm.crop_type].filter(Boolean).join(' · ')}
+                                </Text>
+                              )}
+                            </View>
                           </View>
-                        </View>
-                      </Card.Content>
-                    </Card>
+                        </Card.Content>
+                      </Card>
+                    </Pressable>
                   ))}
                 </View>
               )}

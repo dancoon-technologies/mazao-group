@@ -20,6 +20,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { DataTable, type DataTableColumn, PageLoading, PageError, PageHeader } from "@/components/ui";
 import { PAGE_BOX_MIN_WIDTH, ROLES, ROUTES } from "@/lib/constants";
 import { formatDateTime, formatActivityType, formatActivityTypes } from "@/lib/format";
+import { getLabelsFromOptions } from "@/lib/options";
 
 export default function StaffDetailPage() {
   const params = useParams<{ id: string }>();
@@ -41,6 +42,7 @@ export default function StaffDetailPage() {
     (signal) => (isAdmin ? api.getOptions({ signal }) : Promise.resolve({ departments: [], staff_roles: [] })),
     [isAdmin]
   );
+  const labels = useMemo(() => getLabelsFromOptions(optionsData), [optionsData]);
 
   const departmentLabelMap = useMemo(
     () => Object.fromEntries((optionsData?.departments ?? []).map((d) => [d.value, d.label])),
@@ -62,12 +64,12 @@ export default function StaffDetailPage() {
       },
       {
         key: "farmer",
-        label: "Farmer",
+        label: labels.partner,
         render: (v) => <Text size="sm">{v.farmer_display_name ?? v.farmer}</Text>,
       },
       {
         key: "farm",
-        label: "Farm",
+        label: labels.location,
         render: (v) => <Text size="sm" c="dimmed">{v.farm_display_name ?? "—"}</Text>,
       },
       {
@@ -90,7 +92,7 @@ export default function StaffDetailPage() {
         render: (v) => <Text size="sm" c="dimmed" lineClamp={1}>{(v.notes ?? "").slice(0, 60)}</Text>,
       },
     ],
-    []
+    [labels.partner, labels.location]
   );
 
   const generateReport = useCallback(async () => {
@@ -134,7 +136,7 @@ export default function StaffDetailPage() {
       doc.text(`Visits (${visits.length})`, 14, y);
       y += 6;
 
-      const head = ["Date", "Farmer", "Farm", "Activity", "Status", "Notes"];
+      const head = ["Date", labels.partner, labels.location, "Activity", "Status", "Notes"];
       const body = visits.map((v: Visit) => [
         formatDateTime(v.created_at),
         (v.farmer_display_name ?? v.farmer) ?? "",

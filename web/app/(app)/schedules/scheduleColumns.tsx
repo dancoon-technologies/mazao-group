@@ -10,7 +10,8 @@ import {
   isScheduleEditable,
 } from "./utils";
 
-const scheduleColumnsBase: DataTableColumn<Schedule>[] = [
+function scheduleColumnsBase(partnerLabel: string, locationLabel: string): DataTableColumn<Schedule>[] {
+  return [
   {
     key: "scheduled_date",
     label: "Date",
@@ -32,7 +33,7 @@ const scheduleColumnsBase: DataTableColumn<Schedule>[] = [
   },
   {
     key: "farmer_display_name",
-    label: "Farmer",
+    label: partnerLabel,
     render: (s) => (
       <Text size="sm" c="dimmed">
         {s.farmer_display_name || "—"}
@@ -41,7 +42,7 @@ const scheduleColumnsBase: DataTableColumn<Schedule>[] = [
   },
   {
     key: "farm_display_name",
-    label: "Farm",
+    label: locationLabel,
     render: (s) => (
       <Text size="sm" c="dimmed">
         {s.farm_display_name ?? "None"}
@@ -67,7 +68,8 @@ const scheduleColumnsBase: DataTableColumn<Schedule>[] = [
       </Text>
     ),
   },
-];
+  ];
+}
 
 export interface ScheduleColumnsConfig {
   canApprove: boolean;
@@ -79,15 +81,19 @@ export interface ScheduleColumnsConfig {
 }
 
 export function getScheduleColumns(
-  config: ScheduleColumnsConfig | null
+  config: ScheduleColumnsConfig | null,
+  labels?: { partner: string; location: string }
 ): DataTableColumn<Schedule>[] {
+  const partnerLabel = labels?.partner ?? "Farmer";
+  const locationLabel = labels?.location ?? "Farm";
+  const base = scheduleColumnsBase(partnerLabel, locationLabel);
   if (!config?.canApprove && !config?.canEditSchedule) {
-    return scheduleColumnsBase;
+    return base;
   }
   const { canApprove, canEditSchedule, approvingId, onApprove, onRejectClick, onOpenEdit } =
     config;
   return [
-    ...scheduleColumnsBase,
+    ...base,
     {
       key: "rejection_reason",
       label: "Rejection reason",

@@ -14,6 +14,7 @@ export const DEFAULT_PARTNER_LOCATION_LABELS: PartnerLocationLabels = {
 /**
  * Get partner/location labels from options response.
  * Used for table headers and copy (Farmer/Farm vs Stockist/Outlet).
+ * Labels are department-specific when user has a department with terminology configured.
  */
 export function getLabelsFromOptions(
   options: OptionsResponse | null | undefined
@@ -30,4 +31,16 @@ export function getLabelsFromOptions(
     };
   }
   return DEFAULT_PARTNER_LOCATION_LABELS;
+}
+
+/** Plural form for partner label (e.g. Farmer → Farmers, Stockist → Stockists). */
+export function pluralPartner(partner: string): string {
+  if (!partner) return "Partners";
+  return partner.endsWith("s") ? partner : `${partner}s`;
+}
+
+/** Plural form for location label (e.g. Farm → Farms, Outlet → Outlets). */
+export function pluralLocation(location: string): string {
+  if (!location) return "Locations";
+  return location.endsWith("s") ? location : `${location}s`;
 }

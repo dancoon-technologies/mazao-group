@@ -87,6 +87,15 @@ export const api = {
     return unwrapList(await res.json());
   },
 
+  async getFarmer(id: string, options?: { signal?: AbortSignal }): Promise<Farmer> {
+    const res = await authFetch(`${API_BASE}/api/farmers/${encodeURIComponent(id)}`, { signal: options?.signal });
+    if (!res.ok) {
+      if (res.status === 404) throw new Error("Farmer not found.");
+      throw new Error("Failed to fetch farmer");
+    }
+    return res.json();
+  },
+
   async createFarmer(data: {
     first_name: string;
     middle_name?: string;
@@ -114,13 +123,25 @@ export const api = {
     return res.json();
   },
 
-  async getFarms(farmerId?: string | null): Promise<Farm[]> {
+  async getFarms(
+    farmerId?: string | null,
+    options?: { signal?: AbortSignal }
+  ): Promise<Farm[]> {
     const url = farmerId
       ? `${API_BASE}/api/farms?farmer=${encodeURIComponent(farmerId)}`
       : `${API_BASE}/api/farms`;
-    const res = await authFetch(url);
+    const res = await authFetch(url, { signal: options?.signal });
     if (!res.ok) throw new Error("Failed to fetch farms");
     return unwrapList(await res.json());
+  },
+
+  async getFarm(id: string, options?: { signal?: AbortSignal }): Promise<Farm> {
+    const res = await authFetch(`${API_BASE}/api/farms/${encodeURIComponent(id)}`, { signal: options?.signal });
+    if (!res.ok) {
+      if (res.status === 404) throw new Error("Farm not found.");
+      throw new Error("Failed to fetch farm");
+    }
+    return res.json();
   },
 
   async createFarm(data: {
@@ -148,7 +169,7 @@ export const api = {
   },
 
   async getVisits(
-    params?: { officer?: string; date?: string; date_from?: string; date_to?: string; department?: string },
+    params?: { officer?: string; date?: string; date_from?: string; date_to?: string; department?: string; farm?: string; farmer?: string },
     options?: { signal?: AbortSignal }
   ): Promise<Visit[]> {
     const search = new URLSearchParams();
@@ -157,6 +178,8 @@ export const api = {
     if (params?.date_from) search.set("date_from", params.date_from);
     if (params?.date_to) search.set("date_to", params.date_to);
     if (params?.department) search.set("department", params.department);
+    if (params?.farm) search.set("farm", params.farm);
+    if (params?.farmer) search.set("farmer", params.farmer);
     const qs = search.toString();
     const url = qs ? `${API_BASE}/api/visits?${qs}` : `${API_BASE}/api/visits`;
     const res = await authFetch(url, { signal: options?.signal });

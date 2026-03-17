@@ -30,6 +30,8 @@ export interface ScheduleFormProps {
   onOpenFarmModal: () => void;
   onSubmit: (e: React.FormEvent) => void;
   onCancel: () => void;
+  partnerLabel?: string;
+  locationLabel?: string;
 }
 
 export function ScheduleForm({
@@ -46,6 +48,8 @@ export function ScheduleForm({
   onOpenFarmModal,
   onSubmit,
   onCancel,
+  partnerLabel = "Farmer",
+  locationLabel = "Farm",
 }: ScheduleFormProps) {
   return (
     <Paper mt="md" p="md" radius="md" shadow="sm" withBorder>
@@ -76,28 +80,28 @@ export function ScheduleForm({
           )}
           <Box>
             <Text size="sm" fw={500} mb={4}>
-              Farmer (optional)
+              {partnerLabel} (optional)
             </Text>
             {isOfficer && (
               <Text size="xs" c="dimmed" mb="xs">
-                Optional: link this visit to one of your assigned farmers.
+                Optional: link this visit to one of your assigned {partnerLabel.toLowerCase()}s.
               </Text>
             )}
             <Button variant="light" fullWidth onClick={onOpenFarmerModal}>
               {selectedFarmer
                 ? `${selectedFarmer.display_name}${selectedFarmer.phone ? ` · ${selectedFarmer.phone}` : ""}`
-                : "Select farmer"}
+                : `Select ${partnerLabel.toLowerCase()}`}
             </Button>
           </Box>
           {form.farmer && (
             <Box>
               <Text size="sm" fw={500} mb={4}>
-                Farm (optional)
+                {locationLabel} (optional)
               </Text>
               <Button variant="light" fullWidth onClick={onOpenFarmModal}>
                 {selectedFarm
                   ? `${selectedFarm.village}${selectedFarm.crop_type ? ` · ${selectedFarm.crop_type}` : ""}`
-                  : "Select farm"}
+                  : `Select ${locationLabel.toLowerCase()}`}
               </Button>
             </Box>
           )}

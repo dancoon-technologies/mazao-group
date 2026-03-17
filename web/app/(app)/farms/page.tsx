@@ -8,6 +8,7 @@ import { api } from "@/lib/api";
 import { PAGE_BOX_MIN_WIDTH } from "@/lib/constants";
 import { pluralize } from "@/lib/format";
 import type { Farm, Farmer } from "@/lib/types";
+import { getLabelsFromOptions, pluralLocation, pluralPartner } from "@/lib/options";
 import {
   Alert,
   Box,
@@ -19,6 +20,7 @@ import {
   Text,
   TextInput,
 } from "@mantine/core";
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 const INITIAL_FARM_FORM = {
@@ -33,17 +35,25 @@ const INITIAL_FARM_FORM = {
   crop_type: "",
 };
 
-function farmColumns(farmers: Farmer[]): DataTableColumn<Farm>[] {
+function farmColumns(farmers: Farmer[], partnerLabel: string): DataTableColumn<Farm>[] {
   return [
     {
       key: "farmer",
-      label: "Farmer",
+      label: partnerLabel,
       render: (f) => {
         const farmer = farmers.find((x) => x.id === f.farmer);
         return <Text size="sm" fw={500}>{farmer?.display_name ?? f.farmer ?? "—"}</Text>;
       },
     },
-    { key: "village", label: "Village", render: (f) => <Text size="sm" fw={500}>{f.village}</Text> },
+    {
+      key: "village",
+      label: "Village",
+      render: (f) => (
+        <Link href={`/farms/${f.id}`} style={{ color: "var(--mantine-color-green-7)", fontWeight: 500, textDecoration: "none" }}>
+          {f.village}
+        </Link>
+      ),
+    },
     { key: "county", label: "County", render: (f) => <Text size="sm" c="dimmed">{f.county}</Text> },
     { key: "sub_county", label: "Sub-county", render: (f) => <Text size="sm" c="dimmed">{f.sub_county}</Text> },
     { key: "plot_size", label: "Plot", visibleFrom: "md", render: (f) => <Text size="sm" c="dimmed">{f.plot_size || "—"}</Text> },
@@ -77,7 +87,14 @@ export default function FarmsPage() {
     (signal) => api.getLocations({ signal }),
     []
   );
+  const { data: optionsData } = useAsyncData(
+    (signal) => api.getOptions({ signal }),
+    []
+  );
   const locations = locationsData ?? { regions: [], counties: [], sub_counties: [] };
+  const labels = useMemo(() => getLabelsFromOptions(optionsData), [optionsData]);
+  const locationPlural = pluralLocation(labels.location);
+  const partnerPlural = pluralPartner(labels.partner);
 
   const regionOptions = useMemo(() => {
     return locations.regions.map((r) => ({ value: String(r.id), label: r.name }));
@@ -110,7 +127,7 @@ export default function FarmsPage() {
       e.preventDefault();
       setFormError("");
       if (!form.farmer_id || !form.region_id || !form.county_id || !form.sub_county_id || !form.village.trim()) {
-        setFormError("Farmer, county, sub-county and village are required.");
+        setFormError(`${labels.partner}, county, sub-county and village are required.`);
         return;
       }
       const lat = parseFloat(form.latitude);
@@ -135,26 +152,26 @@ export default function FarmsPage() {
         setShowForm(false);
         await loadFarms();
       } catch (err) {
-        setFormError(err instanceof Error ? err.message : "Failed to create farm");
+        setFormError(err instanceof Error ? err.message : `Failed to create ${labels.location.toLowerCase()}`);
       } finally {
         setSubmitting(false);
       }
     },
-    [form, resetForm, loadFarms]
+    [form, resetForm, loadFarms, labels]
   );
 
-  if (loading) return <PageLoading message="Loading farms…" />;
+  if (loading) return <PageLoading message={`Loading ${labels.location.toLowerCase()}s…`} />;
   if (error) return <PageError message={error} />;
 
   return (
     <Box style={{ minWidth: PAGE_BOX_MIN_WIDTH }}>
       <PageHeader
-        title="Farms"
-        subtitle={pluralize(farms.length, "farm") + " listed"}
+        title={locationPlural}
+        subtitle={pluralize(farms.length, labels.location.toLowerCase()) + " listed"}
         action={
           <Group>
             <Select
-              placeholder="All farmers"
+              placeholder={`All ${partnerPlural.toLowerCase()}`}
               clearable
               data={farmerOptions}
               value={farmerFilter}
@@ -162,7 +179,7 @@ export default function FarmsPage() {
               style={{ minWidth: 200 }}
             />
             <Button color="green" onClick={() => setShowForm(true)}>
-              Add farm
+              Add {labels.location.toLowerCase()}
             </Button>
           </Group>
         }
@@ -171,7 +188,7 @@ export default function FarmsPage() {
       {showForm && (
         <Paper mt="md" p="md" radius="md" shadow="sm" withBorder>
           <Text size="lg" fw={600} mb="md">
-            New farm (farming land)
+            New {labels.location.toLowerCase()}
           </Text>
           <form onSubmit={handleSubmit}>
             <Stack gap="md">
@@ -181,9 +198,9 @@ export default function FarmsPage() {
                 </Alert>
               )}
               <Select
-                label="Farmer"
+                label={labels.partner}
                 required
-                placeholder="Select farmer"
+                placeholder={`Select ${labels.partner.toLowerCase()}`}
                 data={farmerOptions}
                 value={form.farmer_id || null}
                 onChange={(v) => updateField("farmer_id", v ?? "")}
@@ -259,7 +276,7 @@ export default function FarmsPage() {
               />
               <Group>
                 <Button type="submit" color="green" loading={submitting}>
-                  {submitting ? "Saving…" : "Add farm"}
+                  {submitting ? "Saving…" : `Add ${labels.location.toLowerCase()}`}
                 </Button>
                 <Button type="button" variant="default" onClick={() => setShowForm(false)}>
                   Cancel
@@ -273,9 +290,9 @@ export default function FarmsPage() {
       <DataTable
         data={farms}
         rowKey="id"
-        columns={farmColumns(farmers)}
+        columns={farmColumns(farmers, labels.partner)}
         minWidth={500}
-        emptyMessage="No farms found"
+        emptyMessage={`No ${labels.location.toLowerCase()}s found`}
         pageSize={15}
       />
     </Box>

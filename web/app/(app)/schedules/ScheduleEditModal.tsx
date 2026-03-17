@@ -29,6 +29,8 @@ export interface ScheduleEditModalProps {
   onSubmit: (e: React.FormEvent) => void;
   onOpenFarmerModal: () => void;
   onOpenFarmModal: () => void;
+  partnerLabel?: string;
+  locationLabel?: string;
 }
 
 export function ScheduleEditModal({
@@ -45,6 +47,8 @@ export function ScheduleEditModal({
   onSubmit,
   onOpenFarmerModal,
   onOpenFarmModal,
+  partnerLabel = "Farmer",
+  locationLabel = "Farm",
 }: ScheduleEditModalProps) {
   return (
     <Modal
@@ -77,23 +81,23 @@ export function ScheduleEditModal({
           )}
           <Box>
             <Text size="sm" fw={500} mb={4}>
-              Farmer (optional)
+              {partnerLabel} (optional)
             </Text>
             <Button variant="light" fullWidth onClick={onOpenFarmerModal}>
               {selectedFarmer
                 ? `${selectedFarmer.display_name}${selectedFarmer.phone ? ` · ${selectedFarmer.phone}` : ""}`
-                : "Select farmer"}
+                : `Select ${partnerLabel.toLowerCase()}`}
             </Button>
           </Box>
           {form.farmer && (
             <Box>
               <Text size="sm" fw={500} mb={4}>
-                Farm (optional)
+                {locationLabel} (optional)
               </Text>
               <Button variant="light" fullWidth onClick={onOpenFarmModal}>
                 {selectedFarm
                   ? `${selectedFarm.village}${selectedFarm.crop_type ? ` · ${selectedFarm.crop_type}` : ""}`
-                  : "Select farm"}
+                  : `Select ${locationLabel.toLowerCase()}`}
               </Button>
             </Box>
           )}

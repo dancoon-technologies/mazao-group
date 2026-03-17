@@ -31,6 +31,7 @@ import {
   todayISO,
   type ReportPeriod,
 } from "@/lib/reportFilters";
+import { getLabelsFromOptions } from "@/lib/options";
 import {
   buildAdditionalVisitFieldsFromOptions,
   getVisitValueKey,
@@ -111,6 +112,8 @@ function VisitDetailModal({
   canVerify,
   onVerify,
   additionalVisitFields,
+  partnerLabel,
+  locationLabel,
 }: {
   visit: Visit | null;
   opened: boolean;
@@ -118,6 +121,8 @@ function VisitDetailModal({
   canVerify: boolean;
   onVerify: (visitId: string, action: "accept" | "reject") => Promise<void>;
   additionalVisitFields: { key: string; label: string }[];
+  partnerLabel: string;
+  locationLabel: string;
 }) {
   const [verifying, setVerifying] = useState<"accept" | "reject" | null>(null);
   const [exportingPdf, setExportingPdf] = useState(false);
@@ -155,8 +160,8 @@ function VisitDetailModal({
       const body: [string, string][] = [
         ["Date", formatDateTime(visit.created_at)],
         ["Officer", ([visit.officer_display_name, visit.officer_email].filter(Boolean).join(" — ") || (visit.officer_email ?? visit.officer)) ?? "—"],
-        ["Farmer", (visit.farmer_display_name ?? visit.farmer) ?? "—"],
-        ["Farm visited", visit.farm_display_name ?? "—"],
+        [partnerLabel, (visit.farmer_display_name ?? visit.farmer) ?? "—"],
+        [`${locationLabel} visited`, visit.farm_display_name ?? "—"],
         ["Activity", formatActivityTypes(visit.activity_types?.length ? visit.activity_types : undefined) || formatActivityType(visit.activity_type ?? "")],
         ["Status", visit.verification_status ?? "—"],
         ["Distance (m)", visit.distance_from_farmer != null ? String(Math.round(visit.distance_from_farmer)) : "—"],
@@ -166,7 +171,7 @@ function VisitDetailModal({
         ["Pests/diseases", visit.pests_diseases ?? "—"],
         ["Order value", visit.order_value != null ? String(visit.order_value) : "—"],
         ["Harvest (kg)", visit.harvest_kgs != null ? String(visit.harvest_kgs) : "—"],
-        ["Farmers feedback", (visit.farmers_feedback ?? "—").slice(0, 200)],
+        [`${partnerLabel}'s feedback`, (visit.farmers_feedback ?? "—").slice(0, 200)],
         ["Notes", (visit.notes ?? "—").slice(0, 300)],
       ];
       autoTable(doc, {
@@ -195,8 +200,8 @@ function VisitDetailModal({
             <Text size="xs" c="dimmed">{visit.officer_email ?? ""}</Text>
           </Stack>
         ))}
-        {row("Farmer", visit.farmer_display_name ?? visit.farmer)}
-        {row("Farm visited", visit.farm_display_name ?? "—")}
+        {row(partnerLabel, visit.farmer_display_name ?? visit.farmer)}
+        {row(`${locationLabel} visited`, visit.farm_display_name ?? "—")}
         {row("Activity", formatActivityTypes(visit.activity_types?.length ? visit.activity_types : undefined) || formatActivityType(visit.activity_type ?? ""))}
         {row("Status", (
           <Badge
@@ -225,7 +230,7 @@ function VisitDetailModal({
         {row("Pests/diseases", visit.pests_diseases)}
         {row("Order value", visit.order_value != null ? String(visit.order_value) : null)}
         {row("Harvest (kg)", visit.harvest_kgs != null ? String(visit.harvest_kgs) : null)}
-        {row("Farmers feedback", visit.farmers_feedback)}
+        {row(`${partnerLabel}'s feedback`, visit.farmers_feedback)}
         {row("Notes", visit.notes)}
         {additionalVisitFields.filter(({ key }) => {
           const valueKey = getVisitValueKey(key);
@@ -358,6 +363,7 @@ export default function VisitsPage() {
     () => buildAdditionalVisitFieldsFromOptions(optionsData?.activity_types),
     [optionsData?.activity_types]
   );
+  const labels = useMemo(() => getLabelsFromOptions(optionsData), [optionsData]);
 
   const visits = visitsData ?? [];
 
@@ -380,8 +386,8 @@ export default function VisitsPage() {
     const rows = visits.map((v) => ({
       Date: formatDateTime(v.created_at),
       Officer: [v.officer_display_name, v.officer_email].filter(Boolean).join(" — ") || (v.officer_email ?? v.officer),
-      Farmer: v.farmer_display_name ?? v.farmer,
-      "Farm visited": v.farm_display_name ?? "",
+      [labels.partner]: v.farmer_display_name ?? v.farmer,
+      [`${labels.location} visited`]: v.farm_display_name ?? "",
       Activity: formatActivityTypes(v.activity_types?.length ? v.activity_types : undefined) || formatActivityType(v.activity_type ?? ""),
       "Crop stage": v.crop_stage ?? "",
       "Germination %": v.germination_percent ?? "",
@@ -389,7 +395,7 @@ export default function VisitsPage() {
       "Pests/diseases": v.pests_diseases ?? "",
       "Order value": v.order_value ?? "",
       "Harvest (kg)": v.harvest_kgs ?? "",
-      "Farmers feedback": v.farmers_feedback ?? "",
+      [`${labels.partner}'s feedback`]: v.farmers_feedback ?? "",
       Notes: v.notes ?? "",
       "Distance (m)": v.distance_from_farmer != null ? Math.round(v.distance_from_farmer) : "",
       Status: v.verification_status,
@@ -412,8 +418,8 @@ export default function VisitsPage() {
     const head = [
       "Date",
       "Officer",
-      "Farmer",
-      "Farm visited",
+      labels.partner,
+      `${labels.location} visited`,
       "Activity",
       "Crop stage",
       "Germination %",
@@ -497,7 +503,7 @@ export default function VisitsPage() {
         : []),
       {
         key: "farmer",
-        label: "Farmer",
+        label: labels.partner,
         render: (v) => (
           <Text size="sm" fw={500} style={{ wordBreak: "break-all" }}>
             {v.farmer_display_name ?? v.farmer}
@@ -583,7 +589,7 @@ export default function VisitsPage() {
         ),
       },
     ],
-    [isAdminOrSupervisor]
+    [isAdminOrSupervisor, labels.partner]
   );
 
   if (loading) return <PageLoading message="Loading visits…" />;
@@ -669,6 +675,8 @@ export default function VisitsPage() {
         opened={detailOpen}
         onClose={() => setDetailOpen(false)}
         additionalVisitFields={additionalVisitFields}
+        partnerLabel={labels.partner}
+        locationLabel={labels.location}
         canVerify={isAdminOrSupervisor}
         onVerify={async (visitId, action) => {
           try {
