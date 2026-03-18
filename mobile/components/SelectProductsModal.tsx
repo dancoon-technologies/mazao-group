@@ -13,6 +13,7 @@ import {
   Platform,
   Keyboard,
   KeyboardAvoidingView,
+  Dimensions,
 } from "react-native";
 import { Button, Searchbar, Text } from "react-native-paper";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
@@ -120,7 +121,15 @@ export function SelectProductsModal({
           style={styles.avoiding}
           keyboardVerticalOffset={0}
         >
-          <View style={[styles.sheet, { marginBottom: keyboardHeight }]}>
+          <View
+            style={[
+              styles.sheet,
+              keyboardHeight > 0 && {
+                height: Dimensions.get("window").height - keyboardHeight - 24,
+                maxHeight: Dimensions.get("window").height - keyboardHeight - 24,
+              },
+            ]}
+          >
           <View style={styles.header}>
             <Text variant="titleMedium" style={styles.title}>
               {title}
@@ -183,7 +192,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.white,
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,
-    maxHeight: "80%",
+    maxHeight: "90%",
     paddingBottom: spacing.xl,
   },
   header: {
@@ -206,7 +215,8 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
   list: {
-    maxHeight: 320,
+    flex: 1,
+    maxHeight: 480,
   },
   option: {
     flexDirection: "row",
