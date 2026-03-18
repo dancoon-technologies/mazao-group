@@ -4,7 +4,6 @@ import type { Visit } from "./types";
 
 function makeVisit(overrides: Partial<Visit> & { id: string }): Visit {
   return {
-    id: overrides.id,
     officer: "officer-uuid",
     farmer: "farmer-uuid",
     farm: null,
