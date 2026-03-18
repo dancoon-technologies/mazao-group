@@ -8,7 +8,7 @@ import { useSelector } from '@legendapp/state/react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useFocusEffect } from 'expo-router';
 import NetInfo from '@react-native-community/netinfo';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   View,
   StyleSheet,
@@ -62,11 +62,20 @@ export default function ProposeScheduleScreen() {
   const [officerMenuOpen, setOfficerMenuOpen] = useState(false);
   const [farmerModalOpen, setFarmerModalOpen] = useState(false);
   const [farmModalOpen, setFarmModalOpen] = useState(false);
+  const [partnerType, setPartnerType] = useState<'farmer' | 'stockist'>('farmer');
   const [snackbarMsg, setSnackbarMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [snackbarVisible, setSnackbarVisible] = useState(false);
   const [isOnline, setIsOnline] = useState<boolean | null>(null);
 
   const labels = useSelector(() => getLabels(appMeta$.cachedOptions.get()));
+  const partnerTypeLabel = partnerType === 'stockist' ? 'Stockist' : 'Farmer';
+  const partnerTypeLabelLower = partnerTypeLabel.toLowerCase();
+  const locationLabel = partnerType === 'stockist' ? 'Outlet' : labels.location;
+  const locationLabelLower = locationLabel.toLowerCase();
+  const farmersForModal = useMemo(() => {
+    const isStockist = partnerType === 'stockist';
+    return farmers.filter((f) => Boolean(f.is_stockist) === isStockist);
+  }, [farmers, partnerType]);
   const assigner = isAssigner(role);
 
   useEffect(() => {
@@ -322,7 +331,38 @@ export default function ProposeScheduleScreen() {
             keyboardType="numbers-and-punctuation"
           />
 
-          <Text variant="labelLarge" style={styles.label}>{labels.partner} (optional)</Text>
+          <Text variant="labelLarge" style={styles.label}>Partner type</Text>
+          <View style={styles.partnerTypeRow}>
+            <Button
+              mode={partnerType === 'farmer' ? 'contained' : 'outlined'}
+              compact
+              onPress={() => {
+                setPartnerType('farmer');
+                if (selectedFarmerId && farmers.find((f) => f.id === selectedFarmerId)?.is_stockist) {
+                  setSelectedFarmerId(null);
+                  setSelectedFarmId(null);
+                }
+              }}
+              style={styles.partnerTypeBtn}
+            >
+              Farmer
+            </Button>
+            <Button
+              mode={partnerType === 'stockist' ? 'contained' : 'outlined'}
+              compact
+              onPress={() => {
+                setPartnerType('stockist');
+                if (selectedFarmerId && !farmers.find((f) => f.id === selectedFarmerId)?.is_stockist) {
+                  setSelectedFarmerId(null);
+                  setSelectedFarmId(null);
+                }
+              }}
+              style={styles.partnerTypeBtn}
+            >
+              Stockist
+            </Button>
+          </View>
+          <Text variant="labelLarge" style={styles.label}>{partnerTypeLabel} (optional)</Text>
           <Button
             mode="outlined"
             onPress={() => setFarmerModalOpen(true)}
@@ -331,31 +371,32 @@ export default function ProposeScheduleScreen() {
             icon="account-search"
           >
             {selectedFarmerId
-              ? (farmers.find((f) => f.id === selectedFarmerId)?.display_name ?? `${labels.partner} selected`)
-              : `Select ${labels.partner.toLowerCase()}`}
+              ? (farmers.find((f) => f.id === selectedFarmerId)?.display_name ?? `${partnerTypeLabel} selected`)
+              : `Select ${partnerTypeLabelLower}`}
           </Button>
           <Button
             mode="text"
             compact
             icon="account-plus"
-            onPress={() => router.push({ pathname: '/(app)/add-farmer', params: { returnTo: 'propose-schedule' } })}
+            onPress={() => router.push({ pathname: '/(app)/add-farmer', params: { returnTo: 'propose-schedule', asStockist: partnerType === 'stockist' ? '1' : undefined } })}
             style={styles.addFarmerLink}
           >
-            Add new {labels.partner.toLowerCase()}
+            Add new {partnerTypeLabelLower}
           </Button>
           <SelectFarmerModal
             visible={farmerModalOpen}
             onClose={() => setFarmerModalOpen(false)}
-            farmers={farmers}
+            farmers={farmersForModal}
             selectedFarmerId={selectedFarmerId}
             onSelect={setSelectedFarmerId}
+            title={`Select ${partnerTypeLabelLower}`}
           />
 
           {selectedFarmerId && (
             <>
-              <Text variant="labelLarge" style={styles.label}>{labels.location} (optional)</Text>
+              <Text variant="labelLarge" style={styles.label}>{locationLabel} (optional)</Text>
               {farms.length === 0 ? (
-                <Text variant="bodySmall" style={styles.muted}>No {labels.location.toLowerCase()}s for this {labels.partner.toLowerCase()}</Text>
+                <Text variant="bodySmall" style={styles.muted}>No {locationLabelLower}s for this {partnerTypeLabelLower}</Text>
               ) : (
                 <>
                   <Button
@@ -367,7 +408,7 @@ export default function ProposeScheduleScreen() {
                   >
                     {selectedFarm
                       ? `${selectedFarm.village}${selectedFarm.crop_type ? ` · ${selectedFarm.crop_type}` : ''}`
-                      : `Select ${labels.location.toLowerCase()}`}
+                      : `Select ${locationLabelLower}`}
                   </Button>
                   <SelectFarmModal
                     visible={farmModalOpen}
@@ -375,7 +416,7 @@ export default function ProposeScheduleScreen() {
                     farms={farms}
                     selectedFarmId={selectedFarmId}
                     onSelect={setSelectedFarmId}
-                    title={`Select ${labels.location.toLowerCase()}`}
+                    title={`Select ${locationLabelLower}`}
                   />
                 </>
               )}
@@ -456,6 +497,8 @@ const styles = StyleSheet.create({
   menuButtonContent: { justifyContent: 'flex-start' },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 },
   chip: { margin: 0 },
+  partnerTypeRow: { flexDirection: 'row', gap: 8, marginBottom: 12 },
+  partnerTypeBtn: { flex: 1 },
   farmerSelectBtn: { marginBottom: 4 },
   farmerSelectBtnContent: { justifyContent: 'flex-start' },
   addFarmerLink: { marginBottom: 8 },

@@ -14,6 +14,7 @@ import { IconSearch } from "@tabler/icons-react";
 export interface SelectFarmerModalProps {
   opened: boolean;
   onClose: () => void;
+  title?: string;
   searchValue: string;
   onSearchChange: (value: string) => void;
   filteredFarmers: Farmer[];
@@ -25,6 +26,7 @@ export interface SelectFarmerModalProps {
 export function SelectFarmerModal({
   opened,
   onClose,
+  title = "Select farmer",
   searchValue,
   onSearchChange,
   filteredFarmers,
@@ -43,7 +45,7 @@ export function SelectFarmerModal({
   };
 
   return (
-    <Modal opened={opened} onClose={onClose} title="Select farmer" size="md">
+    <Modal opened={opened} onClose={onClose} title={title} size="md">
       <Stack gap="md">
         <TextInput
           type="search"
@@ -56,7 +58,7 @@ export function SelectFarmerModal({
         <ScrollArea h={320}>
           <Stack gap={0}>
             <FarmerModalOption
-              label="— No specific farmer —"
+              label={`— No specific ${title.replace("Select ", "").toLowerCase()} —`}
               selected={false}
               onClick={handleClear}
             />
@@ -72,7 +74,7 @@ export function SelectFarmerModal({
         </ScrollArea>
         {filteredFarmers.length === 0 && searchValue.trim() && (
           <Text size="sm" c="dimmed">
-            No farmers match &quot;{searchValue.trim()}&quot;
+            No matches for &quot;{searchValue.trim()}&quot;
           </Text>
         )}
       </Stack>

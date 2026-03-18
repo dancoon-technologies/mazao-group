@@ -13,7 +13,7 @@ import { Alert, Box, Button, Group, Modal, Select, Stack, Textarea } from "@mant
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { getScheduleColumns } from "./scheduleColumns";
 import { ScheduleEditModal } from "./ScheduleEditModal";
-import { ScheduleForm } from "./ScheduleForm";
+import { ScheduleForm, type SchedulePartnerType } from "./ScheduleForm";
 import { SelectFarmModal } from "./SelectFarmModal";
 import { SelectFarmerModal } from "./SelectFarmerModal";
 import { INITIAL_SCHEDULE_FORM, type ScheduleFormValues } from "./utils";
@@ -45,6 +45,7 @@ export default function SchedulesPage() {
   const [farmModalOpen, setFarmModalOpen] = useState(false);
   const [farmerSearch, setFarmerSearch] = useState("");
   const [farmSearch, setFarmSearch] = useState("");
+  const [schedulePartnerType, setSchedulePartnerType] = useState<SchedulePartnerType>("farmer");
   const [form, updateField, resetForm] = useFormFields(INITIAL_SCHEDULE_FORM);
 
   const handleApprove = useCallback(
@@ -100,8 +101,10 @@ export default function SchedulesPage() {
       updateField("farm", s.farm ?? "");
       updateField("notes", s.notes ?? "");
       updateField("officer", s.officer ?? "");
+      const farmer = farmers.find((f) => f.id === s.farmer);
+      setSchedulePartnerType(farmer?.is_stockist ? "stockist" : "farmer");
     },
-    [updateField]
+    [updateField, farmers]
   );
 
   const closeEditModal = useCallback(() => {
@@ -269,16 +272,18 @@ export default function SchedulesPage() {
   );
 
   const filteredFarmers = useMemo(() => {
+    const isStockist = schedulePartnerType === "stockist";
+    const byType = farmers.filter((f) => Boolean(f.is_stockist) === isStockist);
     const q = farmerSearch.trim().toLowerCase();
-    if (!q) return farmers;
-    return farmers.filter(
+    if (!q) return byType;
+    return byType.filter(
       (f) =>
         (f.display_name ?? "").toLowerCase().includes(q) ||
         (f.phone ?? "").toLowerCase().includes(q) ||
         (f.first_name ?? "").toLowerCase().includes(q) ||
         (f.last_name ?? "").toLowerCase().includes(q)
     );
-  }, [farmers, farmerSearch]);
+  }, [farmers, farmerSearch, schedulePartnerType]);
 
   const filteredFarms = useMemo(() => {
     const q = farmSearch.trim().toLowerCase();
@@ -294,6 +299,18 @@ export default function SchedulesPage() {
 
   const selectedFarmer = farmers.find((f) => f.id === form.farmer);
   const selectedFarm = farms.find((f) => f.id === form.farm);
+
+  const handleSchedulePartnerTypeChange = useCallback(
+    (type: SchedulePartnerType) => {
+      setSchedulePartnerType(type);
+      const isStockist = type === "stockist";
+      if (selectedFarmer && Boolean(selectedFarmer.is_stockist) !== isStockist) {
+        updateField("farmer", "");
+        updateField("farm", "");
+      }
+    },
+    [selectedFarmer, updateField]
+  );
 
   const scheduleColumns = useMemo(
     () =>
@@ -361,6 +378,8 @@ export default function SchedulesPage() {
           selectedFarm={selectedFarm}
           formError={formError}
           submitting={submitting}
+          partnerType={schedulePartnerType}
+          onPartnerTypeChange={handleSchedulePartnerTypeChange}
           onOpenFarmerModal={() => {
             setFarmerSearch("");
             setFarmerModalOpen(true);
@@ -379,6 +398,7 @@ export default function SchedulesPage() {
       <SelectFarmerModal
         opened={farmerModalOpen}
         onClose={() => setFarmerModalOpen(false)}
+        title={schedulePartnerType === "stockist" ? "Select stockist" : "Select farmer"}
         searchValue={farmerSearch}
         onSearchChange={setFarmerSearch}
         filteredFarmers={filteredFarmers}

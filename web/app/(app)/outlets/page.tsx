@@ -30,8 +30,6 @@ const INITIAL_FORM = {
   village: "",
   latitude: "",
   longitude: "",
-  plot_size: "",
-  crop_type: "",
 };
 
 function outletColumns(farmers: Farmer[], partnerLabel: string): DataTableColumn<Farm>[] {
@@ -51,8 +49,6 @@ function outletColumns(farmers: Farmer[], partnerLabel: string): DataTableColumn
     },
     { key: "county", label: "County", render: (f) => <Text size="sm" c="dimmed">{f.county}</Text> },
     { key: "sub_county", label: "Sub-county", render: (f) => <Text size="sm" c="dimmed">{f.sub_county}</Text> },
-    { key: "plot_size", label: "Plot", visibleFrom: "md", render: (f) => <Text size="sm" c="dimmed">{f.plot_size || "—"}</Text> },
-    { key: "crop_type", label: "Crop", visibleFrom: "md", render: (f) => <Text size="sm" c="dimmed">{f.crop_type || "—"}</Text> },
   ];
 }
 
@@ -138,8 +134,6 @@ export default function OutletsPage() {
           village: form.village.trim(),
           latitude: lat,
           longitude: lon,
-          plot_size: form.plot_size.trim() || undefined,
-          crop_type: form.crop_type.trim() || undefined,
           is_outlet: true,
         });
         resetForm();
@@ -256,18 +250,6 @@ export default function OutletsPage() {
                   placeholder="36.8219"
                 />
               </Group>
-              <TextInput
-                label="Plot size (optional)"
-                value={form.plot_size}
-                onChange={(e) => updateField("plot_size", e.target.value)}
-                placeholder="e.g. 2 acres"
-              />
-              <TextInput
-                label="Crop type (optional)"
-                value={form.crop_type}
-                onChange={(e) => updateField("crop_type", e.target.value)}
-                placeholder="e.g. Maize"
-              />
               <Group>
                 <Button type="submit" color="yellow" loading={submitting}>
                   {submitting ? "Saving…" : "Add outlet"}

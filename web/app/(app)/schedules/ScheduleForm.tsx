@@ -8,12 +8,15 @@ import {
   Button,
   Group,
   Paper,
+  SegmentedControl,
   Select,
   Stack,
   Text,
   Textarea,
 } from "@mantine/core";
 import { DateInput } from "@mantine/dates";
+
+export type SchedulePartnerType = "farmer" | "stockist";
 
 export interface ScheduleFormProps {
   /** Whether the current user is an officer (proposing) vs admin/supervisor (creating). */
@@ -26,6 +29,8 @@ export interface ScheduleFormProps {
   selectedFarm: Farm | undefined;
   formError: string;
   submitting: boolean;
+  partnerType: SchedulePartnerType;
+  onPartnerTypeChange: (type: SchedulePartnerType) => void;
   onOpenFarmerModal: () => void;
   onOpenFarmModal: () => void;
   onSubmit: (e: React.FormEvent) => void;
@@ -44,6 +49,8 @@ export function ScheduleForm({
   selectedFarm,
   formError,
   submitting,
+  partnerType,
+  onPartnerTypeChange,
   onOpenFarmerModal,
   onOpenFarmModal,
   onSubmit,
@@ -51,6 +58,10 @@ export function ScheduleForm({
   partnerLabel = "Farmer",
   locationLabel = "Farm",
 }: ScheduleFormProps) {
+  const isStockist = partnerType === "stockist";
+  const displayPartnerLabel = isStockist ? "Stockist" : "Farmer";
+  const displayLocationLabel = isStockist ? "Outlet" : "Farm";
+
   return (
     <Paper mt="md" p="md" radius="md" shadow="sm" withBorder>
       <Text size="lg" fw={600} mb="md">
@@ -80,28 +91,42 @@ export function ScheduleForm({
           )}
           <Box>
             <Text size="sm" fw={500} mb={4}>
-              {partnerLabel} (optional)
+              Partner type
+            </Text>
+            <SegmentedControl
+              value={partnerType}
+              onChange={(v) => onPartnerTypeChange(v as SchedulePartnerType)}
+              data={[
+                { label: "Farmer", value: "farmer" },
+                { label: "Stockist", value: "stockist" },
+              ]}
+              mb="sm"
+            />
+          </Box>
+          <Box>
+            <Text size="sm" fw={500} mb={4}>
+              {displayPartnerLabel} (optional)
             </Text>
             {isOfficer && (
               <Text size="xs" c="dimmed" mb="xs">
-                Optional: link this visit to one of your assigned {partnerLabel.toLowerCase()}s.
+                Optional: link this visit to one of your assigned {displayPartnerLabel.toLowerCase()}s.
               </Text>
             )}
             <Button variant="light" fullWidth onClick={onOpenFarmerModal}>
               {selectedFarmer
                 ? `${selectedFarmer.display_name}${selectedFarmer.phone ? ` · ${selectedFarmer.phone}` : ""}`
-                : `Select ${partnerLabel.toLowerCase()}`}
+                : `Select ${displayPartnerLabel.toLowerCase()}`}
             </Button>
           </Box>
           {form.farmer && (
             <Box>
               <Text size="sm" fw={500} mb={4}>
-                {locationLabel} (optional)
+                {displayLocationLabel} (optional)
               </Text>
               <Button variant="light" fullWidth onClick={onOpenFarmModal}>
                 {selectedFarm
                   ? `${selectedFarm.village}${selectedFarm.crop_type ? ` · ${selectedFarm.crop_type}` : ""}`
-                  : `Select ${locationLabel.toLowerCase()}`}
+                  : `Select ${displayLocationLabel.toLowerCase()}`}
               </Button>
             </Box>
           )}

@@ -31,7 +31,6 @@ const INITIAL_FARM_FORM = {
   latitude: "",
   longitude: "",
   plot_size: "",
-  crop_type: "",
 };
 
 function farmColumns(farmers: Farmer[], partnerLabel: string): DataTableColumn<Farm>[] {
@@ -52,7 +51,6 @@ function farmColumns(farmers: Farmer[], partnerLabel: string): DataTableColumn<F
     { key: "county", label: "County", render: (f) => <Text size="sm" c="dimmed">{f.county}</Text> },
     { key: "sub_county", label: "Sub-county", render: (f) => <Text size="sm" c="dimmed">{f.sub_county}</Text> },
     { key: "plot_size", label: "Plot", visibleFrom: "md", render: (f) => <Text size="sm" c="dimmed">{f.plot_size || "—"}</Text> },
-    { key: "crop_type", label: "Crop", visibleFrom: "md", render: (f) => <Text size="sm" c="dimmed">{f.crop_type || "—"}</Text> },
   ];
 }
 
@@ -140,7 +138,6 @@ export default function FarmsPage() {
           latitude: lat,
           longitude: lon,
           plot_size: form.plot_size.trim() || undefined,
-          crop_type: form.crop_type.trim() || undefined,
           is_outlet: false,
         });
         resetForm();
@@ -262,12 +259,6 @@ export default function FarmsPage() {
                 value={form.plot_size}
                 onChange={(e) => updateField("plot_size", e.target.value)}
                 placeholder="e.g. 2 acres"
-              />
-              <TextInput
-                label="Crop type (optional)"
-                value={form.crop_type}
-                onChange={(e) => updateField("crop_type", e.target.value)}
-                placeholder="e.g. Maize"
               />
               <Group>
                 <Button type="submit" color="green" loading={submitting}>

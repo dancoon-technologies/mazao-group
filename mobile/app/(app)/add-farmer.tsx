@@ -227,8 +227,8 @@ export default function AddFarmerScreen() {
             village: village.trim(),
             latitude: farmLatNum,
             longitude: farmLonNum,
-            plot_size: plotSize.trim() || undefined,
-            crop_type: farmCropType.trim() || undefined,
+            plot_size: isStockist ? undefined : (plotSize.trim() || undefined),
+            crop_type: undefined,
             device_latitude: deviceLat,
             device_longitude: deviceLon,
           },
@@ -274,8 +274,8 @@ export default function AddFarmerScreen() {
         village: village.trim(),
         latitude: farmLatNum,
         longitude: farmLonNum,
-        plot_size: plotSize.trim() || undefined,
-        crop_type: farmCropType.trim() || undefined,
+        plot_size: isStockist ? undefined : (plotSize.trim() || undefined),
+        crop_type: undefined,
         device_latitude: deviceLat,
         device_longitude: deviceLon,
       });
@@ -544,21 +544,16 @@ export default function AddFarmerScreen() {
             style={[styles.input, styles.flex]}
           />
         </View>
-        <TextInput
-          label="Plot size"
-          value={plotSize}
-          onChangeText={setPlotSize}
-          mode="outlined"
-          style={styles.input}
-          placeholder="e.g. 2 acres"
-        />
-        <TextInput
-          label="Crop type (farm)"
-          value={farmCropType}
-          onChangeText={setFarmCropType}
-          mode="outlined"
-          style={styles.input}
-        />
+        {!isStockist && (
+          <TextInput
+            label="Plot size"
+            value={plotSize}
+            onChangeText={setPlotSize}
+            mode="outlined"
+            style={styles.input}
+            placeholder="e.g. 2 acres"
+          />
+        )}
 
         {error ? <Text style={styles.error}>{error}</Text> : null}
 
