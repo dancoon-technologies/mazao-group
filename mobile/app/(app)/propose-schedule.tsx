@@ -284,6 +284,41 @@ export default function ProposeScheduleScreen() {
               : 'Your supervisor will accept or reject the proposal. The schedule is for you (logged-in user).'}
           </Text>
 
+          <Text variant="labelLarge" style={styles.label}>Who is being visited? *</Text>
+          <Text variant="bodySmall" style={styles.partnerTypeHint}>
+            Choose whether this visit is to a farmer or a stockist.
+          </Text>
+          <View style={styles.partnerTypeRow}>
+            <Button
+              mode={partnerType === 'farmer' ? 'contained' : 'outlined'}
+              compact
+              onPress={() => {
+                setPartnerType('farmer');
+                if (selectedFarmerId && farmers.find((f) => f.id === selectedFarmerId)?.is_stockist) {
+                  setSelectedFarmerId(null);
+                  setSelectedFarmId(null);
+                }
+              }}
+              style={styles.partnerTypeBtn}
+            >
+              Farmer
+            </Button>
+            <Button
+              mode={partnerType === 'stockist' ? 'contained' : 'outlined'}
+              compact
+              onPress={() => {
+                setPartnerType('stockist');
+                if (selectedFarmerId && !farmers.find((f) => f.id === selectedFarmerId)?.is_stockist) {
+                  setSelectedFarmerId(null);
+                  setSelectedFarmId(null);
+                }
+              }}
+              style={styles.partnerTypeBtn}
+            >
+              Stockist
+            </Button>
+          </View>
+
           {assigner && (
             <>
               <Text variant="labelLarge" style={styles.label}>Assign to officer *</Text>
@@ -331,37 +366,6 @@ export default function ProposeScheduleScreen() {
             keyboardType="numbers-and-punctuation"
           />
 
-          <Text variant="labelLarge" style={styles.label}>Partner type</Text>
-          <View style={styles.partnerTypeRow}>
-            <Button
-              mode={partnerType === 'farmer' ? 'contained' : 'outlined'}
-              compact
-              onPress={() => {
-                setPartnerType('farmer');
-                if (selectedFarmerId && farmers.find((f) => f.id === selectedFarmerId)?.is_stockist) {
-                  setSelectedFarmerId(null);
-                  setSelectedFarmId(null);
-                }
-              }}
-              style={styles.partnerTypeBtn}
-            >
-              Farmer
-            </Button>
-            <Button
-              mode={partnerType === 'stockist' ? 'contained' : 'outlined'}
-              compact
-              onPress={() => {
-                setPartnerType('stockist');
-                if (selectedFarmerId && !farmers.find((f) => f.id === selectedFarmerId)?.is_stockist) {
-                  setSelectedFarmerId(null);
-                  setSelectedFarmId(null);
-                }
-              }}
-              style={styles.partnerTypeBtn}
-            >
-              Stockist
-            </Button>
-          </View>
           <Text variant="labelLarge" style={styles.label}>{partnerTypeLabel} (optional)</Text>
           <Button
             mode="outlined"
@@ -497,7 +501,8 @@ const styles = StyleSheet.create({
   menuButtonContent: { justifyContent: 'flex-start' },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 },
   chip: { margin: 0 },
-  partnerTypeRow: { flexDirection: 'row', gap: 8, marginBottom: 12 },
+  partnerTypeHint: { marginBottom: 8, color: colors.gray700 },
+  partnerTypeRow: { flexDirection: 'row', gap: 8, marginBottom: 16 },
   partnerTypeBtn: { flex: 1 },
   farmerSelectBtn: { marginBottom: 4 },
   farmerSelectBtnContent: { justifyContent: 'flex-start' },
