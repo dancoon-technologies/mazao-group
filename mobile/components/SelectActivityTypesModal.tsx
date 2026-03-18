@@ -8,6 +8,7 @@ import {
   Pressable,
   Platform,
   Keyboard,
+  KeyboardAvoidingView,
 } from "react-native";
 import { ActivityIndicator, Button, Searchbar, Text } from "react-native-paper";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
@@ -115,7 +116,12 @@ export function SelectActivityTypesModal({
     >
       <View style={styles.overlay}>
         <Pressable style={styles.backdrop} onPress={onClose} />
-        <View style={[styles.sheet, { marginBottom: keyboardHeight }]}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          style={styles.avoiding}
+          keyboardVerticalOffset={0}
+        >
+          <View style={[styles.sheet, { marginBottom: keyboardHeight }]}>
           <View style={styles.header}>
             <Text variant="titleMedium" style={styles.title}>
               {title}
@@ -162,12 +168,17 @@ export function SelectActivityTypesModal({
             </Button>
           </View>
         </View>
+        </KeyboardAvoidingView>
       </View>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
+  avoiding: {
+    flex: 1,
+    justifyContent: "flex-end",
+  },
   overlay: {
     flex: 1,
     justifyContent: "flex-end",

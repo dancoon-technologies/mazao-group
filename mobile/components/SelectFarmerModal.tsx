@@ -11,6 +11,7 @@ import {
   Pressable,
   Keyboard,
   Platform,
+  KeyboardAvoidingView,
 } from "react-native";
 import { Button, Searchbar, Text } from "react-native-paper";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
@@ -105,7 +106,12 @@ export function SelectFarmerModal({
     >
       <View style={styles.overlay}>
         <Pressable style={styles.backdrop} onPress={onClose} />
-        <View style={[styles.sheet, { marginBottom: keyboardHeight }]}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          style={styles.avoiding}
+          keyboardVerticalOffset={0}
+        >
+          <View style={[styles.sheet, { marginBottom: keyboardHeight }]}>
           <View style={styles.header}>
             <Text variant="titleMedium" style={styles.title}>
               {modalTitle}
@@ -147,12 +153,17 @@ export function SelectFarmerModal({
             }
           />
         </View>
+        </KeyboardAvoidingView>
       </View>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
+  avoiding: {
+    flex: 1,
+    justifyContent: "flex-end",
+  },
   overlay: {
     flex: 1,
     justifyContent: "flex-end",

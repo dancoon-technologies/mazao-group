@@ -3,7 +3,7 @@
  * Same pattern as SelectActivityTypesModal: search, checkmarks, Done.
  */
 import type { ProductOption } from "@/lib/api";
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   Modal,
   View,
@@ -12,6 +12,7 @@ import {
   Pressable,
   Platform,
   Keyboard,
+  KeyboardAvoidingView,
 } from "react-native";
 import { Button, Searchbar, Text } from "react-native-paper";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
@@ -45,8 +46,25 @@ export function SelectProductsModal({
 }: SelectProductsModalProps) {
   const [search, setSearch] = useState("");
   const [pending, setPending] = useState<string[]>(selectedIds);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
 
-  React.useEffect(() => {
+  useEffect(() => {
+    if (!visible) return;
+    const showSub = Keyboard.addListener(
+      Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow",
+      (e) => setKeyboardHeight(e.endCoordinates.height)
+    );
+    const hideSub = Keyboard.addListener(
+      Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide",
+      () => setKeyboardHeight(0)
+    );
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, [visible]);
+
+  useEffect(() => {
     if (visible) {
       setSearch("");
       setPending(selectedIds);
@@ -97,7 +115,12 @@ export function SelectProductsModal({
     >
       <View style={styles.overlay}>
         <Pressable style={styles.backdrop} onPress={onClose} />
-        <View style={styles.sheet}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          style={styles.avoiding}
+          keyboardVerticalOffset={0}
+        >
+          <View style={[styles.sheet, { marginBottom: keyboardHeight }]}>
           <View style={styles.header}>
             <Text variant="titleMedium" style={styles.title}>
               {title}
@@ -137,12 +160,17 @@ export function SelectProductsModal({
             </Button>
           </View>
         </View>
+        </KeyboardAvoidingView>
       </View>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
+  avoiding: {
+    flex: 1,
+    justifyContent: "flex-end",
+  },
   overlay: {
     flex: 1,
     justifyContent: "flex-end",
