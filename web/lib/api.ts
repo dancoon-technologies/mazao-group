@@ -337,7 +337,7 @@ export const api = {
   ): Promise<DashboardStaffRankingItem[]> {
     const days = params?.days ?? 30;
     const res = await authFetch(
-      `${API_BASE}/api/dashboard/staff-ranking?days=${encodeURIComponent(String(days))}`,
+      `${API_BASE}/api/dashboard/staff-ranking/?days=${encodeURIComponent(String(days))}`,
       { signal: options?.signal }
     );
     if (!res.ok) {

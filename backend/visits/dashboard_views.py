@@ -1,5 +1,5 @@
 import logging
-from datetime import timedelta
+from datetime import datetime, time, timedelta
 
 from django.db.models import Count, Q, Sum
 from django.db.models.functions import TruncDate
@@ -251,17 +251,20 @@ class DashboardStaffRankingView(APIView):
             days = min(365, max(1, int(request.GET.get("days", 30))))
         except ValueError:
             days = 30
-        end_date = timezone.now().date()
+        now = timezone.localtime(timezone.now())
+        end_date = now.date()
         start_date = end_date - timedelta(days=days - 1)
+        start_dt = timezone.make_aware(datetime.combine(start_date, time.min))
+        end_dt = timezone.make_aware(datetime.combine(end_date, time.max))
         visits_in_range = base_qs.filter(
-            created_at__date__gte=start_date,
-            created_at__date__lte=end_date,
+            created_at__gte=start_dt,
+            created_at__lte=end_dt,
         )
         visit_ids = list(visits_in_range.values_list("id", flat=True))
 
         from accounts.models import User
 
-        officer_ids = list(visits_in_range.values_list("officer", flat=True).distinct())
+        officer_ids = list(visits_in_range.values("officer").distinct().values_list("officer", flat=True))
         officers = {str(u.id): u for u in User.objects.filter(id__in=officer_ids)}
 
         sales_qs = (
