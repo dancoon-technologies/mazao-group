@@ -48,6 +48,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { ListItemRow } from '@/components/ListItemRow';
 import { SelectActivityTypesModal } from '@/components/SelectActivityTypesModal';
 import { SelectFarmModal } from '@/components/SelectFarmModal';
+import { SelectProductsModal } from '@/components/SelectProductsModal';
 import {
   colors,
   DEFAULT_MAX_DISTANCE_METERS,
@@ -114,7 +115,8 @@ export default function RecordVisitScreen() {
   const [locationLoading, setLocationLoading] = useState(false);
   const [notes, setNotes] = useState('');
   const [step3Values, setStep3Values] = useState<Step3Values>({});
-  const [productFocusMenuOpen, setProductFocusMenuOpen] = useState(false);
+  const [productModalOpen, setProductModalOpen] = useState(false);
+  const [productModalFieldKey, setProductModalFieldKey] = useState<string | null>(null);
   const [snackbarMsg, setSnackbarMsg] = useState('');
   const [dialogVisible, setDialogVisible] = useState(false);
   const [dialogSuccess, setDialogSuccess] = useState(true);
@@ -984,33 +986,43 @@ export default function RecordVisitScreen() {
                   const setValue = (v: string) => setStep3Values((prev) => ({ ...prev, [f.key]: v }));
                   const inputType = getStep3InputType(f.key, visitFormFieldSchema);
                   if (inputType === 'product') {
-                    const selectedProduct = products.find((p) => p.id === value);
+                    const selectedIds = (value ?? '').split(',').map((s) => s.trim()).filter(Boolean);
+                    const selectedProducts = products.filter((p) => selectedIds.includes(p.id));
+                    const buttonLabel = selectedProducts.length === 0
+                      ? 'Select products'
+                      : selectedProducts.length === 1
+                        ? `${selectedProducts[0].name}${selectedProducts[0].unit ? ` (${selectedProducts[0].unit})` : ''}`
+                        : `${selectedProducts.length} products selected`;
                     return (
                       <View key={f.key} style={styles.input}>
                         <Text variant="labelLarge" style={styles.fieldLabel}>{requiredLabel}</Text>
-                        <Menu
-                          visible={productFocusMenuOpen}
-                          onDismiss={() => setProductFocusMenuOpen(false)}
-                          anchor={
-                            <Button
-                              mode="outlined"
-                              onPress={() => setProductFocusMenuOpen(true)}
-                              contentStyle={{ justifyContent: 'flex-start' }}
-                              style={styles.productFocusButton}
-                            >
-                              {selectedProduct ? `${selectedProduct.name}${selectedProduct.unit ? ` (${selectedProduct.unit})` : ''}` : 'Select product'}
-                            </Button>
-                          }
+                        <Button
+                          mode="outlined"
+                          onPress={() => {
+                            setProductModalFieldKey(f.key);
+                            setProductModalOpen(true);
+                          }}
+                          contentStyle={{ justifyContent: 'flex-start' }}
+                          style={styles.productFocusButton}
+                          icon="format-list-bulleted"
                         >
-                          <List.Item title="None" onPress={() => { setValue(''); setProductFocusMenuOpen(false); }} />
-                          {products.map((p) => (
-                            <List.Item
-                              key={p.id}
-                              title={`${p.name}${p.unit ? ` (${p.unit})` : ''}`}
-                              onPress={() => { setValue(p.id); setProductFocusMenuOpen(false); }}
-                            />
-                          ))}
-                        </Menu>
+                          {buttonLabel}
+                        </Button>
+                        <SelectProductsModal
+                          visible={productModalOpen && productModalFieldKey === f.key}
+                          onClose={() => {
+                            setProductModalOpen(false);
+                            setProductModalFieldKey(null);
+                          }}
+                          products={products}
+                          selectedIds={selectedIds}
+                          onSelect={(ids) => {
+                            setValue(ids.join(','));
+                            setProductModalOpen(false);
+                            setProductModalFieldKey(null);
+                          }}
+                          title="Select product focus"
+                        />
                       </View>
                     );
                   }

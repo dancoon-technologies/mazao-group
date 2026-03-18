@@ -103,7 +103,12 @@ async function pushQueue(accessToken: string): Promise<{ ok: boolean; error?: st
           form.append('product_lines', JSON.stringify(productLines))
         }
         if (payload.number_of_stockists_visited != null) form.append('number_of_stockists_visited', String(payload.number_of_stockists_visited))
-        if (payload.product_focus_id) form.append('product_focus_id', String(payload.product_focus_id))
+        const productFocusIds = Array.isArray(payload.product_focus_ids) ? payload.product_focus_ids : []
+        if (productFocusIds.length > 0) {
+          form.append('product_focus_ids', JSON.stringify(productFocusIds))
+        } else if (payload.product_focus_id) {
+          form.append('product_focus_id', String(payload.product_focus_id))
+        }
         if (payload.merchandising) form.append('merchandising', String(payload.merchandising))
         if (payload.counter_training) form.append('counter_training', String(payload.counter_training))
         for (let i = 0; i < photoUris.length; i++) {
@@ -370,6 +375,7 @@ export async function enqueueVisit(payload: {
   product_lines?: { product_id: string; quantity_sold?: number; quantity_given?: number }[]
   number_of_stockists_visited?: number | null
   product_focus_id?: string | null
+  product_focus_ids?: string[]
   merchandising?: string
   counter_training?: string
 }): Promise<void> {

@@ -89,12 +89,66 @@ describe("flattenVisitsToSales", () => {
       quantitySold: "10",
       quantityGiven: "0",
     });
-    expect(rows[0].id).toBe("v1-p1");
+    expect(rows[0].id).toBe("v1-line-p1");
     expect(rows[1]).toMatchObject({
       productName: "Fertilizer",
       quantitySold: "0",
       quantityGiven: "2",
     });
+  });
+
+  it("emits one row per product focus when no product_lines (product focus as sale)", () => {
+    const visits = [
+      makeVisit({
+        id: "v1",
+        officer_display_name: "Jane",
+        farmer_display_name: "John",
+        farm_display_name: "North Farm",
+        product_lines: [],
+        product_focus_details: [
+          { product_id: "p1", product_name: "Seeds", product_unit: "kg" },
+          { product_id: "p2", product_name: "Fertilizer", product_unit: "" },
+        ],
+      }),
+    ];
+    const rows = flattenVisitsToSales(visits);
+    expect(rows).toHaveLength(2);
+    expect(rows[0]).toMatchObject({
+      visitId: "v1",
+      productName: "Seeds",
+      productUnit: "kg",
+      quantitySold: "—",
+      quantityGiven: "—",
+    });
+    expect(rows[0].id).toBe("v1-focus-p1");
+    expect(rows[1]).toMatchObject({
+      productName: "Fertilizer",
+      quantitySold: "—",
+      quantityGiven: "—",
+    });
+  });
+
+  it("does not duplicate product focus when same product in product_lines", () => {
+    const visits = [
+      makeVisit({
+        id: "v1",
+        product_lines: [
+          {
+            product_id: "p1",
+            product_name: "Seeds",
+            product_unit: "kg",
+            quantity_sold: "5",
+            quantity_given: "0",
+          },
+        ],
+        product_focus_details: [
+          { product_id: "p1", product_name: "Seeds", product_unit: "kg" },
+        ],
+      }),
+    ];
+    const rows = flattenVisitsToSales(visits);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].quantitySold).toBe("5");
   });
 
   it("uses fallbacks when display names missing", () => {

@@ -54,6 +54,10 @@ export interface Visit {
   number_of_stockists_visited?: number | null;
   product_focus?: string | null;
   product_focus_display?: string | null;
+  /** Product focus IDs (multi-select). */
+  product_focus_ids?: string[];
+  /** Product focus with name/unit for sales page (order preserved). */
+  product_focus_details?: { product_id: string; product_name: string; product_unit: string }[];
   merchandising?: string;
   counter_training?: string;
   created_at: string;

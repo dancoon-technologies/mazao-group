@@ -153,13 +153,10 @@ class Visit(MobileSyncModel):
     number_of_stockists_visited = models.PositiveIntegerField(
         null=True, blank=True, help_text="Number of stockists visited (e.g. for stockists_visit activity)."
     )
-    product_focus = models.ForeignKey(
-        "Product",
-        on_delete=models.SET_NULL,
-        null=True,
+    product_focus_ids = models.JSONField(
+        default=list,
         blank=True,
-        related_name="visits_as_focus",
-        help_text="Primary product focus for this visit (e.g. stockists_visit).",
+        help_text="Product focus IDs for this visit (multi-select).",
     )
     merchandising = models.CharField(
         max_length=500, blank=True, help_text="Merchandising notes (e.g. shelf placement, display)."

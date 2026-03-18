@@ -67,14 +67,14 @@ class VisitAdmin(admin.ModelAdmin):
         "created_at",
     )
     list_filter = ("verification_status", "activity_type", "created_at")
-    raw_id_fields = ("officer", "farmer", "product_focus")
+    raw_id_fields = ("officer", "farmer")
     readonly_fields = ("created_at",)
     inlines = (VisitPhotoInline, VisitProductInline)
     fieldsets = (
         (None, {"fields": ("officer", "farmer", "farm", "schedule", "activity_type", "activity_types", "verification_status")}),
         ("Location", {"fields": ("latitude", "longitude", "distance_from_farmer", "photo", "photo_taken_at", "photo_device_info", "photo_place_name", "notes")}),
         ("Step 3 / Additional", {"fields": ("crop_stage", "germination_percent", "survival_rate", "pests_diseases", "order_value", "harvest_kgs", "farmers_feedback")}),
-        ("Stockists visit (AgriPrice)", {"fields": ("number_of_stockists_visited", "product_focus", "merchandising", "counter_training"), "classes": ("collapse",)}),
+        ("Stockists visit (AgriPrice)", {"fields": ("number_of_stockists_visited", "product_focus_ids", "merchandising", "counter_training"), "classes": ("collapse",)}),
     )
 
 

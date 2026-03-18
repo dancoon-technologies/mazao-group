@@ -553,6 +553,7 @@ export const api = {
     product_lines?: { product_id: string; quantity_sold?: number; quantity_given?: number }[];
     number_of_stockists_visited?: number | null;
     product_focus_id?: string | null;
+    product_focus_ids?: string[];
     merchandising?: string;
     counter_training?: string;
   }) {
@@ -591,7 +592,11 @@ export const api = {
       form.append('product_lines', JSON.stringify(params.product_lines));
     }
     if (params.number_of_stockists_visited != null) form.append('number_of_stockists_visited', String(params.number_of_stockists_visited));
-    if (params.product_focus_id) form.append('product_focus_id', params.product_focus_id);
+    if (params.product_focus_ids?.length) {
+      form.append('product_focus_ids', JSON.stringify(params.product_focus_ids));
+    } else if (params.product_focus_id) {
+      form.append('product_focus_id', params.product_focus_id);
+    }
     if (params.merchandising) form.append('merchandising', params.merchandising);
     if (params.counter_training) form.append('counter_training', params.counter_training);
 

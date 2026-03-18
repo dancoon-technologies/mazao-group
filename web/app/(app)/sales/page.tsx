@@ -230,7 +230,7 @@ export default function SalesPage() {
         {salesRows.length === 0 ? (
           <Paper p="lg" withBorder style={{ minHeight: 80 }}>
             <Text c="dimmed" size="sm" style={{ lineHeight: 1.5 }}>
-              No sales recorded in the selected period. Sales are taken from product lines on visits.
+              No sales recorded in the selected period. Sales are taken from product lines and product focus on visits.
             </Text>
           </Paper>
         ) : (
