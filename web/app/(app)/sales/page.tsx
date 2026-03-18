@@ -4,6 +4,7 @@ import {
   Accordion,
   Anchor,
   Box,
+  Button,
   Group,
   Paper,
   Select,
@@ -19,6 +20,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { formatDateTime } from "@/lib/format";
 import { PageLoading, PageError, PageHeader } from "@/components/ui";
 import { PAGE_BOX_MIN_WIDTH, ROUTES } from "@/lib/constants";
+import { getLabelsFromOptions } from "@/lib/options";
 import {
   buildVisitParams,
   getReportPeriodShortLabel,
@@ -27,6 +29,9 @@ import {
   type ReportPeriod,
 } from "@/lib/reportFilters";
 import { groupSalesByVisit } from "@/lib/sales";
+import { buildVisitDataFieldsFromOptions } from "@/lib/visitFormFields";
+import { generateVisitReportPdf } from "@/lib/visitReportPdf";
+import type { Visit } from "@/lib/types";
 
 export default function SalesPage() {
   const { role } = useAuth();
@@ -37,6 +42,7 @@ export default function SalesPage() {
   const [reportDate, setReportDate] = useState(() => todayISO());
   const [officerFilter, setOfficerFilter] = useState<string | null>(null);
   const [departmentFilter, setDepartmentFilter] = useState<string | null>(null);
+  const [exportingVisitId, setExportingVisitId] = useState<string | null>(null);
 
   const visitParams = useMemo(
     () =>
@@ -80,6 +86,28 @@ export default function SalesPage() {
   const officerOptions = useMemo(
     () => [{ value: "", label: "All officers" }, ...officers.map((o) => ({ value: o.id, label: o.display_name ? `${o.display_name} (${o.email})` : o.email }))],
     [officers]
+  );
+
+  const labels = useMemo(() => getLabelsFromOptions(optionsData), [optionsData]);
+  const visitDataFields = useMemo(
+    () => buildVisitDataFieldsFromOptions(optionsData?.activity_types, labels.partner),
+    [optionsData?.activity_types, labels.partner]
+  );
+
+  const handleGenerateReport = useCallback(
+    async (visit: Visit) => {
+      setExportingVisitId(visit.id);
+      try {
+        await generateVisitReportPdf(visit, {
+          partnerLabel: labels.partner,
+          locationLabel: labels.location,
+          visitDataFields,
+        });
+      } finally {
+        setExportingVisitId(null);
+      }
+    },
+    [labels.partner, labels.location, visitDataFields]
   );
 
   if (!isAdminOrSupervisor) {
@@ -218,10 +246,10 @@ export default function SalesPage() {
                       <Text size="sm">{g.partnerDisplay}</Text>
                     </Table.Td>
                     <Table.Td>
-                      <Text size="sm">{totalSold}</Text>
+                      <Text size="sm">{Math.round(totalSold)}</Text>
                     </Table.Td>
                     <Table.Td>
-                      <Text size="sm">{totalGiven}</Text>
+                      <Text size="sm">{Math.round(totalGiven)}</Text>
                     </Table.Td>
                     <Table.Td>
                       <Accordion
@@ -254,10 +282,10 @@ export default function SalesPage() {
                                       </Text>
                                     </Table.Td>
                                     <Table.Td>
-                                      <Text size="sm">{p.quantitySold}</Text>
+                                      <Text size="sm">{Math.round(parseFloat(p.quantitySold) || 0)}</Text>
                                     </Table.Td>
                                     <Table.Td>
-                                      <Text size="sm">{p.quantityGiven}</Text>
+                                      <Text size="sm">{Math.round(parseFloat(p.quantityGiven) || 0)}</Text>
                                     </Table.Td>
                                   </Table.Tr>
                                 ))}
@@ -268,9 +296,23 @@ export default function SalesPage() {
                       </Accordion>
                     </Table.Td>
                     <Table.Td>
-                      <Anchor component={Link} href={ROUTES.VISITS} size="sm" c="green">
-                        View visit
-                      </Anchor>
+                      <Group gap="xs" wrap="nowrap">
+                        <Button
+                          variant="light"
+                          size="xs"
+                          color="green"
+                          loading={exportingVisitId === g.visitId}
+                          onClick={() => {
+                            const visit = visits.find((v) => v.id === g.visitId);
+                            if (visit) handleGenerateReport(visit);
+                          }}
+                        >
+                          Generate report
+                        </Button>
+                        <Anchor component={Link} href={ROUTES.VISITS} size="sm" c="green">
+                          View visit
+                        </Anchor>
+                      </Group>
                     </Table.Td>
                   </Table.Tr>
                   );
