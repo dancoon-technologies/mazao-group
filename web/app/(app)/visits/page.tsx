@@ -552,11 +552,22 @@ export default function VisitsPage() {
         : []),
       {
         key: "farmer",
-        label: labels.partner,
+        label: "Customer",
         render: (v) => (
-          <Text size="sm" fw={500} style={{ wordBreak: "break-all" }}>
-            {v.farmer_display_name ?? v.farmer}
-          </Text>
+          <Stack gap={4}>
+            <Text size="sm" fw={500} style={{ wordBreak: "break-all" }}>
+              {v.farmer_display_name ?? v.farmer}
+            </Text>
+            {v.partner_is_stockist != null && (
+              <Badge
+                variant="light"
+                size="sm"
+                color={v.partner_is_stockist ? "teal" : "green"}
+              >
+                {v.partner_is_stockist ? "Stockist" : "Farmer"}
+              </Badge>
+            )}
+          </Stack>
         ),
       },
       {

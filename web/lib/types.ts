@@ -21,6 +21,8 @@ export interface Visit {
   officer_display_name?: string;
   farmer: string;
   farmer_display_name?: string;
+  /** True when the visit partner (farmer) is a stockist. From API for table badge. */
+  partner_is_stockist?: boolean | null;
   farm: string | null;
   farm_display_name?: string | null;
   latitude: string;

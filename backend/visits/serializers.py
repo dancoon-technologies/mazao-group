@@ -34,6 +34,7 @@ class VisitSerializer(serializers.ModelSerializer):
     schedule_display = serializers.SerializerMethodField()
     photos = serializers.SerializerMethodField()
     product_lines = serializers.SerializerMethodField()
+    partner_is_stockist = serializers.SerializerMethodField()
 
     class Meta:
         model = Visit
@@ -44,6 +45,7 @@ class VisitSerializer(serializers.ModelSerializer):
             "officer_display_name",
             "farmer",
             "farmer_display_name",
+            "partner_is_stockist",
             "farm",
             "farm_display_name",
             "schedule",
@@ -90,6 +92,9 @@ class VisitSerializer(serializers.ModelSerializer):
 
     def get_farmer_display_name(self, obj):
         return obj.farmer.name if obj.farmer_id else ""
+
+    def get_partner_is_stockist(self, obj):
+        return getattr(obj.farmer, "is_stockist", False) if obj.farmer_id else None
 
     def get_farm_display_name(self, obj):
         if obj.farm_id and obj.farm:
