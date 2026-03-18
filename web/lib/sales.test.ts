@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { flattenVisitsToSales } from "./sales";
+import { flattenVisitsToSales, groupSalesByVisit } from "./sales";
 import type { Visit } from "./types";
 
 function makeVisit(overrides: Partial<Visit> & { id: string }): Visit {
@@ -172,5 +172,59 @@ describe("flattenVisitsToSales", () => {
     expect(rows[0].officerDisplay).toBe("—");
     expect(rows[0].partnerDisplay).toBe("—");
     expect(rows[0].locationDisplay).toBe("—");
+  });
+});
+
+describe("groupSalesByVisit", () => {
+  it("returns empty array for no visits", () => {
+    expect(groupSalesByVisit([])).toEqual([]);
+  });
+
+  it("returns empty when visit has no product_lines or focus", () => {
+    const visits = [makeVisit({ id: "v1" })];
+    expect(groupSalesByVisit(visits)).toEqual([]);
+  });
+
+  it("groups one visit with multiple products into one entry", () => {
+    const visits = [
+      makeVisit({
+        id: "v1",
+        officer_display_name: "Jane",
+        farmer_display_name: "John",
+        farm_display_name: "North Farm",
+        product_lines: [
+          { product_id: "p1", product_name: "Seeds", product_unit: "kg", quantity_sold: "10", quantity_given: "0" },
+          { product_id: "p2", product_name: "Fertilizer", quantity_sold: "0", quantity_given: "2" },
+        ],
+      }),
+    ];
+    const groups = groupSalesByVisit(visits);
+    expect(groups).toHaveLength(1);
+    expect(groups[0]).toMatchObject({
+      visitId: "v1",
+      date: "2024-03-14T12:00:00Z",
+      officerDisplay: "Jane — jane@test.com",
+      partnerDisplay: "John",
+      locationDisplay: "North Farm",
+    });
+    expect(groups[0].products).toHaveLength(2);
+    expect(groups[0].products[0]).toMatchObject({ productName: "Seeds", productUnit: "kg", quantitySold: "10", quantityGiven: "0" });
+    expect(groups[0].products[1]).toMatchObject({ productName: "Fertilizer", quantitySold: "0", quantityGiven: "2" });
+  });
+
+  it("includes product_focus_details when no product_lines for that product", () => {
+    const visits = [
+      makeVisit({
+        id: "v1",
+        product_lines: [],
+        product_focus_details: [
+          { product_id: "p1", product_name: "Focus A", product_unit: "unit" },
+        ],
+      }),
+    ];
+    const groups = groupSalesByVisit(visits);
+    expect(groups).toHaveLength(1);
+    expect(groups[0].products).toHaveLength(1);
+    expect(groups[0].products[0]).toMatchObject({ productName: "Focus A", quantitySold: "—", quantityGiven: "—" });
   });
 });

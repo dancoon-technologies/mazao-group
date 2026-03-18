@@ -73,3 +73,72 @@ export function flattenVisitsToSales(visits: Visit[]): SalesRow[] {
   }
   return rows;
 }
+
+/** One product line for display in a visit row (accordion). */
+export interface SalesProductLine {
+  productName: string;
+  productUnit: string;
+  quantitySold: string;
+  quantityGiven: string;
+}
+
+/** Visit grouped for sales page: one row per visit with expandable product list. */
+export interface SalesVisitGroup {
+  visitId: string;
+  date: string;
+  officerDisplay: string;
+  partnerDisplay: string;
+  locationDisplay: string;
+  products: SalesProductLine[];
+}
+
+/**
+ * Group visits into one row per visit with a list of products (for accordion UI).
+ * Uses same rules as flattenVisitsToSales: product_lines with qty, then product_focus_details without dupes.
+ */
+export function groupSalesByVisit(visits: Visit[]): SalesVisitGroup[] {
+  const groups: SalesVisitGroup[] = [];
+  for (const v of visits) {
+    const officerDisplay =
+      [v.officer_display_name, v.officer_email].filter(Boolean).join(" — ") || "—";
+    const partnerDisplay = v.farmer_display_name ?? "\u2014";
+    const locationDisplay = v.farm_display_name ?? "\u2014";
+
+    const products: SalesProductLine[] = [];
+    const lines = v.product_lines ?? [];
+    for (const line of lines) {
+      const sold = line.quantity_sold ?? "0";
+      const given = line.quantity_given ?? "0";
+      if (sold === "0" && given === "0") continue;
+      products.push({
+        productName: line.product_name ?? "—",
+        productUnit: line.product_unit ?? "",
+        quantitySold: sold,
+        quantityGiven: given,
+      });
+    }
+
+    const focusDetails = v.product_focus_details ?? [];
+    const lineProductIds = new Set(lines.map((l) => l.product_id));
+    for (const detail of focusDetails) {
+      if (lineProductIds.has(detail.product_id)) continue;
+      products.push({
+        productName: detail.product_name ?? "—",
+        productUnit: detail.product_unit ?? "",
+        quantitySold: "—",
+        quantityGiven: "—",
+      });
+    }
+
+    if (products.length === 0) continue;
+    groups.push({
+      visitId: v.id,
+      date: v.created_at,
+      officerDisplay,
+      partnerDisplay,
+      locationDisplay,
+      products,
+    });
+  }
+  return groups;
+}

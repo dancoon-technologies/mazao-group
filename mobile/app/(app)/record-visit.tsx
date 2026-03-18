@@ -31,7 +31,6 @@ import {
 import {
   ActivityIndicator,
   Button,
-  Card,
   Chip,
   Dialog,
   HelperText,
@@ -117,6 +116,8 @@ export default function RecordVisitScreen() {
   const [step3Values, setStep3Values] = useState<Step3Values>({});
   const [productModalOpen, setProductModalOpen] = useState(false);
   const [productModalFieldKey, setProductModalFieldKey] = useState<string | null>(null);
+  /** Product lines for sales: product_id, display name/unit, quantity_sold and quantity_given (string for inputs). */
+  const [productLines, setProductLines] = useState<Array<{ product_id: string; product_name: string; product_unit?: string; quantity_sold: string; quantity_given: string }>>([]);
   const [snackbarMsg, setSnackbarMsg] = useState('');
   const [dialogVisible, setDialogVisible] = useState(false);
   const [dialogSuccess, setDialogSuccess] = useState(true);
@@ -537,6 +538,13 @@ export default function RecordVisitScreen() {
     try {
       const photoPlaceName = selectedFarm?.village ?? selectedFarmer?.display_name ?? 'Visit location';
       const step3Payload = buildStep3Payload(step3Values, visitFormFieldSchema);
+      const productLinesPayload = productLines.length > 0
+        ? productLines.map((p) => ({
+            product_id: p.product_id,
+            quantity_sold: parseFloat(p.quantity_sold) || 0,
+            quantity_given: parseFloat(p.quantity_given) || 0,
+          }))
+        : undefined;
 
       // Always try API first so we don't rely on NetInfo (which can be wrong when online)
       try {
@@ -554,6 +562,7 @@ export default function RecordVisitScreen() {
           activity_type: activityTypes[0] ?? DEFAULT_ACTIVITY_TYPE,
           notes: notes || undefined,
           ...step3Payload,
+          product_lines: productLinesPayload,
         });
         if (scheduleIdForSubmit) {
           setScheduleIdsWithRecordedVisits((prev) => new Set(prev).add(scheduleIdForSubmit));
@@ -590,6 +599,7 @@ export default function RecordVisitScreen() {
         activity_types: activityTypes.length > 0 ? activityTypes : [DEFAULT_ACTIVITY_TYPE],
         activity_type: activityTypes[0] ?? DEFAULT_ACTIVITY_TYPE,
         ...step3Payload,
+        product_lines: productLinesPayload,
       });
       if (scheduleIdForSubmit) {
         setScheduleIdsWithRecordedVisits((prev) => new Set(prev).add(scheduleIdForSubmit));
@@ -611,7 +621,7 @@ export default function RecordVisitScreen() {
     } finally {
       setSubmitting(false);
     }
-  }, [scheduleIdForSubmit, mustSelectSchedule, acceptedSchedules.length, selectedFarmerId, selectedFarmId, location, photoUris, photoTakenAts, step3Fields, step3Values, visitFormFieldSchema, activityTypes, activityTypesList, notes, distanceM, maxM, labels.partner, router]);
+  }, [scheduleIdForSubmit, mustSelectSchedule, acceptedSchedules.length, selectedFarmerId, selectedFarmId, location, photoUris, photoTakenAts, step3Fields, step3Values, visitFormFieldSchema, activityTypes, activityTypesList, notes, distanceM, maxM, labels.partner, router, productLines]);
 
   const activityLabel = useMemo(() => {
     if (activityTypes.length === 0) return 'Select activities';
@@ -1043,6 +1053,94 @@ export default function RecordVisitScreen() {
                 })}
               </Surface>
 
+              {step3Fields.some((f) => f.key === 'product_focus') && (
+                <Surface style={styles.section} elevation={0}>
+                  <Text variant="labelLarge" style={styles.fieldLabel}>Product lines (quantity sold / given)</Text>
+                  <Text variant="bodySmall" style={styles.hint}>
+                    Optional. Record products sold or given during this visit.
+                  </Text>
+                  {productLines.map((line, index) => {
+                  const productLabel = line.product_name + (line.product_unit ? ` (${line.product_unit})` : '');
+                  return (
+                    <View key={`${line.product_id}-${index}`} style={styles.productLineCard}>
+                      <Text variant="labelMedium" numberOfLines={1}>{productLabel}</Text>
+                      <View style={styles.productLineRow}>
+                        <TextInput
+                          label="Qty sold"
+                          value={line.quantity_sold}
+                          onChangeText={(t) => setProductLines((prev) => {
+                            const next = [...prev];
+                            next[index] = { ...next[index], quantity_sold: t };
+                            return next;
+                          })}
+                          mode="outlined"
+                          keyboardType="decimal-pad"
+                          placeholder="0"
+                          style={styles.productLineInput}
+                        />
+                        <TextInput
+                          label="Qty given"
+                          value={line.quantity_given}
+                          onChangeText={(t) => setProductLines((prev) => {
+                            const next = [...prev];
+                            next[index] = { ...next[index], quantity_given: t };
+                            return next;
+                          })}
+                          mode="outlined"
+                          keyboardType="decimal-pad"
+                          placeholder="0"
+                          style={styles.productLineInput}
+                        />
+                        <Button
+                          mode="text"
+                          compact
+                          icon="delete-outline"
+                          onPress={() => setProductLines((prev) => prev.filter((_, i) => i !== index))}
+                          style={styles.productLineRemove}
+                          accessibilityLabel="Remove product line"
+                        >
+                          Remove
+                        </Button>
+                      </View>
+                    </View>
+                  );
+                  })}
+                  <Button
+                    mode="outlined"
+                    onPress={() => {
+                      setProductModalFieldKey('product_lines');
+                      setProductModalOpen(true);
+                    }}
+                    icon="plus"
+                    style={styles.productFocusButton}
+                  >
+                    Add product line
+                  </Button>
+                  <SelectProductsModal
+                    visible={productModalOpen && productModalFieldKey === 'product_lines'}
+                    onClose={() => {
+                      setProductModalOpen(false);
+                      setProductModalFieldKey(null);
+                    }}
+                    products={products}
+                    selectedIds={[]}
+                    onSelect={(ids) => {
+                      const toAdd = products.filter((p) => ids.includes(p.id)).map((p) => ({
+                        product_id: p.id,
+                        product_name: p.name,
+                        product_unit: p.unit,
+                        quantity_sold: '',
+                        quantity_given: '',
+                      }));
+                      setProductLines((prev) => [...prev, ...toAdd]);
+                      setProductModalOpen(false);
+                      setProductModalFieldKey(null);
+                    }}
+                    title="Select product to add"
+                  />
+                </Surface>
+              )}
+
               {error ? (
                 <HelperText type="error" style={styles.errorBlock}>{error}</HelperText>
               ) : null}
@@ -1192,6 +1290,16 @@ const styles = StyleSheet.create({
   input: { marginBottom: spacing.md },
   inputHalf: { flex: 1, marginBottom: spacing.md },
   productFocusButton: { marginBottom: spacing.md },
+  productLineCard: {
+    borderWidth: 1,
+    borderColor: colors.gray200,
+    borderRadius: radius.md,
+    padding: spacing.sm,
+    marginBottom: spacing.sm,
+  },
+  productLineRow: { flexDirection: 'row', alignItems: 'flex-end', gap: spacing.sm, flexWrap: 'wrap' },
+  productLineInput: { flex: 1, minWidth: 100 },
+  productLineRemove: { marginBottom: 8 },
   twoColRow: { flexDirection: 'row', gap: spacing.md, marginBottom: 0 },
   addFarmerBtn: { marginTop: -2, marginBottom: 2 },
   farmList: { marginTop: spacing.xs },

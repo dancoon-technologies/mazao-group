@@ -1,15 +1,24 @@
 "use client";
 
-import { Anchor, Box, Group, Paper, Select, Stack, Text } from "@mantine/core";
+import {
+  Accordion,
+  Anchor,
+  Box,
+  Group,
+  Paper,
+  Select,
+  Stack,
+  Table,
+  Text,
+} from "@mantine/core";
 import Link from "next/link";
 import { useCallback, useMemo, useState } from "react";
 import { useAsyncData } from "@/hooks/useAsyncData";
 import { api } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { formatDateTime } from "@/lib/format";
-import { DataTable, type DataTableColumn, PageLoading, PageError, PageHeader } from "@/components/ui";
+import { PageLoading, PageError, PageHeader } from "@/components/ui";
 import { PAGE_BOX_MIN_WIDTH, ROUTES } from "@/lib/constants";
-import { getLabelsFromOptions } from "@/lib/options";
 import {
   buildVisitParams,
   getReportPeriodShortLabel,
@@ -17,7 +26,7 @@ import {
   todayISO,
   type ReportPeriod,
 } from "@/lib/reportFilters";
-import { flattenVisitsToSales, type SalesRow } from "@/lib/sales";
+import { groupSalesByVisit } from "@/lib/sales";
 
 export default function SalesPage() {
   const { role } = useAuth();
@@ -60,10 +69,8 @@ export default function SalesPage() {
     [optionsData?.departments]
   );
 
-  const labels = useMemo(() => getLabelsFromOptions(optionsData), [optionsData]);
-
   const visits = visitsData ?? [];
-  const salesRows = useMemo(() => flattenVisitsToSales(visits), [visits]);
+  const visitGroups = useMemo(() => groupSalesByVisit(visits), [visits]);
 
   const reportPeriodLabel = useMemo(
     () => getReportPeriodShortLabel(reportPeriod, reportDate),
@@ -73,66 +80,6 @@ export default function SalesPage() {
   const officerOptions = useMemo(
     () => [{ value: "", label: "All officers" }, ...officers.map((o) => ({ value: o.id, label: o.display_name ? `${o.display_name} (${o.email})` : o.email }))],
     [officers]
-  );
-
-  const columns: DataTableColumn<SalesRow>[] = useMemo(
-    () => [
-      {
-        key: "date",
-        label: "Date",
-        render: (r) => (
-          <Text size="sm" c="dimmed">
-            {formatDateTime(r.date)}
-          </Text>
-        ),
-      },
-      {
-        key: "officer",
-        label: "Officer",
-        render: (r) => <Text size="sm">{r.officerDisplay}</Text>,
-      },
-      {
-        key: "partner",
-        label: labels.partner,
-        render: (r) => <Text size="sm">{r.partnerDisplay}</Text>,
-      },
-      {
-        key: "location",
-        label: labels.location,
-        visibleFrom: "md",
-        render: (r) => <Text size="sm" c="dimmed">{r.locationDisplay}</Text>,
-      },
-      {
-        key: "product",
-        label: "Product",
-        render: (r) => (
-          <Text size="sm" fw={500}>
-            {r.productName}
-            {r.productUnit ? ` (${r.productUnit})` : ""}
-          </Text>
-        ),
-      },
-      {
-        key: "sold",
-        label: "Qty sold",
-        render: (r) => <Text size="sm">{r.quantitySold}</Text>,
-      },
-      {
-        key: "given",
-        label: "Qty given",
-        render: (r) => <Text size="sm">{r.quantityGiven}</Text>,
-      },
-      {
-        key: "visit",
-        label: "",
-        render: (r) => (
-          <Anchor component={Link} href={ROUTES.VISITS} size="sm" c="green">
-            View visit
-          </Anchor>
-        ),
-      },
-    ],
-    [labels.partner, labels.location]
   );
 
   if (!isAdminOrSupervisor) {
@@ -227,19 +174,98 @@ export default function SalesPage() {
           )}
         </Group>
 
-        {salesRows.length === 0 ? (
+        {visitGroups.length === 0 ? (
           <Paper p="lg" withBorder style={{ minHeight: 80 }}>
             <Text c="dimmed" size="sm" style={{ lineHeight: 1.5 }}>
               No sales recorded in the selected period. Sales are taken from product lines and product focus on visits.
             </Text>
           </Paper>
         ) : (
-          <DataTable<SalesRow>
-            data={salesRows}
-            rowKey="id"
-            columns={columns}
-            emptyMessage="No sales in this period"
-          />
+          <Paper shadow="sm" radius="md" withBorder style={{ overflow: "hidden" }}>
+            <Table striped highlightOnHover>
+              <Table.Thead>
+                <Table.Tr>
+                  <Table.Th>Date</Table.Th>
+                  <Table.Th>Officer</Table.Th>
+                  <Table.Th>Customer</Table.Th>
+                  <Table.Th visibleFrom="md">Location</Table.Th>
+                  <Table.Th>Products</Table.Th>
+                  <Table.Th />
+                </Table.Tr>
+              </Table.Thead>
+              <Table.Tbody>
+                {visitGroups.map((g) => (
+                  <Table.Tr key={g.visitId}>
+                    <Table.Td>
+                      <Text size="sm" c="dimmed">
+                        {formatDateTime(g.date)}
+                      </Text>
+                    </Table.Td>
+                    <Table.Td>
+                      <Text size="sm">{g.officerDisplay}</Text>
+                    </Table.Td>
+                    <Table.Td>
+                      <Text size="sm">{g.partnerDisplay}</Text>
+                    </Table.Td>
+                    <Table.Td visibleFrom="md">
+                      <Text size="sm" c="dimmed">
+                        {g.locationDisplay}
+                      </Text>
+                    </Table.Td>
+                    <Table.Td>
+                      <Accordion
+                        variant="separated"
+                        radius="sm"
+                        styles={{ content: { padding: 0 } }}
+                      >
+                        <Accordion.Item value={g.visitId}>
+                          <Accordion.Control>
+                            <Text size="sm" fw={500}>
+                              {g.products.length} product{g.products.length !== 1 ? "s" : ""}
+                            </Text>
+                          </Accordion.Control>
+                          <Accordion.Panel>
+                            <Table withTableBorder withColumnBorders layout="fixed">
+                              <Table.Thead>
+                                <Table.Tr>
+                                  <Table.Th>Product</Table.Th>
+                                  <Table.Th>Qty sold</Table.Th>
+                                  <Table.Th>Qty given</Table.Th>
+                                </Table.Tr>
+                              </Table.Thead>
+                              <Table.Tbody>
+                                {g.products.map((p, i) => (
+                                  <Table.Tr key={i}>
+                                    <Table.Td>
+                                      <Text size="sm" fw={500}>
+                                        {p.productName}
+                                        {p.productUnit ? ` (${p.productUnit})` : ""}
+                                      </Text>
+                                    </Table.Td>
+                                    <Table.Td>
+                                      <Text size="sm">{p.quantitySold}</Text>
+                                    </Table.Td>
+                                    <Table.Td>
+                                      <Text size="sm">{p.quantityGiven}</Text>
+                                    </Table.Td>
+                                  </Table.Tr>
+                                ))}
+                              </Table.Tbody>
+                            </Table>
+                          </Accordion.Panel>
+                        </Accordion.Item>
+                      </Accordion>
+                    </Table.Td>
+                    <Table.Td>
+                      <Anchor component={Link} href={ROUTES.VISITS} size="sm" c="green">
+                        View visit
+                      </Anchor>
+                    </Table.Td>
+                  </Table.Tr>
+                ))}
+              </Table.Tbody>
+            </Table>
+          </Paper>
         )}
       </Stack>
     </Box>
