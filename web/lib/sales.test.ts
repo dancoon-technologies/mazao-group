@@ -96,7 +96,7 @@ describe("flattenVisitsToSales", () => {
     });
   });
 
-  it("returns no rows when visit has only product_focus_details (sales are from product_lines only)", () => {
+  it("returns no rows when visit has no product_lines", () => {
     const visits = [
       makeVisit({
         id: "v1",
@@ -104,10 +104,6 @@ describe("flattenVisitsToSales", () => {
         farmer_display_name: "John",
         farm_display_name: "North Farm",
         product_lines: [],
-        product_focus_details: [
-          { product_id: "p1", product_name: "Seeds", product_unit: "kg" },
-          { product_id: "p2", product_name: "Fertilizer", product_unit: "" },
-        ],
       }),
     ];
     const rows = flattenVisitsToSales(visits);
@@ -176,14 +172,11 @@ describe("groupSalesByVisit", () => {
     expect(groups[0].products[1]).toMatchObject({ productName: "Fertilizer", quantitySold: "0", quantityGiven: "2" });
   });
 
-  it("returns empty when visit has only product_focus_details (sales are from product_lines only)", () => {
+  it("returns empty when visit has no product_lines", () => {
     const visits = [
       makeVisit({
         id: "v1",
         product_lines: [],
-        product_focus_details: [
-          { product_id: "p1", product_name: "Focus A", product_unit: "unit" },
-        ],
       }),
     ];
     const groups = groupSalesByVisit(visits);

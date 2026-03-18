@@ -8,7 +8,7 @@ from .models import ActivityTypeConfig, Product, Visit, VisitPhoto, VisitProduct
 class ActivityTypeConfigAdminForm(forms.ModelForm):
     form_fields = FormFieldsFormField(
         required=False,
-        help_text="Optional list of {key, label, required} for visit form step 3. Keys: crop_stage, germination_percent, survival_rate, pests_diseases, order_value, harvest_kgs, farmers_feedback, number_of_stockists_visited, product_focus, merchandising, counter_training. Empty = show all.",
+        help_text="Optional list of {key, label, required} for visit form step 3. Keys: crop_stage, germination_percent, survival_rate, pests_diseases, order_value, harvest_kgs, farmers_feedback, number_of_stockists_visited, product_lines, merchandising, counter_training. Empty = show all.",
     )
 
     class Meta:
@@ -31,7 +31,7 @@ class ActivityTypeConfigAdmin(admin.ModelAdmin):
             "Step 3 form fields",
             {
                 "fields": ("form_fields",),
-                "description": "Optional. List of {key, label, required} for record-visit step 3. Keys: crop_stage, germination_percent, survival_rate, pests_diseases, order_value, harvest_kgs, farmers_feedback, number_of_stockists_visited, product_focus, merchandising, counter_training. Empty = show all.",
+                "description": "Optional. List of {key, label, required} for record-visit step 3. Keys: crop_stage, germination_percent, survival_rate, pests_diseases, order_value, harvest_kgs, farmers_feedback, number_of_stockists_visited, product_lines, merchandising, counter_training. Empty = show all.",
             },
         ),
     )
@@ -74,7 +74,7 @@ class VisitAdmin(admin.ModelAdmin):
         (None, {"fields": ("officer", "farmer", "farm", "schedule", "activity_type", "activity_types", "verification_status")}),
         ("Location", {"fields": ("latitude", "longitude", "distance_from_farmer", "photo", "photo_taken_at", "photo_device_info", "photo_place_name", "notes")}),
         ("Step 3 / Additional", {"fields": ("crop_stage", "germination_percent", "survival_rate", "pests_diseases", "order_value", "harvest_kgs", "farmers_feedback")}),
-        ("Stockists visit (AgriPrice)", {"fields": ("number_of_stockists_visited", "product_focus_ids", "merchandising", "counter_training"), "classes": ("collapse",)}),
+        ("Stockists visit (AgriPrice)", {"fields": ("number_of_stockists_visited", "merchandising", "counter_training"), "classes": ("collapse",)}),
     )
 
 

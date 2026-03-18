@@ -7,13 +7,10 @@ import {
 
 describe("visitFormFields", () => {
   describe("getVisitValueKey", () => {
-    it("maps product_focus to product_focus_display", () => {
-      expect(getVisitValueKey("product_focus")).toBe("product_focus_display");
-    });
-
-    it("returns same key for others", () => {
+    it("returns the same key", () => {
       expect(getVisitValueKey("merchandising")).toBe("merchandising");
       expect(getVisitValueKey("order_value")).toBe("order_value");
+      expect(getVisitValueKey("product_lines")).toBe("product_lines");
     });
   });
 
@@ -64,13 +61,13 @@ describe("visitFormFields", () => {
       expect(result[0].label).toBe("First label");
     });
 
-    it("includes product_focus, merchandising, counter_training", () => {
+    it("includes product_lines, merchandising, counter_training", () => {
       const result = buildAdditionalVisitFieldsFromOptions([
         {
           value: "stockists_visit",
           label: "Stockists visit",
           form_fields: [
-            { key: "product_focus", label: "Product focus" },
+            { key: "product_lines", label: "Products" },
             { key: "merchandising", label: "Merchandising" },
             { key: "counter_training", label: "Counter training" },
           ],
@@ -78,7 +75,7 @@ describe("visitFormFields", () => {
       ]);
       expect(result).toHaveLength(3);
       expect(result.map((f) => f.key)).toEqual([
-        "product_focus",
+        "product_lines",
         "merchandising",
         "counter_training",
       ]);

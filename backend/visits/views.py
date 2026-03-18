@@ -33,50 +33,6 @@ def _allowed_activity_type_values(user):
     return allowed if allowed else {Visit.ActivityType.FARM_TO_FARM_VISITS}
 
 
-def _resolve_product_focus(product_focus_id, department_id):
-    """If product_focus_id is a product in the given department, return its UUID; else None."""
-    if not product_focus_id or not department_id:
-        return None
-    try:
-        product = Product.objects.filter(
-            department_id=department_id,
-            id=product_focus_id,
-        ).values_list("id", flat=True).first()
-        return product
-    except Exception:
-        return None
-
-
-def _resolve_product_focus_ids(data, department_id):
-    """Accept product_focus_ids (list) or product_focus_id (single); return list of valid product UUIDs in department."""
-    if not department_id:
-        return []
-    raw = data.get("product_focus_ids")
-    if raw is None and hasattr(data, "get"):
-        raw = data.get("product_focus_ids")
-    if isinstance(raw, str) and raw.strip():
-        try:
-            raw = json.loads(raw)
-        except json.JSONDecodeError:
-            raw = []
-    if not isinstance(raw, list):
-        single = data.get("product_focus_id")
-        if single:
-            resolved = _resolve_product_focus(single, department_id)
-            return [str(resolved)] if resolved else []
-        return []
-    allowed = set(
-        str(pk) for pk in
-        Product.objects.filter(department_id=department_id).values_list("id", flat=True)
-    )
-    out = []
-    for pid in raw:
-        s = str(pid).strip() if pid else ""
-        if s and s in allowed:
-            out.append(s)
-    return out
-
-
 logger = logging.getLogger(__name__)
 
 
@@ -314,7 +270,6 @@ class VisitListCreateView(generics.ListCreateAPIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        pf_ids = _resolve_product_focus_ids(data, user.department_id)
         visit = Visit.objects.create(
             officer=user,
             farmer=farmer,
@@ -339,7 +294,6 @@ class VisitListCreateView(generics.ListCreateAPIView):
             harvest_kgs=data.get("harvest_kgs"),
             farmers_feedback=data.get("farmers_feedback", ""),
             number_of_stockists_visited=data.get("number_of_stockists_visited"),
-            product_focus_ids=pf_ids,
             merchandising=data.get("merchandising", ""),
             counter_training=data.get("counter_training", ""),
         )

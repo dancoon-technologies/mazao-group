@@ -7,7 +7,7 @@ Mobile uses these to render and submit without hardcoded field config.
 # All Visit model optional fields that can appear in the step-3 form.
 # input_type: how to render (text, number, integer, multiline, product).
 # value_type: how to send to API (string, number, integer).
-# api_key: request param name when different from key (e.g. product_focus -> product_focus_id).
+# product_lines: products with quantity sold/given (submitted separately from step-3 values).
 VISIT_FORM_FIELD_SCHEMA = {
     "crop_stage": {"input_type": "text", "value_type": "string"},
     "germination_percent": {"input_type": "number", "value_type": "number"},
@@ -17,7 +17,7 @@ VISIT_FORM_FIELD_SCHEMA = {
     "harvest_kgs": {"input_type": "number", "value_type": "number"},
     "farmers_feedback": {"input_type": "multiline", "value_type": "string"},
     "number_of_stockists_visited": {"input_type": "integer", "value_type": "integer"},
-    "product_focus": {"input_type": "product", "value_type": "string", "api_key": "product_focus_id"},
+    "product_lines": {"input_type": "product", "value_type": "string"},
     "merchandising": {"input_type": "multiline", "value_type": "string"},
     "counter_training": {"input_type": "multiline", "value_type": "string"},
 }

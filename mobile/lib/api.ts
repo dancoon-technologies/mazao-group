@@ -86,8 +86,6 @@ export interface Visit {
   photos?: string[];
   product_lines?: { product_id: string; product_name: string; product_code?: string; product_unit?: string; quantity_sold: string; quantity_given: string }[];
   number_of_stockists_visited?: number | null;
-  product_focus?: string | null;
-  product_focus_display?: string | null;
   merchandising?: string;
   counter_training?: string;
 }
@@ -331,7 +329,6 @@ function formatVisitValidationError(data: unknown): string {
       harvest_kgs: 'Harvest (kg)',
       farmers_feedback: 'Feedback',
       number_of_stockists_visited: 'Number of stockists visited',
-      product_focus_id: 'Products',
       merchandising: 'Merchandising',
       counter_training: 'Counter training',
       product_lines: 'Products',
@@ -552,8 +549,6 @@ export const api = {
     farmers_feedback?: string;
     product_lines?: { product_id: string; quantity_sold?: number; quantity_given?: number }[];
     number_of_stockists_visited?: number | null;
-    product_focus_id?: string | null;
-    product_focus_ids?: string[];
     merchandising?: string;
     counter_training?: string;
   }) {
@@ -592,11 +587,6 @@ export const api = {
       form.append('product_lines', JSON.stringify(params.product_lines));
     }
     if (params.number_of_stockists_visited != null) form.append('number_of_stockists_visited', String(params.number_of_stockists_visited));
-    if (params.product_focus_ids?.length) {
-      form.append('product_focus_ids', JSON.stringify(params.product_focus_ids));
-    } else if (params.product_focus_id) {
-      form.append('product_focus_id', params.product_focus_id);
-    }
     if (params.merchandising) form.append('merchandising', params.merchandising);
     if (params.counter_training) form.append('counter_training', params.counter_training);
 

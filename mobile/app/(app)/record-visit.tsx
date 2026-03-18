@@ -1015,7 +1015,7 @@ export default function RecordVisitScreen() {
                 })}
               </Surface>
 
-              {step3Fields.some((f) => f.key === 'product_focus' || f.key === 'product_lines') && (
+              {step3Fields.some((f) => f.key === 'product_lines') && (
                 <Surface style={styles.section} elevation={0}>
                   <Text variant="labelLarge" style={styles.fieldLabel}>Products</Text>
                   <Text variant="bodySmall" style={styles.hint}>

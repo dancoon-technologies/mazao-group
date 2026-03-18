@@ -9,12 +9,9 @@ import type { ActivityTypeOption } from "./types";
 
 /**
  * Map form_field key to Visit property used for display value.
- * e.g. product_focus -> product_focus_display (API returns UUID + display name).
  */
 export function getVisitValueKey(formFieldKey: string): keyof Visit {
-  return formFieldKey === "product_focus"
-    ? "product_focus_display"
-    : (formFieldKey as keyof Visit);
+  return formFieldKey as keyof Visit;
 }
 
 export interface AdditionalVisitFieldDescriptor {

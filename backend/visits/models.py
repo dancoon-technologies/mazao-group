@@ -149,14 +149,9 @@ class Visit(MobileSyncModel):
     order_value = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
     harvest_kgs = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     farmers_feedback = models.TextField(blank=True, validators=[MaxLengthValidator(FEEDBACK_MAX_LENGTH)])
-    # Stockists visit (AgriPrice): number visited, product focus, total sales, merchandising, counter training
+    # Stockists visit (AgriPrice): number visited, total sales, merchandising, counter training
     number_of_stockists_visited = models.PositiveIntegerField(
         null=True, blank=True, help_text="Number of stockists visited (e.g. for stockists_visit activity)."
-    )
-    product_focus_ids = models.JSONField(
-        default=list,
-        blank=True,
-        help_text="Product focus IDs for this visit (multi-select).",
     )
     merchandising = models.CharField(
         max_length=500, blank=True, help_text="Merchandising notes (e.g. shelf placement, display)."

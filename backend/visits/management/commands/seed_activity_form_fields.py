@@ -109,7 +109,7 @@ ACTIVITY_FORM_FIELDS = {
     ],
     "stockists_visit": [
         {"key": "number_of_stockists_visited", "label": "Number of Stockists visited", "required": False},
-        {"key": "product_focus", "label": "Product focus", "required": False},
+        {"key": "product_lines", "label": "Products", "required": False},
         {"key": "order_value", "label": "Total Sales done", "required": False},
         {"key": "merchandising", "label": "Merchandising", "required": False},
         {"key": "counter_training", "label": "Counter training", "required": False},

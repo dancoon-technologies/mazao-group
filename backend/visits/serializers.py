@@ -22,23 +22,6 @@ class ProductLinesField(serializers.Field):
         return []
 
 
-class ProductFocusIdsField(serializers.Field):
-    """Accept product_focus_ids as list of UUIDs or JSON string (e.g. from multipart form)."""
-
-    def to_internal_value(self, data):
-        if data is None:
-            return []
-        if isinstance(data, list):
-            return [str(x) for x in data]
-        if isinstance(data, str) and data.strip():
-            try:
-                raw = json.loads(data)
-                return [str(x) for x in raw] if isinstance(raw, list) else []
-            except (json.JSONDecodeError, TypeError):
-                return []
-        return []
-
-
 class VisitSerializer(serializers.ModelSerializer):
     officer = serializers.UUIDField(source="officer_id", read_only=True)
     farmer = serializers.UUIDField(source="farmer_id", read_only=True)
@@ -51,14 +34,6 @@ class VisitSerializer(serializers.ModelSerializer):
     schedule_display = serializers.SerializerMethodField()
     photos = serializers.SerializerMethodField()
     product_lines = serializers.SerializerMethodField()
-    product_focus = serializers.SerializerMethodField()
-    product_focus_display = serializers.SerializerMethodField()
-    product_focus_ids = serializers.ListField(
-        child=serializers.CharField(),
-        read_only=True,
-        help_text="All product focus IDs for this visit (multi-select).",
-    )
-    product_focus_details = serializers.SerializerMethodField()
 
     class Meta:
         model = Visit
@@ -93,10 +68,6 @@ class VisitSerializer(serializers.ModelSerializer):
             "harvest_kgs",
             "farmers_feedback",
             "number_of_stockists_visited",
-            "product_focus",
-            "product_focus_display",
-            "product_focus_ids",
-            "product_focus_details",
             "merchandising",
             "counter_training",
             "product_lines",
@@ -147,33 +118,6 @@ class VisitSerializer(serializers.ModelSerializer):
                 urls.append(url)
         return urls
 
-    def get_product_focus(self, obj):
-        ids = obj.product_focus_ids or []
-        return ids[0] if ids else None
-
-    def get_product_focus_display(self, obj):
-        ids = obj.product_focus_ids or []
-        if not ids:
-            return None
-        by_id = {str(p.id): p.name for p in Product.objects.filter(id__in=ids)}
-        return ", ".join(by_id.get(uid, "") for uid in ids if by_id.get(uid))
-
-    def get_product_focus_details(self, obj):
-        """List of {product_id, product_name, product_unit} for sales page (order preserved)."""
-        ids = obj.product_focus_ids or []
-        if not ids:
-            return []
-        by_id = {str(p.id): p for p in Product.objects.filter(id__in=ids)}
-        return [
-            {
-                "product_id": uid,
-                "product_name": by_id[uid].name,
-                "product_unit": by_id[uid].unit or "",
-            }
-            for uid in ids
-            if uid in by_id
-        ]
-
     def get_product_lines(self, obj):
         """Sales and products given per product for this visit."""
         lines = getattr(obj, "product_lines_prefetched", None)
@@ -211,8 +155,6 @@ class VisitCreateSerializer(serializers.ModelSerializer):
         required=False,
         help_text="List of {product_id, quantity_sold, quantity_given} for sales/given during visit (list or JSON string).",
     )
-    product_focus_id = serializers.UUIDField(required=False, allow_null=True)
-    product_focus_ids = ProductFocusIdsField(required=False)
 
     class Meta:
         model = Visit
@@ -241,8 +183,6 @@ class VisitCreateSerializer(serializers.ModelSerializer):
             "harvest_kgs",
             "farmers_feedback",
             "number_of_stockists_visited",
-            "product_focus_id",
-            "product_focus_ids",
             "merchandising",
             "counter_training",
             "product_lines",
