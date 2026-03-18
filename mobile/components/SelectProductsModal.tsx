@@ -148,7 +148,7 @@ export function SelectProductsModal({
             data={filtered}
             keyExtractor={(item) => item.id}
             renderItem={renderItem}
-            style={styles.list}
+            style={[styles.list, keyboardHeight > 0 && { flex: 1 }]}
             keyboardShouldPersistTaps="handled"
             ListEmptyComponent={
               search.trim() ? (
@@ -215,7 +215,6 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
   list: {
-    flex: 1,
     maxHeight: 480,
   },
   option: {

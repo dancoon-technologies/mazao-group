@@ -156,7 +156,7 @@ export function SelectFarmModal({
             data={filtered}
             keyExtractor={(item) => item.id}
             renderItem={renderItem}
-            style={styles.list}
+            style={[styles.list, keyboardHeight > 0 && { flex: 1 }]}
             keyboardShouldPersistTaps="handled"
             ListEmptyComponent={
               search.trim() ? (
@@ -222,7 +222,6 @@ const styles = StyleSheet.create({
     alignSelf: "flex-start",
   },
   list: {
-    flex: 1,
     maxHeight: 480,
   },
   option: {

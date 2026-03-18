@@ -37,6 +37,7 @@ export default function AddFarmerScreen() {
   const returnTo = params.returnTo;
   const isStockist = params.asStockist === '1' || params.asStockist === 'true';
   const labels = useSelector(() => getLabels(appMeta$.cachedOptions.get()));
+  const locationLabel = isStockist ? 'Outlet' : labels.location;
 
   useEffect(() => {
     navigation.setOptions({ title: isStockist ? 'Add stockist' : 'Add farmer' });
@@ -91,7 +92,7 @@ export default function AddFarmerScreen() {
         });
         setError('');
       } else {
-        setError(`Load locations when online first, then you can add ${labels.partner.toLowerCase()} and ${labels.location.toLowerCase()} offline.`);
+        setError(`Load locations when online first, then you can add ${labels.partner.toLowerCase()} and ${locationLabel.toLowerCase()} offline.`);
       }
     } finally {
       setLoadingLocations(false);
@@ -177,11 +178,11 @@ export default function AddFarmerScreen() {
     const farmLatNum = parseFloat(farmLat);
     const farmLonNum = parseFloat(farmLon);
     if (Number.isNaN(farmLatNum) || Number.isNaN(farmLonNum)) {
-      setError(`${labels.location} location (latitude and longitude) is required.`);
+      setError(`${locationLabel} location (latitude and longitude) is required.`);
       return;
     }
     if (farmLatNum < -90 || farmLatNum > 90) {
-      setError(`${labels.location} latitude must be between -90 and 90.`);
+      setError(`${locationLabel} latitude must be between -90 and 90.`);
       return;
     }
     if (farmLonNum < -180 || farmLonNum > 180) {
@@ -203,7 +204,7 @@ export default function AddFarmerScreen() {
     }
     if (isOnline === false) {
       if (!locations) {
-        setError(`Connect to load locations first, then you can add ${labels.partner.toLowerCase()} and ${labels.location.toLowerCase()} offline.`);
+        setError(`Connect to load locations first, then you can add ${labels.partner.toLowerCase()} and ${locationLabel.toLowerCase()} offline.`);
         setSubmitting(false);
         return;
       }
@@ -358,7 +359,7 @@ export default function AddFarmerScreen() {
         >
         {isOnline === false && (
           <Banner visible style={styles.banner}>
-            {`Offline — ${labels.partner.toLowerCase()} and ${labels.location.toLowerCase()} will sync when back online.`}
+            {`Offline — ${labels.partner.toLowerCase()} and ${locationLabel.toLowerCase()} will sync when back online.`}
           </Banner>
         )}
         <Text variant="titleMedium" style={styles.sectionTitle}>
@@ -416,7 +417,7 @@ export default function AddFarmerScreen() {
         </Button>
 
         <Text variant="titleMedium" style={styles.sectionTitle}>
-          First {labels.location.toLowerCase()} (required)
+          First {locationLabel.toLowerCase()} (required)
         </Text>
         {(gpsLocation.status === 'locating' || gpsLocation.status === 'geocoding') && (
           <Banner visible style={styles.banner}>
@@ -526,7 +527,7 @@ export default function AddFarmerScreen() {
         />
         <View style={styles.row}>
           <TextInput
-            label={`${labels.location} latitude *`}
+            label={`${locationLabel} latitude *`}
             value={farmLat}
             onChangeText={setFarmLat}
             keyboardType="decimal-pad"
@@ -534,7 +535,7 @@ export default function AddFarmerScreen() {
             style={[styles.input, styles.flex]}
           />
           <TextInput
-            label={`${labels.location} longitude *`}
+            label={`${locationLabel} longitude *`}
             value={farmLon}
             onChangeText={setFarmLon}
             keyboardType="decimal-pad"
@@ -577,7 +578,7 @@ export default function AddFarmerScreen() {
           <Dialog.Title>{dialogSuccess ? 'Success' : 'Error'}</Dialog.Title>
           <Dialog.Content>
             <Text variant="bodyMedium">
-              {dialogSuccess ? (isStockist ? 'Stockist' : 'Farmer') + ` and ${labels.location.toLowerCase()} added.` : (submitError || (isStockist ? 'Failed to add stockist.' : 'Failed to add farmer.'))}
+              {dialogSuccess ? (isStockist ? 'Stockist' : 'Farmer') + ` and ${locationLabel.toLowerCase()} added.` : (submitError || (isStockist ? 'Failed to add stockist.' : 'Failed to add farmer.'))}
             </Text>
           </Dialog.Content>
           <Dialog.Actions>

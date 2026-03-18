@@ -394,6 +394,7 @@ export default function ProposeScheduleScreen() {
             selectedFarmerId={selectedFarmerId}
             onSelect={setSelectedFarmerId}
             title={`Select ${partnerTypeLabelLower}`}
+            noPartnerLabel={partnerType === 'stockist' ? 'No stockist' : undefined}
           />
 
           {selectedFarmerId && (

@@ -155,16 +155,18 @@ export function SelectActivityTypesModal({
               data={filtered}
               keyExtractor={(item) => item.value}
               renderItem={renderItem}
-              style={styles.list}
+              style={[styles.list, keyboardHeight > 0 && { flex: 1 }]}
               keyboardShouldPersistTaps="handled"
               ListEmptyComponent={
-                search.trim() ? (
-                  <View style={styles.empty}>
-                    <Text variant="bodySmall" style={styles.emptyText}>
-                      No activities match "{search.trim()}"
-                    </Text>
-                  </View>
-                ) : null
+                <View style={styles.empty}>
+                  <Text variant="bodySmall" style={styles.emptyText}>
+                    {search.trim()
+                      ? `No activities match "${search.trim()}"`
+                      : options.length === 0
+                        ? "No activity types available. Try again later."
+                        : "No activities match your search."}
+                  </Text>
+                </View>
               }
             />
           )}
@@ -223,7 +225,6 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
   list: {
-    flex: 1,
     maxHeight: 480,
   },
   refreshing: {

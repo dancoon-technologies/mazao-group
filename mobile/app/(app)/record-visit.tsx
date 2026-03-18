@@ -183,8 +183,14 @@ export default function RecordVisitScreen() {
     api
       .getOptions()
       .then((o) => {
-        appMeta$.cachedOptions.set(o);
-        applyOptions(o);
+        const existing = appMeta$.cachedOptions.get();
+        const hasNewActivityTypes = Array.isArray(o?.activity_types) && o.activity_types.length > 0;
+        const merged = {
+          ...o,
+          activity_types: hasNewActivityTypes ? o.activity_types : (existing?.activity_types ?? []),
+        };
+        appMeta$.cachedOptions.set(merged);
+        applyOptions(merged);
       })
       .catch(() => {
         const cached = appMeta$.cachedOptions.get();
@@ -287,8 +293,14 @@ export default function RecordVisitScreen() {
     }
     setActivityTypesOptionsRefreshing(true);
     api.getOptions().then((o) => {
-      appMeta$.cachedOptions.set(o);
-      applyOptions(o);
+      const existing = appMeta$.cachedOptions.get();
+      const hasNewActivityTypes = Array.isArray(o?.activity_types) && o.activity_types.length > 0;
+      const merged = {
+        ...o,
+        activity_types: hasNewActivityTypes ? o.activity_types : (existing?.activity_types ?? []),
+      };
+      appMeta$.cachedOptions.set(merged);
+      applyOptions(merged);
     }).catch(() => { /* keep existing cache */ }).finally(() => setActivityTypesOptionsRefreshing(false));
   }, [activityTypesModalOpen, isOnline, applyOptions]);
 
@@ -299,8 +311,14 @@ export default function RecordVisitScreen() {
       // Refetch options on focus so active activity types and form_fields are up to date
       api.getOptions().then((o) => {
         if (!cancelled) {
-          appMeta$.cachedOptions.set(o);
-          applyOptions(o);
+          const existing = appMeta$.cachedOptions.get();
+          const hasNewActivityTypes = Array.isArray(o?.activity_types) && o.activity_types.length > 0;
+          const merged = {
+            ...o,
+            activity_types: hasNewActivityTypes ? o.activity_types : (existing?.activity_types ?? []),
+          };
+          appMeta$.cachedOptions.set(merged);
+          applyOptions(merged);
         }
       }).catch(() => { /* keep existing cache */ });
       (async () => {

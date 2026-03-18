@@ -25,6 +25,8 @@ export interface SelectFarmerModalProps {
   selectedFarmerId: string | null;
   onSelect: (farmerId: string | null) => void;
   title?: string;
+  /** Label for "No partner" option and empty search (e.g. "No stockist" when selecting stockists). Defaults to "No {partner}". */
+  noPartnerLabel?: string;
 }
 
 function matchFarmer(f: Farmer, q: string): boolean {
@@ -43,9 +45,12 @@ export function SelectFarmerModal({
   selectedFarmerId,
   onSelect,
   title,
+  noPartnerLabel,
 }: SelectFarmerModalProps) {
   const labels = useSelector(() => getLabels(appMeta$.cachedOptions.get()));
   const modalTitle = title ?? `Select ${labels.partner.toLowerCase()}`;
+  const noLabel = noPartnerLabel ?? `No ${labels.partner.toLowerCase()}`;
+  const noMatchLabel = noPartnerLabel ? noPartnerLabel.replace(/^No /, "") + "s" : `${labels.partner.toLowerCase()}s`;
   const [search, setSearch] = useState("");
   const [keyboardHeight, setKeyboardHeight] = useState(0);
 
@@ -149,13 +154,13 @@ export function SelectFarmerModal({
             data={filtered}
             keyExtractor={(item) => item.id}
             renderItem={renderItem}
-            style={styles.list}
+            style={[styles.list, keyboardHeight > 0 && { flex: 1 }]}
             keyboardShouldPersistTaps="handled"
             ListEmptyComponent={
               search.trim() ? (
                 <View style={styles.empty}>
                   <Text variant="bodySmall" style={styles.emptyText}>
-                    No {labels.partner.toLowerCase()}s match "{search.trim()}"
+                    No {noMatchLabel} match "{search.trim()}"
                   </Text>
                 </View>
               ) : null
@@ -215,7 +220,6 @@ const styles = StyleSheet.create({
     alignSelf: "flex-start",
   },
   list: {
-    flex: 1,
     maxHeight: 480,
   },
   option: {
