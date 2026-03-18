@@ -320,7 +320,7 @@ export const api = {
   ): Promise<DashboardProductRankingItem[]> {
     const days = params?.days ?? 30;
     const res = await authFetch(
-      `${API_BASE}/api/dashboard/product-ranking?days=${encodeURIComponent(String(days))}`,
+      `${API_BASE}/api/dashboard/product-ranking/?days=${encodeURIComponent(String(days))}`,
       { signal: options?.signal }
     );
     if (!res.ok) {

@@ -211,12 +211,17 @@ class DashboardProductRankingView(APIView):
             days = min(365, max(1, int(request.GET.get("days", 30))))
         except ValueError:
             days = 30
-        end_date = timezone.now().date()
+        now = timezone.localtime(timezone.now())
+        end_date = now.date()
         start_date = end_date - timedelta(days=days - 1)
-        visit_ids = base_qs.filter(
-            created_at__date__gte=start_date,
-            created_at__date__lte=end_date,
-        ).values_list("id", flat=True)
+        start_dt = timezone.make_aware(datetime.combine(start_date, time.min))
+        end_dt = timezone.make_aware(datetime.combine(end_date, time.max))
+        visit_ids = list(
+            base_qs.filter(
+                created_at__gte=start_dt,
+                created_at__lte=end_dt,
+            ).values_list("id", flat=True)
+        )
         qs = (
             VisitProduct.objects.filter(visit_id__in=visit_ids)
             .values("product_id", "product__name", "product__unit")
