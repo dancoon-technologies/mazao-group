@@ -268,7 +268,7 @@ export default function EditScheduleScreen() {
                     icon="barn"
                   >
                     {selectedFarm
-                      ? `${selectedFarm.village}${selectedFarm.crop_type ? ` · ${selectedFarm.crop_type}` : ''}`
+                      ? selectedFarm.village
                       : `Select ${labels.location.toLowerCase()}`}
                   </Button>
                   <SelectFarmModal

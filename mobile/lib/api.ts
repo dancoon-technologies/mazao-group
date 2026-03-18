@@ -438,7 +438,6 @@ export const api = {
     latitude: number;
     longitude: number;
     plot_size?: string;
-    crop_type?: string;
     is_outlet?: boolean;
     device_latitude?: number;
     device_longitude?: number;

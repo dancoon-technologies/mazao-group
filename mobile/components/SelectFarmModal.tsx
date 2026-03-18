@@ -27,13 +27,11 @@ function matchFarm(f: Farm, q: string): boolean {
   if (!q.trim()) return true;
   const lower = q.trim().toLowerCase();
   const village = (f.village ?? "").toLowerCase();
-  const crop = (f.crop_type ?? "").toLowerCase();
   const county = (f.county ?? "").toLowerCase();
   const subCounty = (f.sub_county ?? "").toLowerCase();
   const region = (f.region ?? "").toLowerCase();
   return (
     village.includes(lower) ||
-    crop.includes(lower) ||
     county.includes(lower) ||
     subCounty.includes(lower) ||
     region.includes(lower)
@@ -42,7 +40,6 @@ function matchFarm(f: Farm, q: string): boolean {
 
 function farmLabel(f: Farm): string {
   const parts = [f.village];
-  if (f.crop_type) parts.push(f.crop_type);
   if (f.county) parts.push(f.county);
   return parts.join(" · ");
 }

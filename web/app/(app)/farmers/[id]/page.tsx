@@ -90,7 +90,6 @@ export default function FarmerDetailPage() {
       { key: "county", label: "County", render: (f) => <Text size="sm" c="dimmed">{f.county || "—"}</Text> },
       { key: "sub_county", label: "Sub-county", render: (f) => <Text size="sm" c="dimmed">{f.sub_county || "—"}</Text> },
       { key: "plot_size", label: "Plot", render: (f) => <Text size="sm" c="dimmed">{f.plot_size || "—"}</Text> },
-      { key: "crop_type", label: "Crop", render: (f) => <Text size="sm" c="dimmed">{f.crop_type || "—"}</Text> },
     ],
     []
   );

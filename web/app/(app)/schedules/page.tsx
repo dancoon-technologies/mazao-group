@@ -291,7 +291,6 @@ export default function SchedulesPage() {
     return farms.filter(
       (f) =>
         (f.village ?? "").toLowerCase().includes(q) ||
-        (f.crop_type ?? "").toLowerCase().includes(q) ||
         (f.sub_county ?? "").toLowerCase().includes(q) ||
         (f.county ?? "").toLowerCase().includes(q)
     );

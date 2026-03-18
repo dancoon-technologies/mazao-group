@@ -157,7 +157,6 @@ export const api = {
     latitude: number;
     longitude: number;
     plot_size?: string;
-    crop_type?: string;
     is_outlet?: boolean;
   }): Promise<Farm> {
     const res = await authFetch(`${API_BASE}/api/farms`, {

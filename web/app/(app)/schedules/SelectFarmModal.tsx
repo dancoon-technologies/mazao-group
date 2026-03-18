@@ -63,7 +63,7 @@ export function SelectFarmModal({
             {filteredFarms.map((f) => (
               <FarmModalOption
                 key={f.id}
-                label={`${f.village}${f.crop_type ? ` · ${f.crop_type}` : ""}`}
+                label={f.village}
                 selected={selectedFarmId === f.id}
                 onClick={() => handleSelect(f.id)}
               />

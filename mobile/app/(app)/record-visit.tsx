@@ -406,7 +406,6 @@ export default function RecordVisitScreen() {
           latitude: r.latitude,
           longitude: r.longitude,
           plot_size: r.plot_size ?? undefined,
-          crop_type: r.crop_type ?? undefined,
           region_id: r.region_id ?? undefined,
           region: r.region ?? undefined,
           county_id: r.county_id ?? undefined,
@@ -809,7 +808,7 @@ export default function RecordVisitScreen() {
               <Text variant="labelMedium" style={styles.step2SectionTitle}>{labels.location.toUpperCase()} (optional)</Text>
               {(scheduleLockedForFarm && selectedFarm) ? (
                 <View style={styles.farmDisplay}>
-                  <Text variant="bodyLarge">{selectedFarm.village}{selectedFarm.crop_type ? ` · ${selectedFarm.crop_type}` : ''}</Text>
+                  <Text variant="bodyLarge">{selectedFarm.village}</Text>
                 </View>
               ) : selectedFarmer && !scheduleLockedForFarm ? (
                 farms.length === 0 ? (
@@ -824,7 +823,7 @@ export default function RecordVisitScreen() {
                       icon="barn"
                     >
                       {selectedFarm
-                        ? `${selectedFarm.village}${selectedFarm.crop_type ? ` · ${selectedFarm.crop_type}` : ''}`
+                        ? selectedFarm.village
                         : 'Select farm'}
                     </Button>
                     <SelectFarmModal

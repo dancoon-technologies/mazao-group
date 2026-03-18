@@ -96,7 +96,7 @@ export function ScheduleEditModal({
               </Text>
               <Button variant="light" fullWidth onClick={onOpenFarmModal}>
                 {selectedFarm
-                  ? `${selectedFarm.village}${selectedFarm.crop_type ? ` · ${selectedFarm.crop_type}` : ""}`
+                  ? selectedFarm.village
                   : `Select ${locationLabel.toLowerCase()}`}
               </Button>
             </Box>

@@ -66,7 +66,6 @@ export interface Farm {
   latitude: string;
   longitude: string;
   plot_size: string;
-  crop_type: string;
   /** When true this location is an outlet/shop rather than a traditional farm. */
   is_outlet?: boolean;
   created_at: string;

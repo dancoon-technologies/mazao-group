@@ -188,7 +188,6 @@ async function pushQueue(accessToken: string): Promise<{ ok: boolean; error?: st
             latitude: farmPayload.latitude,
             longitude: farmPayload.longitude,
             plot_size: farmPayload.plot_size ?? undefined,
-            crop_type: farmPayload.crop_type ?? undefined,
             device_latitude: farmPayload.device_latitude,
             device_longitude: farmPayload.device_longitude,
           }),
@@ -216,7 +215,6 @@ async function pushQueue(accessToken: string): Promise<{ ok: boolean; error?: st
             latitude: payload.latitude,
             longitude: payload.longitude,
             plot_size: payload.plot_size ?? undefined,
-            crop_type: payload.crop_type ?? undefined,
             device_latitude: payload.device_latitude,
             device_longitude: payload.device_longitude,
           }),
@@ -404,7 +402,6 @@ export async function enqueueFarmerWithFarm(payload: {
     latitude: number
     longitude: number
     plot_size?: string
-    crop_type?: string
     device_latitude?: number
     device_longitude?: number
   }
@@ -422,7 +419,6 @@ export async function enqueueFarm(payload: {
   latitude: number
   longitude: number
   plot_size?: string
-  crop_type?: string
   device_latitude?: number
   device_longitude?: number
 }): Promise<void> {

@@ -407,7 +407,7 @@ export default function ProposeScheduleScreen() {
                     icon="barn"
                   >
                     {selectedFarm
-                      ? `${selectedFarm.village}${selectedFarm.crop_type ? ` · ${selectedFarm.crop_type}` : ''}`
+                      ? selectedFarm.village
                       : `Select ${locationLabelLower}`}
                   </Button>
                   <SelectFarmModal

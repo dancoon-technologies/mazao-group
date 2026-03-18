@@ -177,10 +177,9 @@ export default function FarmDetailScreen() {
                 <Card.Content>
                   <List.Item title="Village" description={farm.village || '—'} left={(props) => <List.Icon {...props} icon="map-marker" />} />
                   <List.Item title="Location" description={farmLocationLabel(farm)} left={(props) => <List.Icon {...props} icon="map-marker-radius" />} />
-                  {(farm.plot_size || farm.crop_type) && (
+                  {farm.plot_size && (
                     <>
                       {farm.plot_size && <List.Item title="Plot size" description={farm.plot_size} left={(props) => <List.Icon {...props} icon="square-outline" />} />}
-                      {farm.crop_type && <List.Item title="Crop type" description={farm.crop_type} left={(props) => <List.Icon {...props} icon="sprout" />} />}
                     </>
                   )}
                   <List.Item title="Coordinates" description={`${farm.latitude?.toFixed(5)}, ${farm.longitude?.toFixed(5)}`} left={(props) => <List.Icon {...props} icon="crosshairs-gps" />} />

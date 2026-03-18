@@ -172,9 +172,9 @@ export default function FarmerDetailScreen() {
                               <Text variant="bodySmall" style={styles.farmLocation}>
                                 {farmLocationLabel(farm)}
                               </Text>
-                              {(farm.plot_size || farm.crop_type) && (
+                              {farm.plot_size && (
                                 <Text variant="bodySmall" style={styles.farmMeta}>
-                                  {[farm.plot_size, farm.crop_type].filter(Boolean).join(' · ')}
+                                  {farm.plot_size}
                                 </Text>
                               )}
                             </View>
