@@ -96,7 +96,7 @@ describe("flattenVisitsToSales", () => {
     });
   });
 
-  it("emits one row per product focus when no product_lines (product focus as sale)", () => {
+  it("returns no rows when visit has only product_focus_details (sales are from product_lines only)", () => {
     const visits = [
       makeVisit({
         id: "v1",
@@ -111,43 +111,7 @@ describe("flattenVisitsToSales", () => {
       }),
     ];
     const rows = flattenVisitsToSales(visits);
-    expect(rows).toHaveLength(2);
-    expect(rows[0]).toMatchObject({
-      visitId: "v1",
-      productName: "Seeds",
-      productUnit: "kg",
-      quantitySold: "—",
-      quantityGiven: "—",
-    });
-    expect(rows[0].id).toBe("v1-focus-p1");
-    expect(rows[1]).toMatchObject({
-      productName: "Fertilizer",
-      quantitySold: "—",
-      quantityGiven: "—",
-    });
-  });
-
-  it("does not duplicate product focus when same product in product_lines", () => {
-    const visits = [
-      makeVisit({
-        id: "v1",
-        product_lines: [
-          {
-            product_id: "p1",
-            product_name: "Seeds",
-            product_unit: "kg",
-            quantity_sold: "5",
-            quantity_given: "0",
-          },
-        ],
-        product_focus_details: [
-          { product_id: "p1", product_name: "Seeds", product_unit: "kg" },
-        ],
-      }),
-    ];
-    const rows = flattenVisitsToSales(visits);
-    expect(rows).toHaveLength(1);
-    expect(rows[0].quantitySold).toBe("5");
+    expect(rows).toHaveLength(0);
   });
 
   it("uses fallbacks when display names missing", () => {
@@ -180,7 +144,7 @@ describe("groupSalesByVisit", () => {
     expect(groupSalesByVisit([])).toEqual([]);
   });
 
-  it("returns empty when visit has no product_lines or focus", () => {
+  it("returns empty when visit has no product_lines", () => {
     const visits = [makeVisit({ id: "v1" })];
     expect(groupSalesByVisit(visits)).toEqual([]);
   });
@@ -212,7 +176,7 @@ describe("groupSalesByVisit", () => {
     expect(groups[0].products[1]).toMatchObject({ productName: "Fertilizer", quantitySold: "0", quantityGiven: "2" });
   });
 
-  it("includes product_focus_details when no product_lines for that product", () => {
+  it("returns empty when visit has only product_focus_details (sales are from product_lines only)", () => {
     const visits = [
       makeVisit({
         id: "v1",
@@ -223,8 +187,6 @@ describe("groupSalesByVisit", () => {
       }),
     ];
     const groups = groupSalesByVisit(visits);
-    expect(groups).toHaveLength(1);
-    expect(groups[0].products).toHaveLength(1);
-    expect(groups[0].products[0]).toMatchObject({ productName: "Focus A", quantitySold: "—", quantityGiven: "—" });
+    expect(groups).toHaveLength(0);
   });
 });

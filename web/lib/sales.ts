@@ -19,10 +19,8 @@ export interface SalesRow {
 }
 
 /**
- * Flatten visits into sales rows:
- * - product_lines: one row per line with quantity_sold/quantity_given (skips 0/0).
- * - product_focus_details: one row per product focus (no quantities, shown as "—") so visits
- *   recorded with product focus appear on the sales page.
+ * Flatten visits into sales rows. Sales are taken only from product_lines (Products):
+ * one row per line with quantity_sold/quantity_given (skips 0/0).
  */
 export function flattenVisitsToSales(visits: Visit[]): SalesRow[] {
   const rows: SalesRow[] = [];
@@ -51,25 +49,6 @@ export function flattenVisitsToSales(visits: Visit[]): SalesRow[] {
         quantityGiven: given,
       });
     }
-
-    const focusDetails = v.product_focus_details ?? [];
-    const lineProductIds = new Set(lines.map((l) => l.product_id));
-    for (let idx = 0; idx < focusDetails.length; idx++) {
-      const detail = focusDetails[idx];
-      if (lineProductIds.has(detail.product_id)) continue;
-      rows.push({
-        id: `${v.id}-focus-${detail.product_id}`,
-        visitId: v.id,
-        date: v.created_at,
-        officerDisplay,
-        partnerDisplay,
-        locationDisplay,
-        productName: detail.product_name ?? "—",
-        productUnit: detail.product_unit ?? "",
-        quantitySold: "—",
-        quantityGiven: "—",
-      });
-    }
   }
   return rows;
 }
@@ -94,7 +73,7 @@ export interface SalesVisitGroup {
 
 /**
  * Group visits into one row per visit with a list of products (for accordion UI).
- * Uses same rules as flattenVisitsToSales: product_lines with qty, then product_focus_details without dupes.
+ * Sales are taken only from product_lines (Products) with quantity sold/given.
  */
 export function groupSalesByVisit(visits: Visit[]): SalesVisitGroup[] {
   const groups: SalesVisitGroup[] = [];
@@ -115,18 +94,6 @@ export function groupSalesByVisit(visits: Visit[]): SalesVisitGroup[] {
         productUnit: line.product_unit ?? "",
         quantitySold: sold,
         quantityGiven: given,
-      });
-    }
-
-    const focusDetails = v.product_focus_details ?? [];
-    const lineProductIds = new Set(lines.map((l) => l.product_id));
-    for (const detail of focusDetails) {
-      if (lineProductIds.has(detail.product_id)) continue;
-      products.push({
-        productName: detail.product_name ?? "—",
-        productUnit: detail.product_unit ?? "",
-        quantitySold: "—",
-        quantityGiven: "—",
       });
     }
 

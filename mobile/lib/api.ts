@@ -331,10 +331,10 @@ function formatVisitValidationError(data: unknown): string {
       harvest_kgs: 'Harvest (kg)',
       farmers_feedback: 'Feedback',
       number_of_stockists_visited: 'Number of stockists visited',
-      product_focus_id: 'Product focus',
+      product_focus_id: 'Products',
       merchandising: 'Merchandising',
       counter_training: 'Counter training',
-      product_lines: 'Product lines',
+      product_lines: 'Products',
       travel_validation: 'Travel',
     };
     const parts: string[] = [];

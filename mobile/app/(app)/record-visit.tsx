@@ -996,45 +996,7 @@ export default function RecordVisitScreen() {
                   const setValue = (v: string) => setStep3Values((prev) => ({ ...prev, [f.key]: v }));
                   const inputType = getStep3InputType(f.key, visitFormFieldSchema);
                   if (inputType === 'product') {
-                    const selectedIds = (value ?? '').split(',').map((s) => s.trim()).filter(Boolean);
-                    const selectedProducts = products.filter((p) => selectedIds.includes(p.id));
-                    const buttonLabel = selectedProducts.length === 0
-                      ? 'Select products'
-                      : selectedProducts.length === 1
-                        ? `${selectedProducts[0].name}${selectedProducts[0].unit ? ` (${selectedProducts[0].unit})` : ''}`
-                        : `${selectedProducts.length} products selected`;
-                    return (
-                      <View key={f.key} style={styles.input}>
-                        <Text variant="labelLarge" style={styles.fieldLabel}>{requiredLabel}</Text>
-                        <Button
-                          mode="outlined"
-                          onPress={() => {
-                            setProductModalFieldKey(f.key);
-                            setProductModalOpen(true);
-                          }}
-                          contentStyle={{ justifyContent: 'flex-start' }}
-                          style={styles.productFocusButton}
-                          icon="format-list-bulleted"
-                        >
-                          {buttonLabel}
-                        </Button>
-                        <SelectProductsModal
-                          visible={productModalOpen && productModalFieldKey === f.key}
-                          onClose={() => {
-                            setProductModalOpen(false);
-                            setProductModalFieldKey(null);
-                          }}
-                          products={products}
-                          selectedIds={selectedIds}
-                          onSelect={(ids) => {
-                            setValue(ids.join(','));
-                            setProductModalOpen(false);
-                            setProductModalFieldKey(null);
-                          }}
-                          title="Select product focus"
-                        />
-                      </View>
-                    );
+                    return null;
                   }
                   return (
                     <TextInput
@@ -1053,9 +1015,9 @@ export default function RecordVisitScreen() {
                 })}
               </Surface>
 
-              {step3Fields.some((f) => f.key === 'product_focus') && (
+              {step3Fields.some((f) => f.key === 'product_focus' || f.key === 'product_lines') && (
                 <Surface style={styles.section} elevation={0}>
-                  <Text variant="labelLarge" style={styles.fieldLabel}>Product lines (quantity sold / given)</Text>
+                  <Text variant="labelLarge" style={styles.fieldLabel}>Products</Text>
                   <Text variant="bodySmall" style={styles.hint}>
                     Optional. Record products sold or given during this visit.
                   </Text>
@@ -1097,7 +1059,7 @@ export default function RecordVisitScreen() {
                           icon="delete-outline"
                           onPress={() => setProductLines((prev) => prev.filter((_, i) => i !== index))}
                           style={styles.productLineRemove}
-                          accessibilityLabel="Remove product line"
+                          accessibilityLabel="Remove product"
                         >
                           Remove
                         </Button>
@@ -1114,7 +1076,7 @@ export default function RecordVisitScreen() {
                     icon="plus"
                     style={styles.productFocusButton}
                   >
-                    Add product line
+                    Add product
                   </Button>
                   <SelectProductsModal
                     visible={productModalOpen && productModalFieldKey === 'product_lines'}
@@ -1136,7 +1098,7 @@ export default function RecordVisitScreen() {
                       setProductModalOpen(false);
                       setProductModalFieldKey(null);
                     }}
-                    title="Select product to add"
+                    title="Select products"
                   />
                 </Surface>
               )}

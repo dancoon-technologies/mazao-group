@@ -1,5 +1,5 @@
 /**
- * Multi-select modal for products (e.g. product focus on a visit).
+ * Multi-select modal for products (visit products with quantity sold/given).
  * Same pattern as SelectActivityTypesModal: search, checkmarks, Done.
  */
 import type { ProductOption } from "@/lib/api";
