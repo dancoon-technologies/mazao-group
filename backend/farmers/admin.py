@@ -23,7 +23,6 @@ class FarmAdmin(admin.ModelAdmin):
         "sub_county_id",
         "village",
         "plot_size",
-        "crop_type",
         "created_at",
     )
     list_filter = ("region_id", "county_id", "sub_county_id")
