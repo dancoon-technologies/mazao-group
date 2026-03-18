@@ -266,7 +266,7 @@ export default function RecordVisitScreen() {
 
   useEffect(() => {
     if (isOnline === true) {
-      syncWithServer().catch(() => {});
+      syncWithServer().catch(() => { });
     }
   }, [isOnline]);
 
@@ -327,7 +327,7 @@ export default function RecordVisitScreen() {
         try {
           const todayStr = new Date().toISOString().slice(0, 10);
           const startTs = new Date(`${todayStr}T00:00:00.000Z`).getTime();
-            const endTs = startTs + 7 * 24 * 60 * 60 * 1000;
+          const endTs = startTs + 7 * 24 * 60 * 60 * 1000;
           const scheduleRows = await getPlannedSchedulesDb(userId, startTs, endTs);
           if (cancelled) return;
           const scheduleList: Schedule[] = scheduleRows.map((r) => ({
@@ -539,10 +539,10 @@ export default function RecordVisitScreen() {
       const step3Payload = buildStep3Payload(step3Values, visitFormFieldSchema);
       const productLinesPayload = productLines.length > 0
         ? productLines.map((p) => ({
-            product_id: p.product_id,
-            quantity_sold: parseFloat(p.quantity_sold) || 0,
-            quantity_given: parseFloat(p.quantity_given) || 0,
-          }))
+          product_id: p.product_id,
+          quantity_sold: parseFloat(p.quantity_sold) || 0,
+          quantity_given: parseFloat(p.quantity_given) || 0,
+        }))
         : undefined;
 
       // Always try API first so we don't rely on NetInfo (which can be wrong when online)
@@ -1021,50 +1021,50 @@ export default function RecordVisitScreen() {
                     Optional. Record products sold or given during this visit.
                   </Text>
                   {productLines.map((line, index) => {
-                  const productLabel = line.product_name + (line.product_unit ? ` (${line.product_unit})` : '');
-                  return (
-                    <View key={`${line.product_id}-${index}`} style={styles.productLineCard}>
-                      <Text variant="labelMedium" numberOfLines={1}>{productLabel}</Text>
-                      <View style={styles.productLineRow}>
-                        <TextInput
-                          label="Qty sold"
-                          value={line.quantity_sold}
-                          onChangeText={(t) => setProductLines((prev) => {
-                            const next = [...prev];
-                            next[index] = { ...next[index], quantity_sold: t };
-                            return next;
-                          })}
-                          mode="outlined"
-                          keyboardType="decimal-pad"
-                          placeholder="0"
-                          style={styles.productLineInput}
-                        />
-                        <TextInput
-                          label="Qty given"
-                          value={line.quantity_given}
-                          onChangeText={(t) => setProductLines((prev) => {
-                            const next = [...prev];
-                            next[index] = { ...next[index], quantity_given: t };
-                            return next;
-                          })}
-                          mode="outlined"
-                          keyboardType="decimal-pad"
-                          placeholder="0"
-                          style={styles.productLineInput}
-                        />
-                        <Button
-                          mode="text"
-                          compact
-                          icon="delete-outline"
-                          onPress={() => setProductLines((prev) => prev.filter((_, i) => i !== index))}
-                          style={styles.productLineRemove}
-                          accessibilityLabel="Remove product"
-                        >
-                          Remove
-                        </Button>
+                    const productLabel = line.product_name + (line.product_unit ? ` (${line.product_unit})` : '');
+                    return (
+                      <View key={`${line.product_id}-${index}`} style={styles.productLineCard}>
+                        <Text variant="labelMedium" numberOfLines={1}>{productLabel}</Text>
+                        <View style={styles.productLineRow}>
+                          <TextInput
+                            label="Qty sold"
+                            value={line.quantity_sold}
+                            onChangeText={(t) => setProductLines((prev) => {
+                              const next = [...prev];
+                              next[index] = { ...next[index], quantity_sold: t };
+                              return next;
+                            })}
+                            mode="outlined"
+                            keyboardType="decimal-pad"
+                            placeholder="0"
+                            style={styles.productLineInput}
+                          />
+                          <TextInput
+                            label="Qty given"
+                            value={line.quantity_given}
+                            onChangeText={(t) => setProductLines((prev) => {
+                              const next = [...prev];
+                              next[index] = { ...next[index], quantity_given: t };
+                              return next;
+                            })}
+                            mode="outlined"
+                            keyboardType="decimal-pad"
+                            placeholder="0"
+                            style={styles.productLineInput}
+                          />
+                          <Button
+                            mode="text"
+                            compact
+                            icon="delete-outline"
+                            onPress={() => setProductLines((prev) => prev.filter((_, i) => i !== index))}
+                            style={styles.productLineRemove}
+                            accessibilityLabel="Remove product"
+                          >
+                            Remove
+                          </Button>
+                        </View>
                       </View>
-                    </View>
-                  );
+                    );
                   })}
                   <Button
                     mode="outlined"
@@ -1099,7 +1099,8 @@ export default function RecordVisitScreen() {
                     }}
                     title="Select products"
                   />
-              </Surface>
+                </Surface>
+              )}
 
               {error ? (
                 <HelperText type="error" style={styles.errorBlock}>{error}</HelperText>
