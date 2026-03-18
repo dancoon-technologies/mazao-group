@@ -1,14 +1,14 @@
 import logging
 from datetime import timedelta
 
-from django.db.models import Count, Q
+from django.db.models import Count, Q, Sum
 from django.db.models.functions import TruncDate
 from django.utils import timezone
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from accounts.models import Department
-from .models import Visit
+from .models import Visit, VisitProduct
 
 logger = logging.getLogger(__name__)
 
@@ -200,3 +200,43 @@ class DashboardSchedulesSummaryView(APIView):
         }
         logger.info("GET /api/dashboard/schedules-summary/ user=%s %s", user.id, payload)
         return Response(payload)
+
+
+class DashboardProductRankingView(APIView):
+    """GET /api/dashboard/product-ranking/?days=30 — products ranked by total quantity sold. Admin & Supervisor only."""
+
+    def get(self, request):
+        base_qs = _get_base_queryset(request)
+        try:
+            days = min(365, max(1, int(request.GET.get("days", 30))))
+        except ValueError:
+            days = 30
+        end_date = timezone.now().date()
+        start_date = end_date - timedelta(days=days - 1)
+        visit_ids = base_qs.filter(
+            created_at__date__gte=start_date,
+            created_at__date__lte=end_date,
+        ).values_list("id", flat=True)
+        qs = (
+            VisitProduct.objects.filter(visit_id__in=visit_ids)
+            .values("product_id", "product__name", "product__unit")
+            .annotate(
+                total_sold=Sum("quantity_sold"),
+                total_given=Sum("quantity_given"),
+            )
+            .order_by("-total_sold")
+        )
+        result = []
+        for rank, row in enumerate(qs, start=1):
+            total_sold = row["total_sold"] or 0
+            total_given = row["total_given"] or 0
+            result.append({
+                "rank": rank,
+                "product_id": str(row["product_id"]),
+                "product_name": row["product__name"] or "—",
+                "product_unit": row["product__unit"] or "",
+                "total_sold": float(total_sold),
+                "total_given": float(total_given),
+            })
+        logger.info("GET /api/dashboard/product-ranking/ user=%s days=%s count=%s", request.user.id, days, len(result))
+        return Response(result)

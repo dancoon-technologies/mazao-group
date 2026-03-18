@@ -127,6 +127,10 @@ function VisitDetailModal({
   const [verifying, setVerifying] = useState<"accept" | "reject" | null>(null);
   const [exportingPdf, setExportingPdf] = useState(false);
   if (!visit) return null;
+
+  const hasValue = (v: unknown): boolean =>
+    v != null && v !== "" && String(v).trim() !== "";
+
   const row = (label: string, value: React.ReactNode) => (
     <Group justify="space-between" wrap="nowrap" key={label}>
       <Text size="sm" c="dimmed">
@@ -156,26 +160,26 @@ function VisitDetailModal({
       const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
       const generatedAt = formatDateTime(new Date().toISOString());
       drawPdfHeader(doc, "Visit report", formatDateTime(visit.created_at));
-      const head = ["Field", "Value"];
-      const body: [string, string][] = [
-        ["Date", formatDateTime(visit.created_at)],
-        ["Officer", ([visit.officer_display_name, visit.officer_email].filter(Boolean).join(" — ") || (visit.officer_email ?? visit.officer)) ?? "—"],
-        [partnerLabel, (visit.farmer_display_name ?? visit.farmer) ?? "—"],
-        [`${locationLabel} visited`, visit.farm_display_name ?? "—"],
-        ["Activity", formatActivityTypes(visit.activity_types?.length ? visit.activity_types : undefined) || formatActivityType(visit.activity_type ?? "")],
-        ["Status", visit.verification_status ?? "—"],
-        ["Distance (m)", visit.distance_from_farmer != null ? String(Math.round(visit.distance_from_farmer)) : "—"],
-        ["Crop stage", visit.crop_stage ?? "—"],
-        ["Germination %", visit.germination_percent != null ? String(visit.germination_percent) : "—"],
-        ["Survival rate", visit.survival_rate ?? "—"],
-        ["Pests/diseases", visit.pests_diseases ?? "—"],
-        ["Order value", visit.order_value != null ? String(visit.order_value) : "—"],
-        ["Harvest (kg)", visit.harvest_kgs != null ? String(visit.harvest_kgs) : "—"],
-        [`${partnerLabel}'s feedback`, (visit.farmers_feedback ?? "—").slice(0, 200)],
-        ["Notes", (visit.notes ?? "—").slice(0, 300)],
-      ];
+      const pdfHasVal = (v: unknown): boolean =>
+        v != null && v !== "" && String(v).trim() !== "" && String(v) !== "—";
+      const body: [string, string][] = [];
+      body.push(["Date", formatDateTime(visit.created_at)]);
+      body.push(["Officer", ([visit.officer_display_name, visit.officer_email].filter(Boolean).join(" — ") || (visit.officer_email ?? visit.officer) ?? "")]);
+      if (pdfHasVal(visit.farmer_display_name ?? visit.farmer)) body.push([partnerLabel, (visit.farmer_display_name ?? visit.farmer) as string]);
+      if (pdfHasVal(visit.farm_display_name)) body.push([`${locationLabel} visited`, visit.farm_display_name as string]);
+      body.push(["Activity", formatActivityTypes(visit.activity_types?.length ? visit.activity_types : undefined) || formatActivityType(visit.activity_type ?? "")]);
+      if (pdfHasVal(visit.verification_status)) body.push(["Status", visit.verification_status]);
+      if (pdfHasVal(visit.distance_from_farmer)) body.push(["Distance (m)", String(Math.round(Number(visit.distance_from_farmer)))]);
+      if (pdfHasVal(visit.crop_stage)) body.push(["Crop stage", visit.crop_stage as string]);
+      if (pdfHasVal(visit.germination_percent)) body.push(["Germination %", String(visit.germination_percent)]);
+      if (pdfHasVal(visit.survival_rate)) body.push(["Survival rate", visit.survival_rate as string]);
+      if (pdfHasVal(visit.pests_diseases)) body.push(["Pests/diseases", visit.pests_diseases as string]);
+      if (pdfHasVal(visit.order_value)) body.push(["Order value", String(visit.order_value)]);
+      if (pdfHasVal(visit.harvest_kgs)) body.push(["Harvest (kg)", String(visit.harvest_kgs)]);
+      if (pdfHasVal(visit.farmers_feedback)) body.push([`${partnerLabel}'s feedback`, (visit.farmers_feedback ?? "").slice(0, 200)]);
+      if (pdfHasVal(visit.notes)) body.push(["Notes", (visit.notes ?? "").slice(0, 300)]);
       autoTable(doc, {
-        head: [head],
+        head: [["Field", "Value"]],
         body,
         startY: PDF_HEADER_HEIGHT + 14,
         margin: { left: PDF_MARGIN, right: PDF_MARGIN },
@@ -183,7 +187,29 @@ function VisitDetailModal({
         headStyles: PDF_TABLE_HEAD_STYLES,
         columnStyles: { Value: { cellWidth: "wrap" } },
       });
-      drawPdfFooter(doc, 1, 1, generatedAt);
+      let finalY = doc.getNumberOfPages() > 0 ? (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY : PDF_HEADER_HEIGHT + 14;
+      if (visit.product_lines && visit.product_lines.length > 0) {
+        const productHead = ["Product", "Qty sold", "Qty given"];
+        const productBody = visit.product_lines.map((line) => [
+          `${line.product_name ?? "—"}${line.product_unit ? ` (${line.product_unit})` : ""}`,
+          line.quantity_sold ?? "0",
+          line.quantity_given ?? "0",
+        ]);
+        autoTable(doc, {
+          head: [productHead],
+          body: productBody,
+          startY: finalY + 10,
+          margin: { left: PDF_MARGIN, right: PDF_MARGIN },
+          styles: { fontSize: 9, textColor: PDF_COLORS.gray900 },
+          headStyles: PDF_TABLE_HEAD_STYLES,
+        });
+        finalY = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY;
+      }
+      const totalPages = doc.getNumberOfPages();
+      for (let p = 1; p <= totalPages; p++) {
+        doc.setPage(p);
+        drawPdfFooter(doc, p, totalPages, generatedAt);
+      }
       const dateStr = visit.created_at.slice(0, 10);
       doc.save(`visit-report-${dateStr}-${visit.id.slice(0, 8)}.pdf`);
     } finally {
@@ -200,8 +226,8 @@ function VisitDetailModal({
             <Text size="xs" c="dimmed">{visit.officer_email ?? ""}</Text>
           </Stack>
         ))}
-        {row(partnerLabel, visit.farmer_display_name ?? visit.farmer)}
-        {row(`${locationLabel} visited`, visit.farm_display_name ?? "—")}
+        {hasValue(visit.farmer_display_name ?? visit.farmer) && row(partnerLabel, visit.farmer_display_name ?? visit.farmer)}
+        {hasValue(visit.farm_display_name) && row(`${locationLabel} visited`, visit.farm_display_name)}
         {row("Activity", formatActivityTypes(visit.activity_types?.length ? visit.activity_types : undefined) || formatActivityType(visit.activity_type ?? ""))}
         {row("Status", (
           <Badge
@@ -223,19 +249,19 @@ function VisitDetailModal({
                   : visit.verification_status}
           </Badge>
         ))}
-        {row("Distance", visit.distance_from_farmer != null ? `${Math.round(visit.distance_from_farmer)} m` : "—")}
-        {row("Crop stage", visit.crop_stage)}
-        {row("Germination %", visit.germination_percent != null ? String(visit.germination_percent) : null)}
-        {row("Survival rate", visit.survival_rate)}
-        {row("Pests/diseases", visit.pests_diseases)}
-        {row("Order value", visit.order_value != null ? String(visit.order_value) : null)}
-        {row("Harvest (kg)", visit.harvest_kgs != null ? String(visit.harvest_kgs) : null)}
-        {row(`${partnerLabel}'s feedback`, visit.farmers_feedback)}
-        {row("Notes", visit.notes)}
+        {hasValue(visit.distance_from_farmer) && row("Distance", `${Math.round(Number(visit.distance_from_farmer))} m`)}
+        {hasValue(visit.crop_stage) && row("Crop stage", visit.crop_stage)}
+        {hasValue(visit.germination_percent) && row("Germination %", String(visit.germination_percent))}
+        {hasValue(visit.survival_rate) && row("Survival rate", visit.survival_rate)}
+        {hasValue(visit.pests_diseases) && row("Pests/diseases", visit.pests_diseases)}
+        {hasValue(visit.order_value) && row("Order value", String(visit.order_value))}
+        {hasValue(visit.harvest_kgs) && row("Harvest (kg)", String(visit.harvest_kgs))}
+        {hasValue(visit.farmers_feedback) && row(`${partnerLabel}'s feedback`, visit.farmers_feedback)}
+        {hasValue(visit.notes) && row("Notes", visit.notes)}
         {additionalVisitFields.filter(({ key }) => {
           const valueKey = getVisitValueKey(key);
           const v = visit[valueKey];
-          return v != null && v !== "";
+          return hasValue(v);
         }).map(({ key, label }) => {
           const valueKey = getVisitValueKey(key);
           const v = visit[valueKey];
@@ -383,24 +409,36 @@ export default function VisitsPage() {
   );
 
   const handleExportExcel = () => {
-    const rows = visits.map((v) => ({
-      Date: formatDateTime(v.created_at),
-      Officer: [v.officer_display_name, v.officer_email].filter(Boolean).join(" — ") || (v.officer_email ?? v.officer),
-      [labels.partner]: v.farmer_display_name ?? v.farmer,
-      [`${labels.location} visited`]: v.farm_display_name ?? "",
-      Activity: formatActivityTypes(v.activity_types?.length ? v.activity_types : undefined) || formatActivityType(v.activity_type ?? ""),
-      "Crop stage": v.crop_stage ?? "",
-      "Germination %": v.germination_percent ?? "",
-      "Survival rate": v.survival_rate ?? "",
-      "Pests/diseases": v.pests_diseases ?? "",
-      "Order value": v.order_value ?? "",
-      "Harvest (kg)": v.harvest_kgs ?? "",
-      [`${labels.partner}'s feedback`]: v.farmers_feedback ?? "",
-      Notes: v.notes ?? "",
-      "Distance (m)": v.distance_from_farmer != null ? Math.round(v.distance_from_farmer) : "",
-      Status: v.verification_status,
-      "Photo URL(s)": (v.photos?.length ? v.photos : (v.photo ? [v.photo] : [])).map(photoUrl).join("; ") || "",
-    }));
+    const rows = visits.map((v) => {
+      const productLinesSummary =
+        v.product_lines && v.product_lines.length > 0
+          ? v.product_lines
+              .map(
+                (line) =>
+                  `${line.product_name ?? "—"}${line.product_unit ? ` (${line.product_unit})` : ""}: ${line.quantity_sold ?? "0"} sold, ${line.quantity_given ?? "0"} given`
+              )
+              .join("; ")
+          : "";
+      return {
+        Date: formatDateTime(v.created_at),
+        Officer: [v.officer_display_name, v.officer_email].filter(Boolean).join(" — ") || (v.officer_email ?? v.officer),
+        [labels.partner]: v.farmer_display_name ?? v.farmer,
+        [`${labels.location} visited`]: v.farm_display_name ?? "",
+        Activity: formatActivityTypes(v.activity_types?.length ? v.activity_types : undefined) || formatActivityType(v.activity_type ?? ""),
+        "Crop stage": v.crop_stage ?? "",
+        "Germination %": v.germination_percent ?? "",
+        "Survival rate": v.survival_rate ?? "",
+        "Pests/diseases": v.pests_diseases ?? "",
+        "Order value": v.order_value ?? "",
+        "Harvest (kg)": v.harvest_kgs ?? "",
+        [`${labels.partner}'s feedback`]: v.farmers_feedback ?? "",
+        Notes: v.notes ?? "",
+        "Distance (m)": v.distance_from_farmer != null ? Math.round(v.distance_from_farmer) : "",
+        Status: v.verification_status,
+        "Products (sold / given)": productLinesSummary,
+        "Photo URL(s)": (v.photos?.length ? v.photos : (v.photo ? [v.photo] : [])).map(photoUrl).join("; ") || "",
+      };
+    });
     const ws = XLSX.utils.json_to_sheet(rows);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Visits");
@@ -431,24 +469,34 @@ export default function VisitsPage() {
       "Notes",
       "Distance (m)",
       "Status",
+      "Products (sold / given)",
     ];
-    const body = visits.map((v) => [
-      formatDateTime(v.created_at),
-      ([v.officer_display_name, v.officer_email].filter(Boolean).join(" — ") || (v.officer_email ?? v.officer)) ?? "",
-      (v.farmer_display_name ?? v.farmer) ?? "",
-      v.farm_display_name ?? "",
-      formatActivityType(v.activity_type ?? ""),
-      v.crop_stage ?? "",
-      v.germination_percent != null ? String(v.germination_percent) : "",
-      v.survival_rate ?? "",
-      v.pests_diseases ?? "",
-      v.order_value != null ? String(v.order_value) : "",
-      v.harvest_kgs != null ? String(v.harvest_kgs) : "",
-      v.farmers_feedback ?? "",
-      (v.notes ?? "").slice(0, 40),
-      v.distance_from_farmer != null ? String(Math.round(v.distance_from_farmer)) : "",
-      v.verification_status ?? "",
-    ]);
+    const body = visits.map((v) => {
+      const productSummary =
+        v.product_lines && v.product_lines.length > 0
+          ? v.product_lines
+              .map((line) => `${line.product_name ?? "—"}: ${line.quantity_sold ?? "0"} sold, ${line.quantity_given ?? "0"} given`)
+              .join("; ")
+          : "";
+      return [
+        formatDateTime(v.created_at),
+        ([v.officer_display_name, v.officer_email].filter(Boolean).join(" — ") || (v.officer_email ?? v.officer)) ?? "",
+        (v.farmer_display_name ?? v.farmer) ?? "",
+        v.farm_display_name ?? "",
+        formatActivityType(v.activity_type ?? ""),
+        v.crop_stage ?? "",
+        v.germination_percent != null ? String(v.germination_percent) : "",
+        v.survival_rate ?? "",
+        v.pests_diseases ?? "",
+        v.order_value != null ? String(v.order_value) : "",
+        v.harvest_kgs != null ? String(v.harvest_kgs) : "",
+        v.farmers_feedback ?? "",
+        (v.notes ?? "").slice(0, 40),
+        v.distance_from_farmer != null ? String(Math.round(v.distance_from_farmer)) : "",
+        v.verification_status ?? "",
+        productSummary,
+      ];
+    });
     autoTable(doc, {
       head: [head],
       body,

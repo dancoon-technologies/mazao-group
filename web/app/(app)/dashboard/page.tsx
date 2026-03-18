@@ -1,6 +1,6 @@
 "use client";
 
-import { Anchor, Badge, Box, Grid, Paper, Table, Tabs, Text, Title } from "@mantine/core";
+import { Anchor, Badge, Box, Grid, Group, Paper, Select, Table, Tabs, Text, Title } from "@mantine/core";
 import Link from "next/link";
 import { useAsyncData } from "@/hooks/useAsyncData";
 import { api } from "@/lib/api";
@@ -18,10 +18,17 @@ function formatChartDate(iso: string) {
   return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
+const PRODUCT_RANKING_DAYS_OPTIONS = [
+  { value: "30", label: "Last 30 days" },
+  { value: "90", label: "Last 90 days" },
+];
+
 export default function DashboardPage() {
   const { role } = useAuth();
   const isAdmin = role === "admin";
+  const isAdminOrSupervisor = role === "admin" || role === "supervisor";
   const [days, setDays] = useState<string>(DASHBOARD_DAY_OPTIONS[1].value);
+  const [productRankingDays, setProductRankingDays] = useState<string>("30");
   const { data: stats, error, loading } = useAsyncData(
     (signal) => api.getDashboardStats({ signal }),
     []
@@ -53,6 +60,16 @@ export default function DashboardPage() {
   const { data: optionsData } = useAsyncData(
     (signal) => api.getOptions({ signal }),
     []
+  );
+  const { data: productRanking = [] } = useAsyncData(
+    (signal) =>
+      isAdminOrSupervisor
+        ? api.getDashboardProductRanking(
+            { days: parseInt(productRankingDays, 10) },
+            { signal }
+          )
+        : Promise.resolve([]),
+    [isAdminOrSupervisor, productRankingDays]
   );
   const labels = useMemo(() => getLabelsFromOptions(optionsData), [optionsData]);
   const recentVisits: Visit[] = (recentVisitsData ?? []).slice(0, 5);
@@ -126,6 +143,9 @@ export default function DashboardPage() {
           <Tabs.Tab value="overview">Overview</Tabs.Tab>
           <Tabs.Tab value="visits">Visits & quality</Tabs.Tab>
           <Tabs.Tab value="performance">Performance</Tabs.Tab>
+          {isAdminOrSupervisor && (
+            <Tabs.Tab value="products">Product ranking</Tabs.Tab>
+          )}
         </Tabs.List>
 
         <Tabs.Panel value="overview" pt="lg">
@@ -266,6 +286,71 @@ export default function DashboardPage() {
             />
           </Box>
         </Tabs.Panel>
+
+        {isAdminOrSupervisor && (
+          <Tabs.Panel value="products" pt="lg">
+            <Paper p="md" shadow="sm" radius="md" withBorder>
+              <Group justify="space-between" align="flex-end" mb="md">
+                <Text size="md" fw={600}>
+                  Products by quantity sold
+                </Text>
+                <Select
+                  size="xs"
+                  data={PRODUCT_RANKING_DAYS_OPTIONS}
+                  value={productRankingDays}
+                  onChange={(v) => v && setProductRankingDays(v)}
+                  style={{ width: 140 }}
+                />
+              </Group>
+              {(productRanking ?? []).length === 0 ? (
+                <Text size="sm" c="dimmed">
+                  No product sales in the selected period.
+                </Text>
+              ) : (
+                <Table.ScrollContainer minWidth={400}>
+                  <Table striped highlightOnHover>
+                    <Table.Thead>
+                      <Table.Tr>
+                        <Table.Th>Rank</Table.Th>
+                        <Table.Th>Product</Table.Th>
+                        <Table.Th>Total sold</Table.Th>
+                        <Table.Th>Total given</Table.Th>
+                      </Table.Tr>
+                    </Table.Thead>
+                    <Table.Tbody>
+                      {(productRanking ?? []).map((item) => (
+                        <Table.Tr key={item.product_id}>
+                          <Table.Td>
+                            <Text size="sm" fw={500}>
+                              #{item.rank}
+                            </Text>
+                          </Table.Td>
+                          <Table.Td>
+                            <Text size="sm">
+                              {item.product_name}
+                              {item.product_unit ? ` (${item.product_unit})` : ""}
+                            </Text>
+                          </Table.Td>
+                          <Table.Td>
+                            <Text size="sm">{item.total_sold}</Text>
+                          </Table.Td>
+                          <Table.Td>
+                            <Text size="sm">{item.total_given}</Text>
+                          </Table.Td>
+                        </Table.Tr>
+                      ))}
+                    </Table.Tbody>
+                  </Table>
+                </Table.ScrollContainer>
+              )}
+              <Text size="sm" mt="sm">
+                <Anchor component={Link} href={ROUTES.SALES}>
+                  View sales from visits →
+                </Anchor>
+              </Text>
+            </Paper>
+          </Tabs.Panel>
+        )}
       </Tabs>
     </Box>
   );

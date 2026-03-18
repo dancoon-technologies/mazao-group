@@ -126,6 +126,15 @@ export interface DashboardSchedulesSummary {
   visits_recorded_today: number;
 }
 
+export interface DashboardProductRankingItem {
+  rank: number;
+  product_id: string;
+  product_name: string;
+  product_unit: string;
+  total_sold: number;
+  total_given: number;
+}
+
 export interface LoginResponse {
   access: string;
   refresh: string;
