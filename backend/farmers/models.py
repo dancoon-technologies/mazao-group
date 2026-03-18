@@ -65,7 +65,6 @@ class Farm(models.Model):
     latitude = models.DecimalField(max_digits=10, decimal_places=7)
     longitude = models.DecimalField(max_digits=10, decimal_places=7)
     plot_size = models.CharField(max_length=50, blank=True)  # e.g. "2 acres"
-    crop_type = models.CharField(max_length=100, blank=True)
     # When true this location is an outlet/shop rather than a traditional farm.
     is_outlet = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)

@@ -228,7 +228,6 @@ export default function AddFarmerScreen() {
             latitude: farmLatNum,
             longitude: farmLonNum,
             plot_size: isStockist ? undefined : (plotSize.trim() || undefined),
-            crop_type: undefined,
             device_latitude: deviceLat,
             device_longitude: deviceLon,
           },
@@ -275,7 +274,6 @@ export default function AddFarmerScreen() {
         latitude: farmLatNum,
         longitude: farmLonNum,
         plot_size: isStockist ? undefined : (plotSize.trim() || undefined),
-        crop_type: undefined,
         device_latitude: deviceLat,
         device_longitude: deviceLon,
       });

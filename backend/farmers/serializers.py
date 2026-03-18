@@ -59,7 +59,6 @@ class FarmSerializer(serializers.ModelSerializer):
             "latitude",
             "longitude",
             "plot_size",
-            "crop_type",
             "is_outlet",
             "created_at",
         )
@@ -103,7 +102,6 @@ class FarmCreateSerializer(serializers.ModelSerializer):
             "latitude",
             "longitude",
             "plot_size",
-            "crop_type",
             "is_outlet",
             "device_latitude",
             "device_longitude",

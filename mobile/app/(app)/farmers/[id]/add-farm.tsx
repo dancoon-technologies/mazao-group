@@ -41,7 +41,6 @@ export default function AddFarmScreen() {
   const [farmLat, setFarmLat] = useState('');
   const [farmLon, setFarmLon] = useState('');
   const [plotSize, setPlotSize] = useState('');
-  const [farmCropType, setFarmCropType] = useState('');
   const hasAutoFilledLocation = useRef(false);
   const hasAutoFilledCoords = useRef(false);
 
@@ -178,7 +177,6 @@ export default function AddFarmScreen() {
           latitude: farmLatNum,
           longitude: farmLonNum,
           plot_size: plotSize.trim() || undefined,
-          crop_type: farmCropType.trim() || undefined,
           device_latitude: deviceLat,
           device_longitude: deviceLon,
         });
@@ -208,7 +206,6 @@ export default function AddFarmScreen() {
         latitude: farmLatNum,
         longitude: farmLonNum,
         plot_size: plotSize.trim() || undefined,
-        crop_type: farmCropType.trim() || undefined,
         device_latitude: deviceLat,
         device_longitude: deviceLon,
       });
@@ -233,7 +230,6 @@ export default function AddFarmScreen() {
     farmLat,
     farmLon,
     plotSize,
-    farmCropType,
     router,
     isOnline,
     getDeviceLocation,
@@ -415,13 +411,6 @@ export default function AddFarmScreen() {
             mode="outlined"
             style={styles.input}
             placeholder="e.g. 2 acres"
-          />
-          <TextInput
-            label="Crop type"
-            value={farmCropType}
-            onChangeText={setFarmCropType}
-            mode="outlined"
-            style={styles.input}
           />
 
           {error ? <Text style={styles.errorText}>{error}</Text> : null}
