@@ -33,7 +33,7 @@ import {
 } from "@/lib/reportFilters";
 import { getLabelsFromOptions } from "@/lib/options";
 import {
-  buildAdditionalVisitFieldsFromOptions,
+  buildVisitDataFieldsFromOptions,
   getVisitValueKey,
 } from "@/lib/visitFormFields";
 
@@ -111,7 +111,7 @@ function VisitDetailModal({
   onClose,
   canVerify,
   onVerify,
-  additionalVisitFields,
+  visitDataFields,
   partnerLabel,
   locationLabel,
 }: {
@@ -120,7 +120,8 @@ function VisitDetailModal({
   onClose: () => void;
   canVerify: boolean;
   onVerify: (visitId: string, action: "accept" | "reject") => Promise<void>;
-  additionalVisitFields: { key: string; label: string }[];
+  /** All data fields (standard + additional from backend); only show when visit has value. */
+  visitDataFields: { key: string; label: string }[];
   partnerLabel: string;
   locationLabel: string;
 }) {
@@ -164,20 +165,25 @@ function VisitDetailModal({
         v != null && v !== "" && String(v).trim() !== "" && String(v) !== "—";
       const body: [string, string][] = [];
       body.push(["Date", formatDateTime(visit.created_at)]);
-      body.push(["Officer", ([visit.officer_display_name, visit.officer_email].filter(Boolean).join(" — ") || (visit.officer_email ?? visit.officer) ?? "")]);
+      body.push([
+        "Officer",
+        ([visit.officer_display_name, visit.officer_email].filter(Boolean).join(" — ") ||
+          (visit.officer_email ?? visit.officer ?? "")),
+      ]);
       if (pdfHasVal(visit.farmer_display_name ?? visit.farmer)) body.push([partnerLabel, (visit.farmer_display_name ?? visit.farmer) as string]);
       if (pdfHasVal(visit.farm_display_name)) body.push([`${locationLabel} visited`, visit.farm_display_name as string]);
       body.push(["Activity", formatActivityTypes(visit.activity_types?.length ? visit.activity_types : undefined) || formatActivityType(visit.activity_type ?? "")]);
       if (pdfHasVal(visit.verification_status)) body.push(["Status", visit.verification_status]);
       if (pdfHasVal(visit.distance_from_farmer)) body.push(["Distance (m)", String(Math.round(Number(visit.distance_from_farmer)))]);
-      if (pdfHasVal(visit.crop_stage)) body.push(["Crop stage", visit.crop_stage as string]);
-      if (pdfHasVal(visit.germination_percent)) body.push(["Germination %", String(visit.germination_percent)]);
-      if (pdfHasVal(visit.survival_rate)) body.push(["Survival rate", visit.survival_rate as string]);
-      if (pdfHasVal(visit.pests_diseases)) body.push(["Pests/diseases", visit.pests_diseases as string]);
-      if (pdfHasVal(visit.order_value)) body.push(["Order value", String(visit.order_value)]);
-      if (pdfHasVal(visit.harvest_kgs)) body.push(["Harvest (kg)", String(visit.harvest_kgs)]);
-      if (pdfHasVal(visit.farmers_feedback)) body.push([`${partnerLabel}'s feedback`, (visit.farmers_feedback ?? "").slice(0, 200)]);
-      if (pdfHasVal(visit.notes)) body.push(["Notes", (visit.notes ?? "").slice(0, 300)]);
+      for (const { key, label } of visitDataFields) {
+        const valueKey = getVisitValueKey(key);
+        const v = visit[valueKey];
+        if (!pdfHasVal(v)) continue;
+        const str = String(v);
+        const cell = key === "farmers_feedback" ? str.slice(0, 200) : str;
+        body.push([label, cell]);
+      }
+      if (pdfHasVal(visit.notes) && !visitDataFields.some((f) => f.key === "notes")) body.push(["Notes", (visit.notes ?? "").slice(0, 300)]);
       autoTable(doc, {
         head: [["Field", "Value"]],
         body,
@@ -250,23 +256,13 @@ function VisitDetailModal({
           </Badge>
         ))}
         {hasValue(visit.distance_from_farmer) && row("Distance", `${Math.round(Number(visit.distance_from_farmer))} m`)}
-        {hasValue(visit.crop_stage) && row("Crop stage", visit.crop_stage)}
-        {hasValue(visit.germination_percent) && row("Germination %", String(visit.germination_percent))}
-        {hasValue(visit.survival_rate) && row("Survival rate", visit.survival_rate)}
-        {hasValue(visit.pests_diseases) && row("Pests/diseases", visit.pests_diseases)}
-        {hasValue(visit.order_value) && row("Order value", String(visit.order_value))}
-        {hasValue(visit.harvest_kgs) && row("Harvest (kg)", String(visit.harvest_kgs))}
-        {hasValue(visit.farmers_feedback) && row(`${partnerLabel}'s feedback`, visit.farmers_feedback)}
-        {hasValue(visit.notes) && row("Notes", visit.notes)}
-        {additionalVisitFields.filter(({ key }) => {
-          const valueKey = getVisitValueKey(key);
-          const v = visit[valueKey];
-          return hasValue(v);
-        }).map(({ key, label }) => {
-          const valueKey = getVisitValueKey(key);
-          const v = visit[valueKey];
-          return row(label, v != null ? String(v) : null);
-        })}
+        {visitDataFields
+          .filter(({ key }) => hasValue(visit[getVisitValueKey(key)]))
+          .map(({ key, label }) => {
+            const v = visit[getVisitValueKey(key)];
+            return row(label, v != null ? String(v) : null);
+          })}
+        {hasValue(visit.notes) && !visitDataFields.some((f) => f.key === "notes") && row("Notes", visit.notes)}
         {visit.product_lines && visit.product_lines.length > 0 ? (
           <Stack gap="xs" mt="xs">
             <Text size="sm" fw={600} c="dimmed">Products (sold / given)</Text>
@@ -385,11 +381,11 @@ export default function VisitsPage() {
     () => (optionsData?.departments ?? []).map((d) => ({ value: d.value, label: d.label })),
     [optionsData?.departments]
   );
-  const additionalVisitFields = useMemo(
-    () => buildAdditionalVisitFieldsFromOptions(optionsData?.activity_types),
-    [optionsData?.activity_types]
-  );
   const labels = useMemo(() => getLabelsFromOptions(optionsData), [optionsData]);
+  const visitDataFields = useMemo(
+    () => buildVisitDataFieldsFromOptions(optionsData?.activity_types, labels.partner),
+    [optionsData?.activity_types, labels.partner]
+  );
 
   const visits = visitsData ?? [];
 
@@ -722,7 +718,7 @@ export default function VisitsPage() {
         visit={selectedVisit}
         opened={detailOpen}
         onClose={() => setDetailOpen(false)}
-        additionalVisitFields={additionalVisitFields}
+        visitDataFields={visitDataFields}
         partnerLabel={labels.partner}
         locationLabel={labels.location}
         canVerify={isAdminOrSupervisor}

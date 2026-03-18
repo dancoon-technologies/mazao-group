@@ -9,6 +9,7 @@ import type {
   DashboardTopOfficerItem,
   DashboardSchedulesSummary,
   DashboardProductRankingItem,
+  DashboardStaffRankingItem,
   UserRole,
   Schedule,
   StaffUser,
@@ -326,6 +327,23 @@ export const api = {
       if (res.status === 403)
         throw new Error("Dashboard is for admin and supervisor only.");
       throw new Error("Failed to fetch product ranking");
+    }
+    return res.json();
+  },
+
+  async getDashboardStaffRanking(
+    params?: { days?: number },
+    options?: { signal?: AbortSignal }
+  ): Promise<DashboardStaffRankingItem[]> {
+    const days = params?.days ?? 30;
+    const res = await authFetch(
+      `${API_BASE}/api/dashboard/staff-ranking?days=${encodeURIComponent(String(days))}`,
+      { signal: options?.signal }
+    );
+    if (!res.ok) {
+      if (res.status === 403)
+        throw new Error("Dashboard is for admin and supervisor only.");
+      throw new Error("Failed to fetch staff ranking");
     }
     return res.json();
   },

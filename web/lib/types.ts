@@ -135,6 +135,15 @@ export interface DashboardProductRankingItem {
   total_given: number;
 }
 
+export interface DashboardStaffRankingItem {
+  officer_id: string;
+  officer_email: string;
+  display_name: string;
+  sales_offloaded: number;
+  collections_done: number;
+  accepted_visits_recorded: number;
+}
+
 export interface LoginResponse {
   access: string;
   refresh: string;

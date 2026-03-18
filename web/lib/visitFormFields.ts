@@ -1,23 +1,11 @@
 /**
  * Visit step-3 / additional form fields.
  * Field list and labels come from backend (ActivityTypeConfig.form_fields), configurable in
- * Django admin: Visits → Activity type configs → form_fields. This module defines which
- * keys are "standard" (fixed rows in visit detail) vs "additional" (dynamic block).
+ * Django admin: Visits → Activity type configs → form_fields.
  */
 
 import type { Visit } from "./types";
 import type { ActivityTypeOption } from "./types";
-
-/** Keys that have dedicated rows in visit detail; exclude from the "additional" dynamic block. */
-export const STANDARD_VISIT_FIELD_KEYS = new Set([
-  "crop_stage",
-  "germination_percent",
-  "survival_rate",
-  "pests_diseases",
-  "order_value",
-  "harvest_kgs",
-  "farmers_feedback",
-]);
 
 /**
  * Map form_field key to Visit property used for display value.
@@ -35,9 +23,9 @@ export interface AdditionalVisitFieldDescriptor {
 }
 
 /**
- * Build the list of additional visit field descriptors from options activity_types.
- * Dedupes by key (first label wins). Excludes STANDARD_VISIT_FIELD_KEYS.
- * Used by visit detail modal and any UI that shows activity-specific fields.
+ * Build the list of visit field descriptors from options activity_types (backend form_fields).
+ * Dedupes by key (first label wins). Only fields that appear in some activity's form_fields are included.
+ * Labels come from the backend; {partner} in label is replaced with partnerLabel.
  */
 export function buildAdditionalVisitFieldsFromOptions(
   activityTypes: ActivityTypeOption[] | undefined
@@ -47,10 +35,26 @@ export function buildAdditionalVisitFieldsFromOptions(
   const out: AdditionalVisitFieldDescriptor[] = [];
   for (const at of activityTypes) {
     for (const f of at.form_fields ?? []) {
-      if (STANDARD_VISIT_FIELD_KEYS.has(f.key) || seen.has(f.key)) continue;
+      if (seen.has(f.key)) continue;
       seen.add(f.key);
       out.push({ key: f.key, label: f.label });
     }
   }
   return out;
+}
+
+/**
+ * Build the full list of visit data field descriptors from backend only.
+ * Use this to iterate visit data: only show fields that have values.
+ * partnerLabel: substituted for {partner} in backend labels (e.g. "Farmer's feedback").
+ */
+export function buildVisitDataFieldsFromOptions(
+  activityTypes: ActivityTypeOption[] | undefined,
+  partnerLabel: string
+): AdditionalVisitFieldDescriptor[] {
+  const fields = buildAdditionalVisitFieldsFromOptions(activityTypes);
+  return fields.map(({ key, label }) => ({
+    key,
+    label: label.replace(/\{partner\}/gi, partnerLabel),
+  }));
 }

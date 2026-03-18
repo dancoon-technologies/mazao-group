@@ -240,3 +240,64 @@ class DashboardProductRankingView(APIView):
             })
         logger.info("GET /api/dashboard/product-ranking/ user=%s days=%s count=%s", request.user.id, days, len(result))
         return Response(result)
+
+
+class DashboardStaffRankingView(APIView):
+    """GET /api/dashboard/staff-ranking/?days=30 — staff with sales_offloaded, collections_done, accepted_visits_recorded. Admin & Supervisor only."""
+
+    def get(self, request):
+        base_qs = _get_base_queryset(request)
+        try:
+            days = min(365, max(1, int(request.GET.get("days", 30))))
+        except ValueError:
+            days = 30
+        end_date = timezone.now().date()
+        start_date = end_date - timedelta(days=days - 1)
+        visits_in_range = base_qs.filter(
+            created_at__date__gte=start_date,
+            created_at__date__lte=end_date,
+        )
+        visit_ids = list(visits_in_range.values_list("id", flat=True))
+
+        from accounts.models import User
+
+        officer_ids = list(visits_in_range.values_list("officer", flat=True).distinct())
+        officers = {str(u.id): u for u in User.objects.filter(id__in=officer_ids)}
+
+        sales_qs = (
+            VisitProduct.objects.filter(visit_id__in=visit_ids)
+            .values("visit__officer")
+            .annotate(sales_offloaded=Sum("quantity_sold"))
+        )
+        sales_by_officer = {str(r["visit__officer"]): float(r["sales_offloaded"] or 0) for r in sales_qs}
+
+        collections_qs = (
+            Visit.objects.filter(id__in=visit_ids)
+            .filter(activity_type__in=["order_collection", "debt_collections"])
+            .values("officer")
+            .annotate(collections_done=Count("id"))
+        )
+        collections_by_officer = {str(r["officer"]): r["collections_done"] for r in collections_qs}
+
+        accepted_qs = (
+            Visit.objects.filter(id__in=visit_ids)
+            .filter(verification_status=Visit.VerificationStatus.VERIFIED)
+            .values("officer")
+            .annotate(accepted_visits_recorded=Count("id"))
+        )
+        accepted_by_officer = {str(r["officer"]): r["accepted_visits_recorded"] for r in accepted_qs}
+
+        result = []
+        for oid in officer_ids:
+            uid = str(oid)
+            u = officers.get(uid)
+            result.append({
+                "officer_id": uid,
+                "officer_email": u.email if u else "",
+                "display_name": (u.display_name or u.email or "—") if u else "—",
+                "sales_offloaded": sales_by_officer.get(uid, 0),
+                "collections_done": collections_by_officer.get(uid, 0),
+                "accepted_visits_recorded": accepted_by_officer.get(uid, 0),
+            })
+        logger.info("GET /api/dashboard/staff-ranking/ user=%s days=%s count=%s", request.user.id, days, len(result))
+        return Response(result)

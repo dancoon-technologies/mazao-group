@@ -1,24 +1,11 @@
 import { describe, it, expect } from "vitest";
 import {
-  STANDARD_VISIT_FIELD_KEYS,
   getVisitValueKey,
   buildAdditionalVisitFieldsFromOptions,
+  buildVisitDataFieldsFromOptions,
 } from "./visitFormFields";
 
 describe("visitFormFields", () => {
-  describe("STANDARD_VISIT_FIELD_KEYS", () => {
-    it("includes crop_stage, order_value, farmers_feedback", () => {
-      expect(STANDARD_VISIT_FIELD_KEYS.has("crop_stage")).toBe(true);
-      expect(STANDARD_VISIT_FIELD_KEYS.has("order_value")).toBe(true);
-      expect(STANDARD_VISIT_FIELD_KEYS.has("farmers_feedback")).toBe(true);
-    });
-
-    it("excludes product_focus and number_of_stockists_visited", () => {
-      expect(STANDARD_VISIT_FIELD_KEYS.has("product_focus")).toBe(false);
-      expect(STANDARD_VISIT_FIELD_KEYS.has("number_of_stockists_visited")).toBe(false);
-    });
-  });
-
   describe("getVisitValueKey", () => {
     it("maps product_focus to product_focus_display", () => {
       expect(getVisitValueKey("product_focus")).toBe("product_focus_display");
@@ -39,7 +26,7 @@ describe("visitFormFields", () => {
       expect(buildAdditionalVisitFieldsFromOptions([])).toEqual([]);
     });
 
-    it("excludes standard keys", () => {
+    it("includes all form_fields from backend", () => {
       const result = buildAdditionalVisitFieldsFromOptions([
         {
           value: "stockists_visit",
@@ -50,10 +37,11 @@ describe("visitFormFields", () => {
           ],
         },
       ]);
-      expect(result.map((f) => f.key)).not.toContain("order_value");
+      expect(result.map((f) => f.key)).toContain("order_value");
       expect(result.map((f) => f.key)).toContain("number_of_stockists_visited");
-      expect(result).toHaveLength(1);
-      expect(result[0]).toEqual({
+      expect(result).toHaveLength(2);
+      expect(result[0]).toEqual({ key: "order_value", label: "Total Sales" });
+      expect(result[1]).toEqual({
         key: "number_of_stockists_visited",
         label: "Number visited",
       });
@@ -94,6 +82,25 @@ describe("visitFormFields", () => {
         "merchandising",
         "counter_training",
       ]);
+    });
+  });
+
+  describe("buildVisitDataFieldsFromOptions", () => {
+    it("substitutes {partner} in labels with partnerLabel", () => {
+      const result = buildVisitDataFieldsFromOptions(
+        [
+          {
+            value: "farm",
+            label: "Farm visit",
+            form_fields: [
+              { key: "farmers_feedback", label: "{partner}'s feedback" },
+            ],
+          },
+        ],
+        "Farmer"
+      );
+      expect(result).toHaveLength(1);
+      expect(result[0].label).toBe("Farmer's feedback");
     });
   });
 });

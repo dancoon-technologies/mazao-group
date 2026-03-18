@@ -23,12 +23,22 @@ const PRODUCT_RANKING_DAYS_OPTIONS = [
   { value: "90", label: "Last 90 days" },
 ];
 
+const STAFF_RANKING_SORT_OPTIONS = [
+  { value: "sales_offloaded", label: "Sales offloaded" },
+  { value: "collections_done", label: "Collections done" },
+  { value: "accepted_visits_recorded", label: "Accepted visits recorded" },
+] as const;
+
+export type StaffRankingSortKey = (typeof STAFF_RANKING_SORT_OPTIONS)[number]["value"];
+
 export default function DashboardPage() {
   const { role } = useAuth();
   const isAdmin = role === "admin";
   const isAdminOrSupervisor = role === "admin" || role === "supervisor";
   const [days, setDays] = useState<string>(DASHBOARD_DAY_OPTIONS[1].value);
   const [productRankingDays, setProductRankingDays] = useState<string>("30");
+  const [staffRankingDays, setStaffRankingDays] = useState<string>("30");
+  const [staffRankingSortBy, setStaffRankingSortBy] = useState<StaffRankingSortKey>("sales_offloaded");
   const { data: stats, error, loading } = useAsyncData(
     (signal) => api.getDashboardStats({ signal }),
     []
@@ -71,6 +81,21 @@ export default function DashboardPage() {
         : Promise.resolve([]),
     [isAdminOrSupervisor, productRankingDays]
   );
+  const { data: staffRankingRaw = [] } = useAsyncData(
+    (signal) =>
+      isAdminOrSupervisor
+        ? api.getDashboardStaffRanking(
+            { days: parseInt(staffRankingDays, 10) },
+            { signal }
+          )
+        : Promise.resolve([]),
+    [isAdminOrSupervisor, staffRankingDays]
+  );
+  const staffRankingSorted = useMemo(() => {
+    const list = [...(staffRankingRaw ?? [])];
+    list.sort((a, b) => (b[staffRankingSortBy] as number) - (a[staffRankingSortBy] as number));
+    return list;
+  }, [staffRankingRaw, staffRankingSortBy]);
   const labels = useMemo(() => getLabelsFromOptions(optionsData), [optionsData]);
   const recentVisits: Visit[] = (recentVisitsData ?? []).slice(0, 5);
 
@@ -285,6 +310,87 @@ export default function DashboardPage() {
               }
             />
           </Box>
+          {isAdminOrSupervisor && (
+            <Paper p="md" mt="xl" shadow="sm" radius="md" withBorder>
+              <Group justify="space-between" align="flex-end" mb="md" wrap="wrap" gap="sm">
+                <Text size="md" fw={600}>
+                  Staff ranking
+                </Text>
+                <Group gap="sm">
+                  <Select
+                    size="xs"
+                    label="Period"
+                    data={PRODUCT_RANKING_DAYS_OPTIONS}
+                    value={staffRankingDays}
+                    onChange={(v) => v && setStaffRankingDays(v)}
+                    style={{ width: 140 }}
+                  />
+                  <Select
+                    size="xs"
+                    label="Rank by"
+                    data={STAFF_RANKING_SORT_OPTIONS}
+                    value={staffRankingSortBy}
+                    onChange={(v) => v && setStaffRankingSortBy(v as StaffRankingSortKey)}
+                    style={{ width: 200 }}
+                  />
+                </Group>
+              </Group>
+              {(staffRankingSorted ?? []).length === 0 ? (
+                <Text size="sm" c="dimmed">
+                  No staff with visits in the selected period.
+                </Text>
+              ) : (
+                <Table.ScrollContainer minWidth={500}>
+                  <Table striped highlightOnHover>
+                    <Table.Thead>
+                      <Table.Tr>
+                        <Table.Th>Rank</Table.Th>
+                        <Table.Th>Staff</Table.Th>
+                        <Table.Th>Sales offloaded</Table.Th>
+                        <Table.Th>Collections done</Table.Th>
+                        <Table.Th>Accepted visits</Table.Th>
+                      </Table.Tr>
+                    </Table.Thead>
+                    <Table.Tbody>
+                      {(staffRankingSorted ?? []).map((item, index) => (
+                        <Table.Tr key={item.officer_id}>
+                          <Table.Td>
+                            <Text size="sm" fw={500}>
+                              #{index + 1}
+                            </Text>
+                          </Table.Td>
+                          <Table.Td>
+                            <Text size="sm" fw={500}>
+                              {item.display_name}
+                            </Text>
+                            {item.officer_email && (
+                              <Text size="xs" c="dimmed">
+                                {item.officer_email}
+                              </Text>
+                            )}
+                          </Table.Td>
+                          <Table.Td>
+                            <Text size="sm">{item.sales_offloaded}</Text>
+                          </Table.Td>
+                          <Table.Td>
+                            <Text size="sm">{item.collections_done}</Text>
+                          </Table.Td>
+                          <Table.Td>
+                            <Text size="sm">{item.accepted_visits_recorded}</Text>
+                          </Table.Td>
+                        </Table.Tr>
+                      ))}
+                    </Table.Tbody>
+                  </Table>
+                </Table.ScrollContainer>
+              )}
+              <Text size="sm" mt="sm">
+                <Anchor component={Link} href={ROUTES.STAFF}>
+                  View staff →
+                </Anchor>
+              </Text>
+            </Paper>
+          )}
         </Tabs.Panel>
 
         {isAdminOrSupervisor && (
