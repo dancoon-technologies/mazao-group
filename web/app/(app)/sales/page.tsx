@@ -188,13 +188,23 @@ export default function SalesPage() {
                   <Table.Th>Date</Table.Th>
                   <Table.Th>Officer</Table.Th>
                   <Table.Th>Customer</Table.Th>
-                  <Table.Th visibleFrom="md">Location</Table.Th>
+                  <Table.Th>Total sold</Table.Th>
+                  <Table.Th>Total given</Table.Th>
                   <Table.Th>Products</Table.Th>
                   <Table.Th />
                 </Table.Tr>
               </Table.Thead>
               <Table.Tbody>
-                {visitGroups.map((g) => (
+                {visitGroups.map((g) => {
+                  const totalSold = g.products.reduce(
+                    (sum, p) => sum + (parseFloat(p.quantitySold) || 0),
+                    0
+                  );
+                  const totalGiven = g.products.reduce(
+                    (sum, p) => sum + (parseFloat(p.quantityGiven) || 0),
+                    0
+                  );
+                  return (
                   <Table.Tr key={g.visitId}>
                     <Table.Td>
                       <Text size="sm" c="dimmed">
@@ -207,10 +217,11 @@ export default function SalesPage() {
                     <Table.Td>
                       <Text size="sm">{g.partnerDisplay}</Text>
                     </Table.Td>
-                    <Table.Td visibleFrom="md">
-                      <Text size="sm" c="dimmed">
-                        {g.locationDisplay}
-                      </Text>
+                    <Table.Td>
+                      <Text size="sm">{totalSold}</Text>
+                    </Table.Td>
+                    <Table.Td>
+                      <Text size="sm">{totalGiven}</Text>
                     </Table.Td>
                     <Table.Td>
                       <Accordion
@@ -262,7 +273,8 @@ export default function SalesPage() {
                       </Anchor>
                     </Table.Td>
                   </Table.Tr>
-                ))}
+                  );
+                })}
               </Table.Tbody>
             </Table>
           </Paper>
