@@ -176,6 +176,7 @@ function VisitDetailModal({
       if (pdfHasVal(visit.verification_status)) body.push(["Status", visit.verification_status]);
       if (pdfHasVal(visit.distance_from_farmer)) body.push(["Distance (m)", String(Math.round(Number(visit.distance_from_farmer)))]);
       for (const { key, label } of visitDataFields) {
+        if (key === "product_lines") continue;
         const valueKey = getVisitValueKey(key);
         const v = visit[valueKey];
         if (!pdfHasVal(v)) continue;
@@ -223,7 +224,7 @@ function VisitDetailModal({
     }
   };
   return (
-    <Modal opened={opened} onClose={onClose} title="Visit details" size="md">
+    <Modal opened={opened} onClose={onClose} title="Visit details" size="lg">
       <Stack gap="sm">
         {row("Date", formatDateTime(visit.created_at))}
         {row("Officer", (
@@ -257,10 +258,14 @@ function VisitDetailModal({
         ))}
         {hasValue(visit.distance_from_farmer) && row("Distance", `${Math.round(Number(visit.distance_from_farmer))} m`)}
         {visitDataFields
-          .filter(({ key }) => hasValue(visit[getVisitValueKey(key)]))
+          .filter(({ key }) => key !== "product_lines" && hasValue(visit[getVisitValueKey(key)]))
           .map(({ key, label }) => {
             const v = visit[getVisitValueKey(key)];
-            return row(label, v != null ? String(v) : null);
+            if (v == null) return null;
+            if (Array.isArray(v) && v.length > 0 && typeof v[0] === "object" && v[0] !== null) {
+              return null;
+            }
+            return row(label, String(v));
           })}
         {hasValue(visit.notes) && !visitDataFields.some((f) => f.key === "notes") && row("Notes", visit.notes)}
         {visit.product_lines && visit.product_lines.length > 0 ? (

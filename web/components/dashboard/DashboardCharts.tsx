@@ -24,6 +24,12 @@ const DEPARTMENT_SERIES = [
   { name: "active_officers", color: "blue.6" },
 ] as const;
 
+const PERFORMANCE_SERIES = [
+  { name: "Accepted visits", color: "green.6" },
+  { name: "Sales offloaded", color: "teal.6" },
+  { name: "Collections done", color: "blue.6" },
+] as const;
+
 export type StatsChartDatum = {
   name: string;
   visits_today: number;
@@ -39,6 +45,7 @@ export type VisitsByDayDatum = {
 
 export type DashboardChartSection =
   | "keyMetrics"
+  | "performanceMetrics"
   | "visitsOverTime"
   | "byDepartment"
   | "byActivity"
@@ -58,6 +65,15 @@ type Props = {
   verificationData?: { verified: number; rejected: number };
   /** Top officers by visits this month (for admin/supervisor). */
   topOfficers?: DashboardTopOfficerItem[];
+  /** Performance tab: accepted visits, sales offloaded, collections done (one row). */
+  performanceChartData?: {
+    name: string;
+    "Accepted visits": number;
+    "Sales offloaded": number;
+    "Collections done": number;
+  }[];
+  /** Label for performance period (e.g. "Last 30 days"). */
+  performancePeriodLabel?: string;
   /** If set, only render these sections. Otherwise render all that have data. */
   sections?: DashboardChartSection[];
 };
@@ -72,6 +88,8 @@ export function DashboardCharts({
   visitsChartData,
   days,
   onDaysChange,
+  performanceChartData = [],
+  performancePeriodLabel,
   statsByDepartment = [],
   visitsByActivity = [],
   verificationData,
@@ -79,6 +97,11 @@ export function DashboardCharts({
   sections,
 }: Props) {
   const hasStatsData = statsChartData.length > 0;
+  const hasPerformanceData =
+    performanceChartData.length > 0 &&
+    (performanceChartData[0]["Accepted visits"] > 0 ||
+      performanceChartData[0]["Sales offloaded"] > 0 ||
+      performanceChartData[0]["Collections done"] > 0);
   const areaData = visitsChartData.length > 0
     ? visitsChartData
     : [{ date: "No data", fullDate: "", visits: 0 }];
@@ -86,9 +109,9 @@ export function DashboardCharts({
   const verificationChartData =
     verificationData && (verificationData.verified > 0 || verificationData.rejected > 0)
       ? [
-          { status: "Verified", verified: verificationData.verified, rejected: 0 },
-          { status: "Rejected", verified: 0, rejected: verificationData.rejected },
-        ]
+        { status: "Verified", verified: verificationData.verified, rejected: 0 },
+        { status: "Rejected", verified: 0, rejected: verificationData.rejected },
+      ]
       : [];
 
   const topOfficersChartData = topOfficers.map((o) => {
@@ -136,41 +159,71 @@ export function DashboardCharts({
         </Paper>
       </Grid.Col>
       )}
-      {showSection(sections, "visitsOverTime") && (
+      {showSection(sections, "performanceMetrics") && (
       <Grid.Col span={{ base: 12, md: 6 }}>
         <Paper p="md" shadow="sm" radius="md" withBorder>
-          <Box
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              flexWrap: "wrap",
-              gap: 8,
-              marginBottom: 16,
-            }}
-          >
-            <Text size="md" fw={600}>
-              Visits over time
+          <Text size="md" fw={600} mb="md">
+            Performance
+          </Text>
+          {performancePeriodLabel && (
+            <Text size="xs" c="dimmed" mb="sm">
+              {performancePeriodLabel}
             </Text>
-            <Select
-              size="xs"
-              w={100}
-              data={DASHBOARD_DAY_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
-              value={days}
-              onChange={(v) => v && onDaysChange(v)}
-            />
-          </Box>
+          )}
           <Box style={{ width: "100%", minWidth: 200, height: CHART_HEIGHT }}>
-            <LineChart
-              h={CHART_HEIGHT}
-              data={areaData}
-              dataKey="date"
-              series={[{ name: "visits", color: "green.6" }]}
-              curveType="linear"
-            />
+            {hasPerformanceData ? (
+              <BarChart
+                h={CHART_HEIGHT}
+                data={performanceChartData}
+                dataKey="name"
+                series={PERFORMANCE_SERIES.map(({ name, color }) => ({ name, color }))}
+                tickLine="y"
+                gridAxis="y"
+              />
+            ) : (
+              <Box style={{ height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <Text size="sm" c="dimmed">No performance data for this period</Text>
+              </Box>
+            )}
           </Box>
         </Paper>
       </Grid.Col>
+      )}
+      {showSection(sections, "visitsOverTime") && (
+        <Grid.Col span={{ base: 12, md: 6 }}>
+          <Paper p="md" shadow="sm" radius="md" withBorder>
+            <Box
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                flexWrap: "wrap",
+                gap: 8,
+                marginBottom: 16,
+              }}
+            >
+              <Text size="md" fw={600}>
+                Visits over time
+              </Text>
+              <Select
+                size="xs"
+                w={100}
+                data={DASHBOARD_DAY_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
+                value={days}
+                onChange={(v) => v && onDaysChange(v)}
+              />
+            </Box>
+            <Box style={{ width: "100%", minWidth: 200, height: CHART_HEIGHT }}>
+              <LineChart
+                h={CHART_HEIGHT}
+                data={areaData}
+                dataKey="date"
+                series={[{ name: "visits", color: "green.6" }]}
+                curveType="linear"
+              />
+            </Box>
+          </Paper>
+        </Grid.Col>
       )}
 
       {showSection(sections, "byDepartment") && departmentChartData.length > 0 && (

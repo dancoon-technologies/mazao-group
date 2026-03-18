@@ -111,6 +111,21 @@ export default function DashboardPage() {
     ];
   }, [stats]);
 
+  const performanceChartData = useMemo(() => {
+    const list = staffRankingRaw ?? [];
+    const accepted = list.reduce((s, o) => s + (o.accepted_visits_recorded ?? 0), 0);
+    const sales = list.reduce((s, o) => s + (o.sales_offloaded ?? 0), 0);
+    const collections = list.reduce((s, o) => s + (o.collections_done ?? 0), 0);
+    return [
+      {
+        name: "Performance",
+        "Accepted visits": accepted,
+        "Sales offloaded": sales,
+        "Collections done": collections,
+      },
+    ];
+  }, [staffRankingRaw]);
+
   const visitsChartData = useMemo(
     () =>
       visitsByDay?.map(({ date, count }) => ({
@@ -300,13 +315,17 @@ export default function DashboardPage() {
               visitsChartData={[]}
               days={days}
               onDaysChange={setDays}
+              performanceChartData={performanceChartData}
+              performancePeriodLabel={
+                PRODUCT_RANKING_DAYS_OPTIONS.find((o) => o.value === staffRankingDays)?.label ?? `Last ${staffRankingDays} days`
+              }
               statsByDepartment={isAdmin ? (statsByDepartment ?? []) : []}
               visitsByActivity={[]}
               topOfficers={topOfficers ?? []}
               sections={
                 isAdmin
-                  ? (["keyMetrics", "byDepartment", "topOfficers"] as DashboardChartSection[])
-                  : (["keyMetrics", "topOfficers"] as DashboardChartSection[])
+                  ? (["performanceMetrics", "byDepartment", "topOfficers"] as DashboardChartSection[])
+                  : (["performanceMetrics", "topOfficers"] as DashboardChartSection[])
               }
             />
           </Box>

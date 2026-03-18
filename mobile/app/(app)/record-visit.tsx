@@ -1099,8 +1099,7 @@ export default function RecordVisitScreen() {
                     }}
                     title="Select products"
                   />
-                </Surface>
-              )}
+              </Surface>
 
               {error ? (
                 <HelperText type="error" style={styles.errorBlock}>{error}</HelperText>
