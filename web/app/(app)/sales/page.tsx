@@ -137,7 +137,7 @@ export default function SalesPage() {
 
   if (!isAdminOrSupervisor) {
     return (
-      <Box maw={PAGE_BOX_MIN_WIDTH} mx="auto">
+      <Box style={{ minWidth: PAGE_BOX_MIN_WIDTH }}>
         <PageHeader title="Sales" />
         <Text c="dimmed">Only admins and supervisors can view sales from visits.</Text>
       </Box>
@@ -148,7 +148,7 @@ export default function SalesPage() {
   if (error) return <PageError message={error} onRetry={refetch} />;
 
   return (
-    <Box maw={PAGE_BOX_MIN_WIDTH} mx="auto">
+    <Box style={{ minWidth: PAGE_BOX_MIN_WIDTH }}>
       <PageHeader title="Sales from visits" />
 
       <Stack gap="md" mt="md">
