@@ -115,9 +115,6 @@ export const formHeaderHeight = 52;
 /** Height of Appbar.Header. Use with insets.top for keyboardVerticalOffset on screens with Appbar. */
 export const appbarHeight = 56;
 
-/** @deprecated Use formHeaderHeight or insets.top + appbarHeight per screen. */
-export const keyboardAvoidOffset = 80;
-
 /** Min touch target (accessibility) */
 export const minTouchTarget = 48;
 

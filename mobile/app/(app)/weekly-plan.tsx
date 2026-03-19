@@ -1,6 +1,6 @@
 import { Redirect } from 'expo-router';
 
-/** @deprecated Use Propose schedule → Weekly routes. Kept for old links/bookmarks. */
+/** Redirects to Propose schedule with weekly mode (for old links / bookmarks). */
 export default function WeeklyPlanRedirect() {
   return (
     <Redirect
