@@ -10,6 +10,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from farmers.models import Farm, Farmer
+from routes.models import Route
 from schedules.models import Schedule
 
 from .models import ActivityTypeConfig, Product, Visit, VisitProduct
@@ -66,7 +67,7 @@ class VisitListCreateView(generics.ListCreateAPIView):
     def get_queryset(self):
         user = self.request.user
         qs = Visit.objects.select_related(
-            "officer", "officer__department", "farmer", "farm", "schedule", "schedule__farmer"
+            "officer", "officer__department", "farmer", "farm", "schedule", "schedule__farmer", "route"
         ).prefetch_related("photos", "product_lines__product")
         if user.role == "admin":
             return qs
@@ -88,6 +89,9 @@ class VisitListCreateView(generics.ListCreateAPIView):
         farm_id = request.query_params.get("farm")
         if farm_id:
             queryset = queryset.filter(farm_id=farm_id)
+        route_id = request.query_params.get("route")
+        if route_id:
+            queryset = queryset.filter(route_id=route_id)
         date_str = request.query_params.get("date")
         date_from = request.query_params.get("date_from")
         date_to = request.query_params.get("date_to")
@@ -122,7 +126,8 @@ class VisitListCreateView(generics.ListCreateAPIView):
                 data["activity_types"] = [str(a).strip() for a in activity_types_list if a]
         farmer_id = data["farmer_id"]
         farm_id = data.get("farm_id")
-        schedule_id = data["schedule_id"]
+        schedule_id = data.get("schedule_id")
+        route_id = data.get("route_id")
         lat = float(data["latitude"])
         lon = float(data["longitude"])
         photo_list = request.FILES.getlist("photo") if hasattr(request.FILES, "getlist") else []
@@ -216,41 +221,64 @@ class VisitListCreateView(generics.ListCreateAPIView):
         if ref_lat is None:
             ref_lat, ref_lon = float(farmer.latitude), float(farmer.longitude)
 
-        try:
-            schedule = Schedule.objects.select_related("officer", "farmer").get(pk=schedule_id)
-        except Schedule.DoesNotExist:
-            logger.warning("POST /api/visits/ schedule_id=%s not found", schedule_id)
-            return Response(
-                {"schedule_id": ["Schedule not found."]},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-        if schedule.status != Schedule.Status.ACCEPTED:
-            return Response(
-                {"schedule_id": ["Only accepted (planned) schedules can have visits recorded."]},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-        if schedule.officer_id != user.pk:
-            logger.warning("POST /api/visits/ schedule_id=%s officer mismatch user=%s", schedule_id, user.id)
-            return Response(
-                {"schedule_id": ["This schedule is not assigned to you."]},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-        if schedule.farmer_id and schedule.farmer_id != farmer_id:
-            return Response(
-                {"schedule_id": [f"Schedule is for a different {partner_label.lower()}."]},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-        today = timezone.now().date()
-        if schedule.scheduled_date > today:
-            return Response(
-                {"schedule_id": ["Cannot record a visit for a schedule in the future."]},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-        if Visit.objects.filter(schedule=schedule).exists():
-            return Response(
-                {"schedule_id": ["A visit has already been recorded for this schedule."]},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+        schedule = None
+        route = None
+        if schedule_id:
+            try:
+                schedule = Schedule.objects.select_related("officer", "farmer").get(pk=schedule_id)
+            except Schedule.DoesNotExist:
+                logger.warning("POST /api/visits/ schedule_id=%s not found", schedule_id)
+                return Response(
+                    {"schedule_id": ["Schedule not found."]},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            if schedule.status != Schedule.Status.ACCEPTED:
+                return Response(
+                    {"schedule_id": ["Only accepted (planned) schedules can have visits recorded."]},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            if schedule.officer_id != user.pk:
+                logger.warning("POST /api/visits/ schedule_id=%s officer mismatch user=%s", schedule_id, user.id)
+                return Response(
+                    {"schedule_id": ["This schedule is not assigned to you."]},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            if schedule.farmer_id and schedule.farmer_id != farmer_id:
+                return Response(
+                    {"schedule_id": [f"Schedule is for a different {partner_label.lower()}."]},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            today = timezone.now().date()
+            if schedule.scheduled_date > today:
+                return Response(
+                    {"schedule_id": ["Cannot record a visit for a schedule in the future."]},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            if Visit.objects.filter(schedule=schedule).exists():
+                return Response(
+                    {"schedule_id": ["A visit has already been recorded for this schedule."]},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+        if route_id:
+            try:
+                route = Route.objects.filter(is_deleted=False).get(pk=route_id)
+            except Route.DoesNotExist:
+                logger.warning("POST /api/visits/ route_id=%s not found", route_id)
+                return Response(
+                    {"route_id": ["Route not found."]},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+            if route.officer_id != user.pk:
+                return Response(
+                    {"route_id": ["This route is not assigned to you."]},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            today = timezone.now().date()
+            if route.scheduled_date > today:
+                return Response(
+                    {"route_id": ["Cannot record a visit for a route in the future."]},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
 
         from site_config.services import get_visit_max_distance_meters
         max_m = get_visit_max_distance_meters()
@@ -275,6 +303,7 @@ class VisitListCreateView(generics.ListCreateAPIView):
             farmer=farmer,
             farm=farm,
             schedule=schedule,
+            route=route,
             latitude=lat,
             longitude=lon,
             notes=data.get("notes", ""),
@@ -358,6 +387,10 @@ class VisitListCreateView(generics.ListCreateAPIView):
                 title="New visit recorded",
                 message=f"{user.email} recorded a visit to {farmer.name}.",
                 channels=["in_app", "email", "sms", "push"],
+                action_data={
+                    "screen": "visit",
+                    "visitId": str(visit.id),
+                },
             )
         logger.info(
             "POST /api/visits/ created visit_id=%s farmer_id=%s by user=%s distance=%.0fm",
@@ -433,6 +466,10 @@ class VisitVerifyView(APIView):
                 title="Visit verified",
                 message=f"Your visit record from {date_str} ({_partner_label}: {visit.farmer.name}) has been accepted.",
                 channels=["in_app", "push"],
+                action_data={
+                    "screen": "visit",
+                    "visitId": str(visit.id),
+                },
             )
             return Response(VisitSerializer(visit).data)
         if action == "reject":
@@ -447,6 +484,10 @@ class VisitVerifyView(APIView):
                 title="Visit rejected",
                 message=f"Your visit record from {date_str} has been rejected. Please check and resubmit if needed.",
                 channels=["in_app", "push"],
+                action_data={
+                    "screen": "visit",
+                    "visitId": str(visit.id),
+                },
             )
             return Response(VisitSerializer(visit).data)
         return Response(

@@ -18,6 +18,8 @@ import { DateInput } from "@mantine/dates";
 export interface ScheduleEditModalProps {
   schedule: Schedule | null;
   isAdminOrSupervisor: boolean;
+  /** When true, show required "reason for change" (officer edits). */
+  isOfficer?: boolean;
   officerOptions: { value: string; label: string }[];
   form: ScheduleFormValues;
   updateField: (field: keyof ScheduleFormValues, value: string) => void;
@@ -36,6 +38,7 @@ export interface ScheduleEditModalProps {
 export function ScheduleEditModal({
   schedule,
   isAdminOrSupervisor,
+  isOfficer = false,
   officerOptions,
   form,
   updateField,
@@ -59,8 +62,9 @@ export function ScheduleEditModal({
     >
       {schedule && (
         <Text size="sm" c="dimmed" mb="md">
-          You can change the proposed visit only when it is more than one day
-          away.
+          {schedule.status === "accepted" && isOfficer
+            ? "You are changing an accepted visit. After saving, the schedule is pending again until your supervisor approves. The new date cannot be in the past."
+            : "You can change the proposed visit only when it is more than one day away."}
         </Text>
       )}
       <form onSubmit={onSubmit}>
@@ -116,6 +120,17 @@ export function ScheduleEditModal({
             value={form.notes}
             onChange={(e) => updateField("notes", e.target.value)}
           />
+          {isOfficer && (
+            <Textarea
+              label="Reason for change"
+              placeholder="e.g. Farmer asked to reschedule; wrong outlet selected…"
+              description="Your supervisor will review this before the update takes effect."
+              value={form.edit_reason}
+              onChange={(e) => updateField("edit_reason", e.target.value)}
+              required
+              minRows={3}
+            />
+          )}
           <Group>
             <Button type="submit" color="blue" loading={submitting}>
               {submitting ? "Saving…" : "Save changes"}

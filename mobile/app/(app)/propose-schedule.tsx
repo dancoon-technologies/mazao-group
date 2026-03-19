@@ -2,7 +2,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { getFarmers as getFarmersDb, getFarms as getFarmsDb, getAllSchedulesForOfficer } from '@/database';
 import { farmerRowToFarmer, farmRowToFarm, scheduleRowToSchedule } from '@/lib/offline-helpers';
 import { enqueueSchedule } from '@/lib/syncWithServer';
-import { api, getLabels, type Farm, type Farmer, type Officer, type Schedule } from '@/lib/api';
+import { api, getLabels, type Farm, type Farmer, type Officer, type Route, type Schedule } from '@/lib/api';
 import { appMeta$ } from '@/store/observable';
 import { useSelector } from '@legendapp/state/react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -15,22 +15,25 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
+  RefreshControl,
 } from 'react-native';
 import {
   Appbar,
+  Banner,
   Button,
+  Card,
+  Menu,
+  Snackbar,
   Text,
   TextInput,
   ActivityIndicator,
-  Menu,
-  Snackbar,
-  Banner,
 } from 'react-native-paper';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ListItemRow } from '@/components/ListItemRow';
 import { SelectFarmerModal } from '@/components/SelectFarmerModal';
 import { SelectFarmModal } from '@/components/SelectFarmModal';
-import { appbarHeight, cardShadow, cardStyle, colors, scrollPaddingKeyboard } from '@/constants/theme';
+import { appbarHeight, cardShadow, cardStyle, colors, scrollPaddingKeyboard, spacing } from '@/constants/theme';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 function formatDate(iso: string) {
   try {
@@ -40,12 +43,30 @@ function formatDate(iso: string) {
   }
 }
 
+const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+/** Monday of the week containing d (local). */
+function getWeekStartMon(d: Date): Date {
+  const date = new Date(d);
+  const day = date.getDay();
+  const diff = (day + 6) % 7;
+  date.setDate(date.getDate() - diff);
+  return date;
+}
+
+function formatWeekdayHeader(dateStr: string): string {
+  const d = new Date(`${dateStr}T00:00:00.000Z`);
+  const dayIndex = d.getUTCDay() === 0 ? 6 : d.getUTCDay() - 1;
+  const dayLabel = DAY_LABELS[dayIndex] ?? '';
+  return `${dayLabel}, ${d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}`;
+}
+
 const isAssigner = (role: string | null) => role === 'admin' || role === 'supervisor';
 
 export default function ProposeScheduleScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const searchParams = useLocalSearchParams<{ selectedFarmerId?: string }>();
+  const searchParams = useLocalSearchParams<{ selectedFarmerId?: string; planMode?: string }>();
   const { userId, role } = useAuth();
   const [farmers, setFarmers] = useState<Farmer[]>([]);
   const [officers, setOfficers] = useState<Officer[]>([]);
@@ -66,6 +87,12 @@ export default function ProposeScheduleScreen() {
   const [snackbarMsg, setSnackbarMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [snackbarVisible, setSnackbarVisible] = useState(false);
   const [isOnline, setIsOnline] = useState<boolean | null>(null);
+  const [planMode, setPlanMode] = useState<'single' | 'weekly'>(() =>
+    searchParams.planMode === 'weekly' ? 'weekly' : 'single'
+  );
+  const [routesWeek, setRoutesWeek] = useState<Route[]>([]);
+  const [routesLoading, setRoutesLoading] = useState(false);
+  const [routesRefreshing, setRoutesRefreshing] = useState(false);
 
   const labels = useSelector(() => getLabels(appMeta$.cachedOptions.get()));
   const partnerTypeLabel = partnerType === 'stockist' ? 'Stockist' : 'Farmer';
@@ -77,6 +104,73 @@ export default function ProposeScheduleScreen() {
     return farmers.filter((f) => Boolean(f.is_stockist) === isStockist);
   }, [farmers, partnerType]);
   const assigner = isAssigner(role);
+
+  const weekStart = useMemo(() => {
+    const monday = getWeekStartMon(new Date());
+    return monday.toISOString().slice(0, 10);
+  }, []);
+
+  const weekDays = useMemo(() => {
+    const start = new Date(`${weekStart}T00:00:00.000Z`);
+    return Array.from({ length: 6 }, (_, i) => {
+      const d = new Date(start);
+      d.setUTCDate(start.getUTCDate() + i);
+      return d.toISOString().slice(0, 10);
+    });
+  }, [weekStart]);
+
+  const routeByDate = useMemo(() => {
+    const map: Record<string, Route> = {};
+    for (const r of routesWeek) {
+      map[r.scheduled_date] = r;
+    }
+    return map;
+  }, [routesWeek]);
+
+  const loadWeeklyRoutes = useCallback(
+    async (isPullRefresh = false) => {
+      if (planMode !== 'weekly') return;
+      if (assigner && !selectedOfficerId) {
+        setRoutesWeek([]);
+        setRoutesLoading(false);
+        setRoutesRefreshing(false);
+        return;
+      }
+      if (isPullRefresh) setRoutesRefreshing(true);
+      else setRoutesLoading(true);
+      try {
+        const list = await api.getRoutes({
+          week_start: weekStart,
+          ...(assigner && selectedOfficerId ? { officer: selectedOfficerId } : {}),
+        });
+        setRoutesWeek(Array.isArray(list) ? list : []);
+      } catch {
+        setRoutesWeek([]);
+      } finally {
+        setRoutesLoading(false);
+        setRoutesRefreshing(false);
+      }
+    },
+    [planMode, weekStart, assigner, selectedOfficerId]
+  );
+
+  useEffect(() => {
+    if (searchParams.planMode === 'weekly') setPlanMode('weekly');
+  }, [searchParams.planMode]);
+
+  useEffect(() => {
+    loadWeeklyRoutes(false);
+  }, [loadWeeklyRoutes]);
+
+  const openRouteForm = useCallback(
+    (date: string, routeId?: string) => {
+      router.push({
+        pathname: '/(app)/route-form',
+        params: { date, ...(routeId ? { routeId } : {}) },
+      } as never);
+    },
+    [router]
+  );
 
   useEffect(() => {
     const sub = NetInfo.addEventListener((state) => setIsOnline(state.isConnected ?? false));
@@ -238,12 +332,15 @@ export default function ProposeScheduleScreen() {
 
   const selectedFarm = farms.find((f) => f.id === selectedFarmId);
 
+  const appBarTitle =
+    planMode === 'weekly' ? 'Weekly routes (Mon–Sat)' : 'Propose schedule';
+
   if (loading) {
     return (
       <SafeAreaView style={styles.safe} edges={['bottom']}>
         <Appbar.Header>
           <Appbar.BackAction onPress={() => router.back()} />
-          <Appbar.Content title="Propose schedule" />
+          <Appbar.Content title={appBarTitle} />
         </Appbar.Header>
         <View style={styles.centered}>
           <ActivityIndicator size="large" />
@@ -256,7 +353,7 @@ export default function ProposeScheduleScreen() {
     <SafeAreaView style={styles.safe} edges={['bottom']}>
       <Appbar.Header>
         <Appbar.BackAction onPress={() => router.back()} />
-        <Appbar.Content title="Propose schedule" />
+        <Appbar.Content title={appBarTitle} />
       </Appbar.Header>
       {error ? (
         <Banner
@@ -277,45 +374,42 @@ export default function ProposeScheduleScreen() {
           contentContainerStyle={[styles.content, { paddingBottom: scrollPaddingKeyboard + Math.max(insets.bottom, 24), flexGrow: 1 }]}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"
+          refreshControl={
+            planMode === 'weekly' && (!assigner || selectedOfficerId) ? (
+              <RefreshControl
+                refreshing={routesRefreshing}
+                onRefresh={() => void loadWeeklyRoutes(true)}
+              />
+            ) : undefined
+          }
         >
           <Text variant="bodyMedium" style={styles.hint}>
-            {assigner
-              ? 'Assign a visit to an extension officer. The schedule is accepted immediately.'
-              : 'Your supervisor will accept or reject the proposal. The schedule is for you (logged-in user).'}
+            {planMode === 'weekly'
+              ? assigner
+                ? 'Pick an officer, then plan their Mon–Sat routes. Use Single visit to assign one dated schedule.'
+                : 'Plan Mon–Sat routes (customers per day). Use Single visit to propose one schedule for a specific date.'
+              : assigner
+                ? 'Assign a visit to an extension officer. The schedule is accepted immediately.'
+                : 'Your supervisor will accept or reject the proposal. The schedule is for you (logged-in user).'}
           </Text>
 
-          <Text variant="labelLarge" style={styles.label}>Who is being visited? *</Text>
-          <Text variant="bodySmall" style={styles.partnerTypeHint}>
-            Choose whether this visit is to a farmer or a stockist.
-          </Text>
+          <Text variant="labelLarge" style={styles.label}>Plan type</Text>
           <View style={styles.partnerTypeRow}>
             <Button
-              mode={partnerType === 'farmer' ? 'contained' : 'outlined'}
+              mode={planMode === 'single' ? 'contained' : 'outlined'}
               compact
-              onPress={() => {
-                setPartnerType('farmer');
-                if (selectedFarmerId && farmers.find((f) => f.id === selectedFarmerId)?.is_stockist) {
-                  setSelectedFarmerId(null);
-                  setSelectedFarmId(null);
-                }
-              }}
+              onPress={() => setPlanMode('single')}
               style={styles.partnerTypeBtn}
             >
-              Farmer
+              Single visit
             </Button>
             <Button
-              mode={partnerType === 'stockist' ? 'contained' : 'outlined'}
+              mode={planMode === 'weekly' ? 'contained' : 'outlined'}
               compact
-              onPress={() => {
-                setPartnerType('stockist');
-                if (selectedFarmerId && !farmers.find((f) => f.id === selectedFarmerId)?.is_stockist) {
-                  setSelectedFarmerId(null);
-                  setSelectedFarmId(null);
-                }
-              }}
+              onPress={() => setPlanMode('weekly')}
               style={styles.partnerTypeBtn}
             >
-              Stockist
+              Weekly routes
             </Button>
           </View>
 
@@ -354,6 +448,43 @@ export default function ProposeScheduleScreen() {
               </Menu>
             </>
           )}
+
+          {planMode === 'single' ? (
+          <>
+          <Text variant="labelLarge" style={styles.label}>Who is being visited? *</Text>
+          <Text variant="bodySmall" style={styles.partnerTypeHint}>
+            Choose whether this visit is to a farmer or a stockist.
+          </Text>
+          <View style={styles.partnerTypeRow}>
+            <Button
+              mode={partnerType === 'farmer' ? 'contained' : 'outlined'}
+              compact
+              onPress={() => {
+                setPartnerType('farmer');
+                if (selectedFarmerId && farmers.find((f) => f.id === selectedFarmerId)?.is_stockist) {
+                  setSelectedFarmerId(null);
+                  setSelectedFarmId(null);
+                }
+              }}
+              style={styles.partnerTypeBtn}
+            >
+              Farmer
+            </Button>
+            <Button
+              mode={partnerType === 'stockist' ? 'contained' : 'outlined'}
+              compact
+              onPress={() => {
+                setPartnerType('stockist');
+                if (selectedFarmerId && !farmers.find((f) => f.id === selectedFarmerId)?.is_stockist) {
+                  setSelectedFarmerId(null);
+                  setSelectedFarmId(null);
+                }
+              }}
+              style={styles.partnerTypeBtn}
+            >
+              Stockist
+            </Button>
+          </View>
 
           <Text variant="labelLarge" style={styles.label}>Scheduled date *</Text>
           <TextInput
@@ -394,7 +525,7 @@ export default function ProposeScheduleScreen() {
             selectedFarmerId={selectedFarmerId}
             onSelect={setSelectedFarmerId}
             title={`Select ${partnerTypeLabelLower}`}
-            noPartnerLabel={partnerType === 'stockist' ? 'No stockist' : undefined}
+            noPartnerLabel={partnerType === 'stockist' ? 'No stockist' : 'No farmer'}
           />
 
           {selectedFarmerId && (
@@ -452,6 +583,64 @@ export default function ProposeScheduleScreen() {
               Cancel
             </Button>
           </View>
+          </>
+          ) : (
+            <>
+              {assigner && !selectedOfficerId ? (
+                <Text variant="bodySmall" style={styles.muted}>
+                  Select an extension officer above to load and edit weekly routes.
+                </Text>
+              ) : (
+                <>
+                  <Text variant="bodyMedium" style={styles.weekHint}>
+                    Tap a day to add or edit that day&apos;s route (customers to visit that day).
+                  </Text>
+                  {routesLoading ? (
+                    <ActivityIndicator size="large" style={styles.weekLoader} />
+                  ) : (
+                    weekDays.map((date) => {
+                      const route = routeByDate[date];
+                      const hasRoute = !!route;
+                      const stopCount = route?.stops?.length ?? 0;
+                      return (
+                        <Card
+                          key={date}
+                          style={styles.weekCard}
+                          elevation={0}
+                          onPress={() => openRouteForm(date, route?.id)}
+                        >
+                          <Card.Content style={styles.weekCardContent}>
+                            <View style={styles.weekRow}>
+                              <View style={styles.weekDateBlock}>
+                                <Text variant="labelLarge" style={styles.weekDateHeader}>
+                                  {formatWeekdayHeader(date)}
+                                </Text>
+                                {hasRoute ? (
+                                  <Text variant="bodyMedium" style={styles.weekRouteSummary}>
+                                    {route.name || 'Route'} · {stopCount}{' '}
+                                    {stopCount === 1 ? 'stop' : 'stops'}
+                                  </Text>
+                                ) : (
+                                  <Text variant="bodySmall" style={styles.weekNoRoute}>
+                                    No route
+                                  </Text>
+                                )}
+                              </View>
+                              <MaterialCommunityIcons
+                                name={hasRoute ? 'pencil' : 'plus-circle-outline'}
+                                size={24}
+                                color={hasRoute ? colors.primary : colors.gray500}
+                              />
+                            </View>
+                          </Card.Content>
+                        </Card>
+                      );
+                    })
+                  )}
+                </>
+              )}
+            </>
+          )}
 
           <Text variant="titleMedium" style={styles.sectionTitle}>
             My recent schedules
@@ -515,4 +704,17 @@ const styles = StyleSheet.create({
   snackbarError: { backgroundColor: colors.error },
   actions: { gap: 8, marginTop: 20 },
   muted: { opacity: 0.7 },
+  weekHint: { marginBottom: spacing.md, color: colors.gray700 },
+  weekLoader: { marginVertical: spacing.xl },
+  weekCard: { ...cardStyle, ...cardShadow, marginBottom: spacing.md },
+  weekCardContent: { paddingVertical: spacing.sm },
+  weekRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  weekDateBlock: { flex: 1 },
+  weekDateHeader: { color: colors.gray900, fontWeight: '700' },
+  weekRouteSummary: { color: colors.gray700, marginTop: 2 },
+  weekNoRoute: { color: colors.gray500, marginTop: 2 },
 });

@@ -46,6 +46,7 @@ export function normalizeServerSchedule(record: Record<string, unknown>): Record
     created_by: record.created_by ?? null,
     approved_by: record.approved_by ?? null,
     rejection_reason: record.rejection_reason != null ? String(record.rejection_reason) : null,
+    edit_reason: record.edit_reason != null ? String(record.edit_reason) : null,
     updated_at: isoToTimestamp(record.updated_at as string) ?? Date.now(),
     is_deleted: Boolean(record.is_deleted) ? 1 : 0,
   };

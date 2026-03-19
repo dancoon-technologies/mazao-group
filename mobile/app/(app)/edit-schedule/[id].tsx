@@ -37,6 +37,9 @@ export default function EditScheduleScreen() {
   const [selectedFarmerId, setSelectedFarmerId] = useState<string | null>(null);
   const [selectedFarmId, setSelectedFarmId] = useState<string | null>(null);
   const [notes, setNotes] = useState('');
+  const [editReason, setEditReason] = useState('');
+  /** Officer editing an accepted schedule → goes back to proposed after save. */
+  const [editingAccepted, setEditingAccepted] = useState(false);
   const [farmerModalOpen, setFarmerModalOpen] = useState(false);
   const [farmModalOpen, setFarmModalOpen] = useState(false);
   const [snackbarVisible, setSnackbarVisible] = useState(false);
@@ -59,30 +62,34 @@ export default function EditScheduleScreen() {
         setLoading(false);
         return;
       }
-      if (s.status !== 'proposed') {
-        setError('Only proposed schedules can be edited.');
+      const officerOwn = s.officer === userId;
+      const isAcceptedOfficerEdit = s.status === 'accepted' && !isSupervisor && officerOwn;
+      if (s.status !== 'proposed' && !isAcceptedOfficerEdit) {
+        setError('Only proposed schedules can be edited, or your own accepted schedule (request change with a reason).');
         setSchedule(null);
         setLoading(false);
         return;
       }
-      if (!isScheduleEditableByDate(s.scheduled_date)) {
+      if (s.status === 'proposed' && !isScheduleEditableByDate(s.scheduled_date)) {
         setError('Cannot edit when within 1 day of the scheduled date.');
         setSchedule(null);
         setLoading(false);
         return;
       }
-      if (!isSupervisor && s.officer !== userId) {
-        setError('You can only edit your own proposed schedules.');
+      if (!isSupervisor && !officerOwn) {
+        setError('You can only edit your own schedules.');
         setSchedule(null);
         setLoading(false);
         return;
       }
+      setEditingAccepted(isAcceptedOfficerEdit);
       setSchedule(s);
       setFarmers(Array.isArray(farmersList) ? farmersList : []);
       setSelectedDate(s.scheduled_date.slice(0, 10));
       setSelectedFarmerId(s.farmer ?? null);
       setSelectedFarmId(s.farm ?? null);
       setNotes(s.notes ?? '');
+      setEditReason('');
       setError('');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load schedule');
@@ -133,8 +140,18 @@ export default function EditScheduleScreen() {
       setError('Enter date as YYYY-MM-DD.');
       return;
     }
-    if (!isScheduleEditableByDate(dateStr)) {
+    if (editingAccepted) {
+      const today = new Date().toISOString().slice(0, 10);
+      if (dateStr < today) {
+        setError('Scheduled date cannot be in the past.');
+        return;
+      }
+    } else if (!isScheduleEditableByDate(dateStr)) {
       setError('New date must be at least two days from today.');
+      return;
+    }
+    if (!isSupervisor && !editReason.trim()) {
+      setError('Please explain why you are changing this schedule. Your supervisor must approve.');
       return;
     }
     setSubmitting(true);
@@ -145,6 +162,7 @@ export default function EditScheduleScreen() {
         farmer: selectedFarmerId ?? null,
         farm: selectedFarmId ?? null,
         notes: notes.trim() || undefined,
+        ...(!isSupervisor ? { edit_reason: editReason.trim() } : {}),
       });
       await syncWithServer().catch(() => {});
       setSnackbarVisible(true);
@@ -156,7 +174,7 @@ export default function EditScheduleScreen() {
     } finally {
       setSubmitting(false);
     }
-  }, [scheduleId, schedule, selectedDate, selectedFarmerId, selectedFarmId, notes, router]);
+  }, [scheduleId, schedule, selectedDate, selectedFarmerId, selectedFarmId, notes, editReason, editingAccepted, isSupervisor, router]);
 
   if (loading) {
     return (
@@ -209,7 +227,9 @@ export default function EditScheduleScreen() {
           keyboardDismissMode="on-drag"
         >
           <Text variant="bodySmall" style={styles.hint}>
-            You can edit date, farmer, farm, and notes. Schedule must be at least 2 days from today.
+            {editingAccepted
+              ? 'You are changing an accepted visit. After saving, the schedule returns to pending until your supervisor approves. New date cannot be in the past.'
+              : 'You can edit date, farmer, farm, and notes. Schedule must be at least 2 days from today.'}
           </Text>
 
           <Text variant="labelLarge" style={styles.label}>Scheduled date *</Text>
@@ -295,8 +315,32 @@ export default function EditScheduleScreen() {
             style={styles.input}
           />
 
+          {!isSupervisor && (
+            <>
+              <Text variant="labelLarge" style={styles.label}>Reason for change *</Text>
+              <Text variant="bodySmall" style={styles.muted}>
+                Your supervisor will see this when reviewing the updated schedule.
+              </Text>
+              <TextInput
+                label="Reason for change"
+                value={editReason}
+                onChangeText={setEditReason}
+                mode="outlined"
+                multiline
+                numberOfLines={4}
+                placeholder="e.g. Farmer asked to reschedule; corrected outlet…"
+                style={styles.input}
+              />
+            </>
+          )}
+
           <View style={styles.actions}>
-            <Button mode="contained" onPress={submit} loading={submitting} disabled={submitting || !selectedDate}>
+            <Button
+              mode="contained"
+              onPress={submit}
+              loading={submitting}
+              disabled={submitting || !selectedDate || (!isSupervisor && !editReason.trim())}
+            >
               Save changes
             </Button>
             <Button mode="text" onPress={() => router.back()}>
@@ -313,7 +357,9 @@ export default function EditScheduleScreen() {
         wrapperStyle={{ position: 'absolute', left: 0, right: 0, top: insets.top }}
         style={{ backgroundColor: colors.primary }}
       >
-        Changes saved. Your supervisor must accept the schedule for it to take effect.
+        {editingAccepted
+          ? 'Changes saved. Schedule is pending until your supervisor approves.'
+          : 'Changes saved. Your supervisor must accept the schedule for it to take effect.'}
       </Snackbar>
     </SafeAreaView>
   );

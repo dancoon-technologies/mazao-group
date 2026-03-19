@@ -74,6 +74,9 @@ function scheduleColumnsBase(partnerLabel: string, locationLabel: string): DataT
 export interface ScheduleColumnsConfig {
   canApprove: boolean;
   canEditSchedule: boolean;
+  isOfficer?: boolean;
+  officerUserId?: string | null;
+  officerEmail?: string | null;
   approvingId: string | null;
   onApprove: (scheduleId: string, action: "accept") => void;
   onRejectClick: (schedule: Schedule) => void;
@@ -90,10 +93,31 @@ export function getScheduleColumns(
   if (!config?.canApprove && !config?.canEditSchedule) {
     return base;
   }
-  const { canApprove, canEditSchedule, approvingId, onApprove, onRejectClick, onOpenEdit } =
-    config;
+  const {
+    canApprove,
+    canEditSchedule,
+    isOfficer,
+    officerUserId,
+    officerEmail,
+    approvingId,
+    onApprove,
+    onRejectClick,
+    onOpenEdit,
+  } = config;
+  const editContext = { isOfficer, officerUserId, officerEmail };
   return [
     ...base,
+    {
+      key: "edit_reason",
+      label: "Change reason",
+      visibleFrom: "md",
+      render: (s) =>
+        s.status === "proposed" && s.edit_reason ? (
+          <Text size="sm" c="dimmed" lineClamp={2}>
+            {s.edit_reason}
+          </Text>
+        ) : null,
+    },
     {
       key: "rejection_reason",
       label: "Rejection reason",
@@ -108,32 +132,50 @@ export function getScheduleColumns(
     {
       key: "actions",
       label: "Actions",
-      render: (s) =>
-        s.status === "proposed" ? (
-          <Group gap="xs">
-            {canApprove && (
-              <>
+      render: (s) => {
+        const editable =
+          canEditSchedule && isScheduleEditable(s, editContext);
+        if (s.status === "proposed") {
+          return (
+            <Group gap="xs">
+              {canApprove && (
+                <>
+                  <Button
+                    size="xs"
+                    variant="light"
+                    color="green"
+                    loading={approvingId === s.id}
+                    onClick={() => onApprove(s.id, "accept")}
+                  >
+                    Accept
+                  </Button>
+                  <Button
+                    size="xs"
+                    variant="light"
+                    color="red"
+                    loading={approvingId === s.id}
+                    onClick={() => onRejectClick(s)}
+                  >
+                    Decline
+                  </Button>
+                </>
+              )}
+              {editable && (
                 <Button
                   size="xs"
                   variant="light"
-                  color="green"
-                  loading={approvingId === s.id}
-                  onClick={() => onApprove(s.id, "accept")}
+                  color="blue"
+                  onClick={() => onOpenEdit(s)}
                 >
-                  Accept
+                  Request change
                 </Button>
-                <Button
-                  size="xs"
-                  variant="light"
-                  color="red"
-                  loading={approvingId === s.id}
-                  onClick={() => onRejectClick(s)}
-                >
-                  Decline
-                </Button>
-              </>
-            )}
-            {canEditSchedule && isScheduleEditable(s) && (
+              )}
+            </Group>
+          );
+        }
+        if (s.status === "accepted" && editable) {
+          return (
+            <Group gap="xs">
               <Button
                 size="xs"
                 variant="light"
@@ -142,9 +184,11 @@ export function getScheduleColumns(
               >
                 Request change
               </Button>
-            )}
-          </Group>
-        ) : null,
+            </Group>
+          );
+        }
+        return null;
+      },
     },
   ];
 }

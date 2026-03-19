@@ -52,6 +52,7 @@ export function scheduleRowToSchedule(r: ScheduleRow): Schedule {
     notes: r.notes ?? '',
     status: r.status as 'proposed' | 'accepted' | 'rejected',
     rejection_reason: r.rejection_reason ?? null,
+    edit_reason: r.edit_reason ?? null,
   };
 }
 

@@ -4,6 +4,7 @@ import { ListItemRow } from '@/components/ListItemRow';
 import { useAuth } from '@/contexts/AuthContext';
 import { colors, cardShadow, cardStyle, radius, spacing } from '@/constants/theme';
 import { api, type Notification } from '@/lib/api';
+import { navigateFromNotificationPayload } from '@/lib/notificationNavigation';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import {
@@ -98,6 +99,14 @@ export default function NotificationsScreen() {
     }
   }, []);
 
+  const onNotificationPress = useCallback(
+    async (n: Notification) => {
+      await handleMarkRead(n);
+      navigateFromNotificationPayload(router, n.action_data, { defaultWhenEmpty: null });
+    },
+    [handleMarkRead, router]
+  );
+
   const handleMarkAllRead = useCallback(async () => {
     const unread = list.filter((n) => !n.read_at);
     if (unread.length === 0) return;
@@ -165,7 +174,7 @@ export default function NotificationsScreen() {
                 subtitle={n?.message ?? ''}
                 titleNumberOfLines={99}
                 subtitleNumberOfLines={99}
-                onPress={() => handleMarkRead(n)}
+                onPress={() => void onNotificationPress(n)}
                 right={
                   <View style={styles.rowRight}>
                     <Text variant="labelSmall" style={styles.time}>

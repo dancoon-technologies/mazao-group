@@ -42,6 +42,11 @@ class Notification(models.Model):
     )
     title = models.CharField(max_length=120)
     message = models.TextField(validators=[MaxLengthValidator(MESSAGE_MAX_LENGTH)])
+    action_data = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text="Deep-link payload for mobile (e.g. screen + ids). Mirrored on push; use string values.",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     read_at = models.DateTimeField(null=True, blank=True)
     archived_at = models.DateTimeField(null=True, blank=True)

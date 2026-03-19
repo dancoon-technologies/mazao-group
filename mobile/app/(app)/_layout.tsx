@@ -2,9 +2,11 @@ import { AppRefreshProvider, useAppRefresh } from '@/contexts/AppRefreshContext'
 import { useAuth } from '@/contexts/AuthContext';
 import { appMeta$ } from '@/store/observable';
 import { registerForPushNotificationsAsync } from '@/lib/pushNotifications';
+import { scheduleRouteReportReminders } from '@/lib/routeReportReminder';
 import { registerBackgroundSyncTask } from '@/lib/backgroundSync';
 import { api } from '@/lib/api';
 import { refreshDeviceClockOffset } from '@/lib/deviceClockSync';
+import { navigateFromNotificationPayload } from '@/lib/notificationNavigation';
 import { getLastSync, syncWithServer } from '@/lib/syncWithServer';
 import { startTracking, stopTracking } from '@/lib/trackingCollector';
 import NetInfo from '@react-native-community/netinfo';
@@ -15,7 +17,7 @@ import { AppState, type AppStateStatus } from 'react-native';
 
 function AppLayoutInner() {
   const router = useRouter();
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, role } = useAuth();
   const { triggerRefresh } = useAppRefresh();
   const wasOffline = useRef<boolean | null>(null);
 
@@ -136,6 +138,13 @@ function AppLayoutInner() {
     return () => clearTimeout(t);
   }, [isAuthenticated]);
 
+  // Schedule 6 PM route report reminders for officers
+  useEffect(() => {
+    if (!isAuthenticated || role !== 'officer') return;
+    const t = setTimeout(() => scheduleRouteReportReminders().catch(() => {}), 1000);
+    return () => clearTimeout(t);
+  }, [isAuthenticated, role]);
+
   // Retry push registration when app returns to foreground (e.g. user was offline at login)
   const lastPushRegRef = useRef<number>(0);
   const PUSH_REG_THROTTLE_MS = 60_000;
@@ -152,12 +161,15 @@ function AppLayoutInner() {
     return () => sub.remove();
   }, [isAuthenticated]);
 
-  // When user taps a push notification, open the notifications screen
+  // When user taps a push/local notification, open the target screen (data / action_data from backend)
   const notificationResponseListener = useRef<Notifications.EventSubscription | null>(null);
   useEffect(() => {
     try {
-      notificationResponseListener.current = Notifications.addNotificationResponseReceivedListener(() => {
-        router.push('/(app)/notifications' as never);
+      notificationResponseListener.current = Notifications.addNotificationResponseReceivedListener((response) => {
+        const data = response.notification.request.content.data as Record<string, unknown> | undefined;
+        navigateFromNotificationPayload(router, data, {
+          defaultWhenEmpty: '/(app)/notifications' as const,
+        });
       });
     } catch {
       // Native notifications may be unavailable (e.g. emulator); avoid crash
@@ -171,6 +183,29 @@ function AppLayoutInner() {
     };
   }, [router]);
 
+  // Cold start: app opened from a notification tap (handle once per app launch after auth)
+  const launchNotificationHandled = useRef(false);
+  useEffect(() => {
+    if (!isAuthenticated || isLoading || launchNotificationHandled.current) return;
+    launchNotificationHandled.current = true;
+    let cancelled = false;
+    (async () => {
+      try {
+        const response = await Notifications.getLastNotificationResponseAsync();
+        if (cancelled || !response) return;
+        const data = response.notification.request.content.data as Record<string, unknown> | undefined;
+        navigateFromNotificationPayload(router, data, {
+          defaultWhenEmpty: '/(app)/notifications' as const,
+        });
+      } catch {
+        // ignore
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [isAuthenticated, isLoading, router]);
+
   if (!isAuthenticated) return null;
 
   return (
@@ -182,6 +217,9 @@ function AppLayoutInner() {
       <Stack.Screen name="add-farmer" options={{ title: 'Add farmer' }} />
       <Stack.Screen name="propose-schedule" options={{ title: 'Propose schedule' }} />
       <Stack.Screen name="edit-schedule/[id]" options={{ title: 'Edit schedule' }} />
+      <Stack.Screen name="weekly-plan" options={{ title: 'Weekly plan' }} />
+      <Stack.Screen name="route-form" options={{ title: 'Route' }} />
+      <Stack.Screen name="route-report" options={{ title: 'Route report' }} />
       <Stack.Screen name="notifications" options={{ title: 'Notifications' }} />
     </Stack>
   );

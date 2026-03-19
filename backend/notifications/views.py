@@ -164,5 +164,6 @@ class TestPushView(APIView):
             "If you see this, push notifications are working.",
             user=request.user,
             notification=None,
+            data={"screen": "notifications"},
         )
         return Response({"status": "ok", "message": "Test notification sent."})

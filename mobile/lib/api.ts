@@ -49,7 +49,45 @@ export interface Schedule {
   status: 'proposed' | 'accepted' | 'rejected';
   approved_by?: string | null;
   rejection_reason?: string | null;
+  /** Officer's reason when requesting a change (supervisor must re-approve). */
+  edit_reason?: string | null;
   created_at?: string;
+}
+
+/** One stop on a route: farmer/stockist + optional farm. */
+export interface RouteStop {
+  id: string;
+  farmer: string;
+  farmer_display_name: string;
+  farm: string | null;
+  farm_display_name: string | null;
+  order: number;
+}
+
+/** Route = day plan: many stops (farmers/locations), same officer and activities. */
+export interface Route {
+  id: string;
+  officer: string;
+  officer_email?: string;
+  officer_display_name?: string;
+  scheduled_date: string; // YYYY-MM-DD
+  name: string;
+  activity_types: string[];
+  notes: string;
+  stops: RouteStop[];
+  created_at?: string;
+  updated_at?: string;
+}
+
+/** End-of-day report for a route (filled after 6 PM reminder). */
+export interface RouteReport {
+  id: string;
+  route_id: string;
+  report_data: Record<string, unknown>;
+  submitted_at: string | null;
+  submitted_by: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface Visit {
@@ -63,6 +101,8 @@ export interface Visit {
   farm_display_name?: string | null;
   schedule?: string | null;
   schedule_display?: string | null;
+  route?: string | null;
+  route_display?: string | null;
   latitude: number;
   longitude: number;
   photo?: string;
@@ -100,6 +140,8 @@ export interface Notification {
   id: string;
   title: string;
   message: string;
+  /** Deep-link payload from backend (same as Expo push `data`). */
+  action_data?: Record<string, unknown>;
   created_at: string;
   read_at: string | null;
 }
@@ -450,6 +492,75 @@ export const api = {
 
   getLocations: () => request<LocationData>('/locations/'),
 
+  /** Routes (weekly plan). Optional week_start=YYYY-MM-DD for Mon–Sat of that week. */
+  async getRoutes(params?: { week_start?: string; officer?: string }) {
+    const q = new URLSearchParams();
+    if (params?.week_start) q.set('week_start', params.week_start);
+    if (params?.officer) q.set('officer', params.officer);
+    const query = q.toString();
+    const path = query ? `/routes/?${query}` : '/routes/';
+    const data = await request<Route[] | { results: Route[] }>(path);
+    return ensureArray(data);
+  },
+
+  async createRoute(body: {
+    scheduled_date: string;
+    name?: string;
+    activity_types?: string[];
+    notes?: string;
+    stops?: { farmer_id: string; farm_id?: string | null; order?: number }[];
+  }) {
+    const payload: Record<string, unknown> = {
+      scheduled_date: String(body.scheduled_date).trim(),
+      name: body.name?.trim() ?? '',
+      activity_types: body.activity_types ?? [],
+      notes: body.notes?.trim() ?? '',
+      stops: (body.stops ?? []).map((s, i) => ({
+        farmer_id: s.farmer_id,
+        farm_id: s.farm_id ?? null,
+        order: s.order ?? i,
+      })),
+    };
+    return request<Route>('/routes/', { method: 'POST', body: JSON.stringify(payload) });
+  },
+
+  async updateRoute(
+    id: string,
+    body: { scheduled_date?: string; name?: string; activity_types?: string[]; notes?: string; stops?: { farmer_id: string; farm_id?: string | null; order?: number }[] }
+  ) {
+    const payload: Record<string, unknown> = {};
+    if (body.scheduled_date != null) payload.scheduled_date = String(body.scheduled_date).trim();
+    if (body.name !== undefined) payload.name = body.name?.trim() ?? '';
+    if (body.activity_types !== undefined) payload.activity_types = body.activity_types;
+    if (body.notes !== undefined) payload.notes = body.notes?.trim() ?? '';
+    if (body.stops !== undefined) {
+      payload.stops = body.stops.map((s, i) => ({
+        farmer_id: s.farmer_id,
+        farm_id: s.farm_id ?? null,
+        order: s.order ?? i,
+      }));
+    }
+    return request<Route>(`/routes/${id}/`, {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    });
+  },
+
+  async deleteRoute(id: string) {
+    await request(`/routes/${id}/`, { method: 'DELETE' });
+  },
+
+  async getRouteReport(routeId: string) {
+    return request<RouteReport>(`/routes/${routeId}/report/`);
+  },
+
+  async submitRouteReport(routeId: string, reportData: Record<string, unknown>) {
+    return request<RouteReport>(`/routes/${routeId}/report/`, {
+      method: 'PATCH',
+      body: JSON.stringify({ report_data: reportData }),
+    });
+  },
+
   /** Fetches all schedules (all pages) so supervisor-assigned schedules are included. */
   async getSchedules() {
     const all: Schedule[] = [];
@@ -494,26 +605,28 @@ export const api = {
   /** PATCH proposed schedule (allowed only if scheduled date is not within 1 day). Officers can edit own proposed only. */
   async updateSchedule(
     id: string,
-    body: { scheduled_date?: string; farmer?: string | null; farm?: string | null; notes?: string }
+    body: { scheduled_date?: string; farmer?: string | null; farm?: string | null; notes?: string; edit_reason?: string }
   ) {
     const payload: Record<string, unknown> = {};
     if (body.scheduled_date != null) payload.scheduled_date = String(body.scheduled_date).trim();
     if (body.farmer !== undefined) payload.farmer = body.farmer;
     if (body.farm !== undefined) payload.farm = body.farm;
     if (body.notes !== undefined) payload.notes = body.notes?.trim() ?? '';
+    if (body.edit_reason !== undefined) payload.edit_reason = String(body.edit_reason).trim();
     return request<Schedule>(`/schedules/${id}/`, {
       method: 'PATCH',
       body: JSON.stringify(payload),
     });
   },
 
-  getVisits: async (params?: { officer?: string; date?: string; date_from?: string; date_to?: string; farm?: string }) => {
+  getVisits: async (params?: { officer?: string; date?: string; date_from?: string; date_to?: string; farm?: string; route?: string }) => {
     const q = new URLSearchParams();
     if (params?.officer) q.set('officer', params.officer);
     if (params?.date) q.set('date', params.date);
     if (params?.date_from) q.set('date_from', params.date_from);
     if (params?.date_to) q.set('date_to', params.date_to);
     if (params?.farm) q.set('farm', params.farm);
+    if (params?.route) q.set('route', params.route);
     const query = q.toString();
     const path = query ? `/visits/?${query}` : '/visits/';
     const data = await request<Visit[] | { results: Visit[] }>(path);
@@ -529,6 +642,7 @@ export const api = {
     farmer_id: string;
     farm_id?: string | null;
     schedule_id?: string | null;
+    route_id?: string | null;
     latitude: number;
     longitude: number;
     notes?: string;
@@ -558,6 +672,7 @@ export const api = {
     form.append('farmer_id', params.farmer_id);
     if (params.farm_id) form.append('farm_id', params.farm_id);
     if (params.schedule_id) form.append('schedule_id', params.schedule_id);
+    if (params.route_id) form.append('route_id', params.route_id);
     form.append('latitude', String(params.latitude));
     form.append('longitude', String(params.longitude));
     if (params.notes) form.append('notes', params.notes);

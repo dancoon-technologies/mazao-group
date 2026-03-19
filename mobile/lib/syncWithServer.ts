@@ -67,8 +67,8 @@ async function pushQueue(accessToken: string): Promise<{ ok: boolean; error?: st
     try {
       const payload = JSON.parse(item.payload) as Record<string, unknown>
       if (item.entity === 'visit') {
-        if (!payload.schedule_id) {
-          logger.warn('pushQueue: skipping legacy visit without schedule_id; marking as synced', item.id)
+        if (!payload.schedule_id && !payload.route_id) {
+          logger.warn('pushQueue: skipping visit without schedule_id or route_id; marking as synced', item.id)
           pushedIds.push(item.id)
           continue
         }
@@ -80,7 +80,8 @@ async function pushQueue(accessToken: string): Promise<{ ok: boolean; error?: st
         }
         const form = new FormData()
         form.append('farmer_id', String(payload.farmer_id ?? payload.farmer))
-        form.append('schedule_id', String(payload.schedule_id))
+        if (payload.schedule_id) form.append('schedule_id', String(payload.schedule_id))
+        if (payload.route_id) form.append('route_id', String(payload.route_id))
         if (payload.farm_id) form.append('farm_id', String(payload.farm_id))
         form.append('latitude', String(payload.latitude))
         form.append('longitude', String(payload.longitude))
@@ -347,6 +348,7 @@ export async function enqueueVisit(payload: {
   farmer_id: string
   farm_id?: string | null
   schedule_id?: string | null
+  route_id?: string | null
   latitude: number
   longitude: number
   /** Multiple photo URIs (local file paths). At least one required. */

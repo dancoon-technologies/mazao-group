@@ -147,7 +147,7 @@ export function SelectFarmerModal({
               onPress={() => handleSelect(null)}
               style={styles.noFarmerBtn}
             >
-              No {labels.partner.toLowerCase()}
+              {noLabel}
             </Button>
           </View>
           <FlatList

@@ -64,6 +64,11 @@ class Schedule(MobileSyncModel):
         validators=[MaxLengthValidator(REJECTION_REASON_MAX_LENGTH)],
         help_text="Reason given by supervisor/admin when rejecting a proposed schedule.",
     )
+    edit_reason = models.TextField(
+        blank=True,
+        validators=[MaxLengthValidator(REJECTION_REASON_MAX_LENGTH)],
+        help_text="Reason given by the officer when requesting a change; schedule returns to proposed for supervisor approval.",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

@@ -16,10 +16,14 @@ import { ScheduleEditModal } from "./ScheduleEditModal";
 import { ScheduleForm, type SchedulePartnerType } from "./ScheduleForm";
 import { SelectFarmModal } from "./SelectFarmModal";
 import { SelectFarmerModal } from "./SelectFarmerModal";
-import { INITIAL_SCHEDULE_FORM, type ScheduleFormValues } from "./utils";
+import {
+  INITIAL_SCHEDULE_FORM,
+  isScheduleDateAtLeastTwoDaysAhead,
+  type ScheduleFormValues,
+} from "./utils";
 
 export default function SchedulesPage() {
-  const { role } = useAuth();
+  const { role, email: authEmail } = useAuth();
   const canCreate = role !== null && ROLES_CAN_CREATE_SCHEDULES.includes(role);
   const canApprove = role === "admin" || role === "supervisor";
   const canEditSchedule = role === "supervisor" || role === "officer";
@@ -100,6 +104,7 @@ export default function SchedulesPage() {
       updateField("farmer", s.farmer ?? "");
       updateField("farm", s.farm ?? "");
       updateField("notes", s.notes ?? "");
+      updateField("edit_reason", "");
       updateField("officer", s.officer ?? "");
       const farmer = farmers.find((f) => f.id === s.farmer);
       setSchedulePartnerType(farmer?.is_stockist ? "stockist" : "farmer");
@@ -121,14 +126,44 @@ export default function SchedulesPage() {
         setFormError("Date is required.");
         return;
       }
+      const rawDate = form.scheduled_date as string | Date | null | undefined;
+      const scheduledDateStr =
+        typeof rawDate === "string"
+          ? rawDate.slice(0, 10)
+          : rawDate instanceof Date
+            ? rawDate.toISOString().slice(0, 10)
+            : "";
+      if (!scheduledDateStr) {
+        setFormError("Date is required.");
+        return;
+      }
+      if (isOfficer && !form.edit_reason.trim()) {
+        setFormError(
+          "Please explain why you are changing this schedule. Your supervisor must approve."
+        );
+        return;
+      }
+      if (isOfficer && editingSchedule.status === "accepted") {
+        const today = new Date().toISOString().slice(0, 10);
+        if (scheduledDateStr < today) {
+          setFormError("Scheduled date cannot be in the past.");
+          return;
+        }
+      } else if (isOfficer && editingSchedule.status === "proposed") {
+        if (!isScheduleDateAtLeastTwoDaysAhead(scheduledDateStr)) {
+          setFormError("New date must be at least two days from today.");
+          return;
+        }
+      }
       setSubmitting(true);
       try {
         const payload: Parameters<typeof api.updateSchedule>[1] = {
           farmer: form.farmer || null,
           farm: form.farm || null,
-          scheduled_date: form.scheduled_date,
+          scheduled_date: scheduledDateStr,
           notes: form.notes.trim() || undefined,
         };
+        if (isOfficer) payload.edit_reason = form.edit_reason.trim();
         if (isAdminOrSupervisor && form.officer) payload.officer = form.officer;
         const updated = await api.updateSchedule(editingSchedule.id, payload);
         setSchedules((prev) =>
@@ -143,7 +178,7 @@ export default function SchedulesPage() {
         setSubmitting(false);
       }
     },
-    [editingSchedule, form, isAdminOrSupervisor, closeEditModal]
+    [editingSchedule, form, isAdminOrSupervisor, isOfficer, closeEditModal]
   );
 
   const isAdmin = role === "admin";
@@ -318,6 +353,8 @@ export default function SchedulesPage() {
           ? {
               canApprove,
               canEditSchedule,
+              isOfficer,
+              officerEmail: authEmail ?? null,
               approvingId,
               onApprove: handleApprove,
               onRejectClick,
@@ -326,7 +363,7 @@ export default function SchedulesPage() {
           : null,
         labels
       ),
-    [canApprove, canEditSchedule, approvingId, handleApprove, onRejectClick, openEdit, labels]
+    [canApprove, canEditSchedule, isOfficer, authEmail, approvingId, handleApprove, onRejectClick, openEdit, labels]
   );
 
   if (loading) return <PageLoading message="Loading schedules…" />;
@@ -360,9 +397,10 @@ export default function SchedulesPage() {
 
       {canApprove && (
         <Alert color="blue" variant="light" mt="md" mb="xs">
-          Officers can edit proposed schedules when the date is more than one
-          day away. Accept or reject a proposed schedule to confirm the current
-          proposal; once accepted, it is reflected for the officer.
+          Officers can request changes to proposed schedules (when the date is
+          more than one day away) or to their own accepted schedules; they must
+          give a reason, and the schedule returns to pending until you accept or
+          decline.
         </Alert>
       )}
 
@@ -470,6 +508,7 @@ export default function SchedulesPage() {
       <ScheduleEditModal
         schedule={editingSchedule}
         isAdminOrSupervisor={isAdminOrSupervisor}
+        isOfficer={isOfficer}
         officerOptions={officerOptions}
         form={form}
         updateField={updateField as (k: keyof ScheduleFormValues, v: string) => void}

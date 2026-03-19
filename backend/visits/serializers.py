@@ -27,6 +27,8 @@ class VisitSerializer(serializers.ModelSerializer):
     farmer = serializers.UUIDField(source="farmer_id", read_only=True)
     farm = serializers.UUIDField(source="farm_id", read_only=True, allow_null=True)
     schedule = serializers.UUIDField(source="schedule_id", read_only=True, allow_null=True)
+    route = serializers.UUIDField(source="route_id", read_only=True, allow_null=True)
+    route_display = serializers.SerializerMethodField()
     officer_email = serializers.SerializerMethodField()
     officer_display_name = serializers.SerializerMethodField()
     farmer_display_name = serializers.SerializerMethodField()
@@ -50,6 +52,8 @@ class VisitSerializer(serializers.ModelSerializer):
             "farm_display_name",
             "schedule",
             "schedule_display",
+            "route",
+            "route_display",
             "latitude",
             "longitude",
             "photo",
@@ -104,6 +108,11 @@ class VisitSerializer(serializers.ModelSerializer):
     def get_schedule_display(self, obj):
         if obj.schedule_id and obj.schedule:
             return f"{obj.schedule.scheduled_date} — {obj.schedule.farmer.name if obj.schedule.farmer_id else 'N/A'}"
+        return None
+
+    def get_route_display(self, obj):
+        if obj.route_id and getattr(obj, "route", None):
+            return f"{obj.route.scheduled_date} — {obj.route.name or 'Route'}"
         return None
 
     def get_photos(self, obj):
@@ -171,6 +180,7 @@ class VisitCreateSerializer(serializers.ModelSerializer):
             "farmer_id",
             "farm_id",
             "schedule_id",
+            "route_id",
             "latitude",
             "longitude",
             "notes",

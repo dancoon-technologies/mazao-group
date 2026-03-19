@@ -205,7 +205,7 @@ function HomeScreenInner() {
           <View style={styles.welcomeRow}>
             <Pressable
               style={styles.notificationTouch}
-              onPress={() => { /* TODO: navigate to notifications */ }}
+              onPress={() => routerInstance.push('/(app)/notifications' as never)}
               android_ripple={{ color: 'rgba(0,0,0,0.1)', borderless: true }}
             >
               <IconButton

@@ -107,5 +107,6 @@ class StaffCreateSerializer(serializers.ModelSerializer):
             title="You have been registered",
             message="Check your email for your temporary login credentials.",
             channels=["in_app", "push"],
+            action_data={"screen": "notifications"},
         )
         return user

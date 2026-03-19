@@ -317,6 +317,7 @@ class ChangePasswordView(generics.GenericAPIView):
             title="Password changed",
             message="Your password was changed successfully.",
             channels=["in_app", "push"],
+            action_data={"screen": "profile"},
         )
         from accounts.auth_views import EmailTokenObtainPairSerializer
 
@@ -376,6 +377,7 @@ class StaffResendCredentialsView(generics.GenericAPIView):
             title="Login credentials resent",
             message="Your temporary login credentials have been sent to your email again.",
             channels=["in_app", "push"],
+            action_data={"screen": "notifications"},
         )
         return Response(
             {"detail": f"Credentials email sent to {user.email}."},

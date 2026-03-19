@@ -107,6 +107,14 @@ class Visit(MobileSyncModel):
         blank=True,
         related_name="visits",
     )
+    route = models.ForeignKey(
+        "routes.Route",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="visits",
+        help_text="When set, this visit was recorded as part of this route (day plan).",
+    )
     latitude = models.DecimalField(max_digits=10, decimal_places=7)
     longitude = models.DecimalField(max_digits=10, decimal_places=7)
     photo = models.ImageField(upload_to="visits/%Y/%m/", blank=True)

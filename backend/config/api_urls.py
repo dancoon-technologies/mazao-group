@@ -27,6 +27,11 @@ from notifications.views import (
     RegisterPushTokenView,
     TestPushView,
 )
+from routes.views import (
+    RouteListCreateView,
+    RouteReportDetailView,
+    RouteRetrieveUpdateDestroyView,
+)
 from schedules.views import ScheduleApproveView, ScheduleListCreateView, ScheduleUpdateView
 from visits.dashboard_views import (
     DashboardStatsByDepartmentView,
@@ -68,6 +73,9 @@ urlpatterns = [
     path("schedules/", ScheduleListCreateView.as_view(), name="schedule-list-create"),
     path("schedules/<uuid:pk>/", ScheduleUpdateView.as_view(), name="schedule-update"),
     path("schedules/<uuid:pk>/approve/", ScheduleApproveView.as_view(), name="schedule-approve"),
+    path("routes/", RouteListCreateView.as_view(), name="route-list-create"),
+    path("routes/<uuid:pk>/", RouteRetrieveUpdateDestroyView.as_view(), name="route-retrieve-update-destroy"),
+    path("routes/<uuid:route_id>/report/", RouteReportDetailView.as_view(), name="route-report-detail"),
     path("staff/performance/", StaffPerformanceView.as_view(), name="staff-performance"),
     path("staff/<uuid:pk>/", StaffUpdateView.as_view(), name="staff-update"),
     path("staff/<uuid:pk>", StaffUpdateView.as_view(), name="staff-update-no-slash"),

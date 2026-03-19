@@ -21,6 +21,8 @@ const FIELD_MAX_LENGTHS: Record<string, number> = {
 
 export interface ValidateRecordVisitInput {
   scheduleIdForSubmit: string | undefined;
+  /** When set, visit is recorded as part of this route (no schedule required). */
+  routeIdForSubmit?: string | undefined;
   mustSelectSchedule: boolean;
   acceptedSchedulesLength: number;
   selectedFarmerId: string | null;
@@ -35,6 +37,8 @@ export interface ValidateRecordVisitInput {
   distanceM: number | null;
   maxDistanceM: number;
   partnerLabel: string;
+  /** When true, skip step 3 (additional details) required checks — e.g. when user chooses "Record and skip report". */
+  skipStep3?: boolean;
 }
 
 export interface ValidateRecordVisitResult {
@@ -49,6 +53,7 @@ export interface ValidateRecordVisitResult {
 export function validateRecordVisit(input: ValidateRecordVisitInput): ValidateRecordVisitResult {
   const {
     scheduleIdForSubmit,
+    routeIdForSubmit,
     mustSelectSchedule,
     acceptedSchedulesLength,
     selectedFarmerId,
@@ -63,6 +68,7 @@ export function validateRecordVisit(input: ValidateRecordVisitInput): ValidateRe
     distanceM,
     maxDistanceM,
     partnerLabel,
+    skipStep3 = false,
   } = input;
 
   if (mustSelectSchedule) {
@@ -74,8 +80,8 @@ export function validateRecordVisit(input: ValidateRecordVisitInput): ValidateRe
           : `Select a planned visit (accepted schedule) with date today or in the past.`,
     };
   }
-  if (!scheduleIdForSubmit) {
-    return { valid: false, error: 'A planned schedule is required to record a visit.' };
+  if (!scheduleIdForSubmit && !routeIdForSubmit) {
+    return { valid: false, error: 'Select a schedule or a customer (from your route or list).' };
   }
   if (!selectedFarmerId || !location) {
     return { valid: false, error: `Select ${partnerLabel.toLowerCase()} and ensure location is available.` };

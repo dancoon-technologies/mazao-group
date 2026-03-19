@@ -37,6 +37,7 @@ class ScheduleSerializer(serializers.ModelSerializer):
             "status",
             "approved_by",
             "rejection_reason",
+            "edit_reason",
             "created_at",
         )
 
@@ -80,8 +81,14 @@ class ScheduleCreateSerializer(serializers.ModelSerializer):
 
 
 class ScheduleUpdateSerializer(serializers.ModelSerializer):
-    """Partial update for proposed schedules: scheduled_date, farmer, farm, notes; supervisor may set officer."""
+    """Partial update: proposed (officer/supervisor) or accepted (officer only, requires edit_reason → proposed)."""
 
+    edit_reason = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        max_length=1000,
+        help_text="Required when an officer edits their own schedule (including accepted).",
+    )
     officer = serializers.PrimaryKeyRelatedField(
         queryset=User.objects.filter(role=User.Role.OFFICER),
         required=False,
@@ -97,7 +104,7 @@ class ScheduleUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Schedule
         extra_kwargs = {"notes": {"max_length": 2000}}
-        fields = ("officer", "farmer", "farm", "scheduled_date", "notes")
+        fields = ("officer", "farmer", "farm", "scheduled_date", "notes", "edit_reason")
 
     def validate(self, attrs):
         farm = attrs.get("farm")

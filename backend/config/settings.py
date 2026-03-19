@@ -36,6 +36,7 @@ INSTALLED_APPS = [
     "farmers",
     "visits",
     "schedules",
+    "routes",
     "notifications",
     "locations",
     "tracking",

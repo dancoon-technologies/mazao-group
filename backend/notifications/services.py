@@ -13,6 +13,7 @@ Best practices:
 import json
 import logging
 import urllib.request
+from typing import Any, Dict, Optional
 
 from django.conf import settings
 from django.core.mail import send_mail
@@ -35,14 +36,31 @@ def send_push_expo(
     body: str,
     user=None,
     notification=None,
+    data: Optional[Dict[str, Any]] = None,
 ) -> None:
-    """Send push notifications via Expo Push API. Logs errors and records each attempt if user is provided."""
+    """Send push notifications via Expo Push API. Logs errors and records each attempt if user is provided.
+
+    Optional ``data`` is attached per Expo message (Android requires string values — we coerce).
+    """
     if not tokens:
         return
-    payload = [
-        {"to": token, "title": title[:120], "body": (body or "")[:500], "sound": "default"}
-        for token in tokens
-    ]
+    payload = []
+    for token in tokens:
+        entry: Dict[str, Any] = {
+            "to": token,
+            "title": title[:120],
+            "body": (body or "")[:500],
+            "sound": "default",
+        }
+        if data:
+            extra = {}
+            for k, v in data.items():
+                if v is None:
+                    continue
+                extra[str(k)] = v if isinstance(v, str) else str(v)
+            if extra:
+                entry["data"] = extra
+        payload.append(entry)
     record_attempts = user is not None
     try:
         body_bytes = json.dumps(payload).encode("utf-8")
@@ -121,13 +139,16 @@ def send_sms(phone: str, message: str) -> bool:
         return False
 
 
-def notify_user(user, title: str, message: str, channels=None):
+def notify_user(user, title: str, message: str, channels=None, action_data=None):
     """
     Create in-app notification and optionally send email/SMS/push.
     channels: list of "in_app" | "email" | "sms" | "push" (default: ["in_app", "email", "sms", "push"]).
+    action_data: optional dict stored on the in-app row and sent as Expo push ``data`` (deep links).
     """
     if channels is None:
         channels = ["in_app", "email", "sms", "push"]
+
+    extra = action_data if isinstance(action_data, dict) else {}
 
     notification = None
     if "in_app" in channels:
@@ -135,6 +156,7 @@ def notify_user(user, title: str, message: str, channels=None):
             user=user,
             title=title,
             message=message,
+            action_data=extra,
         )
 
     if "push" in channels:
@@ -142,7 +164,14 @@ def notify_user(user, title: str, message: str, channels=None):
             PushToken.objects.filter(user=user).values_list("token", flat=True)
         )
         if tokens:
-            send_push_expo(tokens, title, message or "", user=user, notification=notification)
+            send_push_expo(
+                tokens,
+                title,
+                message or "",
+                user=user,
+                notification=notification,
+                data=extra or None,
+            )
 
     if "email" in channels and user.email:
         try:

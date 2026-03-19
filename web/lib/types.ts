@@ -167,6 +167,8 @@ export interface Schedule {
   status: ScheduleStatus;
   approved_by: string | null;
   rejection_reason?: string | null;
+  /** Officer's reason when requesting a change (awaiting supervisor approval). */
+  edit_reason?: string | null;
   created_at: string;
 }
 
@@ -254,6 +256,7 @@ export interface Notification {
   id: string;
   title: string;
   message: string;
+  action_data?: Record<string, unknown>;
   created_at: string;
   read_at: string | null;
 }

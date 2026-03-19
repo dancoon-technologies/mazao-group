@@ -386,6 +386,7 @@ export const api = {
       farm?: string | null;
       scheduled_date?: string;
       notes?: string;
+      edit_reason?: string;
     }
   ): Promise<Schedule> {
     const res = await authFetch(`${API_BASE}/api/schedules/${scheduleId}`, {
@@ -396,7 +397,7 @@ export const api = {
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
       throw new Error(
-        parseApiError(err, "Failed to update schedule", ["detail", "scheduled_date", "officer"])
+        parseApiError(err, "Failed to update schedule", ["detail", "scheduled_date", "officer", "edit_reason"])
       );
     }
     return res.json();

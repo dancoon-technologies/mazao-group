@@ -26,6 +26,7 @@ import {
   Chip,
   FAB,
   IconButton,
+  Menu,
   Searchbar,
   Text,
 } from 'react-native-paper';
@@ -71,6 +72,7 @@ export default function SchedulesScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
   const [isOnline, setIsOnline] = useState<boolean | null>(null);
+  const [routesMenuOpen, setRoutesMenuOpen] = useState(false);
 
   const visits = useSelector<Visit[]>(() => {
     if (!userId) return [];
@@ -199,10 +201,56 @@ export default function SchedulesScreen() {
   );
   const openVisit = useCallback((id: string) => router.push({ pathname: '/(app)/visits/[id]', params: { id } }), [router]);
 
+  const openWeeklyPlan = useCallback(
+    () =>
+      router.push({
+        pathname: '/(app)/propose-schedule',
+        params: { planMode: 'weekly' },
+      } as never),
+    [router]
+  );
+  const openRouteReport = useCallback(() => router.push('/(app)/route-report' as never), [router]);
+
   return (
     <View style={styles.pageWrap}>
       <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
-        <Text variant="bodyLarge" style={styles.title}>Schedules</Text>
+        <View style={styles.titleRow}>
+          <Text variant="bodyLarge" style={styles.title}>Schedules</Text>
+          {isOfficer && (
+            <Menu
+              visible={routesMenuOpen}
+              onDismiss={() => setRoutesMenuOpen(false)}
+              anchor={
+                <Button
+                  mode="outlined"
+                  compact
+                  onPress={() => setRoutesMenuOpen(true)}
+                  style={styles.routesMenuAnchor}
+                  icon="map-marker-path"
+                >
+                  Routes
+                </Button>
+              }
+            >
+              <Menu.Item
+                onPress={() => {
+                  setRoutesMenuOpen(false);
+                  openWeeklyPlan();
+                }}
+                title="Weekly plan"
+                leadingIcon="calendar-week"
+              />
+              <Menu.Item
+                onPress={() => {
+                  setRoutesMenuOpen(false);
+                  openRouteReport();
+                }}
+                title="Route report"
+                leadingIcon="clipboard-text-outline"
+              />
+            </Menu>
+          )}
+        </View>
         <View style={styles.tabRow}>
           <Pressable
             style={[styles.tab, activeTab === 'upcoming' && styles.tabActive]}
@@ -299,13 +347,22 @@ export default function SchedulesScreen() {
                                 />
                               )}
                               {s.status === 'accepted' && isOfficer && (
-                                <IconButton
-                                  icon="pencil"
-                                  size={22}
-                                  iconColor={colors.primary}
-                                  onPress={() => openRecordVisit(s)}
-                                  accessibilityLabel="Record visit"
-                                />
+                                <>
+                                  <IconButton
+                                    icon="calendar-edit"
+                                    size={22}
+                                    iconColor={colors.primary}
+                                    onPress={() => openEditSchedule(s)}
+                                    accessibilityLabel="Request schedule change"
+                                  />
+                                  <IconButton
+                                    icon="camera"
+                                    size={22}
+                                    iconColor={colors.primary}
+                                    onPress={() => openRecordVisit(s)}
+                                    accessibilityLabel="Record visit"
+                                  />
+                                </>
                               )}
                             </View>
                           }
@@ -410,7 +467,10 @@ const styles = StyleSheet.create({
   safe: { flex: 1 },
   container: { flex: 1 },
   content: { paddingHorizontal: spacing.lg, paddingTop: 0 },
-  title: { fontWeight: '700', fontSize: 20, paddingHorizontal: spacing.lg, paddingTop: 0 },
+  titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: spacing.lg, paddingTop: 0, paddingBottom: spacing.sm },
+  title: { fontWeight: '700', fontSize: 20 },
+  titleActions: { flexDirection: 'row', gap: spacing.sm },
+  routesMenuAnchor: { minWidth: 0 },
   tabRow: {
     flexDirection: 'row',
     borderBottomWidth: 1,

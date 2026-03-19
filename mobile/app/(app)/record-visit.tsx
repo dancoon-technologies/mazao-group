@@ -6,7 +6,7 @@ import {
 } from '@/database';
 import { useAuth } from '@/contexts/AuthContext';
 import { appMeta$ } from '@/store/observable';
-import { api, getLabels, type ActivityFormFieldOption, type ActivityTypeOption, type Farm, type Farmer, type Schedule, type VisitSettings } from '@/lib/api';
+import { api, getLabels, type ActivityFormFieldOption, type ActivityTypeOption, type Farm, type Farmer, type Route, type Schedule, type VisitSettings } from '@/lib/api';
 import { ACTIVITY_TYPES, DEFAULT_ACTIVITY_TYPE } from '@/lib/constants/activityTypes';
 import { buildStep3Payload, getStep3InputType, type Step3Values } from '@/lib/constants/visitFormFields';
 import { validateRecordVisit } from '@/lib/validateRecordVisit';
@@ -103,6 +103,8 @@ export default function RecordVisitScreen() {
   const [plannedSchedules, setPlannedSchedules] = useState<Schedule[]>([]);
   const [scheduleIdsWithRecordedVisits, setScheduleIdsWithRecordedVisits] = useState<Set<string>>(new Set());
   const [selectedScheduleId, setSelectedScheduleId] = useState<string | null>(params.scheduleId ?? null);
+  const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null);
+  const [todayRoute, setTodayRoute] = useState<Route | null>(null);
   const [selectedFarmerId, setSelectedFarmerId] = useState<string | null>(params.farmerId ?? null);
   const [selectedFarmId, setSelectedFarmId] = useState<string | null>(null);
   const [activityTypes, setActivityTypes] = useState<string[]>([DEFAULT_ACTIVITY_TYPE]);
@@ -126,7 +128,7 @@ export default function RecordVisitScreen() {
   const [cameraModalVisible, setCameraModalVisible] = useState(false);
   const cameraRef = useRef<CameraView>(null);
   const [visitSettings, setVisitSettings] = useState<VisitSettings | null>(null);
-  const [step, setStep] = useState(0); // 0 = schedule, 1 = details & photo, 2 = additional fields
+  const [step, setStep] = useState(0); // 0 = visit (who + photo + GPS), 1 = optional extra fields
 
   const options = useSelector(() => appMeta$.cachedOptions.get());
   const labels = useSelector(() => getLabels(options));
@@ -367,6 +369,22 @@ export default function RecordVisitScreen() {
         } catch {
           if (!cancelled) setPlannedSchedules([]);
         }
+        (async () => {
+          try {
+            const monday = new Date();
+            const day = monday.getDay();
+            const diff = (day + 6) % 7;
+            monday.setDate(monday.getDate() - diff);
+            const weekStart = monday.toISOString().slice(0, 10);
+            const list = await api.getRoutes({ week_start: weekStart });
+            if (cancelled) return;
+            const today = new Date().toISOString().slice(0, 10);
+            const routeForToday = (list ?? []).find((r) => r.scheduled_date === today) ?? null;
+            setTodayRoute(routeForToday);
+          } catch {
+            if (!cancelled) setTodayRoute(null);
+          }
+        })();
       })();
       return () => { cancelled = true; };
     }, [params.farmerId, userId, applyOptions])
@@ -523,13 +541,20 @@ export default function RecordVisitScreen() {
   }, []);
 
   // When schedule list didn't load we may have selectedScheduleId from params but no selectedSchedule — allow submit and let server validate
-  const mustSelectSchedule = !selectedScheduleId || (selectedSchedule != null && selectedSchedule.status !== 'accepted');
+  // If user picked from today's route, we don't require a schedule. Require schedule or route when we have either.
+  const hasRouteStops = (todayRoute?.stops?.length ?? 0) > 0;
+  const mustSelectSchedule =
+    (!selectedScheduleId || (selectedSchedule != null && selectedSchedule.status !== 'accepted')) &&
+    !selectedRouteId &&
+    (acceptedSchedules.length > 0 || hasRouteStops);
   const scheduleLocked = !!selectedScheduleId && selectedSchedule?.status === 'accepted';
   const scheduleIdForSubmit = selectedScheduleId ?? undefined;
+  const routeIdForSubmit = selectedRouteId ?? undefined;
 
-  const submit = useCallback(async () => {
+  const submit = useCallback(async (opts?: { skipStep3?: boolean }) => {
     const validation = validateRecordVisit({
       scheduleIdForSubmit,
+      routeIdForSubmit,
       mustSelectSchedule,
       acceptedSchedulesLength: acceptedSchedules.length,
       selectedFarmerId,
@@ -544,6 +569,7 @@ export default function RecordVisitScreen() {
       distanceM,
       maxDistanceM: maxM,
       partnerLabel: labels.partner,
+      skipStep3: opts?.skipStep3,
     });
     if (!validation.valid) {
       setError(validation.error ?? 'Please fix the errors below.');
@@ -569,6 +595,7 @@ export default function RecordVisitScreen() {
           farmer_id: selectedFarmerId,
           farm_id: selectedFarmId || undefined,
           schedule_id: scheduleIdForSubmit,
+          route_id: routeIdForSubmit,
           latitude: location.coords.latitude,
           longitude: location.coords.longitude,
           photos: photoUris.map((uri, i) => ({ uri, type: 'image/jpeg', name: `visit_${i}.jpg` })),
@@ -606,6 +633,7 @@ export default function RecordVisitScreen() {
         farmer_id: selectedFarmerId,
         farm_id: selectedFarmId || undefined,
         schedule_id: scheduleIdForSubmit,
+        route_id: routeIdForSubmit,
         latitude: location.coords.latitude,
         longitude: location.coords.longitude,
         photo_uris: photoUris,
@@ -638,7 +666,7 @@ export default function RecordVisitScreen() {
     } finally {
       setSubmitting(false);
     }
-  }, [scheduleIdForSubmit, mustSelectSchedule, acceptedSchedules.length, selectedFarmerId, selectedFarmId, location, photoUris, photoTakenAts, step3Fields, step3Values, visitFormFieldSchema, activityTypes, activityTypesList, notes, distanceM, maxM, labels.partner, router, productLines]);
+  }, [scheduleIdForSubmit, routeIdForSubmit, mustSelectSchedule, acceptedSchedules.length, selectedFarmerId, selectedFarmId, location, photoUris, photoTakenAts, step3Fields, step3Values, visitFormFieldSchema, activityTypes, activityTypesList, notes, distanceM, maxM, labels.partner, router, productLines]);
 
   const activityLabel = useMemo(() => {
     if (activityTypes.length === 0) return 'Select activities';
@@ -650,6 +678,13 @@ export default function RecordVisitScreen() {
     );
     return labels.join(', ');
   }, [activityTypes, activityTypesList]);
+
+  /** Photo + GPS ready; schedule/route picked — user can open optional “Extras” step or submit. */
+  const canOpenExtraStep =
+    !mustSelectSchedule &&
+    photoUris.length > 0 &&
+    !!location &&
+    (distanceM === null || gpsValid);
 
   if (!permission) {
     return (
@@ -675,10 +710,10 @@ export default function RecordVisitScreen() {
       <View style={styles.header}>
         <View style={styles.headerLeft}>
           <Text variant="labelSmall" style={styles.headerStepLabel}>
-            STEP {step + 1} OF 3
+            {step === 0 ? 'Photo & location' : 'Extra details (optional)'}
           </Text>
           <Text variant="headlineSmall" style={styles.headerTitle}>
-            Record Visit
+            Record visit
           </Text>
         </View>
         <Pressable onPress={() => router.back()} style={styles.headerClose} hitSlop={12}>
@@ -703,9 +738,9 @@ export default function RecordVisitScreen() {
             </Chip>
           )}
 
-          {/* Stepper: checkmark for completed, number for current, grey for future */}
+          {/* Two steps: visit (one scroll) → optional extras */}
           <View style={styles.stepperRow}>
-            <Pressable onPress={() => setStep(0)} style={styles.stepperItem} disabled={false}>
+            <Pressable onPress={() => setStep(0)} style={styles.stepperItem}>
               <View style={[styles.stepperCircle, (step === 0 || step >= 1) && styles.stepperCircleActive]}>
                 {step >= 1 ? (
                   <MaterialCommunityIcons name="check" size={18} color={colors.white} />
@@ -713,36 +748,55 @@ export default function RecordVisitScreen() {
                   <Text variant="labelMedium" style={[styles.stepperCircleText, step === 0 && styles.stepperCircleTextActive]}>1</Text>
                 )}
               </View>
-              <Text variant="labelSmall" style={[styles.stepperLabel, (step === 0 || step >= 1) && styles.stepperLabelActive]}>Schedule</Text>
+              <Text variant="labelSmall" style={[styles.stepperLabel, (step === 0 || step >= 1) && styles.stepperLabelActive]}>Visit</Text>
             </Pressable>
             <View style={[styles.stepperLine, step >= 1 && styles.stepperLineActive]} />
-            <Pressable onPress={() => step >= 1 && setStep(1)} style={styles.stepperItem} disabled={step < 1}>
-              <View style={[styles.stepperCircle, (step === 1 || step >= 2) && styles.stepperCircleActive]}>
-                {step >= 2 ? (
-                  <MaterialCommunityIcons name="check" size={18} color={colors.white} />
-                ) : (
-                  <Text variant="labelMedium" style={[styles.stepperCircleText, step === 1 && styles.stepperCircleTextActive]}>2</Text>
-                )}
+            <Pressable
+              onPress={() => canOpenExtraStep && setStep(1)}
+              style={styles.stepperItem}
+              disabled={!canOpenExtraStep}
+            >
+              <View style={[styles.stepperCircle, step === 1 && styles.stepperCircleActive]}>
+                <Text variant="labelMedium" style={[styles.stepperCircleText, step === 1 && styles.stepperCircleTextActive]}>2</Text>
               </View>
-              <Text variant="labelSmall" style={[styles.stepperLabel, (step === 1 || step >= 2) && styles.stepperLabelActive]}>Details</Text>
-            </Pressable>
-            <View style={[styles.stepperLine, step >= 2 && styles.stepperLineActive]} />
-            <Pressable onPress={() => step >= 2 && setStep(2)} style={styles.stepperItem} disabled={step < 2}>
-              <View style={[styles.stepperCircle, step === 2 && styles.stepperCircleActive]}>
-                <Text variant="labelMedium" style={[styles.stepperCircleText, step === 2 && styles.stepperCircleTextActive]}>3</Text>
-              </View>
-              <Text variant="labelSmall" style={[styles.stepperLabel, step === 2 && styles.stepperLabelActive]}>Additional</Text>
+              <Text variant="labelSmall" style={[styles.stepperLabel, step === 1 && styles.stepperLabelActive]}>Extras</Text>
             </Pressable>
           </View>
 
-          {/* Step 1: Select schedule */}
+          {/* Step 1: Who, activities, photo, location — one screen */}
           {step === 0 && (
             <>
+              {todayRoute && todayRoute.stops && todayRoute.stops.length > 0 && (
+                <Surface style={styles.section} elevation={0}>
+                  <Text variant="labelLarge" style={styles.fieldLabel}>Today&apos;s route</Text>
+                  <Text variant="bodySmall" style={styles.hint}>
+                    {`Tap a stop, or pick a planned visit below.`}
+                  </Text>
+                  <View style={styles.scheduleChips}>
+                    {todayRoute.stops.map((stop) => (
+                      <Chip
+                        key={stop.id}
+                        selected={selectedRouteId === todayRoute.id && selectedFarmerId === stop.farmer}
+                        onPress={() => {
+                          setSelectedRouteId(todayRoute.id);
+                          setSelectedScheduleId(null);
+                          setSelectedFarmerId(stop.farmer);
+                          setSelectedFarmId(stop.farm ?? null);
+                        }}
+                        style={styles.scheduleChip}
+                        compact
+                      >
+                        {stop.farmer_display_name} · {labels.location}: {stop.farm_display_name ?? '—'}
+                      </Chip>
+                    ))}
+                  </View>
+                </Surface>
+              )}
               {acceptedSchedules.length > 0 ? (
                 <Surface style={styles.section} elevation={0}>
-                  <Text variant="labelLarge" style={styles.fieldLabel}>Planned visit (accepted) *</Text>
+                  <Text variant="labelLarge" style={styles.fieldLabel}>Planned visit *</Text>
                   <Text variant="bodySmall" style={styles.hint}>
-                    {`Select the accepted schedule for this visit. ${labels.partner} and ${labels.location.toLowerCase()} are set from the schedule.`}
+                    {`Accepted schedules for today or earlier. ${labels.partner} and ${labels.location.toLowerCase()} come from your choice.`}
                   </Text>
                   <View style={styles.scheduleChips}>
                     {acceptedSchedules.map((s) => {
@@ -751,9 +805,10 @@ export default function RecordVisitScreen() {
                       return (
                         <Chip
                           key={s.id}
-                          selected={selectedScheduleId === s.id}
+                          selected={selectedScheduleId === s.id && !selectedRouteId}
                           onPress={() => {
                             setSelectedScheduleId(s.id);
+                            setSelectedRouteId(null);
                             if (s.farmer) setSelectedFarmerId(s.farmer);
                             setSelectedFarmId(s.farm ?? null);
                           }}
@@ -766,39 +821,24 @@ export default function RecordVisitScreen() {
                     })}
                   </View>
                   {mustSelectSchedule && (
-                    <HelperText type="error" style={styles.errorHint}>Select a planned visit to continue.</HelperText>
+                    <HelperText type="error" style={styles.errorHint}>Select a planned visit or a route stop to continue.</HelperText>
                   )}
                 </Surface>
-              ) : (
+              ) : !hasRouteStops ? (
                 <>
                   <View style={styles.warningBox}>
                     <MaterialCommunityIcons name="alert-circle-outline" size={22} color={colors.warning} style={styles.warningBoxIcon} />
                     <View style={styles.warningBoxContent}>
-                      <Text variant="labelLarge" style={styles.warningBoxTitle}>No Scheduled Visit Found</Text>
+                      <Text variant="labelLarge" style={styles.warningBoxTitle}>Nothing to visit yet</Text>
                       <Text variant="bodySmall" style={styles.warningBoxText}>
-                        Visits can only be recorded for a planned schedule dated today or earlier. Please check your schedule list.
+                        Add an accepted schedule or set today&apos;s route under Plan visits → Weekly routes.
                       </Text>
                     </View>
                   </View>
                 </>
-              )}
-              <View style={styles.stepActions}>
-                <Button
-                  mode="contained"
-                  onPress={() => setStep(1)}
-                  disabled={mustSelectSchedule}
-                  style={styles.nextBtn}
-                  contentStyle={styles.nextBtnContent}
-                  icon="arrow-right"
-                >
-                  Next: Details & Photo
-                </Button>
-              </View>
-            </>
-          )}
+              ) : null}
 
-          {/* Step 2: Farmer/farm details, activity, photo, location */}
-          {step === 1 && (
+              {!mustSelectSchedule && (
             <>
               <Text variant="labelMedium" style={styles.step2SectionTitle}>{labels.partner.toUpperCase()} & {labels.location.toUpperCase()} (from schedule)</Text>
               {selectedFarmer && (
@@ -964,13 +1004,26 @@ export default function RecordVisitScreen() {
                 </Pressable>
               )}
 
-              <View style={styles.stepActions}>
-                <Button mode="outlined" onPress={() => setStep(0)} style={styles.nextBtn}>
-                  Back
-                </Button>
+              <View style={[styles.stepActions, styles.stepActionsWrap]}>
                 <Button
                   mode="contained"
-                  onPress={() => setStep(2)}
+                  onPress={() => submit({ skipStep3: true })}
+                  loading={submitting}
+                  disabled={
+                    submitting ||
+                    photoUris.length === 0 ||
+                    !location ||
+                    (location && distanceM !== null && !gpsValid)
+                  }
+                  style={styles.nextBtn}
+                  contentStyle={styles.nextBtnContent}
+                  icon="check"
+                >
+                  Submit visit
+                </Button>
+                <Button
+                  mode="outlined"
+                  onPress={() => setStep(1)}
                   disabled={
                     photoUris.length === 0 ||
                     !location ||
@@ -978,30 +1031,19 @@ export default function RecordVisitScreen() {
                   }
                   style={styles.nextBtn}
                   contentStyle={styles.nextBtnContent}
-                  icon="arrow-right"
+                  icon="playlist-plus"
                 >
-                  Next: Additional info
+                  Optional details
                 </Button>
               </View>
             </>
+              )}
+            </>
           )}
 
-          {/* Step 3: Additional fields (activity-based) and submit */}
-          {step === 2 && (
+          {/* Optional: activity form fields + submit */}
+          {step === 1 && (
             <>
-              <Surface style={styles.section} elevation={0}>
-                <Text variant="labelLarge" style={styles.fieldLabel}>Notes</Text>
-                <TextInput
-                  value={notes}
-                  onChangeText={setNotes}
-                  mode="outlined"
-                  multiline
-                  numberOfLines={3}
-                  placeholder="Add any notes about this visit..."
-                  style={styles.input}
-                />
-              </Surface>
-
               <Surface style={styles.section} elevation={0}>
                 <Text variant="labelLarge" style={styles.fieldLabel}>Additional details</Text>
                 <Text variant="bodySmall" style={styles.hint}>
@@ -1125,12 +1167,12 @@ export default function RecordVisitScreen() {
               ) : null}
 
               <Surface style={styles.actionsSection} elevation={0}>
-                <Button mode="outlined" onPress={() => setStep(1)} style={styles.nextBtn}>
+                <Button mode="outlined" onPress={() => setStep(0)} style={styles.nextBtn}>
                   Back
                 </Button>
                 <Button
                   mode="contained"
-                  onPress={submit}
+                  onPress={() => submit()}
                   loading={submitting}
                   disabled={submitting}
                   style={styles.submitBtn}
@@ -1476,4 +1518,5 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
   },
   stepActions: { flexDirection: 'row', gap: spacing.md, marginTop: spacing.md, marginBottom: spacing.lg },
+  stepActionsWrap: { flexWrap: 'wrap' },
 });

@@ -99,6 +99,10 @@ class ScheduleListCreateView(generics.ListCreateAPIView):
                 title="New visit scheduled",
                 message=f"You have a visit scheduled on {date_str}. Farmer: {farmer_name}. Notes: {schedule.notes or 'None'}",
                 channels=["in_app", "email", "sms", "push"],
+                action_data={
+                    "screen": "edit-schedule",
+                    "scheduleId": str(schedule.id),
+                },
             )
         else:
             officer = data.get("officer")
@@ -202,6 +206,10 @@ class ScheduleApproveView(generics.GenericAPIView):
                 title="Schedule accepted",
                 message=f"Your visit scheduled on {date_str} (Farmer: {farmer_name}) has been accepted.",
                 channels=["in_app", "email", "sms", "push"],
+                action_data={
+                    "screen": "edit-schedule",
+                    "scheduleId": str(schedule.id),
+                },
             )
             return Response(ScheduleSerializer(schedule).data)
         if action == "reject":
@@ -224,6 +232,10 @@ class ScheduleApproveView(generics.GenericAPIView):
                 title="Schedule rejected",
                 message=msg,
                 channels=["in_app", "email", "sms", "push"],
+                action_data={
+                    "screen": "edit-schedule",
+                    "scheduleId": str(schedule.id),
+                },
             )
             return Response(ScheduleSerializer(schedule).data)
         logger.warning("POST /api/schedules/%s/approve invalid action=%s", pk, request.data.get("action"))
@@ -239,8 +251,18 @@ def _schedule_editable_by_date(scheduled_date):
     return scheduled_date >= today + timedelta(days=2)
 
 
+def _parse_scheduled_date_value(new_date):
+    from datetime import datetime
+
+    if new_date is None:
+        return None
+    if isinstance(new_date, str):
+        return datetime.strptime(new_date[:10], "%Y-%m-%d").date()
+    return new_date
+
+
 class ScheduleUpdateView(generics.UpdateAPIView):
-    """PATCH schedule: supervisors and officers may request change of proposed schedule if not within one day of date."""
+    """PATCH schedule: supervisors/admin edit proposed; officers edit proposed (reason + date rule) or accepted (reason → proposed)."""
 
     permission_classes = [IsAuthenticated]
     serializer_class = ScheduleUpdateSerializer
@@ -261,54 +283,86 @@ class ScheduleUpdateView(generics.UpdateAPIView):
             return qs.filter(officer=user)
         return qs.none()
 
-    def check_can_edit(self, schedule, user):
-        if user.role not in ("supervisor", "officer"):
-            return False, "Only supervisors and field extension officers can request schedule changes."
-        if schedule.status != Schedule.Status.PROPOSED:
-            return False, "Only proposed schedules can be edited."
-        if not _schedule_editable_by_date(schedule.scheduled_date):
-            return False, "Schedule cannot be edited when it is within one day of the proposed date."
-        if user.role == "officer" and schedule.officer_id != user.id:
-            return False, "You can only edit your own proposed schedules."
-        if user.role == "supervisor" and user.department_id and schedule.officer.department_id != user.department_id:
-            return False, "Schedule is not in your department."
-        return True, None
+    def _resolve_edit_mode(self, schedule, user):
+        """
+        Returns (ok, err_msg, http_status, mode) where mode is:
+        staff_proposed | officer_proposed | officer_accepted | None
+        """
+        if user.role == "admin":
+            if schedule.status != Schedule.Status.PROPOSED:
+                return False, "Only proposed schedules can be edited.", status.HTTP_400_BAD_REQUEST, None
+            if not _schedule_editable_by_date(schedule.scheduled_date):
+                return False, "Schedule cannot be edited when it is within one day of the proposed date.", status.HTTP_400_BAD_REQUEST, None
+            return True, None, None, "staff_proposed"
+
+        if user.role == "supervisor":
+            if user.department_id and schedule.officer.department_id != user.department_id:
+                return False, "Schedule is not in your department.", status.HTTP_403_FORBIDDEN, None
+            if schedule.status != Schedule.Status.PROPOSED:
+                return False, "Only proposed schedules can be edited.", status.HTTP_400_BAD_REQUEST, None
+            if not _schedule_editable_by_date(schedule.scheduled_date):
+                return False, "Schedule cannot be edited when it is within one day of the proposed date.", status.HTTP_400_BAD_REQUEST, None
+            return True, None, None, "staff_proposed"
+
+        if user.role == "officer":
+            if schedule.officer_id != user.id:
+                return False, "You can only edit your own schedules.", status.HTTP_403_FORBIDDEN, None
+            if schedule.status == Schedule.Status.REJECTED:
+                return False, "Rejected schedules cannot be edited.", status.HTTP_400_BAD_REQUEST, None
+            if schedule.status == Schedule.Status.ACCEPTED:
+                return True, None, None, "officer_accepted"
+            if schedule.status == Schedule.Status.PROPOSED:
+                if not _schedule_editable_by_date(schedule.scheduled_date):
+                    return False, "Schedule cannot be edited when it is within one day of the proposed date.", status.HTTP_400_BAD_REQUEST, None
+                return True, None, None, "officer_proposed"
+
+        return False, "You cannot edit this schedule.", status.HTTP_403_FORBIDDEN, None
 
     def patch(self, request, *args, **kwargs):
         instance = self.get_object()
         user = request.user
-        can_edit, err_msg = self.check_can_edit(instance, user)
-        if not can_edit:
-            # 403: role, ownership, department; 400: not proposed, date too close
-            is_forbidden = err_msg in (
-                "Only supervisors and field extension officers can request schedule changes.",
-                "You can only edit your own proposed schedules.",
-                "Schedule is not in your department.",
-            )
-            return Response(
-                {"detail": err_msg},
-                status=status.HTTP_403_FORBIDDEN if is_forbidden else status.HTTP_400_BAD_REQUEST,
-            )
-        # If new scheduled_date is provided, it must also be at least 2 days from today
-        new_date = request.data.get("scheduled_date")
-        if new_date:
+        ok, err_msg, err_status, mode = self._resolve_edit_mode(instance, user)
+        if not ok:
+            return Response({"detail": err_msg}, status=err_status)
+
+        edit_reason_in = (request.data.get("edit_reason") or "").strip()
+        if mode in ("officer_proposed", "officer_accepted"):
+            if not edit_reason_in:
+                return Response(
+                    {
+                        "edit_reason": [
+                            "You must provide a reason for this change. Your supervisor will review the updated schedule."
+                        ]
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+        new_date_raw = request.data.get("scheduled_date")
+        if new_date_raw is not None and new_date_raw != "":
             try:
-                from datetime import datetime
-                if isinstance(new_date, str):
-                    parsed = datetime.strptime(new_date[:10], "%Y-%m-%d").date()
+                parsed = _parse_scheduled_date_value(new_date_raw)
+                if mode == "officer_accepted":
+                    today = timezone.now().date()
+                    if parsed < today:
+                        return Response(
+                            {"scheduled_date": ["Scheduled date cannot be in the past."]},
+                            status=status.HTTP_400_BAD_REQUEST,
+                        )
                 else:
-                    parsed = new_date
-                if not _schedule_editable_by_date(parsed):
-                    return Response(
-                        {"scheduled_date": ["New date must be at least two days from today."]},
-                        status=status.HTTP_400_BAD_REQUEST,
-                    )
+                    if not _schedule_editable_by_date(parsed):
+                        return Response(
+                            {"scheduled_date": ["New date must be at least two days from today."]},
+                            status=status.HTTP_400_BAD_REQUEST,
+                        )
             except (ValueError, TypeError):
-                pass  # Let serializer validate format
+                pass
+
         serializer = self.get_serializer(instance, data=request.data, partial=True)
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-        data = serializer.validated_data
+        data = dict(serializer.validated_data)
+        data.pop("edit_reason", None)  # applied only for officer modes below (staff must not overwrite via this field)
+
         # Officer cannot change the assigned officer
         if user.role == "officer" and "officer" in data:
             data = {k: v for k, v in data.items() if k != "officer"}
@@ -319,14 +373,60 @@ class ScheduleUpdateView(generics.UpdateAPIView):
                     {"officer": ["You can only assign officers in your department."]},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
+
+        update_fields = []
         for attr, value in data.items():
-            setattr(instance, attr, value)
-        instance.save(update_fields=[f for f in data.keys() if hasattr(instance, f)])
-        instance.refresh_from_db()
+            if hasattr(instance, attr):
+                setattr(instance, attr, value)
+                update_fields.append(attr)
+
+        if mode in ("officer_proposed", "officer_accepted"):
+            instance.edit_reason = edit_reason_in[:1000]
+            update_fields.append("edit_reason")
+
+        if mode == "officer_accepted":
+            instance.status = Schedule.Status.PROPOSED
+            instance.approved_by = None
+            instance.rejection_reason = ""
+            update_fields.extend(["status", "approved_by", "rejection_reason"])
+
+        # Deduplicate update_fields
+        update_fields = list(dict.fromkeys(update_fields))
+        instance.save(update_fields=update_fields if update_fields else None)
+
+        if mode == "officer_accepted":
+            from django.contrib.auth import get_user_model
+            from django.utils.formats import date_format
+
+            from notifications.services import notify_user
+
+            User = get_user_model()
+            schedule = instance
+            if getattr(schedule.officer, "region_id_id", None):
+                supervisors_same_region = User.objects.filter(
+                    role=User.Role.SUPERVISOR, region_id_id=schedule.officer.region_id_id
+                ).exclude(pk=user.pk)
+            else:
+                supervisors_same_region = User.objects.none()
+            admins = User.objects.filter(role=User.Role.ADMIN)
+            farmer_name = schedule.farmer.name if schedule.farmer_id else "No specific farmer"
+            date_str = date_format(schedule.scheduled_date, use_l10n=True)
+            message = (
+                f"{user.email} requested a change to an accepted schedule (now pending approval). "
+                f"Date: {date_str}. Farmer: {farmer_name}. Reason: {edit_reason_in[:500] or '—'}"
+            )
+            for recipient in list(supervisors_same_region) + list(admins):
+                notify_user(
+                    recipient,
+                    title="Schedule change pending approval",
+                    message=message,
+                    channels=["in_app", "email", "sms", "push"],
+                    action_data={
+                        "screen": "edit-schedule",
+                        "scheduleId": str(schedule.id),
+                    },
+                )
+
         instance = Schedule.objects.select_related("officer", "farmer", "farm", "created_by", "approved_by").get(pk=instance.pk)
-        logger.info(
-            "PATCH /api/schedules/%s by user=%s",
-            instance.id,
-            user.id,
-        )
+        logger.info("PATCH /api/schedules/%s by user=%s mode=%s", instance.id, user.id, mode)
         return Response(ScheduleSerializer(instance).data)
