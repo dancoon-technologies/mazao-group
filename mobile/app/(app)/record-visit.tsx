@@ -112,7 +112,6 @@ export default function RecordVisitScreen() {
   const [farmerMenuOpen, setFarmerMenuOpen] = useState(false);
   const [farmModalOpen, setFarmModalOpen] = useState(false);
   const [activityTypesModalOpen, setActivityTypesModalOpen] = useState(false);
-  const [accordionExpanded, setAccordionExpanded] = useState(false);
   const [locationLoading, setLocationLoading] = useState(false);
   const [notes, setNotes] = useState('');
   const [step3Values, setStep3Values] = useState<Step3Values>({});
@@ -1475,8 +1474,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
   },
   cameraModalHint: { color: '#fff', marginTop: 12 },
-  accordion: { marginTop: 4 },
-  accordionInner: { paddingHorizontal: 12, paddingBottom: 12 },
   errorBlock: { marginVertical: 4 },
   actionsSection: { paddingTop: 12, paddingBottom: 4 },
   nextBtn: { marginBottom: 8 },

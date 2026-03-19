@@ -1,7 +1,7 @@
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Text } from 'react-native-paper';
-import { colors, radius, spacing, typography } from '@/constants/theme';
+import { colors, radius, spacing } from '@/constants/theme';
 
 export type BadgeStatus = 'verified' | 'pending' | 'rejected' | 'proposed' | 'accepted';
 
@@ -44,7 +44,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   text: {
-    ...typography.caption,
+    fontSize: 12,
+    lineHeight: 16,
     fontWeight: '600',
   },
 });

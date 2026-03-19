@@ -1,6 +1,6 @@
 /**
  * Mazao Field Officer App — Design tokens (Figma-aligned).
- * 4pt grid, Inter-compatible typography, spec colors.
+ * 4pt grid, spec colors, shared layout tokens.
  */
 
 // --- Spacing (4pt system: 4/8/12/16/20/24/32)
@@ -56,23 +56,6 @@ export const colors = {
   surfaceVariant: '#F3F4F6',
 } as const;
 
-/** Light/dark theme structure for components that need scheme-specific colors (e.g. Collapsible, useThemeColor). */
-export const Colors = {
-  light: { icon: colors.gray900, text: colors.gray900, background: colors.white },
-  dark: { icon: colors.gray100, text: colors.gray100, background: colors.gray900 },
-} as const;
-
-// --- Typography (Inter / system)
-export const typography = {
-  headingXL: { fontSize: 24, fontWeight: '700' as const, lineHeight: 32 },
-  headingL: { fontSize: 20, fontWeight: '600' as const, lineHeight: 28 },
-  headingM: { fontSize: 18, fontWeight: '600' as const, lineHeight: 24 },
-  bodyL: { fontSize: 16, fontWeight: '400' as const, lineHeight: 24 },
-  bodyM: { fontSize: 14, fontWeight: '400' as const, lineHeight: 20 },
-  caption: { fontSize: 12, fontWeight: '500' as const, lineHeight: 16 },
-  button: { fontSize: 16, fontWeight: '600' as const, lineHeight: 24 },
-} as const;
-
 // --- Card (shared look: rounded, light border, soft shadow)
 export const cardStyle = {
   backgroundColor: colors.white,
@@ -114,15 +97,6 @@ export const formHeaderHeight = 52;
 
 /** Height of Appbar.Header. Use with insets.top for keyboardVerticalOffset on screens with Appbar. */
 export const appbarHeight = 56;
-
-/** Min touch target (accessibility) */
-export const minTouchTarget = 48;
-
-/** Button height (spec) */
-export const buttonHeight = 2;
-
-/** Input height (spec) */
-export const inputHeight = 56;
 
 /** Visit location: default max distance (m) when server settings not loaded. */
 export const DEFAULT_MAX_DISTANCE_METERS = 100;
