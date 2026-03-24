@@ -12,18 +12,13 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import NetInfo from '@react-native-community/netinfo';
 import { useCallback, useEffect, useState } from 'react';
 import {
-  ActivityIndicator,
-  Appbar,
-  Banner,
-  Button,
-  IconButton,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
   StyleSheet,
   View,
 } from 'react-native';
-import { Text, TextInput } from 'react-native-paper';
+import { ActivityIndicator, Appbar, Banner, Button, IconButton, Text, TextInput } from 'react-native-paper';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 interface StopEntry {
@@ -381,15 +376,15 @@ export default function RouteFormScreen() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
-  appbar: { backgroundColor: colors.surface },
+  appbar: { backgroundColor: colors.background },
   container: { flex: 1 },
   scroll: { flex: 1 },
   content: { paddingHorizontal: spacing.lg, paddingTop: spacing.md },
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  banner: { backgroundColor: colors.errorContainer },
-  dateLabel: { marginBottom: spacing.md, fontWeight: '700', color: colors.gray800 },
+  banner: { backgroundColor: colors.error },
+  dateLabel: { marginBottom: spacing.md, fontWeight: '700', color: colors.gray900 },
   fieldLabel: { marginTop: spacing.md, marginBottom: spacing.xs, color: colors.gray700 },
-  hint: { color: colors.gray600 ?? colors.gray700, marginBottom: spacing.sm },
+  hint: { color: colors.gray900, marginBottom: spacing.sm },
   input: { marginBottom: spacing.sm },
   selectBtn: { marginBottom: spacing.sm },
   stopRow: { flexDirection: 'row', alignItems: 'center', marginBottom: spacing.xs },
