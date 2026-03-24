@@ -17,6 +17,7 @@ from django.utils import timezone
 from datetime import timedelta
 
 from schedules.models import Schedule
+from routes.models import Route
 
 from .models import Product, Visit, VisitProduct
 from .utils import (
@@ -569,6 +570,13 @@ class VisitProductLinesAPITests(TestCase):
             scheduled_date=timezone.now().date(),
             status=Schedule.Status.ACCEPTED,
         )
+        self.route = Route.objects.create(
+            officer=self.officer,
+            scheduled_date=timezone.now().date(),
+            name="Route A",
+            activity_types=["farm_to_farm_visits"],
+            notes="",
+        )
         self.product = Product.objects.create(
             department=dept,
             name="Seeds A",
@@ -638,3 +646,35 @@ class VisitProductLinesAPITests(TestCase):
         # Serializer returns Decimal as string (e.g. "5.000" with decimal_places=3)
         self.assertEqual(float(lines[0]["quantity_sold"]), 5)
         self.assertEqual(float(lines[0]["quantity_given"]), 1)
+
+    def test_create_route_only_visit_with_product_lines(self):
+        """
+        Route-based visit should work without schedule_id and still persist product_lines.
+        Guards mobile flow: record from weekly route stop.
+        """
+        token = self._login("officer@test.com", "officer123")
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
+        product_lines = [
+            {"product_id": str(self.product.pk), "quantity_sold": 7, "quantity_given": 3},
+        ]
+        data = {
+            "farmer_id": str(self.farmer.pk),
+            "route_id": str(self.route.pk),
+            "latitude": -6.0,
+            "longitude": 39.0,
+            "notes": "Route-only visit with sales",
+            "product_lines": json.dumps(product_lines),
+        }
+        photo = make_jpeg_file()
+        r = self.client.post("/api/visits/", {**data, "photo": photo}, format="multipart")
+        self.assertEqual(r.status_code, status.HTTP_201_CREATED, msg=r.json())
+        self.assertEqual(Visit.objects.count(), 1)
+        self.assertEqual(VisitProduct.objects.count(), 1)
+        visit = Visit.objects.first()
+        self.assertIsNotNone(visit)
+        self.assertEqual(str(visit.route_id), str(self.route.pk))
+        self.assertIsNone(visit.schedule_id)
+        self.assertIn("product_lines", r.json())
+        self.assertEqual(len(r.json()["product_lines"]), 1)
+        self.assertEqual(float(r.json()["product_lines"][0]["quantity_sold"]), 7)
+        self.assertEqual(float(r.json()["product_lines"][0]["quantity_given"]), 3)

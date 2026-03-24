@@ -144,7 +144,7 @@ class RouteUpdateSerializer(serializers.ModelSerializer):
 
 
 class RouteReportSerializer(serializers.ModelSerializer):
-    route_id = serializers.UUIDField(source="route_id", read_only=True)
+    route_id = serializers.UUIDField(read_only=True)
 
     class Meta:
         model = RouteReport
