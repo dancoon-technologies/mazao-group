@@ -190,10 +190,14 @@ export default function ProposeScheduleScreen() {
     (date: string, routeId?: string) => {
       router.push({
         pathname: '/(app)/route-form',
-        params: { date, ...(routeId ? { routeId } : {}) },
+        params: {
+          date,
+          ...(assigner && selectedOfficerId ? { officerId: selectedOfficerId } : {}),
+          ...(routeId ? { routeId } : {}),
+        },
       } as never);
     },
-    [router]
+    [router, assigner, selectedOfficerId]
   );
 
   useEffect(() => {

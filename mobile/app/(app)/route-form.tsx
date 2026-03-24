@@ -5,6 +5,8 @@ import { SelectFarmModal } from '@/components/SelectFarmModal';
 import { appbarHeight, colors, scrollPaddingKeyboard, spacing } from '@/constants/theme';
 import { getFarmers as getFarmersDb, getFarms as getFarmsDb } from '@/database';
 import { farmerRowToFarmer, farmRowToFarm } from '@/lib/offline-helpers';
+import { useAuth } from '@/contexts/AuthContext';
+import { DEFAULT_ACTIVITY_TYPE } from '@/lib/constants/activityTypes';
 import { api, getLabels, type ActivityTypeOption, type Farm, type Farmer, type Route } from '@/lib/api';
 import { appMeta$ } from '@/store/observable';
 import { useSelector } from '@legendapp/state/react';
@@ -18,7 +20,7 @@ import {
   StyleSheet,
   View,
 } from 'react-native';
-import { ActivityIndicator, Appbar, Banner, Button, IconButton, Text, TextInput } from 'react-native-paper';
+import { ActivityIndicator, Appbar, Banner, Button, HelperText, IconButton, Text, TextInput } from 'react-native-paper';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 interface StopEntry {
@@ -39,13 +41,16 @@ function formatDate(iso: string): string {
 export default function RouteFormScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const params = useLocalSearchParams<{ date: string; routeId?: string }>();
+  const params = useLocalSearchParams<{ date: string; routeId?: string; officerId?: string }>();
   const date = (params.date ?? '').trim();
   const routeId = params.routeId;
+  const officerIdParam = typeof params.officerId === 'string' ? params.officerId : undefined;
+  const { role } = useAuth();
+  const assigner = role === 'admin' || role === 'supervisor';
 
   const [route, setRoute] = useState<Route | null>(null);
   const [name, setName] = useState('');
-  const [activityTypes, setActivityTypes] = useState<string[]>([]);
+  const [activityTypes, setActivityTypes] = useState<string[]>([DEFAULT_ACTIVITY_TYPE]);
   const [notes, setNotes] = useState('');
   const [stops, setStops] = useState<StopEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -66,7 +71,7 @@ export default function RouteFormScreen() {
     if (!routeId) {
       setRoute(null);
       setName('');
-      setActivityTypes([]);
+      setActivityTypes([DEFAULT_ACTIVITY_TYPE]);
       setNotes('');
       setStops([]);
       setLoading(false);
@@ -78,7 +83,9 @@ export default function RouteFormScreen() {
       if (found) {
         setRoute(found);
         setName(found.name ?? '');
-        setActivityTypes(found.activity_types ?? []);
+        setActivityTypes(
+          found.activity_types?.length ? found.activity_types : [DEFAULT_ACTIVITY_TYPE]
+        );
         setNotes(found.notes ?? '');
         setStops(
           (found.stops ?? []).map((s) => ({
@@ -200,6 +207,15 @@ export default function RouteFormScreen() {
       setError('Invalid date.');
       return;
     }
+    if (activityTypes.length === 0) {
+      setError('Select at least one activity type (tap Select activities).');
+      return;
+    }
+    const incompleteStop = stops.find((s) => !String(s.farmer_id ?? '').trim());
+    if (incompleteStop) {
+      setError('Each stop must have a customer. Remove incomplete stops or finish adding them.');
+      return;
+    }
     setSaving(true);
     setError('');
     try {
@@ -214,7 +230,10 @@ export default function RouteFormScreen() {
         await api.updateRoute(routeId, payload);
         router.back();
       } else {
-        await api.createRoute(payload);
+        await api.createRoute({
+          ...payload,
+          ...(assigner && officerIdParam ? { officer: officerIdParam } : {}),
+        });
         router.back();
       }
     } catch (e) {
@@ -300,10 +319,18 @@ export default function RouteFormScreen() {
             style={styles.input}
           />
 
-          <Text variant="labelMedium" style={styles.fieldLabel}>Activity types</Text>
+          <Text variant="labelMedium" style={styles.fieldLabel}>Activity types *</Text>
+          <Text variant="bodySmall" style={styles.hint}>
+            Applies to the whole route for this day. Defaults to one activity; change if needed.
+          </Text>
           <Button mode="outlined" onPress={() => setActivityModalOpen(true)} style={styles.selectBtn}>
             {activityTypes.length === 0 ? 'Select activities' : `${activityTypes.length} selected`}
           </Button>
+          {activityTypes.length === 0 ? (
+            <HelperText type="error" visible padding="normal">
+              Choose at least one activity type.
+            </HelperText>
+          ) : null}
 
           <Text variant="labelMedium" style={styles.fieldLabel}>Notes (optional)</Text>
           <TextInput

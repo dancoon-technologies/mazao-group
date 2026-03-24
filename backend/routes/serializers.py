@@ -30,7 +30,13 @@ class RouteStopSerializer(serializers.ModelSerializer):
 
 
 class RouteStopCreateSerializer(serializers.ModelSerializer):
-    farmer_id = serializers.UUIDField(write_only=True)
+    farmer_id = serializers.UUIDField(
+        write_only=True,
+        error_messages={
+            "required": "Each stop must include a customer (farmer or stockist).",
+            "null": "Each stop must include a customer (farmer or stockist).",
+        },
+    )
     farm_id = serializers.UUIDField(write_only=True, required=False, allow_null=True)
 
     class Meta:
@@ -96,6 +102,15 @@ class RouteCreateSerializer(serializers.ModelSerializer):
         allow_null=True,
     )
     stops = RouteStopCreateSerializer(many=True, required=False, default=list)
+    # Explicit list/char fields so empty activity_types and blank name/notes are never treated as "required".
+    activity_types = serializers.ListField(
+        child=serializers.CharField(max_length=80),
+        required=False,
+        allow_empty=True,
+        default=list,
+    )
+    name = serializers.CharField(required=False, allow_blank=True, default="")
+    notes = serializers.CharField(required=False, allow_blank=True, default="")
 
     class Meta:
         model = Route
@@ -121,6 +136,13 @@ class RouteUpdateSerializer(serializers.ModelSerializer):
     """Update name, activity_types, notes. Stops updated via separate endpoint or replace list."""
 
     stops = RouteStopCreateSerializer(many=True, required=False)
+    activity_types = serializers.ListField(
+        child=serializers.CharField(max_length=80),
+        required=False,
+        allow_empty=True,
+    )
+    name = serializers.CharField(required=False, allow_blank=True)
+    notes = serializers.CharField(required=False, allow_blank=True)
 
     class Meta:
         model = Route

@@ -52,8 +52,6 @@ export interface ValidateRecordVisitResult {
  */
 export function validateRecordVisit(input: ValidateRecordVisitInput): ValidateRecordVisitResult {
   const {
-    scheduleIdForSubmit,
-    routeIdForSubmit,
     mustSelectSchedule,
     acceptedSchedulesLength,
     selectedFarmerId,
@@ -80,9 +78,7 @@ export function validateRecordVisit(input: ValidateRecordVisitInput): ValidateRe
           : `Select a planned visit (accepted schedule) with date today or in the past.`,
     };
   }
-  if (!scheduleIdForSubmit && !routeIdForSubmit) {
-    return { valid: false, error: 'Select a schedule or a customer (from your route or list).' };
-  }
+  // Schedule and route are optional: backend allows farmer-only visits (unplanned field stop).
   if (!selectedFarmerId || !location) {
     return { valid: false, error: `Select ${partnerLabel.toLowerCase()} and ensure location is available.` };
   }

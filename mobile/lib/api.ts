@@ -299,6 +299,85 @@ async function refreshAccessToken(): Promise<{ access: string | null; sessionErr
   return { access: data.access };
 }
 
+/** Human-readable labels for DRF field keys (nested errors, routes, visits, etc.). */
+const DRF_FIELD_LABELS: Record<string, string> = {
+  officer: 'Officer',
+  scheduled_date: 'Route date',
+  name: 'Route name',
+  activity_types: 'Activity types',
+  notes: 'Notes',
+  stops: 'Stops',
+  farmer_id: 'Customer',
+  farm_id: 'Farm or outlet',
+  order: 'Stop order',
+  non_field_errors: 'Error',
+  detail: 'Error',
+};
+
+/**
+ * Flatten DRF validation errors (including nested `stops: [{ farmer_id: [...] }]`) into readable sentences.
+ */
+function formatDrfValidationErrors(error: unknown): string | null {
+  if (error == null || typeof error !== 'object' || Array.isArray(error)) return null;
+  const o = error as Record<string, unknown>;
+  if (typeof o.detail === 'string') return o.detail;
+  if (Array.isArray(o.detail) && typeof o.detail[0] === 'string') return o.detail.join(' ');
+
+  const parts: string[] = [];
+
+  function label(key: string): string {
+    return DRF_FIELD_LABELS[key] ?? key.replace(/_/g, ' ');
+  }
+
+  function appendMessages(prefix: string, msgs: unknown): void {
+    if (!Array.isArray(msgs)) return;
+    for (const m of msgs) {
+      if (typeof m === 'string' && m.trim()) {
+        parts.push(prefix ? `${prefix}: ${m}` : m);
+      }
+    }
+  }
+
+  function walk(prefix: string, key: string, value: unknown): void {
+    const base = prefix ? `${prefix} — ${label(key)}` : label(key);
+    if (value == null) return;
+    if (typeof value === 'string') {
+      parts.push(prefix ? `${prefix}: ${value}` : value);
+      return;
+    }
+    if (Array.isArray(value)) {
+      if (value.length === 0) return;
+      if (typeof value[0] === 'string') {
+        appendMessages(base, value);
+        return;
+      }
+      if (typeof value[0] === 'object' && value[0] !== null && !Array.isArray(value[0])) {
+        value.forEach((item, i) => {
+          if (item && typeof item === 'object' && !Array.isArray(item)) {
+            const stopPrefix = key === 'stops' ? `Stop ${i + 1}` : `${label(key)} ${i + 1}`;
+            for (const [k, v] of Object.entries(item as Record<string, unknown>)) {
+              walk(stopPrefix, k, v);
+            }
+          }
+        });
+        return;
+      }
+    }
+    if (typeof value === 'object' && !Array.isArray(value)) {
+      for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+        walk(base, k, v);
+      }
+    }
+  }
+
+  for (const [key, value] of Object.entries(o)) {
+    if (key === 'detail') continue;
+    walk('', key, value);
+  }
+
+  return parts.length > 0 ? parts.join(' ') : null;
+}
+
 /** Extract first user-facing message from DRF-style error body (detail, or any key with string[]). */
 function getApiErrorMessage(error: unknown): string | null {
   if (error == null || typeof error !== 'object') return null;
@@ -342,7 +421,10 @@ async function request<T>(
   }
   if (!res.ok) {
     const error = await res.json().catch(() => ({}));
-    const errMsg = getApiErrorMessage(error) || `Request failed (${res.status})`;
+    const errMsg =
+      (res.status === 400 ? formatDrfValidationErrors(error) : null) ||
+      getApiErrorMessage(error) ||
+      `Request failed (${res.status})`;
     logger.warn(`API ${path} ${res.status}: ${errMsg}`);
     throw new Error(errMsg);
   }
@@ -505,6 +587,8 @@ export const api = {
 
   async createRoute(body: {
     scheduled_date: string;
+    /** When admin/supervisor plans for another officer (weekly routes). */
+    officer?: string | null;
     name?: string;
     activity_types?: string[];
     notes?: string;
@@ -521,12 +605,21 @@ export const api = {
         order: s.order ?? i,
       })),
     };
+    if (body.officer != null && body.officer !== '') {
+      payload.officer = body.officer;
+    }
     return request<Route>('/routes/', { method: 'POST', body: JSON.stringify(payload) });
   },
 
   async updateRoute(
     id: string,
-    body: { scheduled_date?: string; name?: string; activity_types?: string[]; notes?: string; stops?: { farmer_id: string; farm_id?: string | null; order?: number }[] }
+    body: {
+      scheduled_date?: string;
+      name?: string;
+      activity_types?: string[];
+      notes?: string;
+      stops?: { farmer_id: string; farm_id?: string | null; order?: number }[];
+    }
   ) {
     const payload: Record<string, unknown> = {};
     if (body.scheduled_date != null) payload.scheduled_date = String(body.scheduled_date).trim();

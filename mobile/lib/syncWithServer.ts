@@ -67,11 +67,6 @@ async function pushQueue(accessToken: string): Promise<{ ok: boolean; error?: st
     try {
       const payload = JSON.parse(item.payload) as Record<string, unknown>
       if (item.entity === 'visit') {
-        if (!payload.schedule_id && !payload.route_id) {
-          logger.warn('pushQueue: skipping visit without schedule_id or route_id; marking as synced', item.id)
-          pushedIds.push(item.id)
-          continue
-        }
         const photoUris = (payload.photo_uris as string[] | undefined) ?? (payload.photo_uri ? [payload.photo_uri as string] : [])
         if (photoUris.length === 0) {
           logger.warn('pushQueue: skipping legacy visit without photos; marking as synced', item.id)
