@@ -217,7 +217,7 @@ export default function VisitDetailScreen() {
                 {visit.pests_diseases ? (<View><Text variant="labelSmall" style={styles.fieldLabel}>Pests/Diseases</Text><Text variant="bodyMedium" style={styles.fieldValue}>{visit.pests_diseases}</Text></View>) : null}
                 {visit.order_value != null ? (<View><Text variant="labelSmall" style={styles.fieldLabel}>Order value</Text><Text variant="bodyMedium" style={styles.fieldValue}>{String(visit.order_value)}</Text></View>) : null}
                 {visit.harvest_kgs != null ? (<View><Text variant="labelSmall" style={styles.fieldLabel}>Harvest (kg)</Text><Text variant="bodyMedium" style={styles.fieldValue}>{String(visit.harvest_kgs)}</Text></View>) : null}
-                {visit.farmers_feedback ? (<View><Text variant="labelSmall" style={styles.fieldLabel}>{labels.partner}'s feedback</Text><Text variant="bodyMedium" style={styles.fieldValue}>{visit.farmers_feedback}</Text></View>) : null}
+                {visit.farmers_feedback ? (<View><Text variant="labelSmall" style={styles.fieldLabel}>{labels.partner}&apos;s feedback</Text><Text variant="bodyMedium" style={styles.fieldValue}>{visit.farmers_feedback}</Text></View>) : null}
               </View>
             ) : null}
             {!visit.notes && !visit.crop_stage && visit.germination_percent == null && !visit.survival_rate && !visit.pests_diseases && visit.order_value == null && visit.harvest_kgs == null && !visit.farmers_feedback && (

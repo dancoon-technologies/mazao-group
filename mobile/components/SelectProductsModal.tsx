@@ -154,7 +154,7 @@ export function SelectProductsModal({
               search.trim() ? (
                 <View style={styles.empty}>
                   <Text variant="bodySmall" style={styles.emptyText}>
-                    No products match "{search.trim()}"
+                    No products match &quot;{search.trim()}&quot;
                   </Text>
                 </View>
               ) : null

@@ -1,7 +1,7 @@
 "use client";
 
 import { Paper, Table, Text, Pagination, Group } from "@mantine/core";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import type { ReactNode } from "react";
 import { EmptyState } from "./EmptyState";
 
@@ -40,12 +40,8 @@ export function DataTable<T extends object>({
   const size = pageSize > 0 ? pageSize : data.length || 1;
   const totalPages = Math.ceil(data.length / size);
   const [page, setPage] = useState(1);
-
-  useEffect(() => {
-    if (page > totalPages && totalPages > 0) setPage(1);
-  }, [data.length, size, totalPages, page]);
-
-  const start = (page - 1) * size;
+  const safePage = totalPages > 0 ? Math.min(page, totalPages) : 1;
+  const start = (safePage - 1) * size;
   const paginatedData = pageSize > 0 ? data.slice(start, start + size) : data;
 
   return (
@@ -91,7 +87,7 @@ export function DataTable<T extends object>({
           </Text>
           <Pagination
             total={totalPages}
-            value={page}
+            value={safePage}
             onChange={setPage}
             size="sm"
             withEdges

@@ -93,6 +93,7 @@ export default function ProposeScheduleScreen() {
   const [routesWeek, setRoutesWeek] = useState<Route[]>([]);
   const [routesLoading, setRoutesLoading] = useState(false);
   const [routesRefreshing, setRoutesRefreshing] = useState(false);
+  const [routesError, setRoutesError] = useState('');
 
   const labels = useSelector(() => getLabels(appMeta$.cachedOptions.get()));
   const partnerTypeLabel = partnerType === 'stockist' ? 'Stockist' : 'Farmer';
@@ -104,6 +105,16 @@ export default function ProposeScheduleScreen() {
     return farmers.filter((f) => Boolean(f.is_stockist) === isStockist);
   }, [farmers, partnerType]);
   const assigner = isAssigner(role);
+
+  const showSnackbar = useCallback((type: 'success' | 'error', text: string) => {
+    setSnackbarMsg({ type, text });
+    setSnackbarVisible(true);
+  }, []);
+
+  const dismissSnackbar = useCallback(() => {
+    setSnackbarVisible(false);
+    setSnackbarMsg(null);
+  }, []);
 
   const weekStart = useMemo(() => {
     const monday = getWeekStartMon(new Date());
@@ -132,6 +143,7 @@ export default function ProposeScheduleScreen() {
       if (planMode !== 'weekly') return;
       if (assigner && !selectedOfficerId) {
         setRoutesWeek([]);
+        setRoutesError('');
         setRoutesLoading(false);
         setRoutesRefreshing(false);
         return;
@@ -139,24 +151,36 @@ export default function ProposeScheduleScreen() {
       if (isPullRefresh) setRoutesRefreshing(true);
       else setRoutesLoading(true);
       try {
+        setRoutesError('');
         const list = await api.getRoutes({
           week_start: weekStart,
           ...(assigner && selectedOfficerId ? { officer: selectedOfficerId } : {}),
         });
         setRoutesWeek(Array.isArray(list) ? list : []);
-      } catch {
+      } catch (e) {
         setRoutesWeek([]);
+        const msg = e instanceof Error ? e.message : 'Failed to load weekly routes.';
+        setRoutesError(msg);
+        showSnackbar('error', msg);
       } finally {
         setRoutesLoading(false);
         setRoutesRefreshing(false);
       }
     },
-    [planMode, weekStart, assigner, selectedOfficerId]
+    [planMode, weekStart, assigner, selectedOfficerId, showSnackbar]
   );
 
   useEffect(() => {
     if (searchParams.planMode === 'weekly') setPlanMode('weekly');
   }, [searchParams.planMode]);
+
+  useEffect(() => {
+    if (planMode !== 'weekly') return;
+    if (!assigner) return;
+    if (selectedOfficerId) return;
+    if (officers.length === 0) return;
+    setSelectedOfficerId(officers[0].id);
+  }, [planMode, assigner, selectedOfficerId, officers]);
 
   useEffect(() => {
     loadWeeklyRoutes(false);
@@ -175,16 +199,6 @@ export default function ProposeScheduleScreen() {
   useEffect(() => {
     const sub = NetInfo.addEventListener((state) => setIsOnline(state.isConnected ?? false));
     return () => sub();
-  }, []);
-
-  const showSnackbar = useCallback((type: 'success' | 'error', text: string) => {
-    setSnackbarMsg({ type, text });
-    setSnackbarVisible(true);
-  }, []);
-
-  const dismissSnackbar = useCallback(() => {
-    setSnackbarVisible(false);
-    setSnackbarMsg(null);
   }, []);
 
   const loadFromDb = useCallback(async () => {
@@ -595,7 +609,14 @@ export default function ProposeScheduleScreen() {
                   <Text variant="bodyMedium" style={styles.weekHint}>
                     Tap a day to add or edit that day&apos;s route (customers to visit that day).
                   </Text>
-                  {routesLoading ? (
+                  {routesError ? (
+                    <View style={styles.weekErrorBox}>
+                      <Text variant="bodySmall" style={styles.weekErrorText}>{routesError}</Text>
+                      <Button mode="outlined" compact onPress={() => void loadWeeklyRoutes(false)}>
+                        Retry
+                      </Button>
+                    </View>
+                  ) : routesLoading ? (
                     <ActivityIndicator size="large" style={styles.weekLoader} />
                   ) : (
                     weekDays.map((date) => {
@@ -717,4 +738,14 @@ const styles = StyleSheet.create({
   weekDateHeader: { color: colors.gray900, fontWeight: '700' },
   weekRouteSummary: { color: colors.gray700, marginTop: 2 },
   weekNoRoute: { color: colors.gray500, marginTop: 2 },
+  weekErrorBox: {
+    marginBottom: spacing.md,
+    padding: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.error,
+    borderRadius: 8,
+    backgroundColor: colors.errorLight,
+    gap: spacing.sm,
+  },
+  weekErrorText: { color: colors.error },
 });

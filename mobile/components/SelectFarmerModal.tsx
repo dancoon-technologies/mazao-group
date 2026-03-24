@@ -160,7 +160,7 @@ export function SelectFarmerModal({
               search.trim() ? (
                 <View style={styles.empty}>
                   <Text variant="bodySmall" style={styles.emptyText}>
-                    No {noMatchLabel} match "{search.trim()}"
+                    No {noMatchLabel} match &quot;{search.trim()}&quot;
                   </Text>
                 </View>
               ) : null

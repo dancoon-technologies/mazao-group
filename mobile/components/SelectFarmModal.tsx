@@ -162,7 +162,7 @@ export function SelectFarmModal({
               search.trim() ? (
                 <View style={styles.empty}>
                   <Text variant="bodySmall" style={styles.emptyText}>
-                    No farms match "{search.trim()}"
+                    No farms match &quot;{search.trim()}&quot;
                   </Text>
                 </View>
               ) : null

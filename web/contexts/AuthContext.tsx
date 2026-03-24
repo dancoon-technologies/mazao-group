@@ -6,7 +6,6 @@ import {
   useContext,
   useEffect,
   useMemo,
-  useRef,
   useState,
 } from "react";
 import { api, setOnSessionExpired } from "@/lib/api";
@@ -46,12 +45,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     ...loggedOutState,
     isLoading: true,
   });
-  const setStateRef = useRef(setState);
-  setStateRef.current = setState;
 
   useEffect(() => {
     setOnSessionExpired(() => {
-      setStateRef.current(loggedOutState);
+      setState(loggedOutState);
     });
     return () => setOnSessionExpired(null);
   }, []);
