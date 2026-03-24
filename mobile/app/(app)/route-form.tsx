@@ -45,7 +45,7 @@ export default function RouteFormScreen() {
   const date = (params.date ?? '').trim();
   const routeId = params.routeId;
   const officerIdParam = typeof params.officerId === 'string' ? params.officerId : undefined;
-  const { role } = useAuth();
+  const { userId, role } = useAuth();
   const assigner = role === 'admin' || role === 'supervisor';
 
   const [route, setRoute] = useState<Route | null>(null);
@@ -230,9 +230,12 @@ export default function RouteFormScreen() {
         await api.updateRoute(routeId, payload);
         router.back();
       } else {
+        const officerForCreate = assigner
+          ? (officerIdParam ?? undefined)
+          : (userId ?? undefined);
         await api.createRoute({
           ...payload,
-          ...(assigner && officerIdParam ? { officer: officerIdParam } : {}),
+          ...(officerForCreate ? { officer: officerForCreate } : {}),
         });
         router.back();
       }
@@ -241,7 +244,7 @@ export default function RouteFormScreen() {
     } finally {
       setSaving(false);
     }
-  }, [date, name, activityTypes, notes, stops, routeId, router]);
+  }, [date, name, activityTypes, notes, stops, routeId, router, assigner, officerIdParam, userId]);
 
   const deleteRoute = useCallback(async () => {
     if (!routeId) return;
