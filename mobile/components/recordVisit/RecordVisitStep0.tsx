@@ -14,6 +14,7 @@ export type RecordVisitLabels = { partner: string; location: string };
 
 type Props = {
   todayRoute: Route | null;
+  todayRoutes: Route[];
   acceptedSchedules: Schedule[];
   hasRouteStops: boolean;
   farmers: Farmer[];
@@ -44,6 +45,7 @@ type Props = {
   photoUris: string[];
   submitting: boolean;
   onPickRouteStop: (stop: RouteStop) => void;
+  onPickTodayRoute: (route: Route) => void;
   onAdHocRouteCustomer: () => void;
   onPickSchedule: (s: Schedule) => void;
   onFieldVisitNotFromList: () => void;
@@ -65,6 +67,7 @@ type Props = {
 
 export function RecordVisitStep0({
   todayRoute,
+  todayRoutes,
   acceptedSchedules,
   hasRouteStops,
   farmers,
@@ -95,6 +98,7 @@ export function RecordVisitStep0({
   photoUris,
   submitting,
   onPickRouteStop,
+  onPickTodayRoute,
   onAdHocRouteCustomer,
   onPickSchedule,
   onFieldVisitNotFromList,
@@ -121,6 +125,21 @@ export function RecordVisitStep0({
           <Text variant="bodySmall" style={styles.hint}>
             Tap a planned stop, or record someone you met who was not on the list — still counts toward today&apos;s route.
           </Text>
+          {todayRoutes.length > 1 ? (
+            <View style={styles.scheduleChips}>
+              {todayRoutes.map((r) => (
+                <Chip
+                  key={r.id}
+                  selected={selectedRouteId === r.id}
+                  onPress={() => onPickTodayRoute(r)}
+                  style={styles.scheduleChip}
+                  compact
+                >
+                  {r.notes || r.name || 'Route'} ({r.stops?.length ?? 0})
+                </Chip>
+              ))}
+            </View>
+          ) : null}
           {todayRoute.stops && todayRoute.stops.length > 0 ? (
             <View style={styles.scheduleChips}>
               {todayRoute.stops.map((stop) => (
@@ -140,6 +159,11 @@ export function RecordVisitStep0({
               No stops planned for today — you can still link visits to this route and choose any customer below.
             </Text>
           )}
+          {mustSelectSchedule && acceptedSchedules.length === 0 && !selectedRouteId ? (
+            <HelperText type="error" style={styles.errorHint}>
+              Select a route stop or choose “Customer not on route list”.
+            </HelperText>
+          ) : null}
           <Button
             mode="outlined"
             compact

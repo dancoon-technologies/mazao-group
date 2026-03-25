@@ -92,6 +92,7 @@ export default function RecordVisitScreen() {
           {v.step === 0 && (
             <RecordVisitStep0
               todayRoute={v.todayRoute}
+              todayRoutes={v.todayRoutes}
               acceptedSchedules={v.acceptedSchedules}
               hasRouteStops={v.hasRouteStops}
               farmers={v.farmers}
@@ -122,6 +123,7 @@ export default function RecordVisitScreen() {
               photoUris={v.photoUris}
               submitting={v.submitting}
               onPickRouteStop={v.pickRouteStop}
+              onPickTodayRoute={v.pickTodayRoute}
               onAdHocRouteCustomer={v.adHocRouteCustomer}
               onPickSchedule={v.pickSchedule}
               onFieldVisitNotFromList={v.fieldVisitNotFromList}

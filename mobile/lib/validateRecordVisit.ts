@@ -25,6 +25,7 @@ export interface ValidateRecordVisitInput {
   routeIdForSubmit?: string | undefined;
   mustSelectSchedule: boolean;
   acceptedSchedulesLength: number;
+  hasRouteStops: boolean;
   selectedFarmerId: string | null;
   location: { coords: { latitude: number; longitude: number } } | null;
   photoUrisLength: number;
@@ -54,6 +55,7 @@ export function validateRecordVisit(input: ValidateRecordVisitInput): ValidateRe
   const {
     mustSelectSchedule,
     acceptedSchedulesLength,
+    hasRouteStops,
     selectedFarmerId,
     location,
     photoUrisLength,
@@ -74,7 +76,9 @@ export function validateRecordVisit(input: ValidateRecordVisitInput): ValidateRe
       valid: false,
       error:
         acceptedSchedulesLength === 0
-          ? `You need an accepted schedule for today or a past date to record a visit. Future dates are not allowed.`
+          ? hasRouteStops
+            ? 'Select a route stop for today, or use “Customer not on route list”.'
+            : `You need an accepted schedule for today or a past date to record a visit. Future dates are not allowed.`
           : `Select a planned visit (accepted schedule) with date today or in the past.`,
     };
   }

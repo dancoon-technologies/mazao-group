@@ -61,6 +61,7 @@ export function useRecordVisitScreen() {
   const [selectedScheduleId, setSelectedScheduleId] = useState<string | null>(params.scheduleId ?? null);
   const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null);
   const [selectedRouteStopId, setSelectedRouteStopId] = useState<string | null>(null);
+  const [todayRoutes, setTodayRoutes] = useState<Route[]>([]);
   const [todayRoute, setTodayRoute] = useState<Route | null>(null);
   const [selectedFarmerId, setSelectedFarmerId] = useState<string | null>(params.farmerId ?? null);
   const [selectedFarmId, setSelectedFarmId] = useState<string | null>(null);
@@ -320,6 +321,7 @@ export function useRecordVisitScreen() {
             if (routeIdParam) {
               const r = await api.getRoute(routeIdParam);
               if (cancelled) return;
+              setTodayRoutes([r]);
               setTodayRoute(r);
               setSelectedScheduleId(null);
               setRecordingWithoutPlan(false);
@@ -348,10 +350,14 @@ export function useRecordVisitScreen() {
             const list = await api.getRoutes({ week_start: weekStart });
             if (cancelled) return;
             const today = new Date().toISOString().slice(0, 10);
-            const routeForToday = (list ?? []).find((rt) => rt.scheduled_date === today) ?? null;
-            setTodayRoute(routeForToday);
+            const routeListForToday = (list ?? []).filter((rt) => rt.scheduled_date === today);
+            setTodayRoutes(routeListForToday);
+            setTodayRoute(routeListForToday[0] ?? null);
           } catch {
-            if (!cancelled) setTodayRoute(null);
+            if (!cancelled) {
+              setTodayRoutes([]);
+              setTodayRoute(null);
+            }
           }
         })();
       })();
@@ -496,7 +502,7 @@ export function useRecordVisitScreen() {
     }
   }, []);
 
-  const hasRouteStops = (todayRoute?.stops?.length ?? 0) > 0;
+  const hasRouteStops = todayRoutes.some((r) => (r.stops?.length ?? 0) > 0);
   const mustSelectSchedule =
     !recordingWithoutPlan &&
     (!selectedScheduleId || (selectedSchedule != null && selectedSchedule.status !== 'accepted')) &&
@@ -511,6 +517,7 @@ export function useRecordVisitScreen() {
       routeIdForSubmit,
       mustSelectSchedule,
       acceptedSchedulesLength: acceptedSchedules.length,
+      hasRouteStops,
       selectedFarmerId,
       location,
       photoUrisLength: photoUris.length,
@@ -633,7 +640,8 @@ export function useRecordVisitScreen() {
     !mustSelectSchedule &&
     photoUris.length > 0 &&
     !!location &&
-    (distanceM === null || gpsValid);
+    (distanceM === null || gpsValid) &&
+    !!selectedFarmerId;
 
   const pickRouteStop = useCallback((stop: RouteStop) => {
     const route = todayRoute;
@@ -645,6 +653,16 @@ export function useRecordVisitScreen() {
     setSelectedFarmerId(stop.farmer);
     setSelectedFarmId(stop.farm ?? null);
   }, [todayRoute]);
+
+  const pickTodayRoute = useCallback((route: Route) => {
+    setRecordingWithoutPlan(false);
+    setTodayRoute(route);
+    setSelectedRouteId(route.id);
+    setSelectedRouteStopId(null);
+    setSelectedScheduleId(null);
+    setSelectedFarmerId(null);
+    setSelectedFarmId(null);
+  }, []);
 
   const adHocRouteCustomer = useCallback(() => {
     const route = todayRoute;
@@ -719,6 +737,7 @@ export function useRecordVisitScreen() {
     products,
     visitFormFieldSchema,
     todayRoute,
+    todayRoutes,
     acceptedSchedules,
     hasRouteStops,
     farmers,
@@ -752,6 +771,7 @@ export function useRecordVisitScreen() {
     photoUris,
     submitting,
     pickRouteStop,
+    pickTodayRoute,
     adHocRouteCustomer,
     pickSchedule,
     fieldVisitNotFromList,
