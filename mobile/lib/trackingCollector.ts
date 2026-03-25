@@ -35,9 +35,6 @@ const DEFAULT_INTERVAL_MINUTES = 1;
 /** Only record a new point when the user has moved at least this many meters from the last recorded point. */
 const MIN_MOVEMENT_METERS = 15;
 
-/** Minimum seconds between reports when stationary (avoids duplicate same-place rows and fixes duration). */
-const MIN_INTERVAL_SECONDS = 45;
-
 /** Last position and time we sent (in-memory; also persisted so background task runs see it). */
 let lastEnqueuedLat: number | null = null;
 let lastEnqueuedLon: number | null = null;
@@ -155,14 +152,10 @@ TaskManager.defineTask(LOCATION_TRACKING_TASK, async ({ data, error }) => {
       const dist = (lastEnqueuedLat != null && lastEnqueuedLon != null)
         ? haversineMeters(lastEnqueuedLat, lastEnqueuedLon, lat, lon)
         : Infinity;
-      const secondsSinceLast = lastEnqueuedAt
-        ? (new Date(reportedAt).getTime() - new Date(lastEnqueuedAt).getTime()) / 1000
-        : Infinity;
       const movedEnough = dist >= MIN_MOVEMENT_METERS;
-      const intervalElapsed = secondsSinceLast >= MIN_INTERVAL_SECONDS;
-      if (!movedEnough && !intervalElapsed) {
-        continue;
-      }
+      // To keep the team experience clean and avoid noisy duplicates while users are standing still,
+      // only enqueue when the position changed meaningfully.
+      if (!movedEnough) continue;
       const batteryPercent = await getBatteryPercent();
       const deviceClockOffsetSeconds = await getDeviceClockOffsetSeconds();
       const deviceIntegrity = await getDeviceIntegrityAsync({
@@ -192,7 +185,7 @@ TaskManager.defineTask(LOCATION_TRACKING_TASK, async ({ data, error }) => {
         },
       });
       await saveLastEnqueued(lat, lon, reportedAt);
-      logger.info('Tracking: enqueued location report (change or interval)', { lat, lon, battery: batteryPercent });
+      logger.info('Tracking: enqueued location report (position change)', { lat, lon, battery: batteryPercent });
     } catch (e) {
       logger.warn('Tracking: enqueue failed', e instanceof Error ? e.message : e);
     }
@@ -226,8 +219,8 @@ async function applyWorkingHoursState(): Promise<void> {
         timeInterval: trackingIntervalMs,
         distanceInterval: 0,
         foregroundService: {
-          notificationTitle: 'Mazao tracking',
-          notificationBody: 'Recording your location during field work.',
+          notificationTitle: 'Enable location',
+          notificationBody: 'To improve your field experience, location is used while you work.',
         },
       });
       startSensorSubscription();
