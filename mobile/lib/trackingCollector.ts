@@ -272,7 +272,19 @@ export async function startTracking(config?: TrackingConfig): Promise<void> {
     trackingIntervalMs = DEFAULT_INTERVAL_MINUTES * 60 * 1000;
   }
 
-  const { status: foregroundStatus } = await Location.getForegroundPermissionsAsync();
+  let { status: foregroundStatus } = await Location.getForegroundPermissionsAsync();
+  if (foregroundStatus !== 'granted') {
+    try {
+      const requested = await Location.requestForegroundPermissionsAsync();
+      foregroundStatus = requested.status;
+    } catch (e) {
+      logger.warn(
+        'Tracking: foreground permission request failed',
+        e instanceof Error ? e.message : e
+      );
+      return;
+    }
+  }
   if (foregroundStatus !== 'granted') {
     logger.warn('Tracking: foreground location not granted');
     return;
