@@ -415,7 +415,7 @@ export default function VisitsPage() {
                 (line) =>
                       `${line.product_name ?? "—"}${line.product_unit ? ` (${line.product_unit})` : ""}: ${line.quantity_sold ?? "0"} sold`
               )
-              .join("; ")
+              .join("\n")
           : "";
       return {
         Date: formatDateTime(v.created_at),
