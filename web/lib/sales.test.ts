@@ -157,7 +157,8 @@ describe("groupSalesByVisit", () => {
       partnerDisplay: "John",
       locationDisplay: "North Farm",
     });
-    expect(groups[0].products).toHaveLength(2);
+    // Zero-sold lines are skipped (same rule as flattenVisitsToSales).
+    expect(groups[0].products).toHaveLength(1);
     expect(groups[0].products[0]).toMatchObject({ productName: "Seeds", productUnit: "kg", quantitySold: "10" });
   });
 
