@@ -406,6 +406,38 @@ class VisitAPITests(TestCase):
         self.assertEqual(match.get("accepted_visits_recorded"), 1)
         self.assertEqual(match.get("collections_done"), 1)
 
+    def test_dashboard_staff_ranking_deduplicates_officers(self):
+        """
+        Staff ranking must return one row per officer (not one row per visit).
+        """
+        # Create multiple visits for the same officer within the reporting window.
+        for _ in range(2):
+            Visit.objects.create(
+                officer=self.officer,
+                farmer=self.farmer,
+                latitude=-6.0,
+                longitude=39.0,
+                distance_from_farmer=0,
+                notes="",
+                photo_device_info="test-device",
+                photo_place_name="Test place",
+                photo_taken_at=timezone.now(),
+                verification_status=Visit.VerificationStatus.PENDING,
+                activity_type="order_collection",
+                activity_types=["order_collection"],
+            )
+
+        token = self._login("admin@test.com", "admin123")
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
+        r = self.client.get("/api/dashboard/staff-ranking/?days=30")
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+
+        data = r.json()
+        self.assertTrue(isinstance(data, list))
+        # Only one distinct officer should appear.
+        self.assertEqual(len(data), 1)
+        self.assertEqual(str(data[0].get("officer_id")), str(self.officer.pk))
+
     def test_retrieve_visit_officer_sees_own(self):
         visit = Visit.objects.create(
             officer=self.officer,
