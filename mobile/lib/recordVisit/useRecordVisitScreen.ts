@@ -39,7 +39,13 @@ import {
 export function useRecordVisitScreen() {
   const router = useRouter();
   const { userId } = useAuth();
-  const params = useLocalSearchParams<{ farmerId?: string; scheduleId?: string }>();
+  const params = useLocalSearchParams<{
+    farmerId?: string;
+    farmId?: string;
+    scheduleId?: string;
+    routeId?: string;
+    routeStopId?: string;
+  }>();
   const [permission, requestPermission] = useCameraPermissions();
 
   const [location, setLocation] = useState<Location.LocationObject | null>(null);
@@ -217,6 +223,16 @@ export function useRecordVisitScreen() {
   }, [params.farmerId]);
 
   useEffect(() => {
+    const fid =
+      typeof params.farmId === 'string'
+        ? params.farmId
+        : Array.isArray(params.farmId)
+          ? params.farmId[0]
+          : undefined;
+    if (fid) setSelectedFarmId(fid);
+  }, [params.farmId]);
+
+  useEffect(() => {
     if (!activityTypesModalOpen) {
       setActivityTypesOptionsRefreshing(false);
       return;
@@ -288,7 +304,42 @@ export function useRecordVisitScreen() {
           if (!cancelled) setPlannedSchedules([]);
         }
         (async () => {
+          const routeIdParam =
+            typeof params.routeId === 'string'
+              ? params.routeId
+              : Array.isArray(params.routeId)
+                ? params.routeId[0]
+                : undefined;
+          const routeStopParam =
+            typeof params.routeStopId === 'string'
+              ? params.routeStopId
+              : Array.isArray(params.routeStopId)
+                ? params.routeStopId[0]
+                : undefined;
           try {
+            if (routeIdParam) {
+              const r = await api.getRoute(routeIdParam);
+              if (cancelled) return;
+              setTodayRoute(r);
+              setSelectedScheduleId(null);
+              setRecordingWithoutPlan(false);
+              if (routeStopParam) {
+                const stop = (r.stops ?? []).find((s) => s.id === routeStopParam);
+                if (stop) {
+                  setSelectedRouteId(r.id);
+                  setSelectedRouteStopId(stop.id);
+                  setSelectedFarmerId(stop.farmer);
+                  setSelectedFarmId(stop.farm ?? null);
+                } else {
+                  setSelectedRouteId(r.id);
+                  setSelectedRouteStopId(null);
+                }
+              } else {
+                setSelectedRouteId(r.id);
+                setSelectedRouteStopId(null);
+              }
+              return;
+            }
             const monday = new Date();
             const day = monday.getDay();
             const diff = (day + 6) % 7;
@@ -297,7 +348,7 @@ export function useRecordVisitScreen() {
             const list = await api.getRoutes({ week_start: weekStart });
             if (cancelled) return;
             const today = new Date().toISOString().slice(0, 10);
-            const routeForToday = (list ?? []).find((r) => r.scheduled_date === today) ?? null;
+            const routeForToday = (list ?? []).find((rt) => rt.scheduled_date === today) ?? null;
             setTodayRoute(routeForToday);
           } catch {
             if (!cancelled) setTodayRoute(null);
@@ -305,7 +356,7 @@ export function useRecordVisitScreen() {
         })();
       })();
       return () => { cancelled = true; };
-    }, [params.farmerId, userId, applyOptions])
+    }, [params.farmerId, params.routeId, params.routeStopId, userId, applyOptions])
   );
 
   const acceptedSchedules = useMemo(() => {

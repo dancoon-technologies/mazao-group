@@ -261,7 +261,8 @@ export default function ProposeScheduleScreen() {
       load().then(() => {
         if (id) setSelectedFarmerId(id);
       });
-    }, [searchParams.selectedFarmerId, load])
+      void loadWeeklyRoutes(false);
+    }, [searchParams.selectedFarmerId, load, loadWeeklyRoutes])
   );
 
   useEffect(() => {

@@ -574,7 +574,7 @@ export const api = {
 
   getLocations: () => request<LocationData>('/locations/'),
 
-  /** Routes (weekly plan). Optional week_start=YYYY-MM-DD for Mon–Sat of that week. */
+  /** Routes (weekly plan). Optional week_start=YYYY-MM-DD for Mon–Sat of that week. First page only unless you use getAllRoutes. */
   async getRoutes(params?: { week_start?: string; officer?: string }) {
     const q = new URLSearchParams();
     if (params?.week_start) q.set('week_start', params.week_start);
@@ -583,6 +583,31 @@ export const api = {
     const path = query ? `/routes/?${query}` : '/routes/';
     const data = await request<Route[] | { results: Route[] }>(path);
     return ensureArray(data);
+  },
+
+  async getRoute(id: string) {
+    return request<Route>(`/routes/${id}/`);
+  },
+
+  /** All routes visible to the user (follows pagination until exhausted). */
+  async getAllRoutes(params?: { week_start?: string; officer?: string }) {
+    const all: Route[] = [];
+    let page = 1;
+    type PageResponse = { results?: Route[]; next?: string | null };
+    while (true) {
+      const q = new URLSearchParams();
+      q.set('page', String(page));
+      if (params?.week_start) q.set('week_start', params.week_start);
+      if (params?.officer) q.set('officer', params.officer);
+      const data = await request<Route[] | PageResponse>(`/routes/?${q.toString()}`);
+      const batch = ensureArray(Array.isArray(data) ? data : (data as PageResponse).results);
+      all.push(...batch);
+      const hasNext =
+        !Array.isArray(data) && data != null && typeof data === 'object' && Boolean((data as PageResponse).next);
+      if (!hasNext || batch.length === 0) break;
+      page += 1;
+    }
+    return all;
   },
 
   async createRoute(body: {

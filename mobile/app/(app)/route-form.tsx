@@ -6,13 +6,13 @@ import { appbarHeight, colors, scrollPaddingKeyboard, spacing } from '@/constant
 import { getFarmers as getFarmersDb, getFarms as getFarmsDb } from '@/database';
 import { farmerRowToFarmer, farmRowToFarm } from '@/lib/offline-helpers';
 import { useAuth } from '@/contexts/AuthContext';
-import { DEFAULT_ACTIVITY_TYPE } from '@/lib/constants/activityTypes';
+import { ACTIVITY_TYPES, DEFAULT_ACTIVITY_TYPE } from '@/lib/constants/activityTypes';
 import { api, getLabels, type ActivityTypeOption, type Farm, type Farmer, type Route } from '@/lib/api';
 import { appMeta$ } from '@/store/observable';
 import { useSelector } from '@legendapp/state/react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import NetInfo from '@react-native-community/netinfo';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
@@ -67,6 +67,17 @@ export default function RouteFormScreen() {
   const activityTypeOptions: ActivityTypeOption[] = options?.activity_types ?? [];
   const labels = useSelector(() => getLabels(options));
 
+  const activityTypesButtonLabel = useMemo(() => {
+    if (activityTypes.length === 0) return 'Select activities';
+    return activityTypes
+      .map((v) => {
+        const opt = activityTypeOptions.find((a) => a.value === v && a.is_active !== false);
+        if (opt?.label) return opt.label;
+        return ACTIVITY_TYPES.find((a) => a.value === v)?.label ?? v;
+      })
+      .join(', ');
+  }, [activityTypes, activityTypeOptions]);
+
   const loadRoute = useCallback(async () => {
     if (!routeId) {
       setRoute(null);
@@ -78,28 +89,23 @@ export default function RouteFormScreen() {
       return;
     }
     try {
-      const list = await api.getRoutes({});
-      const found = list.find((r) => r.id === routeId);
-      if (found) {
-        setRoute(found);
-        setName(found.name ?? '');
-        setActivityTypes(
-          found.activity_types?.length ? found.activity_types : [DEFAULT_ACTIVITY_TYPE]
-        );
-        setNotes(found.notes ?? '');
-        setStops(
-          (found.stops ?? []).map((s) => ({
-            farmer_id: s.farmer,
-            farm_id: s.farm,
-            farmer_display_name: s.farmer_display_name ?? '',
-            farm_display_name: s.farm_display_name ?? null,
-          }))
-        );
-      } else {
-        setRoute(null);
-        setError('Route not found.');
-      }
+      const found = await api.getRoute(routeId);
+      setRoute(found);
+      setName(found.name ?? '');
+      setActivityTypes(
+        found.activity_types?.length ? found.activity_types : [DEFAULT_ACTIVITY_TYPE]
+      );
+      setNotes(found.notes ?? '');
+      setStops(
+        (found.stops ?? []).map((s) => ({
+          farmer_id: s.farmer,
+          farm_id: s.farm,
+          farmer_display_name: s.farmer_display_name ?? '',
+          farm_display_name: s.farm_display_name ?? null,
+        }))
+      );
     } catch {
+      setRoute(null);
       setError('Failed to load route.');
     } finally {
       setLoading(false);
@@ -230,12 +236,18 @@ export default function RouteFormScreen() {
         await api.updateRoute(routeId, payload);
         router.back();
       } else {
-        const officerForCreate = assigner
-          ? (officerIdParam ?? undefined)
-          : (userId ?? undefined);
+        const officerForCreate = assigner ? officerIdParam : userId;
+        if (!officerForCreate) {
+          setError(
+            assigner
+              ? 'Select an officer before creating a route.'
+              : 'Could not determine the logged-in officer. Please sign in again.'
+          );
+          return;
+        }
         await api.createRoute({
           ...payload,
-          ...(officerForCreate ? { officer: officerForCreate } : {}),
+          officer: officerForCreate,
         });
         router.back();
       }
@@ -326,8 +338,15 @@ export default function RouteFormScreen() {
           <Text variant="bodySmall" style={styles.hint}>
             Applies to the whole route for this day. Defaults to one activity; change if needed.
           </Text>
-          <Button mode="outlined" onPress={() => setActivityModalOpen(true)} style={styles.selectBtn}>
-            {activityTypes.length === 0 ? 'Select activities' : `${activityTypes.length} selected`}
+          <Button
+            mode="outlined"
+            onPress={() => setActivityModalOpen(true)}
+            style={styles.selectBtn}
+            contentStyle={styles.selectBtnContent}
+          >
+            <Text variant="bodyMedium" style={styles.activityTypesBtnText} numberOfLines={4}>
+              {activityTypesButtonLabel}
+            </Text>
           </Button>
           {activityTypes.length === 0 ? (
             <HelperText type="error" visible padding="normal">
@@ -417,6 +436,8 @@ const styles = StyleSheet.create({
   hint: { color: colors.gray900, marginBottom: spacing.sm },
   input: { marginBottom: spacing.sm },
   selectBtn: { marginBottom: spacing.sm },
+  selectBtnContent: { justifyContent: 'flex-start', paddingVertical: spacing.sm, minHeight: 48 },
+  activityTypesBtnText: { textAlign: 'left', color: colors.gray900 },
   stopRow: { flexDirection: 'row', alignItems: 'center', marginBottom: spacing.xs },
   addStopBtn: { marginTop: spacing.sm, marginBottom: spacing.lg },
   actions: { gap: spacing.md, marginTop: spacing.lg },

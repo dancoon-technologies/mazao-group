@@ -10,7 +10,7 @@ import {
   isScheduleEditable,
 } from "./utils";
 
-function scheduleColumnsBase(partnerLabel: string, locationLabel: string): DataTableColumn<Schedule>[] {
+function scheduleColumnsBase(): DataTableColumn<Schedule>[] {
   return [
   {
     key: "scheduled_date",
@@ -33,7 +33,7 @@ function scheduleColumnsBase(partnerLabel: string, locationLabel: string): DataT
   },
   {
     key: "farmer_display_name",
-    label: partnerLabel,
+    label: "Partner",
     render: (s) => (
       <Text size="sm" c="dimmed">
         {s.farmer_display_name || "—"}
@@ -42,7 +42,7 @@ function scheduleColumnsBase(partnerLabel: string, locationLabel: string): DataT
   },
   {
     key: "farm_display_name",
-    label: locationLabel,
+    label: "Location",
     render: (s) => (
       <Text size="sm" c="dimmed">
         {s.farm_display_name ?? "None"}
@@ -87,9 +87,8 @@ export function getScheduleColumns(
   config: ScheduleColumnsConfig | null,
   labels?: { partner: string; location: string }
 ): DataTableColumn<Schedule>[] {
-  const partnerLabel = labels?.partner ?? "Farmer";
-  const locationLabel = labels?.location ?? "Farm";
-  const base = scheduleColumnsBase(partnerLabel, locationLabel);
+  void labels;
+  const base = scheduleColumnsBase();
   if (!config?.canApprove && !config?.canEditSchedule) {
     return base;
   }

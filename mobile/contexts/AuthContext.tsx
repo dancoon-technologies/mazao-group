@@ -103,47 +103,60 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const mounted = useRef(true);
 
   const checkToken = useCallback(async () => {
-    let access = await SecureStore.getItemAsync(STORAGE_KEYS.ACCESS_TOKEN);
-    if (!mounted.current) return;
-    if (!access) {
-      const { payload } = await getOfflineCredentials();
-      if (payload && mounted.current) {
-        setState(setStateFromCachedPayload(payload));
-      } else {
-        setState(clearAuthState);
-      }
-      return;
-    }
-    if (isTokenExpired(access)) {
-      const refreshed = await api.refreshTokenIfNeeded();
+    try {
+      let access = await SecureStore.getItemAsync(STORAGE_KEYS.ACCESS_TOKEN);
       if (!mounted.current) return;
-      if (!refreshed) {
-        const netState = await NetInfo.fetch();
-        const offline = !(netState.isConnected ?? false);
+      if (!access) {
         const { payload } = await getOfflineCredentials();
-        if (offline && payload && mounted.current) {
+        if (payload && mounted.current) {
           setState(setStateFromCachedPayload(payload));
         } else {
           setState(clearAuthState);
         }
         return;
       }
-      access = await SecureStore.getItemAsync(STORAGE_KEYS.ACCESS_TOKEN);
-      if (!access) {
-        setState(clearAuthState);
-        return;
+      if (isTokenExpired(access)) {
+        const refreshed = await api.refreshTokenIfNeeded();
+        if (!mounted.current) return;
+        if (!refreshed) {
+          const netState = await NetInfo.fetch();
+          const offline = !(netState.isConnected ?? false);
+          const { payload } = await getOfflineCredentials();
+          if (offline && payload && mounted.current) {
+            setState(setStateFromCachedPayload(payload));
+          } else {
+            setState(clearAuthState);
+          }
+          return;
+        }
+        access = await SecureStore.getItemAsync(STORAGE_KEYS.ACCESS_TOKEN);
+        if (!access) {
+          setState(clearAuthState);
+          return;
+        }
       }
+      const payload = decodeJwtPayload(access);
+      const userId = (payload?.user_id as string) ?? null;
+      const email = (payload?.email as string) ?? null;
+      const displayName = (payload?.display_name as string) ?? null;
+      const role = (payload?.role as string) ?? null;
+      const roleDisplay = (payload?.role_display as string) ?? null;
+      const department = (payload?.department_display as string) ?? (payload?.department as string) ?? null;
+      const region = (payload?.region_display as string) ?? null;
+      const mustChangePassword = getMustChangePasswordFromToken(access);
+      setState({ isAuthenticated: true, isLoading: false, userId, email, displayName, role, roleDisplay, department: department || null, region: region || null, mustChangePassword });
+    } catch {
+      if (!mounted.current) return;
+      const { payload } = await getOfflineCredentials();
+      if (payload) {
+        setState(setStateFromCachedPayload(payload));
+      } else {
+        setState(clearAuthState);
+      }
+    } finally {
+      if (!mounted.current) return;
+      setState((prev) => (prev.isLoading ? { ...prev, isLoading: false } : prev));
     }
-    const payload = decodeJwtPayload(access);
-    const userId = (payload?.user_id as string) ?? null;
-    const email = (payload?.email as string) ?? null;
-    const displayName = (payload?.display_name as string) ?? null;
-    const role = (payload?.role as string) ?? null;
-    const roleDisplay = (payload?.role_display as string) ?? null;
-    const department = (payload?.department_display as string) ?? (payload?.department as string) ?? null;
-    const region = (payload?.region_display as string) ?? null;
-    const mustChangePassword = getMustChangePasswordFromToken(access);
-    setState({ isAuthenticated: true, isLoading: false, userId, email, displayName, role, roleDisplay, department: department || null, region: region || null, mustChangePassword });
   }, []);
 
   useEffect(() => {

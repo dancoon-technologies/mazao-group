@@ -5,7 +5,7 @@ import { syncWithServer } from '@/lib/syncWithServer';
 import { farmerRowToFarmer, scheduleRowToSchedule, visitRowToVisit } from '@/lib/offline-helpers';
 import { useAppRefresh } from '@/contexts/AppRefreshContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { api, getLabels, type Schedule, type Visit } from '@/lib/api';
+import { api, getLabels, type Route, type RouteStop, type Schedule, type Visit } from '@/lib/api';
 import { appMeta$, farmers$, schedules$, visits$ } from '@/store/observable';
 import { useSelector } from '@legendapp/state/react';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -36,26 +36,47 @@ const TAB_BAR_HEIGHT = 56;
 
 type TabKey = 'upcoming' | 'past';
 
-function groupSchedulesByDate(schedules: Schedule[]): { date: string; items: Schedule[] }[] {
-  const sorted = [...schedules].sort((a, b) => a.scheduled_date.localeCompare(b.scheduled_date));
-  const byDate = new Map<string, Schedule[]>();
-  for (const s of sorted) {
-    const list = byDate.get(s.scheduled_date) ?? [];
-    list.push(s);
-    byDate.set(s.scheduled_date, list);
+/** Single visit schedule or one stop from a weekly route plan. */
+type PlanRow =
+  | { kind: 'schedule'; date: string; schedule: Schedule }
+  | { kind: 'route_stop'; date: string; route: Route; stop: RouteStop };
+
+function visitMatchesRouteStop(v: Visit, route: Route, stop: RouteStop): boolean {
+  if (!v.route || v.route !== route.id) return false;
+  if (v.farmer !== stop.farmer) return false;
+  return (v.farm ?? null) === (stop.farm ?? null);
+}
+
+function sortPlanRows(rows: PlanRow[]): PlanRow[] {
+  return [...rows].sort((a, b) => {
+    const d = a.date.localeCompare(b.date);
+    if (d !== 0) return d;
+    if (a.kind !== b.kind) return a.kind === 'schedule' ? -1 : 1;
+    if (a.kind === 'schedule' && b.kind === 'schedule') return a.schedule.id.localeCompare(b.schedule.id);
+    if (a.kind === 'route_stop' && b.kind === 'route_stop') {
+      const ia = a.route.stops?.findIndex((s: RouteStop) => s.id === a.stop.id) ?? 0;
+      const ib = b.route.stops?.findIndex((s: RouteStop) => s.id === b.stop.id) ?? 0;
+      if (ia !== ib) return ia - ib;
+      return a.stop.id.localeCompare(b.stop.id);
+    }
+    return 0;
+  });
+}
+
+function groupPlanRowsByDateAsc(rows: PlanRow[]): { date: string; items: PlanRow[] }[] {
+  const sorted = sortPlanRows(rows);
+  const byDate = new Map<string, PlanRow[]>();
+  for (const r of sorted) {
+    const list = byDate.get(r.date) ?? [];
+    list.push(r);
+    byDate.set(r.date, list);
   }
   return Array.from(byDate.entries()).map(([date, items]) => ({ date, items }));
 }
 
-function groupPastSchedulesByDate(schedules: Schedule[]): { date: string; items: Schedule[] }[] {
-  const sorted = [...schedules].sort((a, b) => b.scheduled_date.localeCompare(a.scheduled_date));
-  const byDate = new Map<string, Schedule[]>();
-  for (const s of sorted) {
-    const list = byDate.get(s.scheduled_date) ?? [];
-    list.push(s);
-    byDate.set(s.scheduled_date, list);
-  }
-  return Array.from(byDate.entries()).map(([date, items]) => ({ date, items }));
+function groupPlanRowsByDateDesc(rows: PlanRow[]): { date: string; items: PlanRow[] }[] {
+  const grouped = groupPlanRowsByDateAsc(rows);
+  return [...grouped].sort((a, b) => b.date.localeCompare(a.date));
 }
 
 export default function SchedulesScreen() {
@@ -73,6 +94,7 @@ export default function SchedulesScreen() {
   const [error, setError] = useState('');
   const [isOnline, setIsOnline] = useState<boolean | null>(null);
   const [routesMenuOpen, setRoutesMenuOpen] = useState(false);
+  const [routes, setRoutes] = useState<Route[]>([]);
 
   const visits = useSelector<Visit[]>(() => {
     if (!userId) return [];
@@ -100,12 +122,25 @@ export default function SchedulesScreen() {
       s.farmer_display_name ?? farmers.find((f) => f.id === s.farmer)?.display_name ?? `No ${labels.partner.toLowerCase()} assigned`,
     [farmers, labels.partner]
   );
+  const stopFarmerDisplayName = useCallback(
+    (stop: RouteStop) =>
+      stop.farmer_display_name ??
+      farmers.find((f) => f.id === stop.farmer)?.display_name ??
+      `No ${labels.partner.toLowerCase()} assigned`,
+    [farmers, labels.partner]
+  );
 
   const load = useCallback(async () => {
     const connected = await NetInfo.fetch().then((s) => s.isConnected ?? false);
     if (connected && userId) {
       try {
         await syncWithServer();
+        try {
+          const list = await api.getAllRoutes();
+          setRoutes(Array.isArray(list) ? list : []);
+        } catch {
+          setRoutes([]);
+        }
         setError('');
       } catch {
         setError('');
@@ -149,6 +184,12 @@ export default function SchedulesScreen() {
   }, [visits]);
 
   const today = new Date().toISOString().slice(0, 10);
+  const routesVisible = useMemo(() => {
+    if (!userId) return [];
+    if (role === 'admin' || isSupervisor) return routes;
+    return routes.filter((r) => r.officer === userId);
+  }, [routes, userId, role, isSupervisor]);
+
   const upcomingSchedules = useMemo(() => {
     return schedules.filter(
       (s) =>
@@ -156,11 +197,26 @@ export default function SchedulesScreen() {
         s.scheduled_date >= today &&
         !scheduleIdToVisit[s.id]
     );
-  }, [schedules, scheduleIdToVisit]);
-  const schedulesByDate = useMemo(
-    () => groupSchedulesByDate(upcomingSchedules),
-    [upcomingSchedules]
-  );
+  }, [schedules, scheduleIdToVisit, today]);
+
+  const upcomingPlanRows = useMemo((): PlanRow[] => {
+    const schedulePart: PlanRow[] = upcomingSchedules.map((s) => ({
+      kind: 'schedule',
+      date: s.scheduled_date,
+      schedule: s,
+    }));
+    const routePart: PlanRow[] = [];
+    for (const route of routesVisible) {
+      if (route.scheduled_date < today) continue;
+      for (const stop of route.stops ?? []) {
+        if (visits.some((v) => visitMatchesRouteStop(v, route, stop))) continue;
+        routePart.push({ kind: 'route_stop', date: route.scheduled_date, route, stop });
+      }
+    }
+    return [...schedulePart, ...routePart];
+  }, [upcomingSchedules, routesVisible, visits, today]);
+
+  const upcomingByDate = useMemo(() => groupPlanRowsByDateAsc(upcomingPlanRows), [upcomingPlanRows]);
 
   const pastSchedules = useMemo(() => {
     return schedules.filter(
@@ -168,20 +224,48 @@ export default function SchedulesScreen() {
         (s.status === 'accepted' || s.status === 'proposed') &&
         (s.scheduled_date < today || !!scheduleIdToVisit[s.id])
     );
-  }, [schedules, scheduleIdToVisit]);
-  const filteredPastSchedules = useMemo(() => {
+  }, [schedules, scheduleIdToVisit, today]);
+
+  const pastPlanRows = useMemo((): PlanRow[] => {
+    const schedulePart: PlanRow[] = pastSchedules.map((s) => ({
+      kind: 'schedule',
+      date: s.scheduled_date,
+      schedule: s,
+    }));
+    const routePart: PlanRow[] = [];
+    for (const route of routesVisible) {
+      for (const stop of route.stops ?? []) {
+        const recorded = visits.some((v) => visitMatchesRouteStop(v, route, stop));
+        if (route.scheduled_date < today || recorded) {
+          routePart.push({ kind: 'route_stop', date: route.scheduled_date, route, stop });
+        }
+      }
+    }
+    return [...schedulePart, ...routePart];
+  }, [pastSchedules, routesVisible, visits, today]);
+
+  const filteredPastPlanRows = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return pastSchedules;
-    return pastSchedules.filter(
-      (s) =>
-        farmerDisplayName(s).toLowerCase().includes(q) ||
-        (s.notes ?? '').toLowerCase().includes(q)
-    );
-  }, [pastSchedules, search, farmerDisplayName]);
-  const pastSchedulesByDate = useMemo(
-    () => groupPastSchedulesByDate(filteredPastSchedules),
-    [filteredPastSchedules]
-  );
+    if (!q) return pastPlanRows;
+    return pastPlanRows.filter((row) => {
+      if (row.kind === 'schedule') {
+        const s = row.schedule;
+        return (
+          farmerDisplayName(s).toLowerCase().includes(q) ||
+          (s.notes ?? '').toLowerCase().includes(q)
+        );
+      }
+      const stop = row.stop;
+      const name = stopFarmerDisplayName(stop).toLowerCase();
+      return (
+        name.includes(q) ||
+        (row.route.notes ?? '').toLowerCase().includes(q) ||
+        (row.route.name ?? '').toLowerCase().includes(q)
+      );
+    });
+  }, [pastPlanRows, search, farmerDisplayName, stopFarmerDisplayName]);
+
+  const pastByDate = useMemo(() => groupPlanRowsByDateDesc(filteredPastPlanRows), [filteredPastPlanRows]);
 
   const openProposeSchedule = useCallback(() => router.push('/(app)/propose-schedule'), [router]);
   const openRecordVisit = useCallback(
@@ -200,6 +284,31 @@ export default function SchedulesScreen() {
     [router]
   );
   const openVisit = useCallback((id: string) => router.push({ pathname: '/(app)/visits/[id]', params: { id } }), [router]);
+
+  const openRouteFormForRoute = useCallback(
+    (r: Route) => {
+      router.push({
+        pathname: '/(app)/route-form',
+        params: { date: r.scheduled_date, routeId: r.id },
+      } as never);
+    },
+    [router]
+  );
+
+  const openRecordRouteStop = useCallback(
+    (route: Route, stop: RouteStop) => {
+      router.push({
+        pathname: '/(app)/record-visit',
+        params: {
+          routeId: route.id,
+          routeStopId: stop.id,
+          farmerId: stop.farmer,
+          ...(stop.farm ? { farmId: stop.farm } : {}),
+        },
+      } as never);
+    },
+    [router]
+  );
 
   const openWeeklyPlan = useCallback(
     () =>
@@ -300,66 +409,109 @@ export default function SchedulesScreen() {
                     <Button mode="outlined" onPress={load} style={styles.retryBtn}>Retry</Button>
                   </Card.Content>
                 </Card>
-              ) : schedulesByDate.length === 0 ? (
+              ) : upcomingByDate.length === 0 ? (
                 <Card style={styles.card} elevation={0}>
                   <Card.Content>
-                    <Text variant="bodyMedium" style={styles.emptyText}>No upcoming schedules</Text>
+                    <Text variant="bodyMedium" style={styles.emptyText}>No upcoming visits</Text>
                     <Text variant="bodySmall" style={styles.emptySubtext}>
-                      Tap + to propose a schedule
+                      Single schedules and route stops for today or later appear here. Tap + to add a schedule.
                     </Text>
                   </Card.Content>
                 </Card>
               ) : (
-                schedulesByDate.map(({ date, items }) => (
+                upcomingByDate.map(({ date, items }) => (
                   <View key={date} style={styles.dateSection}>
                     <Text variant="labelLarge" style={styles.dateHeader}>
                       {formatDateHeader(date)}
                     </Text>
-                    {items.map((s) => {
-                      const proposedEditable = s.status === 'proposed' && isScheduleEditableByDate(s.scheduled_date);
-                      const rowPress =
-                        s.status === 'accepted'
-                          ? isOfficer
-                            ? () => openRecordVisit(s)
-                            : () => openEditSchedule(s)
-                          : () => openEditSchedule(s);
-                      return (
-                        <ListItemRow
-                          key={s.id}
-                          avatarLetter={(farmerDisplayName(s) || '?').charAt(0)}
-                          title={farmerDisplayName(s)}
-                          subtitle={`${s.notes || 'Scheduled visit'} · ${labels.location}: ${s.farm_display_name ?? 'None'}`}
-                          onPress={rowPress}
-                          right={
-                            <View style={styles.upcomingRight}>
-                              <View style={[styles.badge, { backgroundColor: scheduleStatusColor(s.status) + '20' }]}>
-                                <Text variant="labelSmall" style={[styles.badgeText, { color: scheduleStatusColor(s.status) }]}>
-                                  {scheduleStatusLabel(s.status)}
-                                </Text>
-                              </View>
-                              {s.status === 'proposed' && (
-                                <IconButton
-                                  icon="pencil"
-                                  size={22}
-                                  iconColor={colors.primary}
-                                  onPress={() => openEditSchedule(s)}
-                                  accessibilityLabel={proposedEditable ? 'Edit schedule' : 'View schedule'}
-                                />
-                              )}
-                              {s.status === 'accepted' && isOfficer && (
-                                <>
+                    {items.map((row) => {
+                      if (row.kind === 'schedule') {
+                        const s = row.schedule;
+                        const proposedEditable = s.status === 'proposed' && isScheduleEditableByDate(s.scheduled_date);
+                        const rowPress =
+                          s.status === 'accepted'
+                            ? isOfficer
+                              ? () => openRecordVisit(s)
+                              : () => openEditSchedule(s)
+                            : () => openEditSchedule(s);
+                        return (
+                          <ListItemRow
+                            key={s.id}
+                            avatarLetter={(farmerDisplayName(s) || '?').charAt(0)}
+                            title={farmerDisplayName(s)}
+                            subtitle={`${s.notes || 'Scheduled visit'} · ${labels.location}: ${s.farm_display_name ?? 'None'}`}
+                            onPress={rowPress}
+                            right={
+                              <View style={styles.upcomingRight}>
+                                <View style={[styles.badge, { backgroundColor: scheduleStatusColor(s.status) + '20' }]}>
+                                  <Text variant="labelSmall" style={[styles.badgeText, { color: scheduleStatusColor(s.status) }]}>
+                                    {scheduleStatusLabel(s.status)}
+                                  </Text>
+                                </View>
+                                {s.status === 'proposed' && (
                                   <IconButton
-                                    icon="calendar-edit"
+                                    icon="pencil"
                                     size={22}
                                     iconColor={colors.primary}
                                     onPress={() => openEditSchedule(s)}
-                                    accessibilityLabel="Request schedule change"
+                                    accessibilityLabel={proposedEditable ? 'Edit schedule' : 'View schedule'}
+                                  />
+                                )}
+                                {s.status === 'accepted' && isOfficer && (
+                                  <>
+                                    <IconButton
+                                      icon="calendar-edit"
+                                      size={22}
+                                      iconColor={colors.primary}
+                                      onPress={() => openEditSchedule(s)}
+                                      accessibilityLabel="Request schedule change"
+                                    />
+                                    <IconButton
+                                      icon="camera"
+                                      size={22}
+                                      iconColor={colors.primary}
+                                      onPress={() => openRecordVisit(s)}
+                                      accessibilityLabel="Record visit"
+                                    />
+                                  </>
+                                )}
+                              </View>
+                            }
+                          />
+                        );
+                      }
+                      const { route, stop } = row;
+                      const rowPress = isOfficer
+                        ? () => openRecordRouteStop(route, stop)
+                        : () => openRouteFormForRoute(route);
+                      return (
+                        <ListItemRow
+                          key={`r-${route.id}-s-${stop.id}`}
+                          avatarLetter={(stopFarmerDisplayName(stop) || '?').charAt(0)}
+                          title={stopFarmerDisplayName(stop)}
+                          subtitle={`${route.notes || route.name || 'Route'} · ${labels.location}: ${stop.farm_display_name ?? 'None'}`}
+                          onPress={rowPress}
+                          right={
+                            <View style={styles.upcomingRight}>
+                              <View style={[styles.badge, { backgroundColor: colors.gray200 }]}>
+                                <Text variant="labelSmall" style={[styles.badgeText, { color: colors.gray700 }]}>
+                                  Route
+                                </Text>
+                              </View>
+                              {isOfficer && (
+                                <>
+                                  <IconButton
+                                    icon="pencil"
+                                    size={22}
+                                    iconColor={colors.primary}
+                                    onPress={() => openRouteFormForRoute(route)}
+                                    accessibilityLabel="Edit route"
                                   />
                                   <IconButton
                                     icon="camera"
                                     size={22}
                                     iconColor={colors.primary}
-                                    onPress={() => openRecordVisit(s)}
+                                    onPress={() => openRecordRouteStop(route, stop)}
                                     accessibilityLabel="Record visit"
                                   />
                                 </>
@@ -378,7 +530,7 @@ export default function SchedulesScreen() {
           {activeTab === 'past' && (
             <>
               <Searchbar
-                placeholder="Search schedules..."
+                placeholder="Search schedules and routes..."
                 value={search}
                 onChangeText={setSearch}
                 style={styles.searchbar}
@@ -392,41 +544,82 @@ export default function SchedulesScreen() {
                     <Button mode="outlined" onPress={load} style={styles.retryBtn}>Retry</Button>
                   </Card.Content>
                 </Card>
-              ) : pastSchedulesByDate.length === 0 ? (
+              ) : pastByDate.length === 0 ? (
                 <Card style={styles.card} elevation={0}>
                   <Card.Content>
-                    <Text variant="bodyMedium" style={styles.emptyText}>No past schedules</Text>
+                    <Text variant="bodyMedium" style={styles.emptyText}>No past visits</Text>
                     <Text variant="bodySmall" style={styles.emptySubtext}>
-                      Accepted schedules with past dates appear here
+                      Older plans, recorded visits, and missed route stops appear here
                     </Text>
                   </Card.Content>
                 </Card>
               ) : (
-                pastSchedulesByDate.map(({ date, items }) => (
+                pastByDate.map(({ date, items }) => (
                   <View key={date} style={styles.dateSection}>
                     <Text variant="labelLarge" style={styles.dateHeader}>
                       {formatDateHeader(date)}
                     </Text>
-                    {items.map((s) => {
-                      const recorded = !!scheduleIdToVisit[s.id];
-                      const visit = scheduleIdToVisit[s.id];
-                      const isProposed = s.status === 'proposed';
-                      const rowPress = recorded && visit ? () => openVisit(visit.id) : isProposed ? () => openEditSchedule(s) : undefined;
+                    {items.map((row) => {
+                      if (row.kind === 'schedule') {
+                        const s = row.schedule;
+                        const recorded = !!scheduleIdToVisit[s.id];
+                        const visit = scheduleIdToVisit[s.id];
+                        const isProposed = s.status === 'proposed';
+                        const rowPress =
+                          recorded && visit
+                            ? () => openVisit(visit.id)
+                            : isProposed
+                              ? () => openEditSchedule(s)
+                              : undefined;
+                        return (
+                          <ListItemRow
+                            key={s.id}
+                            avatarLetter={(farmerDisplayName(s) || '?').charAt(0)}
+                            title={farmerDisplayName(s)}
+                            subtitle={`${s.notes || 'Scheduled visit'} · ${labels.location}: ${s.farm_display_name ?? 'None'}`}
+                            right={
+                              <View style={styles.pastRight}>
+                                {isProposed && (
+                                  <View style={[styles.badge, { backgroundColor: scheduleStatusColor(s.status) + '20' }]}>
+                                    <Text variant="labelSmall" style={[styles.badgeText, { color: scheduleStatusColor(s.status) }]}>
+                                      {scheduleStatusLabel(s.status)}
+                                    </Text>
+                                  </View>
+                                )}
+                                <View style={[styles.badge, { backgroundColor: (recorded ? colors.primary : colors.gray500) + '20' }]}>
+                                  <Text variant="labelSmall" style={[styles.badgeText, { color: recorded ? colors.primary : colors.gray700 }]}>
+                                    {recorded ? 'Recorded' : 'Not recorded'}
+                                  </Text>
+                                  <MaterialCommunityIcons name={recorded ? 'check-circle' : 'circle-outline'} size={14} color={recorded ? colors.primary : colors.gray700} />
+                                </View>
+                              </View>
+                            }
+                            onPress={rowPress}
+                          />
+                        );
+                      }
+                      const { route, stop } = row;
+                      const visit = visits.find((v) => visitMatchesRouteStop(v, route, stop));
+                      const recorded = !!visit;
+                      const rowPress =
+                        recorded && visit
+                          ? () => openVisit(visit.id)
+                          : isOfficer
+                            ? () => openRecordRouteStop(route, stop)
+                            : () => openRouteFormForRoute(route);
                       return (
                         <ListItemRow
-                          key={s.id}
-                          avatarLetter={(farmerDisplayName(s) || '?').charAt(0)}
-                          title={farmerDisplayName(s)}
-                          subtitle={`${s.notes || 'Scheduled visit'} · ${labels.location}: ${s.farm_display_name ?? 'None'}`}
+                          key={`r-${route.id}-s-${stop.id}`}
+                          avatarLetter={(stopFarmerDisplayName(stop) || '?').charAt(0)}
+                          title={stopFarmerDisplayName(stop)}
+                          subtitle={`${route.notes || route.name || 'Route'} · ${labels.location}: ${stop.farm_display_name ?? 'None'}`}
                           right={
                             <View style={styles.pastRight}>
-                              {isProposed && (
-                                <View style={[styles.badge, { backgroundColor: scheduleStatusColor(s.status) + '20' }]}>
-                                  <Text variant="labelSmall" style={[styles.badgeText, { color: scheduleStatusColor(s.status) }]}>
-                                    {scheduleStatusLabel(s.status)}
-                                  </Text>
-                                </View>
-                              )}
+                              <View style={[styles.badge, { backgroundColor: colors.gray200 }]}>
+                                <Text variant="labelSmall" style={[styles.badgeText, { color: colors.gray700 }]}>
+                                  Route
+                                </Text>
+                              </View>
                               <View style={[styles.badge, { backgroundColor: (recorded ? colors.primary : colors.gray500) + '20' }]}>
                                 <Text variant="labelSmall" style={[styles.badgeText, { color: recorded ? colors.primary : colors.gray700 }]}>
                                   {recorded ? 'Recorded' : 'Not recorded'}

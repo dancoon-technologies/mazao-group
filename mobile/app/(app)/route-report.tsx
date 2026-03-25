@@ -14,11 +14,18 @@ import { RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 function formatDate(iso: string): string {
-  try {
-    return new Date(iso + 'Z').toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
-  } catch {
-    return iso;
-  }
+  const raw = String(iso ?? '').trim();
+  if (!raw) return '—';
+  const parsed = /^\d{4}-\d{2}-\d{2}$/.test(raw)
+    ? new Date(`${raw}T12:00:00`)
+    : new Date(raw);
+  if (Number.isNaN(parsed.getTime())) return raw;
+  return parsed.toLocaleDateString(undefined, {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
 }
 
 /** Build prefill summary from visits linked to this route (additional fields from step 3). */
@@ -35,6 +42,55 @@ function buildPrefillFromVisits(visits: Visit[]): Record<string, unknown> {
   return summary;
 }
 
+type RouteReportForm = {
+  summary: string;
+  challenges: string;
+  next_actions: string;
+  farmer_feedback: string;
+  notes: string;
+  visits_count: string;
+};
+
+const EMPTY_FORM: RouteReportForm = {
+  summary: '',
+  challenges: '',
+  next_actions: '',
+  farmer_feedback: '',
+  notes: '',
+  visits_count: '',
+};
+
+function toText(value: unknown): string {
+  if (value == null) return '';
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+  return '';
+}
+
+function reportDataToForm(data?: Record<string, unknown> | null): RouteReportForm {
+  if (!data || typeof data !== 'object') return { ...EMPTY_FORM };
+  return {
+    summary: toText(data.summary),
+    challenges: toText(data.challenges ?? data.issues),
+    next_actions: toText(data.next_actions ?? data.next_steps),
+    farmer_feedback: toText(data.farmer_feedback ?? data.farmers_feedback_summary),
+    notes: toText(data.notes),
+    visits_count: toText(data.visits_count),
+  };
+}
+
+function formToReportData(form: RouteReportForm): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  if (form.summary.trim()) out.summary = form.summary.trim();
+  if (form.challenges.trim()) out.challenges = form.challenges.trim();
+  if (form.next_actions.trim()) out.next_actions = form.next_actions.trim();
+  if (form.farmer_feedback.trim()) out.farmer_feedback = form.farmer_feedback.trim();
+  if (form.notes.trim()) out.notes = form.notes.trim();
+  const count = Number.parseInt(form.visits_count.trim(), 10);
+  if (!Number.isNaN(count) && count >= 0) out.visits_count = count;
+  return out;
+}
+
 export default function RouteReportScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -43,7 +99,7 @@ export default function RouteReportScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [selectedRoute, setSelectedRoute] = useState<Route | null>(null);
   const [report, setReport] = useState<RouteReport | null>(null);
-  const [reportData, setReportData] = useState<string>('');
+  const [form, setForm] = useState<RouteReportForm>({ ...EMPTY_FORM });
   const [visits, setVisits] = useState<Visit[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -84,28 +140,22 @@ export default function RouteReportScreen() {
       setVisits(Array.isArray(visitsRes) ? visitsRes : []);
       const existing = reportRes.report_data;
       if (existing && typeof existing === 'object' && Object.keys(existing).length > 0) {
-        setReportData(JSON.stringify(existing, null, 2));
+        setForm(reportDataToForm(existing as Record<string, unknown>));
       } else {
         const prefill = buildPrefillFromVisits(Array.isArray(visitsRes) ? visitsRes : []);
-        setReportData(Object.keys(prefill).length > 0 ? JSON.stringify(prefill, null, 2) : '');
+        setForm(reportDataToForm(prefill));
       }
     } catch {
       setError('Failed to load report.');
       setReport(null);
       setVisits([]);
-      setReportData('');
+      setForm({ ...EMPTY_FORM });
     }
   }, []);
 
   const submitReport = useCallback(async () => {
     if (!selectedRoute) return;
-    let data: Record<string, unknown>;
-    try {
-      data = reportData.trim() ? JSON.parse(reportData) : {};
-    } catch {
-      setError('Invalid JSON. Use a valid JSON object or leave empty.');
-      return;
-    }
+    const data = formToReportData(form);
     setSaving(true);
     setError('');
     try {
@@ -116,12 +166,12 @@ export default function RouteReportScreen() {
       setError(e instanceof Error ? e.message : 'Failed to submit.');
       setSaving(false);
     }
-  }, [selectedRoute, reportData]);
+  }, [selectedRoute, form]);
 
   const clearSelection = useCallback(() => {
     setSelectedRoute(null);
     setReport(null);
-    setReportData('');
+    setForm({ ...EMPTY_FORM });
     setVisits([]);
     setError('');
   }, []);
@@ -166,18 +216,67 @@ export default function RouteReportScreen() {
           {error ? <Text style={styles.errorText}>{error}</Text> : null}
           {visits.length > 0 && (
             <Text variant="bodySmall" style={styles.prefillHint}>
-              {visits.length} visit(s) recorded for this route. Summary has been prefilled below — edit as needed.
+              {visits.length} visit(s) recorded for this route. Some fields are prefilled below.
             </Text>
           )}
-          <Text variant="labelMedium" style={styles.fieldLabel}>Report data (JSON)</Text>
+          <Text variant="labelMedium" style={styles.fieldLabel}>Route summary</Text>
           <TextInput
-            value={reportData}
-            onChangeText={setReportData}
+            value={form.summary}
+            onChangeText={(value) => setForm((prev) => ({ ...prev, summary: value }))}
             mode="outlined"
             multiline
-            numberOfLines={12}
-            placeholder='{"summary": "Today I visited...", "issues": ""}'
-            style={styles.textArea}
+            numberOfLines={4}
+            placeholder="What happened on this route today?"
+            style={styles.input}
+          />
+          <Text variant="labelMedium" style={styles.fieldLabel}>Challenges</Text>
+          <TextInput
+            value={form.challenges}
+            onChangeText={(value) => setForm((prev) => ({ ...prev, challenges: value }))}
+            mode="outlined"
+            multiline
+            numberOfLines={3}
+            placeholder="Any blockers, missed stops, stock issues, etc."
+            style={styles.input}
+          />
+          <Text variant="labelMedium" style={styles.fieldLabel}>Farmer feedback</Text>
+          <TextInput
+            value={form.farmer_feedback}
+            onChangeText={(value) => setForm((prev) => ({ ...prev, farmer_feedback: value }))}
+            mode="outlined"
+            multiline
+            numberOfLines={3}
+            placeholder="Key feedback collected from farmers/stockists"
+            style={styles.input}
+          />
+          <Text variant="labelMedium" style={styles.fieldLabel}>Next actions</Text>
+          <TextInput
+            value={form.next_actions}
+            onChangeText={(value) => setForm((prev) => ({ ...prev, next_actions: value }))}
+            mode="outlined"
+            multiline
+            numberOfLines={3}
+            placeholder="Follow-ups for tomorrow or this week"
+            style={styles.input}
+          />
+          <Text variant="labelMedium" style={styles.fieldLabel}>Visits count</Text>
+          <TextInput
+            value={form.visits_count}
+            onChangeText={(value) => setForm((prev) => ({ ...prev, visits_count: value.replace(/[^\d]/g, '') }))}
+            mode="outlined"
+            keyboardType="numeric"
+            placeholder="e.g. 8"
+            style={styles.input}
+          />
+          <Text variant="labelMedium" style={styles.fieldLabel}>Additional notes</Text>
+          <TextInput
+            value={form.notes}
+            onChangeText={(value) => setForm((prev) => ({ ...prev, notes: value }))}
+            mode="outlined"
+            multiline
+            numberOfLines={3}
+            placeholder="Anything else to include"
+            style={styles.input}
           />
           <View style={styles.actions}>
             <Button mode="contained" onPress={submitReport} loading={saving} disabled={saving}>
@@ -205,7 +304,7 @@ const styles = StyleSheet.create({
   cardSub: { color: colors.gray700, marginTop: 4 },
   prefillHint: { color: colors.gray700, marginBottom: spacing.sm },
   fieldLabel: { marginBottom: spacing.xs, color: colors.gray700 },
-  textArea: { minHeight: 200, marginBottom: spacing.lg },
+  input: { marginBottom: spacing.md },
   actions: { gap: spacing.md },
   errorText: { color: colors.error, marginBottom: spacing.sm },
 });
