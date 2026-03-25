@@ -494,7 +494,7 @@ export default function SchedulesScreen() {
                           key={`r-${route.id}-s-${stop.id}`}
                           avatarLetter={(stopFarmerDisplayName(stop) || '?').charAt(0)}
                           title={stopFarmerDisplayName(stop)}
-                          subtitle={`${route.notes || route.name || 'Route'} · ${labels.location}: ${stop.farm_display_name ?? 'None'}`}
+                          subtitle={`${labels.location}: ${stop.farm_display_name ?? 'None'}`}
                           onPress={rowPress}
                           right={
                             <View style={styles.upcomingRight}>
@@ -617,7 +617,7 @@ export default function SchedulesScreen() {
                           key={`r-${route.id}-s-${stop.id}`}
                           avatarLetter={(stopFarmerDisplayName(stop) || '?').charAt(0)}
                           title={stopFarmerDisplayName(stop)}
-                          subtitle={`${route.notes || route.name || 'Route'} · ${labels.location}: ${stop.farm_display_name ?? 'None'}`}
+                          subtitle={`${labels.location}: ${stop.farm_display_name ?? 'None'}`}
                           right={
                             <View style={styles.pastRight}>
                               <View style={[styles.badge, { backgroundColor: colors.gray200 }]}>
