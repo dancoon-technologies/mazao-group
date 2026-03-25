@@ -473,8 +473,12 @@ export default function VisitsPage() {
       const productSummary =
         v.product_lines && v.product_lines.length > 0
           ? v.product_lines
-                .map((line) => `${line.product_name ?? "—"}: ${line.quantity_sold ?? "0"} sold`)
-              .join("; ")
+              .map((line) => {
+                const name = `${line.product_name ?? "—"}${line.product_unit ? ` (${line.product_unit})` : ""}`;
+                const qty = line.quantity_sold ?? "0";
+                return `• ${name}: ${qty}`;
+              })
+              .join("\n")
           : "";
       return [
         formatDateTime(v.created_at),
@@ -500,8 +504,13 @@ export default function VisitsPage() {
       body,
       startY: PDF_HEADER_HEIGHT + 14,
       margin: { left: PDF_MARGIN, right: PDF_MARGIN },
-      styles: { fontSize: 7, textColor: PDF_COLORS.gray900 },
+      styles: { fontSize: 7, textColor: PDF_COLORS.gray900, overflow: "linebreak" },
       headStyles: PDF_TABLE_HEAD_STYLES,
+      // Make the "Products" column readable (wrap + wider fixed width).
+      columnStyles: {
+        12: { cellWidth: 28 }, // Notes
+        15: { cellWidth: 62 }, // Products (sold)
+      },
       didDrawPage: (data) => {
         const totalPages = doc.getNumberOfPages();
         drawPdfFooter(doc, data.pageNumber, totalPages, generatedAt);
