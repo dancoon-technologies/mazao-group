@@ -15,12 +15,11 @@ export interface SalesRow {
   productName: string;
   productUnit: string;
   quantitySold: string;
-  quantityGiven: string;
 }
 
 /**
  * Flatten visits into sales rows. Sales are taken only from product_lines (Products):
- * one row per line with quantity_sold/quantity_given (skips 0/0).
+ * one row per line with quantity_sold (skips 0).
  */
 export function flattenVisitsToSales(visits: Visit[]): SalesRow[] {
   const rows: SalesRow[] = [];
@@ -34,8 +33,7 @@ export function flattenVisitsToSales(visits: Visit[]): SalesRow[] {
     for (let idx = 0; idx < lines.length; idx++) {
       const line = lines[idx];
       const sold = line.quantity_sold ?? "0";
-      const given = line.quantity_given ?? "0";
-      if (sold === "0" && given === "0") continue;
+      if (sold === "0") continue;
       rows.push({
         id: `${v.id}-line-${line.product_id ?? idx}`,
         visitId: v.id,
@@ -46,7 +44,6 @@ export function flattenVisitsToSales(visits: Visit[]): SalesRow[] {
         productName: line.product_name ?? "—",
         productUnit: line.product_unit ?? "",
         quantitySold: sold,
-        quantityGiven: given,
       });
     }
   }
@@ -58,7 +55,6 @@ export interface SalesProductLine {
   productName: string;
   productUnit: string;
   quantitySold: string;
-  quantityGiven: string;
 }
 
 /** Visit grouped for sales page: one row per visit with expandable product list. */
@@ -73,7 +69,7 @@ export interface SalesVisitGroup {
 
 /**
  * Group visits into one row per visit with a list of products (for accordion UI).
- * Sales are taken only from product_lines (Products) with quantity sold/given.
+ * Sales are taken only from product_lines (Products) with quantity sold.
  */
 export function groupSalesByVisit(visits: Visit[]): SalesVisitGroup[] {
   const groups: SalesVisitGroup[] = [];
@@ -87,13 +83,11 @@ export function groupSalesByVisit(visits: Visit[]): SalesVisitGroup[] {
     const lines = v.product_lines ?? [];
     for (const line of lines) {
       const sold = line.quantity_sold ?? "0";
-      const given = line.quantity_given ?? "0";
-      if (sold === "0" && given === "0") continue;
+      if (sold === "0") continue;
       products.push({
         productName: line.product_name ?? "—",
         productUnit: line.product_unit ?? "",
         quantitySold: sold,
-        quantityGiven: given,
       });
     }
 

@@ -439,7 +439,6 @@ export default function DashboardPage() {
                         <Table.Th>Rank</Table.Th>
                         <Table.Th>Product</Table.Th>
                         <Table.Th>Total sold</Table.Th>
-                        <Table.Th>Total given</Table.Th>
                       </Table.Tr>
                     </Table.Thead>
                     <Table.Tbody>
@@ -458,9 +457,6 @@ export default function DashboardPage() {
                           </Table.Td>
                           <Table.Td>
                             <Text size="sm">{item.total_sold}</Text>
-                          </Table.Td>
-                          <Table.Td>
-                            <Text size="sm">{item.total_given}</Text>
                           </Table.Td>
                         </Table.Tr>
                       ))}

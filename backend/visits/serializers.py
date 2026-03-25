@@ -133,7 +133,7 @@ class VisitSerializer(serializers.ModelSerializer):
         return urls
 
     def get_product_lines(self, obj):
-        """Sales and products given per product for this visit."""
+        """Sales per product for this visit."""
         lines = getattr(obj, "product_lines_prefetched", None)
         if lines is None and hasattr(obj, "product_lines"):
             lines = obj.product_lines.select_related("product").all()
@@ -146,7 +146,6 @@ class VisitSerializer(serializers.ModelSerializer):
                 "product_code": vp.product.code or "",
                 "product_unit": vp.product.unit or "",
                 "quantity_sold": str(vp.quantity_sold),
-                "quantity_given": str(vp.quantity_given),
             }
             for vp in lines
         ]
@@ -169,7 +168,7 @@ class VisitCreateSerializer(serializers.ModelSerializer):
     )
     product_lines = ProductLinesField(
         required=False,
-        help_text="List of {product_id, quantity_sold, quantity_given} for sales/given during visit (list or JSON string).",
+        help_text="List of {product_id, quantity_sold} for sales during visit (list or JSON string).",
     )
 
     class Meta:

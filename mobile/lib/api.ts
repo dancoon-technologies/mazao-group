@@ -124,7 +124,7 @@ export interface Visit {
   photo_place_name?: string | null;
   activity_types?: string[];
   photos?: string[];
-  product_lines?: { product_id: string; product_name: string; product_code?: string; product_unit?: string; quantity_sold: string; quantity_given: string }[];
+  product_lines?: { product_id: string; product_name: string; product_code?: string; product_unit?: string; quantity_sold: string }[];
   number_of_stockists_visited?: number | null;
   merchandising?: string;
   counter_training?: string;
@@ -242,7 +242,7 @@ export interface OptionsResponse {
   /** Partner/location terminology (e.g. Farmer/Farm or Stockist/Outlet). */
   labels?: PartnerLocationLabels;
   activity_types?: ActivityTypeOption[];
-  /** Products for the user's department (for recording sales/given during visits). */
+  /** Products for the user's department (for recording sales during visits). */
   products?: ProductOption[];
   /** Step-3 fields: key -> input_type, value_type, api_key. Single source of truth from backend. */
   visit_form_field_schema?: Record<string, VisitFormFieldSchemaItem>;
@@ -816,7 +816,7 @@ export const api = {
     order_value?: number | null;
     harvest_kgs?: number | null;
     farmers_feedback?: string;
-    product_lines?: { product_id: string; quantity_sold?: number; quantity_given?: number }[];
+    product_lines?: { product_id: string; quantity_sold?: number }[];
     number_of_stockists_visited?: number | null;
     merchandising?: string;
     counter_training?: string;

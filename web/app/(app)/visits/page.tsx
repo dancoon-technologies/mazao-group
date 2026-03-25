@@ -196,11 +196,10 @@ function VisitDetailModal({
       });
       let finalY = doc.getNumberOfPages() > 0 ? (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY : PDF_HEADER_HEIGHT + 14;
       if (visit.product_lines && visit.product_lines.length > 0) {
-        const productHead = ["Product", "Qty sold", "Qty given"];
+        const productHead = ["Product", "Qty sold"];
         const productBody = visit.product_lines.map((line) => [
           `${line.product_name ?? "—"}${line.product_unit ? ` (${line.product_unit})` : ""}`,
           line.quantity_sold ?? "0",
-          line.quantity_given ?? "0",
         ]);
         autoTable(doc, {
           head: [productHead],
@@ -270,13 +269,12 @@ function VisitDetailModal({
         {hasValue(visit.notes) && !visitDataFields.some((f) => f.key === "notes") && row("Notes", visit.notes)}
         {visit.product_lines && visit.product_lines.length > 0 ? (
           <Stack gap="xs" mt="xs">
-            <Text size="sm" fw={600} c="dimmed">Products (sold / given)</Text>
+            <Text size="sm" fw={600} c="dimmed">Products (sold)</Text>
             <Table withTableBorder withColumnBorders>
               <Table.Thead>
                 <Table.Tr>
                   <Table.Th>Product</Table.Th>
                   <Table.Th>Sold</Table.Th>
-                  <Table.Th>Given</Table.Th>
                 </Table.Tr>
               </Table.Thead>
               <Table.Tbody>
@@ -284,7 +282,6 @@ function VisitDetailModal({
                   <Table.Tr key={i}>
                     <Table.Td>{line.product_name}{line.product_unit ? ` (${line.product_unit})` : ""}</Table.Td>
                     <Table.Td>{line.quantity_sold}</Table.Td>
-                    <Table.Td>{line.quantity_given}</Table.Td>
                   </Table.Tr>
                 ))}
               </Table.Tbody>
@@ -416,7 +413,7 @@ export default function VisitsPage() {
           ? v.product_lines
               .map(
                 (line) =>
-                  `${line.product_name ?? "—"}${line.product_unit ? ` (${line.product_unit})` : ""}: ${line.quantity_sold ?? "0"} sold, ${line.quantity_given ?? "0"} given`
+                      `${line.product_name ?? "—"}${line.product_unit ? ` (${line.product_unit})` : ""}: ${line.quantity_sold ?? "0"} sold`
               )
               .join("; ")
           : "";
@@ -436,7 +433,7 @@ export default function VisitsPage() {
         Notes: v.notes ?? "",
         "Distance (m)": v.distance_from_farmer != null ? Math.round(v.distance_from_farmer) : "",
         Status: v.verification_status,
-        "Products (sold / given)": productLinesSummary,
+        "Products (sold)": productLinesSummary,
         "Photo URL(s)": (v.photos?.length ? v.photos : (v.photo ? [v.photo] : [])).map(photoUrl).join("; ") || "",
       };
     });
@@ -470,13 +467,13 @@ export default function VisitsPage() {
       "Notes",
       "Distance (m)",
       "Status",
-      "Products (sold / given)",
+      "Products (sold)",
     ];
     const body = visits.map((v) => {
       const productSummary =
         v.product_lines && v.product_lines.length > 0
           ? v.product_lines
-              .map((line) => `${line.product_name ?? "—"}: ${line.quantity_sold ?? "0"} sold, ${line.quantity_given ?? "0"} given`)
+                .map((line) => `${line.product_name ?? "—"}: ${line.quantity_sold ?? "0"} sold`)
               .join("; ")
           : "";
       return [

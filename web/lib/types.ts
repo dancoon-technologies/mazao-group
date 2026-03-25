@@ -43,14 +43,13 @@ export interface Visit {
   order_value?: number | null;
   harvest_kgs?: number | null;
   farmers_feedback?: string;
-  /** Sales and products given per product (from API). */
+  /** Sales per product (from API). */
   product_lines?: {
     product_id: string;
     product_name: string;
     product_code?: string;
     product_unit?: string;
     quantity_sold: string;
-    quantity_given: string;
   }[];
   /** Stockists visit (AgriPrice): number visited, merchandising, counter training. */
   number_of_stockists_visited?: number | null;
@@ -127,7 +126,6 @@ export interface DashboardProductRankingItem {
   product_name: string;
   product_unit: string;
   total_sold: number;
-  total_given: number;
 }
 
 export interface DashboardStaffRankingItem {

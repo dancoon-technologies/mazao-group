@@ -361,7 +361,7 @@ export async function enqueueVisit(payload: {
   order_value?: number | null
   harvest_kgs?: number | null
   farmers_feedback?: string
-  product_lines?: { product_id: string; quantity_sold?: number; quantity_given?: number }[]
+  product_lines?: { product_id: string; quantity_sold?: number }[]
   number_of_stockists_visited?: number | null
   merchandising?: string
   counter_training?: string

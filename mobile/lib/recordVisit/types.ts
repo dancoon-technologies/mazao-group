@@ -4,5 +4,4 @@ export type VisitProductLine = {
   product_name: string;
   product_unit?: string;
   quantity_sold: string;
-  quantity_given: string;
 };

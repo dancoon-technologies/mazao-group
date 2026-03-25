@@ -7,7 +7,7 @@ Mobile uses these to render and submit without hardcoded field config.
 # All Visit model optional fields that can appear in the step-3 form.
 # input_type: how to render (text, number, integer, multiline, product).
 # value_type: how to send to API (string, number, integer).
-# product_lines: products with quantity sold/given (submitted separately from step-3 values).
+# product_lines: products with quantity sold (submitted separately from step-3 values).
 VISIT_FORM_FIELD_SCHEMA = {
     "crop_stage": {"input_type": "text", "value_type": "string"},
     "germination_percent": {"input_type": "number", "value_type": "number"},

@@ -1,5 +1,5 @@
 /**
- * Farm detail screen: Farm info, Visits to this farm, and Products given (from those visits).
+ * Farm detail screen: Farm info, Visits to this farm, and Products sold (from those visits).
  */
 import { colors, radius, spacing } from '@/constants/theme';
 import { getFarms as getFarmsDb } from '@/database';
@@ -101,13 +101,13 @@ export default function FarmDetailScreen() {
 
   const openVisit = (visitId: string) => router.push({ pathname: '/visits/[id]', params: { id: visitId } });
 
-  // Products given: from visits' product_lines where quantity_given > 0, aggregated by product
-  const productsGiven = (() => {
+  // Products sold: from visits' product_lines where quantity_sold > 0, aggregated by product
+  const productsSold = (() => {
     const byProduct: Record<string, { name: string; code?: string; unit?: string; total: number; visits: number }> = {};
     for (const v of visits) {
       const lines = v.product_lines ?? [];
       for (const line of lines) {
-        const qty = parseFloat(line.quantity_given || '0') || 0;
+        const qty = parseFloat(line.quantity_sold || '0') || 0;
         if (qty <= 0) continue;
         const key = line.product_id;
         if (!byProduct[key]) {
@@ -161,7 +161,7 @@ export default function FarmDetailScreen() {
               {activeTab === 'visits' && <View style={styles.tabIndicator} />}
             </Pressable>
             <Pressable style={[styles.tab, activeTab === 'products' && styles.tabActive]} onPress={() => setActiveTab('products')}>
-              <Text variant="titleSmall" style={[styles.tabLabel, activeTab === 'products' && styles.tabLabelActive]}>Products given</Text>
+              <Text variant="titleSmall" style={[styles.tabLabel, activeTab === 'products' && styles.tabLabelActive]}>Products sold</Text>
               {activeTab === 'products' && <View style={styles.tabIndicator} />}
             </Pressable>
           </View>
@@ -213,15 +213,15 @@ export default function FarmDetailScreen() {
 
             {activeTab === 'products' && (
               <>
-                {productsGiven.length === 0 ? (
+                {productsSold.length === 0 ? (
                   <Card style={styles.card} mode="outlined">
                     <Card.Content>
-                      <Text variant="bodyMedium" style={styles.muted}>No products given at this {labels.location.toLowerCase()} yet.</Text>
+                      <Text variant="bodyMedium" style={styles.muted}>No products sold at this {labels.location.toLowerCase()} yet.</Text>
                     </Card.Content>
                   </Card>
                 ) : (
                   <View style={styles.list}>
-                    {productsGiven.map((p) => (
+                    {productsSold.map((p) => (
                       <Card key={p.id} style={styles.productCard} mode="outlined">
                         <Card.Content style={styles.productCardContent}>
                           <View style={styles.productRow}>
@@ -231,7 +231,7 @@ export default function FarmDetailScreen() {
                               {(p.code || p.unit) && (
                                 <Text variant="bodySmall" style={styles.muted}>{[p.code, p.unit].filter(Boolean).join(' · ')}</Text>
                               )}
-                              <Text variant="bodyMedium" style={styles.productQty}>Total given: {p.total}{p.unit ? ` ${p.unit}` : ''} ({p.visits} visit{p.visits !== 1 ? 's' : ''})</Text>
+                              <Text variant="bodyMedium" style={styles.productQty}>Total sold: {p.total}{p.unit ? ` ${p.unit}` : ''} ({p.visits} visit{p.visits !== 1 ? 's' : ''})</Text>
                             </View>
                           </View>
                         </Card.Content>

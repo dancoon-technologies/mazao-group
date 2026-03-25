@@ -196,7 +196,7 @@ class VisitPhoto(models.Model):
 
 
 class Product(models.Model):
-    """Product per department; used to record sales and products given during visits."""
+    """Product per department; used to record sales during visits."""
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     department = models.ForeignKey(
@@ -218,7 +218,7 @@ class Product(models.Model):
 
 
 class VisitProduct(models.Model):
-    """Sales and products given per product during a visit."""
+    """Sales per product during a visit."""
 
     visit = models.ForeignKey(
         Visit,
@@ -240,7 +240,7 @@ class VisitProduct(models.Model):
         max_digits=12,
         decimal_places=3,
         default=0,
-        help_text="Quantity given (e.g. samples) during this visit.",
+        help_text="Deprecated: quantity given is no longer captured (kept for backward compatibility).",
     )
 
     class Meta:

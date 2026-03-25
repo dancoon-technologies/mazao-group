@@ -229,21 +229,18 @@ class DashboardProductRankingView(APIView):
             .values("product_id", "product__name", "product__unit")
             .annotate(
                 total_sold=Sum("quantity_sold"),
-                total_given=Sum("quantity_given"),
             )
             .order_by("-total_sold")
         )
         result = []
         for rank, row in enumerate(qs, start=1):
             total_sold = row["total_sold"] or 0
-            total_given = row["total_given"] or 0
             result.append({
                 "rank": rank,
                 "product_id": str(row["product_id"]),
                 "product_name": row["product__name"] or "—",
                 "product_unit": row["product__unit"] or "",
                 "total_sold": float(total_sold),
-                "total_given": float(total_given),
             })
         logger.info("GET /api/dashboard/product-ranking/ user=%s days=%s count=%s", request.user.id, days, len(result))
         return Response(result)

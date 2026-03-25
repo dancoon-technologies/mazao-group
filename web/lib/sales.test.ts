@@ -33,7 +33,7 @@ describe("flattenVisitsToSales", () => {
     expect(flattenVisitsToSales(visits)).toEqual([]);
   });
 
-  it("skips lines where both quantity_sold and quantity_given are zero", () => {
+  it("skips lines where quantity_sold is zero", () => {
     const visits = [
       makeVisit({
         id: "v1",
@@ -42,7 +42,6 @@ describe("flattenVisitsToSales", () => {
             product_id: "p1",
             product_name: "Product A",
             quantity_sold: "0",
-            quantity_given: "0",
           },
         ],
       }),
@@ -50,7 +49,7 @@ describe("flattenVisitsToSales", () => {
     expect(flattenVisitsToSales(visits)).toHaveLength(0);
   });
 
-  it("emits one row per product line with sold or given", () => {
+  it("emits one row per product line with sold quantity", () => {
     const visits = [
       makeVisit({
         id: "v1",
@@ -64,19 +63,17 @@ describe("flattenVisitsToSales", () => {
             product_name: "Seeds",
             product_unit: "kg",
             quantity_sold: "10",
-            quantity_given: "0",
           },
           {
             product_id: "p2",
             product_name: "Fertilizer",
             quantity_sold: "0",
-            quantity_given: "2",
           },
         ],
       }),
     ];
     const rows = flattenVisitsToSales(visits);
-    expect(rows).toHaveLength(2);
+    expect(rows).toHaveLength(1);
     expect(rows[0]).toMatchObject({
       visitId: "v1",
       date: "2024-03-14T12:00:00Z",
@@ -86,14 +83,8 @@ describe("flattenVisitsToSales", () => {
       productName: "Seeds",
       productUnit: "kg",
       quantitySold: "10",
-      quantityGiven: "0",
     });
     expect(rows[0].id).toBe("v1-line-p1");
-    expect(rows[1]).toMatchObject({
-      productName: "Fertilizer",
-      quantitySold: "0",
-      quantityGiven: "2",
-    });
   });
 
   it("returns no rows when visit has no product_lines", () => {
@@ -123,7 +114,6 @@ describe("flattenVisitsToSales", () => {
             product_id: "p1",
             product_name: "X",
             quantity_sold: "1",
-            quantity_given: "0",
           },
         ],
       }),
@@ -153,8 +143,8 @@ describe("groupSalesByVisit", () => {
         farmer_display_name: "John",
         farm_display_name: "North Farm",
         product_lines: [
-          { product_id: "p1", product_name: "Seeds", product_unit: "kg", quantity_sold: "10", quantity_given: "0" },
-          { product_id: "p2", product_name: "Fertilizer", quantity_sold: "0", quantity_given: "2" },
+          { product_id: "p1", product_name: "Seeds", product_unit: "kg", quantity_sold: "10" },
+          { product_id: "p2", product_name: "Fertilizer", quantity_sold: "0" },
         ],
       }),
     ];
@@ -168,8 +158,7 @@ describe("groupSalesByVisit", () => {
       locationDisplay: "North Farm",
     });
     expect(groups[0].products).toHaveLength(2);
-    expect(groups[0].products[0]).toMatchObject({ productName: "Seeds", productUnit: "kg", quantitySold: "10", quantityGiven: "0" });
-    expect(groups[0].products[1]).toMatchObject({ productName: "Fertilizer", quantitySold: "0", quantityGiven: "2" });
+    expect(groups[0].products[0]).toMatchObject({ productName: "Seeds", productUnit: "kg", quantitySold: "10" });
   });
 
   it("returns empty when visit has no product_lines", () => {

@@ -349,24 +349,23 @@ class VisitListCreateView(generics.ListCreateAPIView):
                 if not pid or str(pid) not in {str(a) for a in allowed_product_ids}:
                     continue
                 qty_sold = line.get("quantity_sold")
-                qty_given = line.get("quantity_given")
-                if qty_sold is None and qty_given is None:
+                if qty_sold is None:
                     continue
                 from decimal import Decimal
                 try:
                     sold = Decimal(str(qty_sold)) if qty_sold is not None else Decimal("0")
-                    given = Decimal(str(qty_given)) if qty_given is not None else Decimal("0")
                 except Exception:
                     continue
-                if sold < 0 or given < 0:
+                if sold < 0:
                     continue
-                if sold == 0 and given == 0:
+                if sold == 0:
                     continue
                 product_id = next(a for a in allowed_product_ids if str(a) == str(pid))
                 VisitProduct.objects.update_or_create(
                     visit=visit,
                     product_id=product_id,
-                    defaults={"quantity_sold": sold, "quantity_given": given},
+                    # quantity_given is intentionally not editable anymore; keep it at 0.
+                    defaults={"quantity_sold": sold, "quantity_given": Decimal("0")},
                 )
 
         from django.contrib.auth import get_user_model

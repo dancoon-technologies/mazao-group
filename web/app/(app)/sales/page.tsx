@@ -205,7 +205,7 @@ export default function SalesPage() {
         {visitGroups.length === 0 ? (
           <Paper p="lg" withBorder style={{ minHeight: 80 }}>
             <Text c="dimmed" size="sm" style={{ lineHeight: 1.5 }}>
-              No sales recorded in the selected period. Sales are taken from products (quantity sold/given) on visits.
+              No sales recorded in the selected period. Sales are taken from products (quantity sold) on visits.
             </Text>
           </Paper>
         ) : (
@@ -217,7 +217,6 @@ export default function SalesPage() {
                   <Table.Th>Officer</Table.Th>
                   <Table.Th>Customer</Table.Th>
                   <Table.Th>Total sold</Table.Th>
-                  <Table.Th>Total given</Table.Th>
                   <Table.Th>Products</Table.Th>
                   <Table.Th />
                 </Table.Tr>
@@ -226,10 +225,6 @@ export default function SalesPage() {
                 {visitGroups.map((g) => {
                   const totalSold = g.products.reduce(
                     (sum, p) => sum + (parseFloat(p.quantitySold) || 0),
-                    0
-                  );
-                  const totalGiven = g.products.reduce(
-                    (sum, p) => sum + (parseFloat(p.quantityGiven) || 0),
                     0
                   );
                   return (
@@ -249,9 +244,6 @@ export default function SalesPage() {
                       <Text size="sm">{Math.round(totalSold)}</Text>
                     </Table.Td>
                     <Table.Td>
-                      <Text size="sm">{Math.round(totalGiven)}</Text>
-                    </Table.Td>
-                    <Table.Td>
                       <Accordion
                         variant="separated"
                         radius="sm"
@@ -269,7 +261,6 @@ export default function SalesPage() {
                                 <Table.Tr>
                                   <Table.Th>Product</Table.Th>
                                   <Table.Th>Qty sold</Table.Th>
-                                  <Table.Th>Qty given</Table.Th>
                                 </Table.Tr>
                               </Table.Thead>
                               <Table.Tbody>
@@ -283,9 +274,6 @@ export default function SalesPage() {
                                     </Table.Td>
                                     <Table.Td>
                                       <Text size="sm">{Math.round(parseFloat(p.quantitySold) || 0)}</Text>
-                                    </Table.Td>
-                                    <Table.Td>
-                                      <Text size="sm">{Math.round(parseFloat(p.quantityGiven) || 0)}</Text>
                                     </Table.Td>
                                   </Table.Tr>
                                 ))}

@@ -539,7 +539,6 @@ export function useRecordVisitScreen() {
         ? productLines.map((p) => ({
           product_id: p.product_id,
           quantity_sold: parseFloat(p.quantity_sold) || 0,
-          quantity_given: parseFloat(p.quantity_given) || 0,
         }))
         : undefined;
 

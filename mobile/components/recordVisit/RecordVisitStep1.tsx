@@ -80,7 +80,7 @@ export function RecordVisitStep1({
         <Surface style={styles.section} elevation={0}>
           <Text variant="labelLarge" style={styles.fieldLabel}>Products</Text>
           <Text variant="bodySmall" style={styles.hint}>
-            Optional. Record products sold or given during this visit.
+            Optional. Record products sold during this visit.
           </Text>
           {productLines.map((line, index) => {
             const productLabel = line.product_name + (line.product_unit ? ` (${line.product_unit})` : '');
@@ -93,20 +93,7 @@ export function RecordVisitStep1({
                     value={line.quantity_sold}
                     onChangeText={(t) => setProductLines((prev) => {
                       const next = [...prev];
-                      next[index] = { ...next[index], quantity_sold: t };
-                      return next;
-                    })}
-                    mode="outlined"
-                    keyboardType="decimal-pad"
-                    placeholder="0"
-                    style={styles.productLineInput}
-                  />
-                  <TextInput
-                    label="Qty given"
-                    value={line.quantity_given}
-                    onChangeText={(t) => setProductLines((prev) => {
-                      const next = [...prev];
-                      next[index] = { ...next[index], quantity_given: t };
+                          next[index] = { ...next[index], quantity_sold: t };
                       return next;
                     })}
                     mode="outlined"
@@ -153,7 +140,6 @@ export function RecordVisitStep1({
                 product_name: p.name,
                 product_unit: p.unit,
                 quantity_sold: '',
-                quantity_given: '',
               }));
               setProductLines((prev) => [...prev, ...toAdd]);
               setProductModalOpen(false);

@@ -635,7 +635,7 @@ class VisitProductLinesAPITests(TestCase):
         token = self._login("officer@test.com", "officer123")
         self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
         product_lines = [
-            {"product_id": str(self.product.pk), "quantity_sold": 10, "quantity_given": 2},
+            {"product_id": str(self.product.pk), "quantity_sold": 10},
         ]
         data = {
             "farmer_id": str(self.farmer.pk),
@@ -657,7 +657,7 @@ class VisitProductLinesAPITests(TestCase):
         self.assertEqual(resp["product_lines"][0]["product_name"], "Seeds A")
         # Serializer may return Decimal as "10" or "10.000"
         self.assertEqual(float(resp["product_lines"][0]["quantity_sold"]), 10)
-        self.assertEqual(float(resp["product_lines"][0]["quantity_given"]), 2)
+        self.assertNotIn("quantity_given", resp["product_lines"][0])
 
     def test_retrieve_visit_includes_product_lines(self):
         visit = Visit.objects.create(
@@ -685,7 +685,7 @@ class VisitProductLinesAPITests(TestCase):
         self.assertEqual(lines[0]["product_name"], "Seeds A")
         # Serializer returns Decimal as string (e.g. "5.000" with decimal_places=3)
         self.assertEqual(float(lines[0]["quantity_sold"]), 5)
-        self.assertEqual(float(lines[0]["quantity_given"]), 1)
+        self.assertNotIn("quantity_given", lines[0])
 
     def test_create_route_only_visit_with_product_lines(self):
         """
@@ -695,7 +695,7 @@ class VisitProductLinesAPITests(TestCase):
         token = self._login("officer@test.com", "officer123")
         self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
         product_lines = [
-            {"product_id": str(self.product.pk), "quantity_sold": 7, "quantity_given": 3},
+            {"product_id": str(self.product.pk), "quantity_sold": 7},
         ]
         data = {
             "farmer_id": str(self.farmer.pk),
@@ -717,4 +717,4 @@ class VisitProductLinesAPITests(TestCase):
         self.assertIn("product_lines", r.json())
         self.assertEqual(len(r.json()["product_lines"]), 1)
         self.assertEqual(float(r.json()["product_lines"][0]["quantity_sold"]), 7)
-        self.assertEqual(float(r.json()["product_lines"][0]["quantity_given"]), 3)
+        self.assertNotIn("quantity_given", r.json()["product_lines"][0])

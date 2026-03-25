@@ -67,7 +67,7 @@ class OptionsListView(APIView):
         except Exception as e:
             logger.warning("Options activity_types: %s", e)
 
-        # Products for the user's department (for recording sales/given during visits).
+        # Products for the user's department (for recording sales during visits).
         products = []
         try:
             from visits.models import Product

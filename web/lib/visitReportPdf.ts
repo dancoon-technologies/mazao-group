@@ -134,11 +134,10 @@ export async function generateVisitReportPdf(
       : PDF_HEADER_HEIGHT + 14;
 
   if (visit.product_lines && visit.product_lines.length > 0) {
-    const productHead = ["Product", "Qty sold", "Qty given"];
+    const productHead = ["Product", "Qty sold"];
     const productBody = visit.product_lines.map((line) => [
       `${line.product_name ?? "—"}${line.product_unit ? ` (${line.product_unit})` : ""}`,
       line.quantity_sold ?? "0",
-      line.quantity_given ?? "0",
     ]);
     autoTable(doc, {
       head: [productHead],
