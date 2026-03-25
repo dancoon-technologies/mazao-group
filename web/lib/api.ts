@@ -185,11 +185,28 @@ export const api = {
     if (params?.department) search.set("department", params.department);
     if (params?.farm) search.set("farm", params.farm);
     if (params?.farmer) search.set("farmer", params.farmer);
-    const qs = search.toString();
-    const url = qs ? `${API_BASE}/api/visits?${qs}` : `${API_BASE}/api/visits`;
-    const res = await authFetch(url, { signal: options?.signal });
-    if (!res.ok) throw new Error("Failed to fetch visits");
-    return unwrapList(await res.json());
+    const all: Visit[] = [];
+    let page = 1;
+    type PageResponse = { results?: Visit[]; next?: string | null };
+    while (true) {
+      const pageSearch = new URLSearchParams(search);
+      pageSearch.set("page", String(page));
+      const qs = pageSearch.toString();
+      const url = `${API_BASE}/api/visits?${qs}`;
+      const res = await authFetch(url, { signal: options?.signal });
+      if (!res.ok) throw new Error("Failed to fetch visits");
+      const data = (await res.json()) as Visit[] | PageResponse;
+      const batch = Array.isArray(data) ? data : (data.results ?? []);
+      all.push(...batch);
+      const hasNext =
+        !Array.isArray(data) &&
+        data != null &&
+        typeof data === "object" &&
+        Boolean((data as PageResponse).next);
+      if (!hasNext || batch.length === 0) break;
+      page += 1;
+    }
+    return all;
   },
 
   /** Supervisor or admin only. Accept or reject a visit record (sets verification_status). */
