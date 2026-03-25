@@ -12,11 +12,20 @@ import { styles } from './styles';
 
 export type RecordVisitLabels = { partner: string; location: string };
 
+function partnerKindSuffix(farmer: Farmer | undefined): string {
+  if (!farmer) return '';
+  return farmer.is_stockist ? ' · Stockist' : ' · Farmer';
+}
+
+function locationKindSuffix(farm: Farm | undefined): string {
+  if (!farm) return '';
+  return farm.is_outlet ? ' · Outlet' : ' · Farm';
+}
+
 type Props = {
   todayRoute: Route | null;
   todayRoutes: Route[];
   acceptedSchedules: Schedule[];
-  hasRouteStops: boolean;
   farmers: Farmer[];
   labels: RecordVisitLabels;
   selectedRouteStopId: string | null;
@@ -30,6 +39,8 @@ type Props = {
   selectedFarm: Farm | undefined;
   farms: Farm[];
   farmerModalOpen: boolean;
+  /** When set, overrides the default “Select partner” title on the farmer picker (e.g. route-from-location flow). */
+  farmerModalTitle: string | null;
   farmModalOpen: boolean;
   activityTypesModalOpen: boolean;
   activityTypesOptionsRefreshing: boolean;
@@ -69,7 +80,6 @@ export function RecordVisitStep0({
   todayRoute,
   todayRoutes,
   acceptedSchedules,
-  hasRouteStops,
   farmers,
   labels,
   selectedRouteStopId,
@@ -83,6 +93,7 @@ export function RecordVisitStep0({
   selectedFarm,
   farms,
   farmerModalOpen,
+  farmerModalTitle,
   farmModalOpen,
   activityTypesModalOpen,
   activityTypesOptionsRefreshing,
@@ -117,13 +128,15 @@ export function RecordVisitStep0({
   onSubmitVisit,
   onOpenOptionalDetails,
 }: Props) {
+  const requiresPlanChoice = acceptedSchedules.length > 0 || todayRoutes.length > 0;
+
   return (
     <>
       {!selectedScheduleId && todayRoute ? (
         <Surface style={styles.section} elevation={0}>
-          <Text variant="labelLarge" style={styles.fieldLabel}>Today&apos;s route</Text>
+          <Text variant="labelLarge" style={styles.fieldLabel}>Weekly route (today)</Text>
           <Text variant="bodySmall" style={styles.hint}>
-            Tap a planned stop, or record someone you met who was not on the list — still counts toward today&apos;s route.
+            Routes can include visits even when there are no planned stops. Pick a stop when listed, or record from your current location and choose the farmer or stockist — the visit stays on this route.
           </Text>
           {todayRoutes.length > 1 ? (
             <View style={styles.scheduleChips}>
@@ -142,36 +155,43 @@ export function RecordVisitStep0({
           ) : null}
           {todayRoute.stops && todayRoute.stops.length > 0 ? (
             <View style={styles.scheduleChips}>
-              {todayRoute.stops.map((stop) => (
-                <Chip
-                  key={stop.id}
-                  selected={selectedRouteStopId === stop.id}
-                  onPress={() => onPickRouteStop(stop)}
-                  style={styles.scheduleChip}
-                  compact
-                >
-                  {stop.farmer_display_name} · {labels.location}: {stop.farm_display_name ?? '—'}
-                </Chip>
-              ))}
+              {todayRoute.stops.map((stop) => {
+                const f = farmers.find((x) => x.id === stop.farmer);
+                const partnerLine =
+                  (stop.farmer_display_name ?? f?.display_name ?? '—') + partnerKindSuffix(f);
+                return (
+                  <Chip
+                    key={stop.id}
+                    selected={selectedRouteStopId === stop.id}
+                    onPress={() => onPickRouteStop(stop)}
+                    style={styles.scheduleChip}
+                    compact
+                  >
+                    {partnerLine} · {labels.location}: {stop.farm_display_name ?? '—'}
+                  </Chip>
+                );
+              })}
             </View>
           ) : (
             <Text variant="bodySmall" style={styles.muted}>
-              No stops planned for today — you can still link visits to this route and choose any customer below.
+              No stops on this plan — tap below to refresh your GPS, then choose the farmer or stockist for this route.
             </Text>
           )}
           {mustSelectSchedule && acceptedSchedules.length === 0 && !selectedRouteId ? (
             <HelperText type="error" style={styles.errorHint}>
-              Select a route stop or choose “Customer not on route list”.
+              {todayRoutes.length > 1
+                ? 'Select which route you are on, then a stop or “Record from here”.'
+                : 'Select a stop on this route, or “Record from here” to choose farmer or stockist at your location.'}
             </HelperText>
           ) : null}
           <Button
             mode="outlined"
             compact
-            icon="account-plus-outline"
+            icon="crosshairs-gps"
             onPress={onAdHocRouteCustomer}
             style={styles.routeAdHocBtn}
           >
-            Customer not on route list
+            Record from here — choose farmer or stockist
           </Button>
         </Surface>
       ) : null}
@@ -179,11 +199,13 @@ export function RecordVisitStep0({
         <Surface style={styles.section} elevation={0}>
           <Text variant="labelLarge" style={styles.fieldLabel}>Planned visit *</Text>
           <Text variant="bodySmall" style={styles.hint}>
-            {`Accepted schedules for today or earlier. ${labels.partner} and ${labels.location.toLowerCase()} come from your choice.`}
+            Accepted schedules for today or earlier. Each line shows Farmer vs Stockist when known.
           </Text>
           <View style={styles.scheduleChips}>
             {acceptedSchedules.map((s) => {
-              const farmerName = farmers.find((f) => f.id === s.farmer)?.display_name ?? s.farmer ?? '—';
+              const f = farmers.find((x) => x.id === s.farmer);
+              const partnerLine =
+                (f?.display_name ?? s.farmer_display_name ?? s.farmer ?? '—') + partnerKindSuffix(f);
               const dateStr = s.scheduled_date;
               return (
                 <Chip
@@ -193,7 +215,7 @@ export function RecordVisitStep0({
                   style={styles.scheduleChip}
                   compact
                 >
-                  {dateStr} — {farmerName} · {labels.location}: {s.farm_display_name ?? 'None'}
+                  {dateStr} — {partnerLine} · {labels.location}: {s.farm_display_name ?? 'None'}
                 </Chip>
               );
             })}
@@ -201,26 +223,30 @@ export function RecordVisitStep0({
           {mustSelectSchedule && (
             <>
               <HelperText type="error" style={styles.errorHint}>
-                Select a planned visit, a route stop, or use an option below.
+                {requiresPlanChoice && todayRoutes.length > 0
+                  ? 'Select a planned visit or today’s weekly route (see above).'
+                  : 'Select a planned visit from the list.'}
               </HelperText>
-              <Button
-                mode="text"
-                compact
-                onPress={onFieldVisitNotFromList}
-                style={styles.skipPlanBtn}
-              >
-                Field visit (not from this list)
-              </Button>
+              {!requiresPlanChoice ? (
+                <Button
+                  mode="text"
+                  compact
+                  onPress={onFieldVisitNotFromList}
+                  style={styles.skipPlanBtn}
+                >
+                  Field visit (not from this list)
+                </Button>
+              ) : null}
             </>
           )}
         </Surface>
-      ) : !hasRouteStops && !todayRoute ? (
+      ) : todayRoutes.length === 0 && acceptedSchedules.length === 0 ? (
         <View style={styles.warningBox}>
           <MaterialCommunityIcons name="alert-circle-outline" size={22} color={colors.warning} style={styles.warningBoxIcon} />
           <View style={styles.warningBoxContent}>
             <Text variant="labelLarge" style={styles.warningBoxTitle}>Nothing to visit yet</Text>
             <Text variant="bodySmall" style={styles.warningBoxText}>
-              Add an accepted schedule or set today&apos;s route under Plan visits → Weekly routes. You can also record a field visit and pick a customer below.
+              Add an accepted schedule in Schedules, or submit today’s route under Plan visits → Weekly routes. If you have neither, you can record a field visit and pick a customer below.
             </Text>
           </View>
         </View>
@@ -232,7 +258,7 @@ export function RecordVisitStep0({
             {selectedScheduleId
               ? `${labels.partner.toUpperCase()} & ${labels.location.toUpperCase()} (from schedule)`
               : selectedRouteId
-                ? `${labels.partner.toUpperCase()} & ${labels.location.toUpperCase()} (today{"'"}s route)`
+                ? `${labels.partner.toUpperCase()} & ${labels.location.toUpperCase()} (weekly route)`
                 : `${labels.partner.toUpperCase()} & ${labels.location.toUpperCase()}`}
           </Text>
           {!selectedScheduleId ? (
@@ -254,7 +280,7 @@ export function RecordVisitStep0({
             farmers={farmers}
             selectedFarmerId={selectedFarmerId}
             onSelect={onSelectFarmer}
-            title={`Select ${labels.partner.toLowerCase()}`}
+            title={farmerModalTitle ?? `Select ${labels.partner.toLowerCase()}`}
           />
           {selectedFarmer && (
             <View style={styles.farmerCard}>
@@ -273,15 +299,25 @@ export function RecordVisitStep0({
                 ) : null}
               </View>
               <View style={styles.farmerCardTag}>
-                <Chip mode="flat" style={styles.activeChip} textStyle={styles.activeChipText} compact>Active</Chip>
+                <Chip mode="flat" style={styles.activeChip} textStyle={styles.activeChipText} compact>
+                  {selectedFarmer.is_stockist ? 'Stockist' : 'Farmer'}
+                </Chip>
               </View>
             </View>
           )}
 
-          <Text variant="labelMedium" style={styles.step2SectionTitle}>{labels.location.toUpperCase()} (optional)</Text>
+          <Text variant="labelMedium" style={styles.step2SectionTitle}>
+            {`${labels.location.toUpperCase()} (optional)`}
+          </Text>
+          <Text variant="bodySmall" style={styles.hint}>
+            Farm vs outlet is shown when this {labels.location.toLowerCase()} is saved on the partner record.
+          </Text>
           {(scheduleLockedForFarm && selectedFarm) ? (
             <View style={styles.farmDisplay}>
-              <Text variant="bodyLarge">{selectedFarm.village}</Text>
+              <Text variant="bodyLarge">
+                {selectedFarm.village}
+                {locationKindSuffix(selectedFarm)}
+              </Text>
             </View>
           ) : selectedFarmer && !scheduleLockedForFarm ? (
             farms.length === 0 ? (
@@ -296,8 +332,8 @@ export function RecordVisitStep0({
                   icon="barn"
                 >
                   {selectedFarm
-                    ? selectedFarm.village
-                    : 'Select farm'}
+                    ? `${selectedFarm.village}${locationKindSuffix(selectedFarm)}`
+                    : `Select ${labels.location.toLowerCase()}`}
                 </Button>
                 <SelectFarmModal
                   visible={farmModalOpen}
@@ -305,7 +341,7 @@ export function RecordVisitStep0({
                   farms={farms}
                   selectedFarmId={selectedFarmId}
                   onSelect={onSelectFarm}
-                  title="Select farm"
+                  title={`Select ${labels.location.toLowerCase()}`}
                 />
               </>
             )

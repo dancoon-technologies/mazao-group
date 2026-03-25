@@ -25,7 +25,8 @@ export interface ValidateRecordVisitInput {
   routeIdForSubmit?: string | undefined;
   mustSelectSchedule: boolean;
   acceptedSchedulesLength: number;
-  hasRouteStops: boolean;
+  /** True when the officer has at least one weekly route scheduled for today. */
+  hasWeeklyRouteToday: boolean;
   selectedFarmerId: string | null;
   location: { coords: { latitude: number; longitude: number } } | null;
   photoUrisLength: number;
@@ -55,7 +56,7 @@ export function validateRecordVisit(input: ValidateRecordVisitInput): ValidateRe
   const {
     mustSelectSchedule,
     acceptedSchedulesLength,
-    hasRouteStops,
+    hasWeeklyRouteToday,
     selectedFarmerId,
     location,
     photoUrisLength,
@@ -72,14 +73,30 @@ export function validateRecordVisit(input: ValidateRecordVisitInput): ValidateRe
   } = input;
 
   if (mustSelectSchedule) {
+    if (acceptedSchedulesLength > 0 && hasWeeklyRouteToday) {
+      return {
+        valid: false,
+        error:
+          'Select a planned visit (accepted schedule) or today’s weekly route (a stop, or record from your location and choose farmer or stockist).',
+      };
+    }
+    if (hasWeeklyRouteToday) {
+      return {
+        valid: false,
+        error:
+          'Select a stop on today’s weekly route, or use “Record from here” to choose farmer or stockist and link the visit to that route.',
+      };
+    }
+    if (acceptedSchedulesLength > 0) {
+      return {
+        valid: false,
+        error: 'Select a planned visit (accepted schedule) with date today or in the past.',
+      };
+    }
     return {
       valid: false,
       error:
-        acceptedSchedulesLength === 0
-          ? hasRouteStops
-            ? 'Select a route stop for today, or use “Customer not on route list”.'
-            : `You need an accepted schedule for today or a past date to record a visit. Future dates are not allowed.`
-          : `Select a planned visit (accepted schedule) with date today or in the past.`,
+        'You need an accepted schedule for today or a past date, or a weekly route for today, to record this visit.',
     };
   }
   // Schedule and route are optional: backend allows farmer-only visits (unplanned field stop).

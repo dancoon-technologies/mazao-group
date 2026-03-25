@@ -94,7 +94,6 @@ export default function RecordVisitScreen() {
               todayRoute={v.todayRoute}
               todayRoutes={v.todayRoutes}
               acceptedSchedules={v.acceptedSchedules}
-              hasRouteStops={v.hasRouteStops}
               farmers={v.farmers}
               labels={v.labels}
               selectedRouteStopId={v.selectedRouteStopId}
@@ -108,6 +107,7 @@ export default function RecordVisitScreen() {
               selectedFarm={v.selectedFarm}
               farms={v.farms}
               farmerModalOpen={v.farmerModalOpen}
+              farmerModalTitle={v.farmerModalTitle}
               farmModalOpen={v.farmModalOpen}
               activityTypesModalOpen={v.activityTypesModalOpen}
               activityTypesOptionsRefreshing={v.activityTypesOptionsRefreshing}
@@ -127,9 +127,9 @@ export default function RecordVisitScreen() {
               onAdHocRouteCustomer={v.adHocRouteCustomer}
               onPickSchedule={v.pickSchedule}
               onFieldVisitNotFromList={v.fieldVisitNotFromList}
-              onCloseFarmerModal={() => v.setFarmerModalOpen(false)}
+              onCloseFarmerModal={v.closeFarmerModal}
               onSelectFarmer={v.selectFarmerAndClose}
-              onOpenFarmerModal={() => v.setFarmerModalOpen(true)}
+              onOpenFarmerModal={v.openFarmerPicker}
               onCloseFarmModal={() => v.setFarmModalOpen(false)}
               onSelectFarm={setSelectedFarmId}
               onOpenFarmModal={() => v.setFarmModalOpen(true)}

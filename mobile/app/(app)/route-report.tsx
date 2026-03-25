@@ -115,7 +115,19 @@ export default function RouteReportScreen() {
   const loadRoutes = useCallback(async () => {
     try {
       const list = await api.getRoutes({ week_start: weekStart });
-      setRoutes(Array.isArray(list) ? list : []);
+      const arr = Array.isArray(list) ? list : [];
+      // End-of-day report only applies to routes where at least one visit was recorded for that route.
+      const withVisits = await Promise.all(
+        arr.map(async (r) => {
+          try {
+            const v = await api.getVisits({ route: r.id });
+            return v.length > 0 ? r : null;
+          } catch {
+            return null;
+          }
+        })
+      );
+      setRoutes(withVisits.filter((x): x is Route => x != null));
     } catch {
       setRoutes([]);
     } finally {
@@ -190,12 +202,14 @@ export default function RouteReportScreen() {
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); loadRoutes(); }} />}
         >
           <Text variant="bodyMedium" style={styles.hint}>
-            After 6 PM you can fill the end-of-day report for each route. If you recorded visits with additional details, they are prefilled below.
+            Only routes with at least one recorded visit appear here. After 6 PM you can fill the end-of-day report; if visits include extra details, fields below are prefilled.
           </Text>
           {loading ? (
             <ActivityIndicator size="large" style={styles.loader} />
           ) : routes.length === 0 ? (
-            <Text variant="bodyMedium" style={styles.empty}>No routes this week. Add routes under Plan visits → Weekly routes.</Text>
+            <Text variant="bodyMedium" style={styles.empty}>
+              No routes with recorded visits this week. Record visits linked to a route (from Schedules or Record visit), then your route will show here for the report.
+            </Text>
           ) : (
             routes.map((r) => (
               <Card key={r.id} style={styles.card} onPress={() => loadReportAndVisits(r)}>
