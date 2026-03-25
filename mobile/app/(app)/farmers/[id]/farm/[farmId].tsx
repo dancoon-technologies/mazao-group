@@ -15,7 +15,7 @@ import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-n
 import { ActivityIndicator, Appbar, Card, List, Text } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import ListItemRow from '@/components/ListItemRow';
+import { ListItemRow } from '@/components/ListItemRow';
 
 type TabKey = 'farm' | 'visits' | 'products';
 

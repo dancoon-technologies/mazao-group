@@ -204,6 +204,23 @@ export interface TrackingSettings {
   interval_minutes?: number;
 }
 
+export interface LocationReport {
+  id: string;
+  user_id: string | null;
+  user_email: string;
+  user_display_name: string | null;
+  reported_at: string;
+  reported_at_server?: string | null;
+  latitude: number;
+  longitude: number;
+  accuracy?: number | null;
+  battery_percent: number | null;
+  device_info: Record<string, unknown>;
+  device_integrity?: Record<string, unknown> | null;
+  integrity_warning?: string | null;
+  created_at: string;
+}
+
 export interface ProductOption {
   id: string;
   name: string;
@@ -573,6 +590,27 @@ export const api = {
   },
 
   getLocations: () => request<LocationData>('/locations/'),
+
+  /** Location reports list for admin/supervisor. Backend scopes supervisor to their department. */
+  async getTrackingReports(params?: {
+    user_id?: string;
+    date?: string; // YYYY-MM-DD
+    date_from?: string; // YYYY-MM-DD
+    date_to?: string; // YYYY-MM-DD
+    page_size?: number;
+  }) {
+    const q = new URLSearchParams();
+    if (params?.user_id) q.set('user_id', params.user_id);
+    if (params?.date) q.set('date', params.date);
+    if (params?.date_from) q.set('date_from', params.date_from);
+    if (params?.date_to) q.set('date_to', params.date_to);
+    if (params?.page_size != null) q.set('page_size', String(params.page_size));
+    const query = q.toString();
+    const path = query ? `/tracking/reports/?${query}` : '/tracking/reports/';
+    const data = await request<LocationReport[] | { results?: LocationReport[] }>(path);
+    const list = Array.isArray(data) ? data : (data?.results ?? []);
+    return list;
+  },
 
   /** Routes (weekly plan). Optional week_start=YYYY-MM-DD for Mon–Sat of that week. First page only unless you use getAllRoutes. */
   async getRoutes(params?: { week_start?: string; officer?: string }) {

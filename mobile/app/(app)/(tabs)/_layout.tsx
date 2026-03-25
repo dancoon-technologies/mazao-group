@@ -3,6 +3,7 @@ import { Tabs, useRouter } from 'expo-router';
 import { Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, shadows } from '@/constants/theme';
+import { useAuth } from '@/contexts/AuthContext';
 
 const TAB_ICONS: Record<string, keyof typeof MaterialCommunityIcons.glyphMap> = {
   index: 'home',
@@ -11,12 +12,15 @@ const TAB_ICONS: Record<string, keyof typeof MaterialCommunityIcons.glyphMap> = 
   record: 'plus-circle',
   farmers: 'account-group',
   stockists: 'store-outline',
+  tracking: 'map-marker-path',
   profile: 'account',
 };
 
 export default function AppTabsLayout() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { role } = useAuth();
+  const isSupervisor = role === 'supervisor';
 
   return (
     <Tabs
@@ -103,6 +107,17 @@ export default function AppTabsLayout() {
           title: 'Schedules',
           tabBarIcon: ({ color, size }) => (
             <MaterialCommunityIcons name={TAB_ICONS.schedules} size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="tracking"
+        options={{
+          headerShown: false,
+          title: 'Track team',
+          href: isSupervisor ? undefined : null,
+          tabBarIcon: ({ color, size }) => (
+            <MaterialCommunityIcons name={TAB_ICONS.tracking} size={size} color={color} />
           ),
         }}
       />
