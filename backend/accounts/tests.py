@@ -62,6 +62,36 @@ class AuthTests(TestCase):
         r = self.client.get("/api/farmers/")
         self.assertEqual(r.status_code, status.HTTP_401_UNAUTHORIZED)
 
+    def test_single_device_access_token_invalidated(self):
+        # First login (device A)
+        r1 = self.client.post(
+            "/api/auth/login/",
+            {"email": "user@test.com", "password": "pass123"},
+            format="json",
+        )
+        self.assertEqual(r1.status_code, status.HTTP_200_OK)
+        access1 = r1.json()["access"]
+
+        # Second login (device B) invalidates device A access tokens immediately.
+        self.client = APIClient()
+        r2 = self.client.post(
+            "/api/auth/login/",
+            {"email": "user@test.com", "password": "pass123"},
+            format="json",
+        )
+        self.assertEqual(r2.status_code, status.HTTP_200_OK)
+        access2 = r2.json()["access"]
+
+        # Device A access should be rejected.
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {access1}")
+        rA = self.client.get("/api/options/")
+        self.assertEqual(rA.status_code, status.HTTP_401_UNAUTHORIZED)
+
+        # Device B access should work.
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {access2}")
+        rB = self.client.get("/api/options/")
+        self.assertEqual(rB.status_code, status.HTTP_200_OK)
+
     def test_login_email_case_insensitive(self):
         """Login works with different email casing (normalized)."""
         r = self.client.post(

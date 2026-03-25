@@ -83,6 +83,8 @@ class User(AbstractUser):
     must_change_password = models.BooleanField(default=False)
     # Single device: only the refresh token with this jti is valid (enforces one login at a time).
     current_refresh_jti = models.CharField(max_length=255, blank=True, editable=False)
+    # Also restrict access tokens so the previously logged-in device stops working immediately.
+    current_access_jti = models.CharField(max_length=255, blank=True, editable=False)
 
     USERNAME_FIELD = "email"
 

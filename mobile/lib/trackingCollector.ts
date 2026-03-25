@@ -22,7 +22,12 @@ import { enqueueLocationReport } from '@/lib/syncWithServer';
 import { logger } from '@/lib/logger';
 
 /** Task name for background location updates (must be defined at top level). */
-export const LOCATION_TRACKING_TASK = 'mazao-location-tracking';
+// Exposed task id used by Expo Location; it also influences the Android foreground
+// service notification/channel label. Keep it generic to avoid showing "Mazao tracking".
+export const LOCATION_TRACKING_TASK = 'location-tracking';
+// Legacy task id from older app versions. We explicitly stop it to avoid keeping a
+// stale Android foreground-service notification channel visible.
+const LEGACY_LOCATION_TRACKING_TASK = 'mazao-location-tracking';
 
 const TRACKING_LAST_SENT_KEY = 'mazao_tracking_last_sent';
 
@@ -232,7 +237,7 @@ async function applyWorkingHoursState(): Promise<void> {
   } else if (!within && isTrackingStarted) {
     stopSensorSubscription();
     try {
-      await Location.stopLocationUpdatesAsync(LOCATION_TRACKING_TASK);
+  await Location.stopLocationUpdatesAsync(LOCATION_TRACKING_TASK);
       isTrackingStarted = false;
       logger.info('Tracking: stopped (outside working hours)', { workingHourStart, workingHourEnd });
     } catch (e) {
@@ -295,6 +300,13 @@ export async function startTracking(config?: TrackingConfig): Promise<void> {
   lastEnqueuedLat = null;
   lastEnqueuedLon = null;
 
+  // Stop legacy task if it was started in a previous build.
+  try {
+    await Location.stopLocationUpdatesAsync(LEGACY_LOCATION_TRACKING_TASK);
+  } catch {
+    // ignore
+  }
+
   if (workingHoursCheckIntervalId != null) {
     clearInterval(workingHoursCheckIntervalId);
     workingHoursCheckIntervalId = null;
@@ -322,6 +334,12 @@ export async function stopTracking(): Promise<void> {
   }
   if (!isTrackingStarted) return;
   stopSensorSubscription();
+  try {
+    // Stop both the current and legacy task ids (defensive cleanup).
+    await Location.stopLocationUpdatesAsync(LEGACY_LOCATION_TRACKING_TASK);
+  } catch {
+    // ignore
+  }
   try {
     await Location.stopLocationUpdatesAsync(LOCATION_TRACKING_TASK);
     isTrackingStarted = false;

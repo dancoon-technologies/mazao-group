@@ -42,6 +42,8 @@ class UserAdmin(BaseUserAdmin):
                     "sub_county_id",
                     "device_id",
                     "must_change_password",
+                    "current_refresh_jti",
+                    "current_access_jti",
                 )
             },
         ),

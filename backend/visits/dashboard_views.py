@@ -1,7 +1,7 @@
 import logging
 from datetime import datetime, time, timedelta
 
-from django.db.models import Count, Q, Sum
+from django.db.models import Count, Q, Sum, F
 from django.db.models.functions import TruncDate
 from django.utils import timezone
 from rest_framework.response import Response
@@ -228,7 +228,8 @@ class DashboardProductRankingView(APIView):
             VisitProduct.objects.filter(visit_id__in=visit_ids)
             .values("product_id", "product__name", "product__unit")
             .annotate(
-                total_sold=Sum("quantity_sold"),
+                # Include legacy `quantity_given` values so dashboards still work for older data.
+                total_sold=Sum(F("quantity_sold") + F("quantity_given")),
             )
             .order_by("-total_sold")
         )
@@ -276,7 +277,7 @@ class DashboardStaffRankingView(APIView):
         sales_qs = (
             VisitProduct.objects.filter(visit_id__in=visit_ids)
             .values("visit__officer")
-            .annotate(sales_offloaded=Sum("quantity_sold"))
+            .annotate(sales_offloaded=Sum(F("quantity_sold") + F("quantity_given")))
         )
         sales_by_officer = {str(r["visit__officer"]): float(r["sales_offloaded"] or 0) for r in sales_qs}
 

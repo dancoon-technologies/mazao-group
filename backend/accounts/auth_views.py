@@ -42,11 +42,19 @@ class EmailTokenObtainPairSerializer(TokenObtainPairSerializer):
         # Single device: only this refresh token is valid until next login.
         # Store the jti of the token we actually return to the client (not a new token).
         try:
+            from rest_framework_simplejwt.tokens import AccessToken
             from rest_framework_simplejwt.tokens import RefreshToken
+            access = AccessToken(data.get("access", ""))
             refresh = RefreshToken(data.get("refresh", ""))
+            access_jti = access.get("jti")
             jti = refresh.get("jti")
             if jti:
-                User.objects.filter(pk=self.user.pk).update(current_refresh_jti=jti)
+                if access_jti:
+                    User.objects.filter(pk=self.user.pk).update(
+                        current_refresh_jti=jti, current_access_jti=access_jti
+                    )
+                else:
+                    User.objects.filter(pk=self.user.pk).update(current_refresh_jti=jti)
         except Exception:
             pass
         return data
@@ -83,9 +91,19 @@ class SingleDeviceTokenRefreshSerializer(TokenRefreshSerializer):
         # the Next.js /api/auth/me can read user from the access token without 401.
         new_refresh = EmailTokenObtainPairSerializer.get_token(user)
         new_jti = new_refresh.get("jti")
+        # new_refresh.access_token is a full access token with its own jti.
+        new_access_jti = None
+        try:
+            new_access_jti = new_refresh.access_token.get("jti")
+        except Exception:
+            new_access_jti = None
         if new_jti:
             user.current_refresh_jti = new_jti
-            user.save(update_fields=["current_refresh_jti"])
+            if new_access_jti:
+                user.current_access_jti = new_access_jti
+                user.save(update_fields=["current_refresh_jti", "current_access_jti"])
+            else:
+                user.save(update_fields=["current_refresh_jti"])
         return {
             "access": str(new_refresh.access_token),
             "refresh": str(new_refresh),
