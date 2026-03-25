@@ -118,6 +118,12 @@ export default function VisitDetailScreen() {
   const statusColor = visitStatusColor(visit.verification_status);
   const statusLabel = visitStatusLabel(visit.verification_status);
   const photoUrl = getPhotoUrl(visit.photo);
+  const partnerTypeLabel =
+    visit.partner_is_stockist == null
+      ? null
+      : visit.partner_is_stockist
+        ? 'Stockist'
+        : 'Farmer';
 
   return (
     <SafeAreaView style={styles.safe} edges={['bottom']}>
@@ -168,6 +174,12 @@ export default function VisitDetailScreen() {
             />
             <Divider />
             <List.Item title={labels.partner} description={visit.farmer_display_name ?? '—'} left={(props) => <List.Icon {...props} icon="account" />} />
+            {partnerTypeLabel && (
+              <>
+                <Divider />
+                <List.Item title="Partner type" description={partnerTypeLabel} left={(props) => <List.Icon {...props} icon="tag" />} />
+              </>
+            )}
             <Divider />
             <List.Item title={labels.location} description={visit.farm_display_name ?? `No specific ${labels.location.toLowerCase()}`} left={(props) => <List.Icon {...props} icon="barn" />} />
             <Divider />

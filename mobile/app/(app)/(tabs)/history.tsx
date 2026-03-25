@@ -1,9 +1,9 @@
 import { ListItemRow } from '@/components/ListItemRow';
 import { useAuth } from '@/contexts/AuthContext';
-import { getVisitsForOfficer, getAllVisits } from '@/database';
+import { getFarmers, getVisitsForOfficer, getAllVisits } from '@/database';
 import { formatDateTime, visitStatusColor, visitStatusLabel } from '@/lib/format';
-import { visitRowToVisit } from '@/lib/offline-helpers';
-import { api, type Visit } from '@/lib/api';
+import { farmerRowToFarmer, visitRowToVisit } from '@/lib/offline-helpers';
+import { api, type Farmer, type Visit } from '@/lib/api';
 import { useFocusEffect, useRouter } from 'expo-router';
 import NetInfo from '@react-native-community/netinfo';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -18,10 +18,33 @@ export default function HistoryScreen() {
   const { userId, role } = useAuth();
   const isSupervisor = role === 'supervisor';
   const [visits, setVisits] = useState<Visit[]>([]);
+  const [farmers, setFarmers] = useState<Farmer[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [forbidden, setForbidden] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const rows = await getFarmers();
+        if (cancelled) return;
+        setFarmers(rows.map(farmerRowToFarmer));
+      } catch {
+        if (!cancelled) setFarmers([]);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const farmerById = useCallback(() => {
+    const m: Record<string, Farmer> = {};
+    for (const f of farmers) m[f.id] = f;
+    return m;
+  }, [farmers]);
 
   const loadFromDb = useCallback(async () => {
     if (!userId && !isSupervisor) return;
@@ -82,11 +105,24 @@ export default function HistoryScreen() {
     ({ item: v }: { item: Visit }) => {
       const status = v.verification_status || '';
       const activityLabel = (v.activity_type || '').replace(/_/g, ' ');
+      const farmerMap = farmerById();
+      const farmer = farmerMap[v.farmer];
+      const partnerType =
+        v.partner_is_stockist != null
+          ? v.partner_is_stockist
+            ? 'Stockist'
+            : 'Farmer'
+          : farmer
+            ? farmer.is_stockist
+              ? 'Stockist'
+              : 'Farmer'
+            : null;
+      const farmerName = v.farmer_display_name ?? farmer?.display_name ?? v.farmer ?? 'Unknown';
       const subtitle = [activityLabel, formatDateTime(v.created_at)].filter(Boolean).join(' · ');
       return (
         <ListItemRow
-          avatarLetter={(v.farmer_display_name || v.farmer || '?').toString()}
-          title={v.farmer_display_name ?? v.farmer ?? 'Unknown'}
+          avatarLetter={farmerName.toString()}
+          title={partnerType ? `${farmerName} · ${partnerType}` : farmerName}
           subtitle={subtitle}
           right={
             <View style={[styles.badge, { backgroundColor: visitStatusColor(status) + '20' }]}>
@@ -103,7 +139,7 @@ export default function HistoryScreen() {
         />
       );
     },
-    [openVisit]
+    [openVisit, farmerById]
   );
 
   if (loading && visits.length === 0) {

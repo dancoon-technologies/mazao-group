@@ -96,6 +96,8 @@ export interface Visit {
   officer_email?: string;
   officer_display_name?: string;
   farmer: string;
+  /** True when the visit partner (farmer) is a stockist. From API; offline may infer. */
+  partner_is_stockist?: boolean | null;
   farmer_display_name?: string;
   farm: string | null;
   farm_display_name?: string | null;

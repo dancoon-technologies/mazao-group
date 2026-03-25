@@ -118,15 +118,20 @@ export default function SchedulesScreen() {
   });
   const labels = useSelector(() => getLabels(appMeta$.cachedOptions.get()));
   const farmerDisplayName = useCallback(
-    (s: Schedule) =>
-      s.farmer_display_name ?? farmers.find((f) => f.id === s.farmer)?.display_name ?? `No ${labels.partner.toLowerCase()} assigned`,
+    (s: Schedule) => {
+      const farmer = farmers.find((f) => f.id === s.farmer);
+      const name = s.farmer_display_name ?? farmer?.display_name ?? `No ${labels.partner.toLowerCase()} assigned`;
+      return farmer?.is_stockist ? `${name} · Stockist` : name;
+    },
     [farmers, labels.partner]
   );
   const stopFarmerDisplayName = useCallback(
     (stop: RouteStop) =>
-      stop.farmer_display_name ??
-      farmers.find((f) => f.id === stop.farmer)?.display_name ??
-      `No ${labels.partner.toLowerCase()} assigned`,
+      (() => {
+        const farmer = farmers.find((f) => f.id === stop.farmer);
+        const name = stop.farmer_display_name ?? farmer?.display_name ?? `No ${labels.partner.toLowerCase()} assigned`;
+        return farmer?.is_stockist ? `${name} · Stockist` : name;
+      })(),
     [farmers, labels.partner]
   );
 
