@@ -366,6 +366,46 @@ class VisitAPITests(TestCase):
         r = self.client.get("/api/dashboard/stats/")
         self.assertEqual(r.status_code, status.HTTP_403_FORBIDDEN)
 
+    def test_dashboard_staff_ranking_uses_photo_taken_at_for_date_window(self):
+        """
+        Staff ranking should use the device timestamp (photo_taken_at) instead of created_at.
+        This matters for offline usage: visits may be synced later, but should still count in the
+        correct reporting window.
+        """
+        today = timezone.now().date()
+        naive_device_noon = timezone.datetime(today.year, today.month, today.day, 12, 0, 0)
+        device_ts = timezone.make_aware(naive_device_noon) if timezone.is_naive(naive_device_noon) else naive_device_noon
+
+        visit = Visit.objects.create(
+            officer=self.officer,
+            farmer=self.farmer,
+            latitude=-6.0,
+            longitude=39.0,
+            distance_from_farmer=0,
+            notes="",
+            photo_device_info="test-device",
+            photo_place_name="Test place",
+            photo_taken_at=device_ts,
+            verification_status=Visit.VerificationStatus.VERIFIED,
+            activity_type="order_collection",
+            activity_types=["order_collection"],
+        )
+        # Make created_at fall outside the 30-day reporting window.
+        visit.created_at = timezone.now() - timedelta(days=90)
+        visit.save(update_fields=["created_at"])
+
+        token = self._login("admin@test.com", "admin123")
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
+        r = self.client.get("/api/dashboard/staff-ranking/?days=30")
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+
+        data = r.json()
+        self.assertTrue(isinstance(data, list))
+        match = next((x for x in data if str(x.get("officer_id")) == str(self.officer.pk)), None)
+        self.assertIsNotNone(match, "Expected officer to appear in staff ranking")
+        self.assertEqual(match.get("accepted_visits_recorded"), 1)
+        self.assertEqual(match.get("collections_done"), 1)
+
     def test_retrieve_visit_officer_sees_own(self):
         visit = Visit.objects.create(
             officer=self.officer,

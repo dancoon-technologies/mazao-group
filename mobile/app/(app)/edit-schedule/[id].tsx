@@ -1,6 +1,6 @@
 /**
- * Edit a proposed schedule. Allowed only when scheduled date is not within 1 day (>= 2 days from today).
- * Officers can edit only their own proposed schedules.
+ * Edit a proposed schedule.
+ * Officers can edit only their own proposed schedules (as long as the scheduled date is not in the past).
  */
 import { useAuth } from '@/contexts/AuthContext';
 import { getFarmers as getFarmersDb, getFarms as getFarmsDb } from '@/database';
@@ -71,7 +71,7 @@ export default function EditScheduleScreen() {
         return;
       }
       if (s.status === 'proposed' && !isScheduleEditableByDate(s.scheduled_date)) {
-        setError('Cannot edit when within 1 day of the scheduled date.');
+        setError('Cannot edit when the scheduled date is in the past.');
         setSchedule(null);
         setLoading(false);
         return;
@@ -147,7 +147,7 @@ export default function EditScheduleScreen() {
         return;
       }
     } else if (!isScheduleEditableByDate(dateStr)) {
-      setError('New date must be at least two days from today.');
+      setError('New date cannot be in the past.');
       return;
     }
     if (!isSupervisor && !editReason.trim()) {

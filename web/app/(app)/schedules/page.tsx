@@ -151,7 +151,7 @@ export default function SchedulesPage() {
         }
       } else if (isOfficer && editingSchedule.status === "proposed") {
         if (!isScheduleDateAtLeastTwoDaysAhead(scheduledDateStr)) {
-          setFormError("New date must be at least two days from today.");
+          setFormError("New date cannot be in the past.");
           return;
         }
       }
@@ -397,10 +397,10 @@ export default function SchedulesPage() {
 
       {canApprove && (
         <Alert color="blue" variant="light" mt="md" mb="xs">
-          Officers can request changes to proposed schedules (when the date is
-          more than one day away) or to their own accepted schedules; they must
-          give a reason, and the schedule returns to pending until you accept or
-          decline.
+          Officers can request changes to proposed schedules (as long as the
+          new scheduled date is not in the past) or to their own accepted
+          schedules; they must give a reason, and the schedule returns to pending
+          until you accept or decline.
         </Alert>
       )}
 

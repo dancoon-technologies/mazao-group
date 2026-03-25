@@ -115,7 +115,7 @@ export function RecordVisitStep0({
 }: Props) {
   return (
     <>
-      {todayRoute ? (
+      {!selectedScheduleId && todayRoute ? (
         <Surface style={styles.section} elevation={0}>
           <Text variant="labelLarge" style={styles.fieldLabel}>Today&apos;s route</Text>
           <Text variant="bodySmall" style={styles.hint}>

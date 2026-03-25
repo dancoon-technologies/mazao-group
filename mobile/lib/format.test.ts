@@ -106,7 +106,7 @@ describe('scheduleStatusColor', () => {
 });
 
 describe('isScheduleEditableByDate', () => {
-  it('returns true when scheduled date is at least 2 days from today', () => {
+  it('returns true when scheduled date is in the future', () => {
     const today = new Date();
     const future = new Date(today);
     future.setDate(future.getDate() + 3);
@@ -114,17 +114,17 @@ describe('isScheduleEditableByDate', () => {
     expect(isScheduleEditableByDate(ymd)).toBe(true);
   });
 
-  it('returns false when scheduled date is tomorrow', () => {
+  it('returns true when scheduled date is tomorrow', () => {
     const today = new Date();
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
     const ymd = tomorrow.toISOString().slice(0, 10);
-    expect(isScheduleEditableByDate(ymd)).toBe(false);
+    expect(isScheduleEditableByDate(ymd)).toBe(true);
   });
 
-  it('returns false when scheduled date is today', () => {
+  it('returns true when scheduled date is today', () => {
     const today = new Date();
     const ymd = today.toISOString().slice(0, 10);
-    expect(isScheduleEditableByDate(ymd)).toBe(false);
+    expect(isScheduleEditableByDate(ymd)).toBe(true);
   });
 });

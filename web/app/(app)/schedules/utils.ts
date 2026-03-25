@@ -27,7 +27,7 @@ export function scheduleStatusLabel(status: string): string {
 }
 
 /**
- * Proposed: editable if date is at least 2 days ahead.
+ * Proposed: editable if date is not in the past.
  * Accepted: officer may request a change (reason + supervisor re-approval) for their own schedule.
  */
 export function isScheduleEditable(
@@ -51,7 +51,7 @@ export function isScheduleEditable(
   return isScheduleDateAtLeastTwoDaysAhead(schedule.scheduled_date);
 }
 
-/** New proposed date must be at least one calendar days from today. */
+/** New proposed date must not be in the past. */
 export function isScheduleDateAtLeastTwoDaysAhead(dateYmd: string): boolean {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -59,7 +59,7 @@ export function isScheduleDateAtLeastTwoDaysAhead(dateYmd: string): boolean {
   const diffDays = Math.floor(
     (d.getTime() - today.getTime()) / (24 * 60 * 60 * 1000)
   );
-  return diffDays >= 1;
+  return diffDays >= 0;
 }
 
 export const INITIAL_SCHEDULE_FORM = {

@@ -30,6 +30,16 @@ function formatLatLng(n: number, decimals = 5): string {
   return n.toFixed(decimals);
 }
 
+const USER_COLORS = ['#228be6', '#40c057', '#fd7e14', '#be4bdb', '#fa5252', '#15aabf', '#fab005', '#7950f2'];
+function hashToIndex(s: string, mod: number): number {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) {
+    h = (h << 5) - h + s.charCodeAt(i);
+    h |= 0;
+  }
+  return Math.abs(h) % mod;
+}
+
 export default function TrackingTeamScreen() {
   const insets = useSafeAreaInsets();
   const { role } = useAuth();
@@ -56,14 +66,8 @@ export default function TrackingTeamScreen() {
         return;
       }
 
-      const dateTo = new Date().toISOString().slice(0, 10);
-      const d = new Date();
-      d.setDate(d.getDate() - 2);
-      const dateFrom = d.toISOString().slice(0, 10);
-
       const list = await api.getTrackingReports({
-        date_from: dateFrom,
-        date_to: dateTo,
+        date: new Date().toISOString().slice(0, 10),
         page_size: 200,
       });
       setReports(Array.isArray(list) ? list : []);
@@ -80,6 +84,24 @@ export default function TrackingTeamScreen() {
       loadReports();
     }, [loadReports])
   );
+
+  const latestByUser = useMemo(() => {
+    const map = new Map<string, LocationReport>();
+    for (const r of reports) {
+      const uid = r.user_id ?? 'unknown';
+      const existing = map.get(uid);
+      if (!existing || new Date(reportTime(r)).getTime() > new Date(reportTime(existing)).getTime()) {
+        map.set(uid, r);
+      }
+    }
+    return Array.from(map.values());
+  }, [reports]);
+
+  const listForToday = useMemo(() => {
+    return [...latestByUser].sort(
+      (a, b) => new Date(reportTime(b)).getTime() - new Date(reportTime(a)).getTime()
+    );
+  }, [latestByUser]);
 
   const durationByReportId = useMemo(() => {
     const byUser = new Map<string, LocationReport[]>();
@@ -104,7 +126,35 @@ export default function TrackingTeamScreen() {
     return map;
   }, [reports]);
 
-  const topReports = reports.slice(0, 30);
+  const bounds = useMemo(() => {
+    if (latestByUser.length === 0) return null;
+    let minLat = Infinity;
+    let maxLat = -Infinity;
+    let minLon = Infinity;
+    let maxLon = -Infinity;
+    for (const r of latestByUser) {
+      if (!Number.isFinite(r.latitude) || !Number.isFinite(r.longitude)) continue;
+      minLat = Math.min(minLat, r.latitude);
+      maxLat = Math.max(maxLat, r.latitude);
+      minLon = Math.min(minLon, r.longitude);
+      maxLon = Math.max(maxLon, r.longitude);
+    }
+    if (!Number.isFinite(minLat) || !Number.isFinite(minLon)) return null;
+    return { minLat, maxLat, minLon, maxLon };
+  }, [latestByUser]);
+
+  const mapDots = useMemo(() => {
+    if (!bounds) return [];
+    const lonSpan = bounds.maxLon - bounds.minLon || 1;
+    const latSpan = bounds.maxLat - bounds.minLat || 1;
+    return latestByUser.map((r) => {
+      const uid = r.user_id ?? 'unknown';
+      const x = ((r.longitude - bounds.minLon) / lonSpan) * 100;
+      const y = ((bounds.maxLat - r.latitude) / latSpan) * 100;
+      const color = USER_COLORS[hashToIndex(uid, USER_COLORS.length)] ?? colors.primary;
+      return { report: r, x, y, color };
+    });
+  }, [bounds, latestByUser]);
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
@@ -134,7 +184,7 @@ export default function TrackingTeamScreen() {
           <View style={styles.loadingWrap}>
             <ActivityIndicator size="large" />
           </View>
-        ) : topReports.length === 0 ? (
+        ) : listForToday.length === 0 ? (
           <Card style={styles.card} elevation={0}>
             <Card.Content>
               <Text variant="bodyMedium" style={styles.emptyText}>
@@ -146,40 +196,63 @@ export default function TrackingTeamScreen() {
             </Card.Content>
           </Card>
         ) : (
-          topReports.map((r) => {
-            const userName = r.user_display_name || r.user_email || 'User';
-            const subtitle = `${formatDateTime(reportTime(r))} · ${formatDuration(durationByReportId.get(r.id))} · ${formatLatLng(r.latitude)}, ${formatLatLng(
-              r.longitude
-            )}`;
-            const battery = r.battery_percent != null ? `${Math.round(r.battery_percent)}%` : '—';
-            const integrity = r.integrity_warning ? String(r.integrity_warning) : null;
+          <>
+            <Card style={styles.card} elevation={0}>
+              <Card.Content>
+                <Text variant="labelLarge" style={styles.mapTitle}>
+                  Map (today)
+                </Text>
+                <Text variant="bodySmall" style={styles.mapSub}>
+                  Latest point per team member
+                </Text>
+                <View style={styles.mapArea}>
+                  {mapDots.map(({ report: r, x, y, color }) => (
+                    <View
+                      key={r.id}
+                      style={[
+                        styles.dot,
+                        { backgroundColor: color, left: `${x}%`, top: `${y}%` },
+                      ]}
+                    />
+                  ))}
+                </View>
+              </Card.Content>
+            </Card>
 
-            return (
-              <ListItemRow
-                key={r.id}
-                avatarLetter={userName.charAt(0)}
-                title={userName}
-                subtitle={subtitle}
-                subtitleNumberOfLines={2}
-                right={
-                  <View style={styles.rightWrap}>
-                    <View style={[styles.badge, { backgroundColor: colors.gray200 }]}>
-                      <Text variant="labelSmall" style={styles.badgeText}>
-                        {battery}
-                      </Text>
-                    </View>
-                    {integrity ? (
-                      <View style={[styles.badge, { backgroundColor: colors.error + '20' }]}>
-                        <Text variant="labelSmall" style={styles.badgeErrorText}>
-                          {integrity}
+            {listForToday.slice(0, 20).map((r) => {
+              const userName = r.user_display_name || r.user_email || 'User';
+              const subtitle = `${formatDateTime(reportTime(r))} · ${formatDuration(durationByReportId.get(r.id))} · ${formatLatLng(
+                r.latitude
+              )}, ${formatLatLng(r.longitude)}`;
+              const battery = r.battery_percent != null ? `${Math.round(r.battery_percent)}%` : '—';
+              const integrity = r.integrity_warning ? String(r.integrity_warning) : null;
+              return (
+                <ListItemRow
+                  key={r.id}
+                  avatarLetter={userName.charAt(0)}
+                  title={userName}
+                  subtitle={subtitle}
+                  subtitleNumberOfLines={2}
+                  right={
+                    <View style={styles.rightWrap}>
+                      <View style={[styles.badge, { backgroundColor: colors.gray200 }]}>
+                        <Text variant="labelSmall" style={styles.badgeText}>
+                          {battery}
                         </Text>
                       </View>
-                    ) : null}
-                  </View>
-                }
-              />
-            );
-          })
+                      {integrity ? (
+                        <View style={[styles.badge, { backgroundColor: colors.error + '20' }]}>
+                          <Text variant="labelSmall" style={styles.badgeErrorText}>
+                            {integrity}
+                          </Text>
+                        </View>
+                      ) : null}
+                    </View>
+                  }
+                />
+              );
+            })}
+          </>
         )}
       </ScrollView>
     </SafeAreaView>
@@ -207,5 +280,24 @@ const styles = StyleSheet.create({
   badge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 999 },
   badgeText: { fontSize: 12, fontWeight: '700', color: colors.gray700 },
   badgeErrorText: { fontSize: 12, fontWeight: '700', color: colors.error },
+  mapTitle: { fontWeight: '700', marginBottom: 2 },
+  mapSub: { color: colors.gray500, marginBottom: spacing.sm },
+  mapArea: {
+    height: 220,
+    borderRadius: 12,
+    backgroundColor: colors.gray200,
+    overflow: 'hidden',
+    position: 'relative',
+    justifyContent: 'center',
+  },
+  dot: {
+    position: 'absolute',
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    transform: [{ translateX: -5 }, { translateY: -5 }],
+    borderWidth: 2,
+    borderColor: colors.white,
+  },
 });
 

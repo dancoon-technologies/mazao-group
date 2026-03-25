@@ -84,14 +84,12 @@ export function scheduleStatusLabel(status: ScheduleStatus): string {
   return status;
 }
 
-/** Proposed schedule is editable only if scheduled date is at least 2 days from today (not within 1 day). */
+/** Proposed schedule is editable only if scheduled date is not in the past. */
 export function isScheduleEditableByDate(scheduledDateYmd: string): boolean {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const scheduleDate = new Date(scheduledDateYmd + 'T12:00:00');
-  const twoDaysFromNow = new Date(today);
-  twoDaysFromNow.setDate(twoDaysFromNow.getDate() + 2);
-  return scheduleDate >= twoDaysFromNow;
+  return scheduleDate >= today;
 }
 
 export { colors };

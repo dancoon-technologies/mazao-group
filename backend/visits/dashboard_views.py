@@ -218,8 +218,10 @@ class DashboardProductRankingView(APIView):
         end_dt = timezone.make_aware(datetime.combine(end_date, time.max))
         visit_ids = list(
             base_qs.filter(
-                created_at__gte=start_dt,
-                created_at__lte=end_dt,
+                # Prefer the device timestamp (photo_taken_at) so offline visits
+                # still fall into the correct "last N days" reporting window.
+                Q(photo_taken_at__gte=start_dt, photo_taken_at__lte=end_dt)
+                | Q(photo_taken_at__isnull=True, created_at__gte=start_dt, created_at__lte=end_dt)
             ).values_list("id", flat=True)
         )
         qs = (
@@ -262,8 +264,10 @@ class DashboardStaffRankingView(APIView):
         start_dt = timezone.make_aware(datetime.combine(start_date, time.min))
         end_dt = timezone.make_aware(datetime.combine(end_date, time.max))
         visits_in_range = base_qs.filter(
-            created_at__gte=start_dt,
-            created_at__lte=end_dt,
+            # Prefer device timestamp (photo_taken_at) so offline visits
+            # are ranked in the correct reporting window.
+            Q(photo_taken_at__gte=start_dt, photo_taken_at__lte=end_dt)
+            | Q(photo_taken_at__isnull=True, created_at__gte=start_dt, created_at__lte=end_dt)
         )
         visit_ids = list(visits_in_range.values_list("id", flat=True))
 

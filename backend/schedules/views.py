@@ -246,9 +246,9 @@ class ScheduleApproveView(generics.GenericAPIView):
 
 
 def _schedule_editable_by_date(scheduled_date):
-    """Proposed schedule is editable only if scheduled date is more than one day from today."""
+    """Proposed schedules are editable as long as the date is not in the past."""
     today = timezone.now().date()
-    return scheduled_date >= today + timedelta(days=2)
+    return scheduled_date >= today
 
 
 def _parse_scheduled_date_value(new_date):
@@ -292,7 +292,7 @@ class ScheduleUpdateView(generics.UpdateAPIView):
             if schedule.status != Schedule.Status.PROPOSED:
                 return False, "Only proposed schedules can be edited.", status.HTTP_400_BAD_REQUEST, None
             if not _schedule_editable_by_date(schedule.scheduled_date):
-                return False, "Schedule cannot be edited when it is within one day of the proposed date.", status.HTTP_400_BAD_REQUEST, None
+                return False, "Schedule cannot be edited when it is in the past.", status.HTTP_400_BAD_REQUEST, None
             return True, None, None, "staff_proposed"
 
         if user.role == "supervisor":
@@ -301,7 +301,7 @@ class ScheduleUpdateView(generics.UpdateAPIView):
             if schedule.status != Schedule.Status.PROPOSED:
                 return False, "Only proposed schedules can be edited.", status.HTTP_400_BAD_REQUEST, None
             if not _schedule_editable_by_date(schedule.scheduled_date):
-                return False, "Schedule cannot be edited when it is within one day of the proposed date.", status.HTTP_400_BAD_REQUEST, None
+                return False, "Schedule cannot be edited when it is in the past.", status.HTTP_400_BAD_REQUEST, None
             return True, None, None, "staff_proposed"
 
         if user.role == "officer":
@@ -313,7 +313,7 @@ class ScheduleUpdateView(generics.UpdateAPIView):
                 return True, None, None, "officer_accepted"
             if schedule.status == Schedule.Status.PROPOSED:
                 if not _schedule_editable_by_date(schedule.scheduled_date):
-                    return False, "Schedule cannot be edited when it is within one day of the proposed date.", status.HTTP_400_BAD_REQUEST, None
+                    return False, "Schedule cannot be edited when it is in the past.", status.HTTP_400_BAD_REQUEST, None
                 return True, None, None, "officer_proposed"
 
         return False, "You cannot edit this schedule.", status.HTTP_403_FORBIDDEN, None
@@ -351,7 +351,7 @@ class ScheduleUpdateView(generics.UpdateAPIView):
                 else:
                     if not _schedule_editable_by_date(parsed):
                         return Response(
-                            {"scheduled_date": ["New date must be at least two days from today."]},
+                            {"scheduled_date": ["New date cannot be in the past."]},
                             status=status.HTTP_400_BAD_REQUEST,
                         )
             except (ValueError, TypeError):

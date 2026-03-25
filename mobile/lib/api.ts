@@ -758,7 +758,7 @@ export const api = {
     });
   },
 
-  /** PATCH proposed schedule (allowed only if scheduled date is not within 1 day). Officers can edit own proposed only. */
+  /** PATCH proposed schedule (allowed only if scheduled date is not in the past). Officers can edit own proposed only. */
   async updateSchedule(
     id: string,
     body: { scheduled_date?: string; farmer?: string | null; farm?: string | null; notes?: string; edit_reason?: string }

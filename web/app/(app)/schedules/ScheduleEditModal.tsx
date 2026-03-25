@@ -64,7 +64,7 @@ export function ScheduleEditModal({
         <Text size="sm" c="dimmed" mb="md">
           {schedule.status === "accepted" && isOfficer
             ? "You are changing an accepted visit. After saving, the schedule is pending again until your supervisor approves. The new date cannot be in the past."
-            : "You can change the proposed visit only when it is more than one day away."}
+            : "You can change the proposed visit as long as the new scheduled date is not in the past."}
         </Text>
       )}
       <form onSubmit={onSubmit}>
