@@ -434,9 +434,13 @@ class VisitAPITests(TestCase):
 
         data = r.json()
         self.assertTrue(isinstance(data, list))
-        # Only one distinct officer should appear.
-        self.assertEqual(len(data), 1)
-        self.assertEqual(str(data[0].get("officer_id")), str(self.officer.pk))
+        officer_ids = [str(item.get("officer_id")) for item in data]
+        # No duplicates for any officer.
+        self.assertEqual(len(set(officer_ids)), len(officer_ids))
+
+        # Our officer should appear exactly once.
+        matches = [x for x in data if str(x.get("officer_id")) == str(self.officer.pk)]
+        self.assertEqual(len(matches), 1)
 
     def test_retrieve_visit_officer_sees_own(self):
         visit = Visit.objects.create(

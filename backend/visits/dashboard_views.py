@@ -271,8 +271,10 @@ class DashboardStaffRankingView(APIView):
         from accounts.models import User
 
         # Ensure we only rank each officer once.
-        # Chaining values("officer").distinct().values_list(...) can produce duplicates on some DBs.
-        officer_ids = list(visits_in_range.values_list("officer", flat=True).distinct())
+        # Note: some DBs/backends can still return duplicates depending on DISTINCT behavior,
+        # so we defensively deduplicate in Python as well.
+        raw_officer_ids = list(visits_in_range.values_list("officer", flat=True).distinct())
+        officer_ids = list(dict.fromkeys(raw_officer_ids))
         officers = {str(u.id): u for u in User.objects.filter(id__in=officer_ids)}
 
         sales_qs = (
