@@ -8,6 +8,7 @@ import 'react-native-reanimated';
 
 import { hasValidApiBase } from '@/constants/config';
 import { AuthProvider } from '@/contexts/AuthContext';
+import '@/lib/sentry';
 // Initialize Legend State persistence (AsyncStorage) before any screens load
 import '@/store/observable';
 import { paperTheme } from '@/lib/paper-theme';

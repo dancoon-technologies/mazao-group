@@ -191,8 +191,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // don't clear auth in that case (user stays in and can use offline data / re-sign in later).
         const access = await SecureStore.getItemAsync(STORAGE_KEYS.ACCESS_TOKEN);
         if (!access) return;
-        const valid = await api.validateSession();
-        if (!valid && mounted.current) {
+        const session = await api.validateSession();
+        if (!session.valid && session.shouldLogout && mounted.current) {
           setState(clearAuthState);
           setIsUnlocked(false);
         }

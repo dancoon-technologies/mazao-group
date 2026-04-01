@@ -11,7 +11,9 @@ import { getLastSync, syncWithServer } from '@/lib/syncWithServer';
 import { clearTrackingSessionStart, markTrackingSessionStart, startTracking, stopTracking } from '@/lib/trackingCollector';
 import NetInfo from '@react-native-community/netinfo';
 import * as Notifications from 'expo-notifications';
-import { Stack, useRouter } from 'expo-router';
+import { Drawer } from 'expo-router/drawer';
+import { useRouter } from 'expo-router';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useEffect, useRef } from 'react';
 import { AppState, type AppStateStatus } from 'react-native';
 
@@ -211,19 +213,67 @@ function AppLayoutInner() {
   if (!isAuthenticated) return null;
 
   return (
-    <Stack screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="index" />
-      <Stack.Screen name="unlock" />
-      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-      <Stack.Screen name="record-visit" options={{ title: 'Record visit' }} />
-      <Stack.Screen name="add-farmer" options={{ title: 'Add farmer' }} />
-      <Stack.Screen name="propose-schedule" options={{ title: 'Propose schedule' }} />
-      <Stack.Screen name="edit-schedule/[id]" options={{ title: 'Edit schedule' }} />
-      <Stack.Screen name="weekly-plan" options={{ title: 'Weekly plan' }} />
-      <Stack.Screen name="route-form" options={{ title: 'Route' }} />
-      <Stack.Screen name="route-report" options={{ title: 'Route report' }} />
-      <Stack.Screen name="notifications" options={{ title: 'Notifications' }} />
-    </Stack>
+    <Drawer
+      screenOptions={{
+        headerShown: false,
+      }}
+    >
+      <Drawer.Screen
+        name="(tabs)"
+        options={{
+          drawerLabel: 'Dashboard',
+          drawerIcon: ({ size, color }) => (
+            <MaterialCommunityIcons name="view-dashboard-outline" size={size} color={color} />
+          ),
+        }}
+      />
+      <Drawer.Screen
+        name="(tabs)/maintenance"
+        options={{
+          drawerLabel: 'Report breakdown',
+          drawerIcon: ({ size, color }) => (
+            <MaterialCommunityIcons name="tools" size={size} color={color} />
+          ),
+        }}
+      />
+      <Drawer.Screen
+        name="(tabs)/tracking"
+        options={{
+          drawerLabel: 'Track team',
+          drawerIcon: ({ size, color }) => (
+            <MaterialCommunityIcons name="map-marker-path" size={size} color={color} />
+          ),
+        }}
+      />
+      <Drawer.Screen
+        name="(tabs)/history"
+        options={{
+          drawerLabel: 'History',
+          drawerIcon: ({ size, color }) => (
+            <MaterialCommunityIcons name="history" size={size} color={color} />
+          ),
+        }}
+      />
+      <Drawer.Screen
+        name="(tabs)/profile"
+        options={{
+          drawerLabel: 'Profile',
+          drawerIcon: ({ size, color }) => (
+            <MaterialCommunityIcons name="account-outline" size={size} color={color} />
+          ),
+        }}
+      />
+      <Drawer.Screen name="index" options={{ drawerItemStyle: { display: 'none' } }} />
+      <Drawer.Screen name="unlock" options={{ drawerItemStyle: { display: 'none' } }} />
+      <Drawer.Screen name="record-visit" options={{ drawerItemStyle: { display: 'none' } }} />
+      <Drawer.Screen name="add-farmer" options={{ drawerItemStyle: { display: 'none' } }} />
+      <Drawer.Screen name="propose-schedule" options={{ drawerItemStyle: { display: 'none' } }} />
+      <Drawer.Screen name="edit-schedule/[id]" options={{ drawerItemStyle: { display: 'none' } }} />
+      <Drawer.Screen name="weekly-plan" options={{ drawerItemStyle: { display: 'none' } }} />
+      <Drawer.Screen name="route-form" options={{ drawerItemStyle: { display: 'none' } }} />
+      <Drawer.Screen name="route-report" options={{ drawerItemStyle: { display: 'none' } }} />
+      <Drawer.Screen name="notifications" options={{ drawerItemStyle: { display: 'none' } }} />
+    </Drawer>
   );
 }
 

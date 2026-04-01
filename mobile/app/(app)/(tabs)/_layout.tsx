@@ -116,7 +116,7 @@ export default function AppTabsLayout() {
         options={{
           headerShown: false,
           title: 'Track team',
-          href: isSupervisor ? undefined : null,
+          href: null,
           tabBarIcon: ({ color, size }) => (
             <MaterialCommunityIcons name={TAB_ICONS.tracking} size={size} color={color} />
           ),
@@ -155,6 +155,7 @@ export default function AppTabsLayout() {
         options={{
           headerShown: false,
           title: 'Maintenance',
+          href: null,
           tabBarIcon: ({ color, size }) => (
             <MaterialCommunityIcons name={TAB_ICONS.maintenance} size={size} color={color} />
           ),
@@ -173,6 +174,7 @@ export default function AppTabsLayout() {
         options={{
           headerShown: false,
           title: 'Profile',
+          href: null,
           tabBarIcon: ({ color, size }) => (
             <MaterialCommunityIcons name={TAB_ICONS.profile} size={size} color={color} />
           ),

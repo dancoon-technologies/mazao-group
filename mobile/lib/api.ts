@@ -952,10 +952,10 @@ export const api = {
 
   getDashboardStats: () => request<DashboardStats>('/dashboard/stats/'),
 
-  /** Validate current session is still active. Returns true if valid, false if invalid or timeout (5s). */
-  async validateSession(): Promise<boolean> {
+  /** Validate current session with safer semantics: only explicit auth errors invalidate session. */
+  async validateSession(): Promise<{ valid: boolean; shouldLogout: boolean }> {
     const access = await getAccessToken();
-    if (!access) return false;
+    if (!access) return { valid: false, shouldLogout: true };
     const timeoutMs = 5000;
     try {
       await Promise.race([
@@ -964,9 +964,17 @@ export const api = {
           setTimeout(() => reject(new Error('validateSession timeout')), timeoutMs)
         ),
       ]);
-      return true;
-    } catch {
-      return false;
+      return { valid: true, shouldLogout: false };
+    } catch (e) {
+      // request() clears tokens + triggers session invalidation for 401/device-takeover.
+      const stillHasToken = await getAccessToken();
+      if (!stillHasToken) return { valid: false, shouldLogout: true };
+      // Timeout/network/transient backend errors should NOT force logout.
+      logger.debug(
+        'validateSession non-auth failure; keeping session',
+        e instanceof Error ? e.message : String(e)
+      );
+      return { valid: false, shouldLogout: false };
     }
   },
 
