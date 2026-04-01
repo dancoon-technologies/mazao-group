@@ -13,6 +13,7 @@ import { APP_NAV, filterNavByRole } from "@/config/navigation";
 import { ROUTES } from "@/lib/constants";
 import { getLabelsFromOptions, pluralPartner } from "@/lib/options";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { WebLocationTracker } from "@/components/WebLocationTracker";
 import { LoadingScreen } from "@/components/ui";
 
 // Load only on client so notifications API is never hit during SSR; avoids crashes if backend is down or missing.
@@ -37,6 +38,7 @@ export default function AppLayout({
     [isAuthenticated]
   );
   const labels = useMemo(() => getLabelsFromOptions(optionsData), [optionsData]);
+  const trackingSettings = optionsData?.tracking_settings;
   const navWithLabels = useMemo(() => {
     const partnerPlural = pluralPartner(labels.partner);
     return APP_NAV.map((item) => {
@@ -187,6 +189,13 @@ export default function AppLayout({
       </AppShell.Navbar>
 
       <AppShell.Main className="app-main-content">
+        <WebLocationTracker
+          isAuthenticated={isAuthenticated}
+          role={role ?? null}
+          intervalMinutes={trackingSettings?.interval_minutes}
+          workingHourStart={trackingSettings?.working_hour_start}
+          workingHourEnd={trackingSettings?.working_hour_end}
+        />
         <ErrorBoundary>{children}</ErrorBoundary>
       </AppShell.Main>
     </AppShell>

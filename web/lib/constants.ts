@@ -18,6 +18,7 @@ export const ROUTES = {
   SCHEDULES: "/schedules",
   STAFF: "/staff",
   TRACKING: "/tracking",
+  MAINTENANCE: "/maintenance",
 } as const;
 
 /** Role identifiers (single source of truth; match backend) */

@@ -21,7 +21,7 @@ class AuthTests(TestCase):
     def test_login_success_returns_tokens(self):
         r = self.client.post(
             "/api/auth/login/",
-            {"email": "user@test.com", "password": "pass123"},
+            {"email": "user@test.com", "password": "pass123", "device_id": "device-a"},
             format="json",
         )
         self.assertEqual(r.status_code, status.HTTP_200_OK)
@@ -34,7 +34,7 @@ class AuthTests(TestCase):
     def test_login_wrong_password_401(self):
         r = self.client.post(
             "/api/auth/login/",
-            {"email": "user@test.com", "password": "wrong"},
+            {"email": "user@test.com", "password": "wrong", "device_id": "device-a"},
             format="json",
         )
         self.assertEqual(r.status_code, status.HTTP_401_UNAUTHORIZED)
@@ -42,7 +42,7 @@ class AuthTests(TestCase):
     def test_login_unknown_email_401(self):
         r = self.client.post(
             "/api/auth/login/",
-            {"email": "unknown@test.com", "password": "pass123"},
+            {"email": "unknown@test.com", "password": "pass123", "device_id": "device-a"},
             format="json",
         )
         self.assertEqual(r.status_code, status.HTTP_401_UNAUTHORIZED)
@@ -50,7 +50,7 @@ class AuthTests(TestCase):
     def test_refresh_returns_new_access(self):
         r = self.client.post(
             "/api/auth/login/",
-            {"email": "user@test.com", "password": "pass123"},
+            {"email": "user@test.com", "password": "pass123", "device_id": "device-a"},
             format="json",
         )
         refresh = r.json()["refresh"]
@@ -62,41 +62,43 @@ class AuthTests(TestCase):
         r = self.client.get("/api/farmers/")
         self.assertEqual(r.status_code, status.HTTP_401_UNAUTHORIZED)
 
-    def test_single_device_access_token_invalidated(self):
-        # First login (device A)
+    def test_bound_device_can_login_and_get_tokens(self):
         r1 = self.client.post(
             "/api/auth/login/",
-            {"email": "user@test.com", "password": "pass123"},
+            {"email": "user@test.com", "password": "pass123", "device_id": "device-a"},
             format="json",
         )
         self.assertEqual(r1.status_code, status.HTTP_200_OK)
-        access1 = r1.json()["access"]
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.device_id, "device-a")
 
-        # Second login (device B) invalidates device A access tokens immediately.
-        self.client = APIClient()
-        r2 = self.client.post(
+    def test_login_rejected_when_device_changes(self):
+        self.user.device_id = "device-a"
+        self.user.save(update_fields=["device_id"])
+        r = self.client.post(
+            "/api/auth/login/",
+            {"email": "user@test.com", "password": "pass123", "device_id": "device-b"},
+            format="json",
+        )
+        self.assertEqual(r.status_code, status.HTTP_401_UNAUTHORIZED)
+        self.assertIn("another device", str(r.json().get("detail", "")).lower())
+
+    def test_login_rejected_when_bound_account_has_no_device_id(self):
+        self.user.device_id = "device-a"
+        self.user.save(update_fields=["device_id"])
+        r = self.client.post(
             "/api/auth/login/",
             {"email": "user@test.com", "password": "pass123"},
             format="json",
         )
-        self.assertEqual(r2.status_code, status.HTTP_200_OK)
-        access2 = r2.json()["access"]
-
-        # Device A access should be rejected.
-        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {access1}")
-        rA = self.client.get("/api/options/")
-        self.assertEqual(rA.status_code, status.HTTP_401_UNAUTHORIZED)
-
-        # Device B access should work.
-        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {access2}")
-        rB = self.client.get("/api/options/")
-        self.assertEqual(rB.status_code, status.HTTP_200_OK)
+        self.assertEqual(r.status_code, status.HTTP_401_UNAUTHORIZED)
+        self.assertIn("device identification", str(r.json().get("detail", "")).lower())
 
     def test_login_email_case_insensitive(self):
         """Login works with different email casing (normalized)."""
         r = self.client.post(
             "/api/auth/login/",
-            {"email": "USER@TEST.COM", "password": "pass123"},
+            {"email": "USER@TEST.COM", "password": "pass123", "device_id": "device-a"},
             format="json",
         )
         self.assertEqual(r.status_code, status.HTTP_200_OK)
@@ -113,7 +115,7 @@ class AuthTests(TestCase):
     def test_change_password_success(self):
         r = self.client.post(
             "/api/auth/login/",
-            {"email": "user@test.com", "password": "pass123"},
+            {"email": "user@test.com", "password": "pass123", "device_id": "device-a"},
             format="json",
         )
         self.assertEqual(r.status_code, status.HTTP_200_OK)
@@ -131,7 +133,7 @@ class AuthTests(TestCase):
     def test_change_password_wrong_current_400(self):
         r = self.client.post(
             "/api/auth/login/",
-            {"email": "user@test.com", "password": "pass123"},
+            {"email": "user@test.com", "password": "pass123", "device_id": "device-a"},
             format="json",
         )
         self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {r.json()['access']}")
@@ -171,7 +173,7 @@ class OptionsAPITests(TestCase):
 
     def _login(self, email, password):
         r = self.client.post(
-            "/api/auth/login/", {"email": email, "password": password}, format="json"
+            "/api/auth/login/", {"email": email, "password": password, "device_id": "device-a"}, format="json"
         )
         self.assertEqual(r.status_code, status.HTTP_200_OK)
         return r.json()["access"]
@@ -226,3 +228,70 @@ class OptionsAPITests(TestCase):
         self.assertEqual(products[0]["id"], str(product.pk))
         self.assertEqual(products[0]["code"], "TP01")
         self.assertEqual(products[0]["unit"], "kg")
+
+
+class StaffResetDeviceTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.dept_a = Department.objects.create(slug="dept-a", name="Dept A")
+        self.dept_b = Department.objects.create(slug="dept-b", name="Dept B")
+        self.admin = User.objects.create_user(
+            email="admin@test.com",
+            password="pass123",
+            role=User.Role.ADMIN,
+        )
+        self.supervisor = User.objects.create_user(
+            email="supervisor@test.com",
+            password="pass123",
+            role=User.Role.SUPERVISOR,
+            department=self.dept_a,
+        )
+        self.officer_a = User.objects.create_user(
+            email="officer-a@test.com",
+            password="pass123",
+            role=User.Role.OFFICER,
+            department=self.dept_a,
+            device_id="device-a",
+            current_access_jti="access-a",
+            current_refresh_jti="refresh-a",
+        )
+        self.officer_b = User.objects.create_user(
+            email="officer-b@test.com",
+            password="pass123",
+            role=User.Role.OFFICER,
+            department=self.dept_b,
+            device_id="device-b",
+        )
+
+    def _login(self, email, password):
+        r = self.client.post(
+            "/api/auth/login/",
+            {"email": email, "password": password, "device_id": "caller-device"},
+            format="json",
+        )
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        return r.json()["access"]
+
+    def test_admin_can_reset_staff_device_binding(self):
+        token = self._login("admin@test.com", "pass123")
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
+        r = self.client.post(f"/api/staff/{self.officer_a.id}/reset-device/")
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        self.officer_a.refresh_from_db()
+        self.assertEqual(self.officer_a.device_id, "")
+        self.assertEqual(self.officer_a.current_access_jti, "")
+        self.assertEqual(self.officer_a.current_refresh_jti, "")
+
+    def test_supervisor_can_reset_same_department_staff(self):
+        token = self._login("supervisor@test.com", "pass123")
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
+        r = self.client.post(f"/api/staff/{self.officer_a.id}/reset-device/")
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        self.officer_a.refresh_from_db()
+        self.assertEqual(self.officer_a.device_id, "")
+
+    def test_supervisor_cannot_reset_other_department_staff(self):
+        token = self._login("supervisor@test.com", "pass123")
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
+        r = self.client.post(f"/api/staff/{self.officer_b.id}/reset-device/")
+        self.assertEqual(r.status_code, status.HTTP_403_FORBIDDEN)

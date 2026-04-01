@@ -21,7 +21,8 @@ Authorization: Bearer <access_token>
 ```json
 {
   "email": "officer@example.com",
-  "password": "your_password"
+  "password": "your_password",
+  "device_id": "stable-device-uuid"
 }
 ```
 
@@ -34,7 +35,7 @@ Authorization: Bearer <access_token>
 }
 ```
 
-**Errors:** 401 if credentials invalid.
+**Errors:** 401 if credentials invalid, device changed, or required device_id missing for a bound account.
 
 ---
 

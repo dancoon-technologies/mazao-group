@@ -2,6 +2,7 @@ import logging
 
 from django.contrib.auth import get_user_model
 from rest_framework import status
+from rest_framework.exceptions import AuthenticationFailed
 from rest_framework.response import Response
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer, TokenRefreshSerializer
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
@@ -39,6 +40,26 @@ class EmailTokenObtainPairSerializer(TokenObtainPairSerializer):
             user = User.objects.filter(email__iexact=normalized).first()
             attrs = {**attrs, "email": user.email if user else normalized}
         data = super().validate(attrs)
+        # Strict device binding:
+        # - first login with device_id binds the user to that device
+        # - subsequent logins from a different device are rejected
+        # - if account is already bound, device_id is required
+        device_id = (self.initial_data.get("device_id") or "").strip()[:128]
+        existing_device_id = (getattr(self.user, "device_id", "") or "").strip()
+        if existing_device_id:
+            if not device_id:
+                raise AuthenticationFailed(
+                    "Device identification is required for this account.",
+                    code="device_id_required",
+                )
+            if device_id != existing_device_id:
+                raise AuthenticationFailed(
+                    "This account is registered on another device. Contact your supervisor.",
+                    code="device_mismatch",
+                )
+        elif device_id:
+            User.objects.filter(pk=self.user.pk).update(device_id=device_id)
+
         # Single device: only this refresh token is valid until next login.
         # Store the jti of the token we actually return to the client (not a new token).
         try:

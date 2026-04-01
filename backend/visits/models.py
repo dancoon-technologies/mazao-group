@@ -249,3 +249,55 @@ class VisitProduct(models.Model):
             models.UniqueConstraint(fields=["visit", "product"], name="visitproduct_visit_product_unique"),
         ]
         indexes = [models.Index(fields=["visit"], name="visitproduct_visit_id")]
+
+
+class MaintenanceIncident(models.Model):
+    class VehicleType(models.TextChoices):
+        MOTORBIKE = "motorbike", "Motorbike"
+        CAR = "car", "Car"
+        OTHER = "other", "Other"
+
+    class Status(models.TextChoices):
+        REPORTED = "reported", "Reported"
+        VERIFIED_BREAKDOWN = "verified_breakdown", "Verified breakdown"
+        AT_GARAGE = "at_garage", "At garage"
+        APPROVED = "approved", "Approved"
+        REJECTED = "rejected", "Rejected"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    officer = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="maintenance_incidents_reported",
+    )
+    supervisor = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="maintenance_incidents_reviewed",
+    )
+    vehicle_type = models.CharField(max_length=20, choices=VehicleType.choices)
+    issue_description = models.CharField(max_length=1000)
+    status = models.CharField(max_length=30, choices=Status.choices, default=Status.REPORTED)
+    reported_at = models.DateTimeField(auto_now_add=True)
+    reported_latitude = models.DecimalField(max_digits=10, decimal_places=7, null=True, blank=True)
+    reported_longitude = models.DecimalField(max_digits=10, decimal_places=7, null=True, blank=True)
+    breakdown_verified_at = models.DateTimeField(null=True, blank=True)
+    breakdown_verified_latitude = models.DecimalField(max_digits=10, decimal_places=7, null=True, blank=True)
+    breakdown_verified_longitude = models.DecimalField(max_digits=10, decimal_places=7, null=True, blank=True)
+    garage_recorded_at = models.DateTimeField(null=True, blank=True)
+    garage_latitude = models.DecimalField(max_digits=10, decimal_places=7, null=True, blank=True)
+    garage_longitude = models.DecimalField(max_digits=10, decimal_places=7, null=True, blank=True)
+    approved_at = models.DateTimeField(null=True, blank=True)
+    rejected_at = models.DateTimeField(null=True, blank=True)
+    supervisor_notes = models.CharField(max_length=1000, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-reported_at", "-created_at"]
+        indexes = [
+            models.Index(fields=["status"], name="maint_status_idx"),
+            models.Index(fields=["officer", "-reported_at"], name="maint_officer_reported_idx"),
+        ]

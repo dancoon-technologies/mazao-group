@@ -1,5 +1,6 @@
 import * as SecureStore from 'expo-secure-store';
 import { API_BASE, STORAGE_KEYS } from '@/constants/config';
+import { getOrCreateDeviceId } from '@/lib/deviceIdentity';
 import { logger } from '@/lib/logger';
 
 export interface Farmer {
@@ -549,10 +550,11 @@ export const api = {
   async login(email: string, password: string) {
     const normalizedEmail = (email ?? '').trim().toLowerCase();
     try {
+      const device_id = await getOrCreateDeviceId();
       const res = await fetch(`${API_BASE}/auth/login/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: normalizedEmail, password }),
+        body: JSON.stringify({ email: normalizedEmail, password, device_id }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {

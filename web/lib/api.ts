@@ -18,6 +18,8 @@ import type {
   LocationsResponse,
   OptionsResponse,
   LocationReport,
+  MaintenanceIncident,
+  MaintenanceStatus,
 } from "./types";
 import { parseApiError } from "./api-utils";
 
@@ -251,6 +253,81 @@ export const api = {
     }
     const data = (await res.json()) as { results?: LocationReport[]; count?: number };
     return { results: data.results ?? [], count: data.count ?? 0 };
+  },
+
+  async sendTrackingReport(payload: {
+    reported_at: string;
+    latitude: number;
+    longitude: number;
+    accuracy?: number | null;
+    device_info?: Record<string, unknown>;
+  }): Promise<{ created: number }> {
+    const res = await authFetch(`${API_BASE}/api/tracking/reports`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ reports: [payload] }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      const msg = typeof data?.detail === "string" ? data.detail : "Failed to submit location report";
+      throw new Error(msg);
+    }
+    return data as { created: number };
+  },
+
+  async getMaintenanceIncidents(params?: { status?: MaintenanceStatus; officer?: string }): Promise<MaintenanceIncident[]> {
+    const search = new URLSearchParams();
+    if (params?.status) search.set("status", params.status);
+    if (params?.officer) search.set("officer", params.officer);
+    const qs = search.toString();
+    const url = qs ? `${API_BASE}/api/maintenance-incidents?${qs}` : `${API_BASE}/api/maintenance-incidents`;
+    const res = await authFetch(url);
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({})) as { detail?: string };
+      throw new Error(err.detail || "Failed to fetch maintenance incidents");
+    }
+    return unwrapList(await res.json());
+  },
+
+  async createMaintenanceIncident(payload: {
+    vehicle_type: "motorbike" | "car" | "other";
+    issue_description: string;
+    reported_latitude: number;
+    reported_longitude: number;
+  }): Promise<MaintenanceIncident> {
+    const res = await authFetch(`${API_BASE}/api/maintenance-incidents`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error(parseApiError(data, "Failed to create maintenance incident", ["issue_description", "vehicle_type"]));
+    }
+    return data as MaintenanceIncident;
+  },
+
+  async updateMaintenanceIncident(
+    id: string,
+    payload: {
+      status?: MaintenanceStatus;
+      supervisor_notes?: string;
+      breakdown_verified_latitude?: number;
+      breakdown_verified_longitude?: number;
+      garage_latitude?: number;
+      garage_longitude?: number;
+    }
+  ): Promise<MaintenanceIncident> {
+    const res = await authFetch(`${API_BASE}/api/maintenance-incidents/${encodeURIComponent(id)}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error(parseApiError(data, "Failed to update maintenance incident", ["status", "supervisor_notes"]));
+    }
+    return data as MaintenanceIncident;
   },
 
   async getDashboardStats(options?: { signal?: AbortSignal }): Promise<DashboardStats> {
@@ -586,6 +663,20 @@ export const api = {
     if (!res.ok) {
       throw new Error(
         (data.detail as string) || "Failed to resend credentials"
+      );
+    }
+    return data as { detail: string };
+  },
+
+  async resetStaffDevice(staffId: string): Promise<{ detail: string }> {
+    const res = await authFetch(
+      `${API_BASE}/api/staff/${staffId}/reset-device`,
+      { method: "POST" }
+    );
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error(
+        (data.detail as string) || "Failed to reset staff device"
       );
     }
     return data as { detail: string };

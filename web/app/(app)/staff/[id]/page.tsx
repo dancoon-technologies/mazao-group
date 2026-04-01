@@ -29,6 +29,9 @@ export default function StaffDetailPage() {
   const staffId = params?.id ?? "";
 
   const [generatingReport, setGeneratingReport] = useState(false);
+  const [resettingDevice, setResettingDevice] = useState(false);
+  const [resetMsg, setResetMsg] = useState("");
+  const [resetErr, setResetErr] = useState("");
 
   const { data: staff, error: staffError, loading: staffLoading } = useAsyncData(
     (signal) => (staffId && isAdmin ? api.getStaffById(staffId, { signal }) : Promise.reject(new Error("Missing id or access"))),
@@ -190,9 +193,40 @@ export default function StaffDetailPage() {
             <Button color="green" loading={generatingReport} onClick={generateReport}>
               Generate report
             </Button>
+            <Button
+              color="orange"
+              variant="light"
+              loading={resettingDevice}
+              onClick={async () => {
+                if (!staff) return;
+                setResetErr("");
+                setResetMsg("");
+                setResettingDevice(true);
+                try {
+                  const out = await api.resetStaffDevice(staff.id);
+                  setResetMsg(out.detail || "Device binding reset.");
+                } catch (e) {
+                  setResetErr(e instanceof Error ? e.message : "Failed to reset device.");
+                } finally {
+                  setResettingDevice(false);
+                }
+              }}
+            >
+              Reset device
+            </Button>
           </Group>
         }
       />
+      {resetMsg ? (
+        <Paper p="sm" withBorder mb="md">
+          <Text size="sm" c="green">{resetMsg}</Text>
+        </Paper>
+      ) : null}
+      {resetErr ? (
+        <Paper p="sm" withBorder mb="md">
+          <Text size="sm" c="red">{resetErr}</Text>
+        </Paper>
+      ) : null}
 
       <Paper p="lg" radius="md" withBorder mb="xl">
         <Title order={3} size="h4" mb="md">

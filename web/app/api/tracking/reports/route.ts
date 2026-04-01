@@ -1,4 +1,5 @@
 import { requireAuth, proxyGet } from "@/lib/api-proxy";
+import { BACKEND_API } from "@/lib/auth-server";
 
 export async function GET(request: Request) {
   const auth = await requireAuth();
@@ -25,5 +26,35 @@ export async function GET(request: Request) {
   }
 
   const data = await res.json();
+  return Response.json(data);
+}
+
+export async function POST(request: Request) {
+  const auth = await requireAuth();
+  if (auth instanceof Response) return auth;
+
+  const body = await request.json().catch(() => ({}));
+  let res: Response;
+  try {
+    res = await fetch(`${BACKEND_API}/tracking/reports/batch/`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${auth.token}`,
+      },
+      body: JSON.stringify(body),
+    });
+  } catch (e) {
+    const message = e instanceof Error ? e.message : "Backend request failed";
+    return Response.json(
+      { detail: `Tracking submit unavailable: ${message}. Is the backend running?` },
+      { status: 502 }
+    );
+  }
+
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    return Response.json(data, { status: res.status });
+  }
   return Response.json(data);
 }

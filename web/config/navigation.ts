@@ -6,12 +6,12 @@ import {
   ROLES_CAN_LIST_VISITS,
   ROLES_TRACKING,
 } from "@/lib/constants";
-import { IconHome, IconUser, IconBuilding, IconBuildingStore, IconClipboardList, IconCalendar, IconUsers, IconMapPin, IconShoppingCart } from "@tabler/icons-react";
+import { IconHome, IconUser, IconBuilding, IconBuildingStore, IconClipboardList, IconCalendar, IconUsers, IconMapPin, IconShoppingCart, IconTool } from "@tabler/icons-react";
 
 export interface NavItem {
   href: string;
   label: string;
-  icon: typeof IconHome | typeof IconUser | typeof IconBuilding | typeof IconBuildingStore | typeof IconClipboardList | typeof IconCalendar | typeof IconUsers | typeof IconMapPin | typeof IconShoppingCart;
+  icon: typeof IconHome | typeof IconUser | typeof IconBuilding | typeof IconBuildingStore | typeof IconClipboardList | typeof IconCalendar | typeof IconUsers | typeof IconMapPin | typeof IconShoppingCart | typeof IconTool;
   roles?: readonly UserRole[];
 }
 
@@ -25,6 +25,7 @@ export const APP_NAV: NavItem[] = [
   { href: ROUTES.SALES, label: "Sales", icon: IconShoppingCart, roles: ROLES_CAN_LIST_VISITS },
   { href: ROUTES.SCHEDULES, label: "Schedules", icon: IconCalendar, roles: ROLES_SCHEDULES_PAGE },
   { href: ROUTES.TRACKING, label: "Track team", icon: IconMapPin, roles: ROLES_TRACKING },
+  { href: ROUTES.MAINTENANCE, label: "Maintenance", icon: IconTool },
   { href: ROUTES.STAFF, label: "Staff", icon: IconUsers, roles: ROLES_STAFF_PAGE },
 ];
 

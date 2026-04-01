@@ -4,6 +4,7 @@ from rest_framework import serializers
 
 from accounts.models import Department
 from .models import Product, Visit, VisitProduct
+from .models import MaintenanceIncident
 
 
 class ProductLinesField(serializers.Field):
@@ -221,3 +222,77 @@ class ProductCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Product
         fields = ("name", "code", "unit", "department")
+
+
+class MaintenanceIncidentSerializer(serializers.ModelSerializer):
+    officer_email = serializers.SerializerMethodField()
+    officer_display_name = serializers.SerializerMethodField()
+    supervisor_display_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = MaintenanceIncident
+        fields = (
+            "id",
+            "officer",
+            "officer_email",
+            "officer_display_name",
+            "supervisor",
+            "supervisor_display_name",
+            "vehicle_type",
+            "issue_description",
+            "status",
+            "reported_at",
+            "reported_latitude",
+            "reported_longitude",
+            "breakdown_verified_at",
+            "breakdown_verified_latitude",
+            "breakdown_verified_longitude",
+            "garage_recorded_at",
+            "garage_latitude",
+            "garage_longitude",
+            "approved_at",
+            "rejected_at",
+            "supervisor_notes",
+            "created_at",
+            "updated_at",
+        )
+        read_only_fields = (
+            "id",
+            "officer",
+            "supervisor",
+            "reported_at",
+            "breakdown_verified_at",
+            "garage_recorded_at",
+            "approved_at",
+            "rejected_at",
+            "created_at",
+            "updated_at",
+        )
+
+    def get_officer_email(self, obj):
+        return obj.officer.email if obj.officer_id else ""
+
+    def get_officer_display_name(self, obj):
+        return obj.officer.display_name if obj.officer_id and obj.officer else ""
+
+    def get_supervisor_display_name(self, obj):
+        return obj.supervisor.display_name if obj.supervisor_id and obj.supervisor else ""
+
+
+class MaintenanceIncidentCreateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = MaintenanceIncident
+        fields = ("vehicle_type", "issue_description", "reported_latitude", "reported_longitude")
+
+
+class MaintenanceIncidentUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = MaintenanceIncident
+        fields = (
+            "status",
+            "supervisor_notes",
+            "breakdown_verified_latitude",
+            "breakdown_verified_longitude",
+            "garage_latitude",
+            "garage_longitude",
+        )

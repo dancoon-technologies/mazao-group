@@ -341,6 +341,26 @@ export default function StaffPage() {
             <Button
               size="xs"
               variant="light"
+              color="orange"
+              onClick={async () => {
+                setResendError("");
+                setResendMessage("");
+                setResendingId(u.id);
+                try {
+                  const out = await api.resetStaffDevice(u.id);
+                  setResendMessage(out.detail || "Device binding reset.");
+                } catch (err) {
+                  setResendError(err instanceof Error ? err.message : "Failed to reset device");
+                } finally {
+                  setResendingId(null);
+                }
+              }}
+            >
+              Reset device
+            </Button>
+            <Button
+              size="xs"
+              variant="light"
               color={u.is_active !== false ? "red" : "green"}
               loading={deactivatingId === u.id}
               onClick={() => handleDeactivate(u)}

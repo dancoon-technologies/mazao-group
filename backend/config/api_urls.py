@@ -8,6 +8,7 @@ from accounts.views import (
     StaffListCreateView,
     StaffPerformanceView,
     StaffResendCredentialsView,
+    StaffResetDeviceView,
     StaffUpdateView,
 )
 from farmers.views import FarmerListCreateView, FarmerRetrieveView, FarmListCreateView, FarmRetrieveView
@@ -49,6 +50,10 @@ from visits.views import (
     VisitVerifyView,
     ProductListCreateView,
 )
+from visits.maintenance_views import (
+    MaintenanceIncidentListCreateView,
+    MaintenanceIncidentUpdateView,
+)
 
 urlpatterns = [
     path("auth/login/", EmailTokenObtainPairView.as_view(), name="token_obtain_pair"),
@@ -62,6 +67,8 @@ urlpatterns = [
     path("visits/<uuid:pk>/", VisitRetrieveView.as_view(), name="visit-retrieve"),
     path("visits/<uuid:pk>/verify/", VisitVerifyView.as_view(), name="visit-verify"),
     path("products/", ProductListCreateView.as_view(), name="product-list-create"),
+    path("maintenance-incidents/", MaintenanceIncidentListCreateView.as_view(), name="maintenance-incident-list-create"),
+    path("maintenance-incidents/<uuid:pk>/", MaintenanceIncidentUpdateView.as_view(), name="maintenance-incident-update"),
     path("dashboard/stats/", DashboardStatsView.as_view(), name="dashboard-stats"),
     path("dashboard/stats-by-department/", DashboardStatsByDepartmentView.as_view(), name="dashboard-stats-by-department"),
     path("dashboard/visits-by-day/", DashboardVisitsByDayView.as_view(), name="dashboard-visits-by-day"),
@@ -83,6 +90,11 @@ urlpatterns = [
         "staff/<uuid:pk>/resend-credentials/",
         StaffResendCredentialsView.as_view(),
         name="staff-resend-credentials",
+    ),
+    path(
+        "staff/<uuid:pk>/reset-device/",
+        StaffResetDeviceView.as_view(),
+        name="staff-reset-device",
     ),
     path("staff/", StaffListCreateView.as_view(), name="staff-list-create"),
     path("officers/", OfficersListView.as_view(), name="officers-list"),

@@ -224,6 +224,12 @@ export interface OptionsResponse {
   labels?: PartnerLocationLabels;
   /** Activity types for the current user's department (with optional form_fields for visit detail labels). */
   activity_types?: ActivityTypeOption[];
+  /** Tracking cadence and working hours used for location reporting. */
+  tracking_settings?: {
+    working_hour_start: number;
+    working_hour_end: number;
+    interval_minutes: number;
+  };
 }
 
 export interface StaffUser {
@@ -277,4 +283,37 @@ export interface LocationReport {
   /** Server-side fraud flag e.g. impossible_travel, mock_provider. */
   integrity_warning?: string | null;
   created_at: string;
+}
+
+export type MaintenanceStatus =
+  | "reported"
+  | "verified_breakdown"
+  | "at_garage"
+  | "approved"
+  | "rejected";
+
+export interface MaintenanceIncident {
+  id: string;
+  officer: string;
+  officer_email?: string | null;
+  officer_display_name?: string | null;
+  supervisor?: string | null;
+  supervisor_display_name?: string | null;
+  vehicle_type: "motorbike" | "car" | "other";
+  issue_description: string;
+  status: MaintenanceStatus;
+  reported_at: string;
+  reported_latitude?: number | null;
+  reported_longitude?: number | null;
+  breakdown_verified_at?: string | null;
+  breakdown_verified_latitude?: number | null;
+  breakdown_verified_longitude?: number | null;
+  garage_recorded_at?: string | null;
+  garage_latitude?: number | null;
+  garage_longitude?: number | null;
+  approved_at?: string | null;
+  rejected_at?: string | null;
+  supervisor_notes?: string | null;
+  created_at?: string;
+  updated_at?: string;
 }

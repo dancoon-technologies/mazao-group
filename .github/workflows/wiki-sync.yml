@@ -1,12 +1,6 @@
 name: Wiki Sync
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - "docs/wiki/**"
-      - "scripts/sync-wiki.sh"
-      - ".github/workflows/wiki-sync.yml"
   workflow_dispatch:
 
 permissions:

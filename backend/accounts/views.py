@@ -383,3 +383,54 @@ class StaffResendCredentialsView(generics.GenericAPIView):
             {"detail": f"Credentials email sent to {user.email}."},
             status=status.HTTP_200_OK,
         )
+
+
+class StaffResetDeviceView(generics.GenericAPIView):
+    """POST to clear bound device/session for a staff member. Admin or supervisor."""
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        if request.user.role not in (User.Role.ADMIN, User.Role.SUPERVISOR):
+            logger.warning("POST /api/staff/%s/reset-device/ forbidden user=%s", pk, request.user.id)
+            return Response(
+                {"detail": "Only admins or supervisors can reset a staff device."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        try:
+            user = User.objects.select_related("department").get(pk=pk)
+        except User.DoesNotExist:
+            logger.warning("POST /api/staff/%s/reset-device/ staff not found", pk)
+            return Response(
+                {"detail": "Staff member not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        if user.role not in (User.Role.SUPERVISOR, User.Role.OFFICER):
+            return Response(
+                {"detail": "User is not staff (supervisor or officer)."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if request.user.role == User.Role.SUPERVISOR:
+            if not request.user.department_id or user.department_id != request.user.department_id:
+                return Response(
+                    {"detail": "Staff member is not in your department."},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+        user.device_id = ""
+        user.current_access_jti = ""
+        user.current_refresh_jti = ""
+        user.save(update_fields=["device_id", "current_access_jti", "current_refresh_jti"])
+        logger.info("POST /api/staff/%s/reset-device/ by user=%s", pk, request.user.id)
+        from notifications.services import notify_user
+
+        notify_user(
+            user,
+            title="Device access reset",
+            message="Your device binding was reset. Sign in again on your assigned phone.",
+            channels=["in_app", "push"],
+            action_data={"screen": "notifications"},
+        )
+        return Response(
+            {"detail": f"Device binding reset for {user.email}."},
+            status=status.HTTP_200_OK,
+        )

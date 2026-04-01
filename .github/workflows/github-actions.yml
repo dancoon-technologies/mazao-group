@@ -6,6 +6,10 @@ on:
       - "backend/**"
       - "web/**"
       - "mobile/**"
+      - "docs/wiki/**"
+      - "scripts/sync-wiki.sh"
+      - ".github/workflows/wiki-sync.yml"
+      - ".github/workflows/github-actions.yml"
   workflow_dispatch:
 
 env:
@@ -19,6 +23,7 @@ jobs:
       backend: ${{ steps.filter.outputs.backend }}
       web: ${{ steps.filter.outputs.web }}
       mobile: ${{ steps.filter.outputs.mobile }}
+      wiki: ${{ steps.filter.outputs.wiki }}
 
     steps:
       - name: Checkout repository
@@ -35,6 +40,11 @@ jobs:
               - "web/**"
             mobile:
               - "mobile/**"
+            wiki:
+              - "docs/wiki/**"
+              - "scripts/sync-wiki.sh"
+              - ".github/workflows/wiki-sync.yml"
+              - ".github/workflows/github-actions.yml"
 
   backend-tests:
     name: Backend tests
@@ -233,3 +243,22 @@ jobs:
           name: android-apk
           path: mobile/build/app.apk
           retention-days: 7
+
+  wiki-sync:
+    name: Sync GitHub Wiki
+    needs: detect
+    if: github.ref == 'refs/heads/main' && (needs.detect.outputs.wiki == 'true' || github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Make wiki sync script executable
+        run: chmod +x scripts/sync-wiki.sh
+
+      - name: Publish docs/wiki to GitHub Wiki
+        env:
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          WIKI_PUSH_TOKEN: ${{ secrets.WIKI_PUSH_TOKEN }}
+        run: ./scripts/sync-wiki.sh
