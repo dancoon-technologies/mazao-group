@@ -85,7 +85,7 @@ export function SelectFarmerModal({
   };
 
   const renderItem = ({ item }: { item: Farmer }) => {
-    const kind = item.is_stockist ? "Stockist" : "Farmer";
+    const kind = item.is_stockist ? "Stockist" : item.is_group ? "Farmers Group" : "Farmer";
     const label = `${item.display_name} · ${kind}${item.phone ? ` · ${item.phone}` : ""}`;
     const selected = selectedFarmerId === item.id;
     return (

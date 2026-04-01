@@ -11,6 +11,8 @@ export interface Farmer {
   phone?: string;
   /** When true this record represents a stockist rather than a traditional farmer. */
   is_stockist?: boolean;
+  /** When true this record represents a farmers group instead of an individual farmer. */
+  is_group?: boolean;
   latitude?: string;
   longitude?: string;
   created_at?: string;
@@ -117,6 +119,8 @@ export interface Visit {
   survival_rate?: string;
   pests_diseases?: string;
   order_value?: number | null;
+  /** Payment amount collected from stockist during the visit. */
+  stockist_payment_amount?: number | null;
   harvest_kgs?: number | null;
   farmers_feedback?: string;
   created_at: string;
@@ -146,6 +150,39 @@ export interface Notification {
   action_data?: Record<string, unknown>;
   created_at: string;
   read_at: string | null;
+}
+
+export type MaintenanceStatus =
+  | 'reported'
+  | 'verified_breakdown'
+  | 'at_garage'
+  | 'approved'
+  | 'rejected';
+
+export interface MaintenanceIncident {
+  id: string;
+  officer: string;
+  officer_email?: string | null;
+  officer_display_name?: string | null;
+  supervisor?: string | null;
+  supervisor_display_name?: string | null;
+  vehicle_type: 'motorbike' | 'car' | 'other';
+  issue_description: string;
+  status: MaintenanceStatus;
+  reported_at: string;
+  reported_latitude?: number | null;
+  reported_longitude?: number | null;
+  breakdown_verified_at?: string | null;
+  breakdown_verified_latitude?: number | null;
+  breakdown_verified_longitude?: number | null;
+  garage_recorded_at?: string | null;
+  garage_latitude?: number | null;
+  garage_longitude?: number | null;
+  approved_at?: string | null;
+  rejected_at?: string | null;
+  supervisor_notes?: string | null;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface DashboardStats {
@@ -228,6 +265,22 @@ export interface ProductOption {
   name: string;
   code: string;
   unit: string;
+}
+
+export interface CreateMaintenanceIncidentPayload {
+  vehicle_type: 'motorbike' | 'car' | 'other';
+  issue_description: string;
+  reported_latitude: number;
+  reported_longitude: number;
+}
+
+export interface UpdateMaintenanceIncidentPayload {
+  status?: MaintenanceStatus;
+  supervisor_notes?: string;
+  breakdown_verified_latitude?: number;
+  breakdown_verified_longitude?: number;
+  garage_latitude?: number;
+  garage_longitude?: number;
 }
 
 /** Schema for one step-3 field: how to render (input_type) and how to send (value_type, api_key). From backend options. */
@@ -544,6 +597,7 @@ export const api = {
     latitude?: number;
     longitude?: number;
     is_stockist?: boolean;
+    is_group?: boolean;
   }) {
     return request<Farmer>('/farmers/', {
       method: 'POST',
@@ -816,6 +870,7 @@ export const api = {
     survival_rate?: string;
     pests_diseases?: string;
     order_value?: number | null;
+    stockist_payment_amount?: number | null;
     harvest_kgs?: number | null;
     farmers_feedback?: string;
     product_lines?: { product_id: string; quantity_sold?: number }[];
@@ -853,6 +908,7 @@ export const api = {
     if (params.survival_rate) form.append('survival_rate', params.survival_rate);
     if (params.pests_diseases) form.append('pests_diseases', params.pests_diseases);
     if (params.order_value != null) form.append('order_value', String(params.order_value));
+    if (params.stockist_payment_amount != null) form.append('stockist_payment_amount', String(params.stockist_payment_amount));
     if (params.harvest_kgs != null) form.append('harvest_kgs', String(params.harvest_kgs));
     if (params.farmers_feedback) form.append('farmers_feedback', params.farmers_feedback);
     if (params.product_lines?.length) {
@@ -934,6 +990,30 @@ export const api = {
     const q = searchParams.toString() ? `?${searchParams.toString()}` : '';
     const data = await request<Farmer[] | { results: Farmer[] }>(`/farmers/${q}`);
     return ensureArray(data);
+  },
+
+  async getMaintenanceIncidents(params?: { status?: MaintenanceStatus; officer?: string }) {
+    const q = new URLSearchParams();
+    if (params?.status) q.set('status', params.status);
+    if (params?.officer) q.set('officer', params.officer);
+    const query = q.toString();
+    const path = query ? `/maintenance-incidents/?${query}` : '/maintenance-incidents/';
+    const data = await request<MaintenanceIncident[] | { results: MaintenanceIncident[] }>(path);
+    return ensureArray(data);
+  },
+
+  async createMaintenanceIncident(payload: CreateMaintenanceIncidentPayload) {
+    return request<MaintenanceIncident>('/maintenance-incidents/', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  },
+
+  async updateMaintenanceIncident(id: string, payload: UpdateMaintenanceIncidentPayload) {
+    return request<MaintenanceIncident>(`/maintenance-incidents/${id}/`, {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    });
   },
 
   // Notifications (in-app + push token registration)

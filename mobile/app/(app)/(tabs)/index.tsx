@@ -149,6 +149,7 @@ function HomeScreenInner() {
   const openAddFarmer = useCallback(() => routerInstance.push('/(app)/add-farmer'), [routerInstance]);
   const openAddStockist = useCallback(() => routerInstance.push({ pathname: '/(app)/add-farmer', params: { asStockist: '1' } }), [routerInstance]);
   const openProposeSchedule = useCallback(() => routerInstance.push('/(app)/propose-schedule'), [routerInstance]);
+  const openMaintenance = useCallback(() => routerInstance.push('/(app)/(tabs)/maintenance' as never), [routerInstance]);
 
   const today = new Date().toISOString().slice(0, 10);
   const totalScheduledToday = schedules.filter(
@@ -266,6 +267,11 @@ function HomeScreenInner() {
               icon="calendar"
               label="Schedule"
               onPress={openProposeSchedule}
+            />
+            <ActionCard
+              icon="tools"
+              label="Maintenance"
+              onPress={openMaintenance}
             />
           </View>
 

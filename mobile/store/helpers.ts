@@ -25,6 +25,10 @@ export function normalizeServerVisit(record: Record<string, unknown>): Record<st
     photo_uri: record.photo ? String(record.photo) : null,
     notes: record.notes ?? null,
     activity_type: record.activity_type ?? null,
+    stockist_payment_amount:
+      record.stockist_payment_amount != null && !Number.isNaN(Number(record.stockist_payment_amount))
+        ? Number(record.stockist_payment_amount)
+        : null,
     verification_status: record.verification_status ?? null,
     created_at: isoToTimestamp(record.created_at as string) ?? Date.now(),
     updated_at: isoToTimestamp(record.updated_at as string) ?? Date.now(),
@@ -53,6 +57,8 @@ export function normalizeServerSchedule(record: Record<string, unknown>): Record
 }
 
 export function normalizeServerFarmer(record: Record<string, unknown>): Record<string, unknown> {
+  const isStockist = record.is_stockist === true || record.is_stockist === 'true' || record.is_stockist === 1;
+  const isGroup = record.is_group === true || record.is_group === 'true' || record.is_group === 1;
   return {
     id: record.id,
     first_name: record.first_name ?? '',
@@ -60,6 +66,8 @@ export function normalizeServerFarmer(record: Record<string, unknown>): Record<s
     last_name: record.last_name ?? '',
     display_name: record.display_name ?? null,
     phone: record.phone ?? null,
+    is_stockist: isStockist ? 1 : 0,
+    is_group: isGroup ? 1 : 0,
     latitude: record.latitude != null ? String(record.latitude) : null,
     longitude: record.longitude != null ? String(record.longitude) : null,
     created_at: isoToTimestamp(record.created_at as string) ?? 0,

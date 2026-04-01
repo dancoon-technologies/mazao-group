@@ -15,6 +15,7 @@ export function getStep3InputType(
   key: string,
   schema: Record<string, VisitFormFieldSchemaItem> | null | undefined
 ): Step3InputType {
+  if (key === 'stockist_payment_amount') return 'number';
   const item = schema?.[key];
   const t = item?.input_type;
   if (t === 'text' || t === 'number' || t === 'integer' || t === 'multiline' || t === 'product') return t;
@@ -36,6 +37,15 @@ export function buildStep3Payload(
     const apiKey = item?.api_key ?? key;
     const valueType = item?.value_type ?? 'string';
     if (apiKey === 'product_lines') continue;
+    if (apiKey === 'stockist_payment_amount') {
+      if (trimmed === '') {
+        out[apiKey] = undefined;
+      } else {
+        const n = parseFloat(trimmed);
+        out[apiKey] = Number.isNaN(n) ? undefined : n;
+      }
+      continue;
+    }
     if (valueType === 'integer') {
       if (trimmed === '') {
         out[apiKey] = undefined;

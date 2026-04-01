@@ -12,6 +12,7 @@ const TAB_ICONS: Record<string, keyof typeof MaterialCommunityIcons.glyphMap> = 
   record: 'plus-circle',
   farmers: 'account-group',
   stockists: 'store-outline',
+  maintenance: 'tools',
   tracking: 'map-marker-path',
   profile: 'account',
 };
@@ -146,6 +147,16 @@ export default function AppTabsLayout() {
           title: 'Stockists',
           tabBarIcon: ({ color, size }) => (
             <MaterialCommunityIcons name={TAB_ICONS.stockists} size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="maintenance"
+        options={{
+          headerShown: false,
+          title: 'Maintenance',
+          tabBarIcon: ({ color, size }) => (
+            <MaterialCommunityIcons name={TAB_ICONS.maintenance} size={size} color={color} />
           ),
         }}
       />

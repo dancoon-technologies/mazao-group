@@ -13,6 +13,7 @@ export function farmerRowToFarmer(r: FarmerRow): Farmer {
     display_name: r.display_name ?? [r.first_name, r.last_name].filter(Boolean).join(' '),
     phone: r.phone ?? undefined,
     is_stockist: (r.is_stockist ?? 0) === 1,
+    is_group: (r.is_group ?? 0) === 1,
     latitude: r.latitude ?? undefined,
     longitude: r.longitude ?? undefined,
     created_at: r.created_at ? new Date(r.created_at).toISOString() : undefined,
@@ -69,6 +70,7 @@ export function visitRowToVisit(r: VisitRow): Visit {
     longitude: r.longitude,
     verification_status: r.verification_status ?? 'pending',
     activity_type: r.activity_type ?? 'farm_to_farm_visits',
+    stockist_payment_amount: r.stockist_payment_amount ?? null,
     notes: r.notes ?? undefined,
     created_at: new Date(r.created_at).toISOString(),
   };

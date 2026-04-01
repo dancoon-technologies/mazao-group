@@ -128,7 +128,9 @@ export default function FarmersScreen() {
       const farms = farmsByFarmer[farmer.id] ?? [];
       const farmCount = farms.length;
       const locations = formatFarmLocations(farms);
+      const partnerType = farmer.is_group ? 'Farmers Group' : 'Farmer';
       const subtitle = [
+        partnerType,
         farmer.phone ? farmer.phone : null,
         farmCount === 1 ? '1 Farm' : `${farmCount} Farms`,
         locations ? locations : null,

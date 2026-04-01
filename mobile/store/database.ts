@@ -158,6 +158,10 @@ function toVisitRow(data: Record<string, unknown>): VisitRow {
     photo_uri: data.photo_uri != null ? String(data.photo_uri) : null,
     notes: data.notes != null ? String(data.notes) : null,
     activity_type: data.activity_type != null ? String(data.activity_type) : null,
+    stockist_payment_amount:
+      data.stockist_payment_amount != null && !Number.isNaN(Number(data.stockist_payment_amount))
+        ? Number(data.stockist_payment_amount)
+        : null,
     verification_status: data.verification_status != null ? String(data.verification_status) : null,
     created_at: Number(data.created_at) || 0,
     updated_at: Number(data.updated_at) || 0,
@@ -187,6 +191,7 @@ function toScheduleRow(data: Record<string, unknown>): ScheduleRow {
 
 function toFarmerRow(data: Record<string, unknown>): FarmerRow {
   const isStockist = data.is_stockist === true || data.is_stockist === 'true' || data.is_stockist === 1;
+  const isGroup = data.is_group === true || data.is_group === 'true' || data.is_group === 1;
   return {
     id: String(data.id),
     first_name: String(data.first_name ?? ''),
@@ -195,6 +200,7 @@ function toFarmerRow(data: Record<string, unknown>): FarmerRow {
     display_name: data.display_name != null ? String(data.display_name) : null,
     phone: data.phone != null ? String(data.phone) : null,
     is_stockist: isStockist ? 1 : 0,
+    is_group: isGroup ? 1 : 0,
     latitude: data.latitude != null ? String(data.latitude) : null,
     longitude: data.longitude != null ? String(data.longitude) : null,
     created_at: Number(data.created_at) ?? 0,

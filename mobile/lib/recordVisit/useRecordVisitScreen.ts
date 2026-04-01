@@ -184,8 +184,15 @@ export function useRecordVisitScreen() {
         }
       }
     }
+    if (selectedFarmer?.is_stockist && !seen.has('stockist_payment_amount')) {
+      out.push({
+        key: 'stockist_payment_amount',
+        label: 'Stockist payment amount',
+        required: false,
+      });
+    }
     return out;
-  }, [activityTypes, activityTypesList, options?.activity_types]);
+  }, [activityTypes, activityTypesList, options?.activity_types, selectedFarmer?.is_stockist]);
 
   useEffect(() => {
     const keys = new Set(step3Fields.map((f) => f.key));

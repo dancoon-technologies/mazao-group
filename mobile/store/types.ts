@@ -9,6 +9,8 @@ export interface FarmerRow {
   phone: string | null;
   /** When true this record is a stockist. */
   is_stockist?: number;
+  /** When true this record is a farmers group. */
+  is_group?: number;
   latitude: string | null;
   longitude: string | null;
   created_at: number;
@@ -62,6 +64,7 @@ export interface VisitRow {
   photo_uri: string | null;
   notes: string | null;
   activity_type: string | null;
+  stockist_payment_amount: number | null;
   verification_status: string | null;
   created_at: number;
   updated_at: number;

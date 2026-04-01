@@ -129,6 +129,15 @@ export function validateRecordVisit(input: ValidateRecordVisitInput): ValidateRe
       return { valid: false, error: `Additional details: "${f.label}" is required.` };
     }
     const schema = visitFormFieldSchema?.[f.key];
+    if (f.key === 'stockist_payment_amount' && val !== '') {
+      const n = parseFloat(val);
+      if (Number.isNaN(n)) {
+        return { valid: false, error: `"${f.label}" must be a number.` };
+      }
+      if (n < 0) {
+        return { valid: false, error: `"${f.label}" cannot be negative.` };
+      }
+    }
     if (schema?.value_type === 'number' && val !== '') {
       const n = parseFloat(val);
       if (Number.isNaN(n)) {

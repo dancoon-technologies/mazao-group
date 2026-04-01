@@ -9,7 +9,7 @@ import {
   Platform,
   Alert,
 } from 'react-native';
-import { Banner, Button, Dialog, Portal, Snackbar, Text, TextInput, ActivityIndicator, useTheme } from 'react-native-paper';
+import { Banner, Button, Dialog, Portal, Snackbar, Text, TextInput, ActivityIndicator, SegmentedButtons, useTheme } from 'react-native-paper';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Location from 'expo-location';
 import { createOrUpdateFarmer, createOrUpdateFarm } from '@/database';
@@ -33,15 +33,16 @@ export default function AddFarmerScreen() {
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const theme = useTheme();
-  const params = useLocalSearchParams<{ returnTo?: string; asStockist?: string }>();
+  const params = useLocalSearchParams<{ returnTo?: string; asStockist?: string; asGroup?: string }>();
   const returnTo = params.returnTo;
   const isStockist = params.asStockist === '1' || params.asStockist === 'true';
+  const isGroup = !isStockist && (params.asGroup === '1' || params.asGroup === 'true');
   const labels = useSelector(() => getLabels(appMeta$.cachedOptions.get()));
   const locationLabel = isStockist ? 'Outlet' : labels.location;
 
   useEffect(() => {
-    navigation.setOptions({ title: isStockist ? 'Add stockist' : 'Add farmer' });
-  }, [navigation, isStockist]);
+    navigation.setOptions({ title: isStockist ? 'Add stockist' : isGroup ? 'Add farmers group' : 'Add farmer' });
+  }, [navigation, isGroup, isStockist]);
   const [locations, setLocations] = useState<LocationState | null>(null);
   const [loadingLocations, setLoadingLocations] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -220,6 +221,7 @@ export default function AddFarmerScreen() {
             latitude: Number.isNaN(farmerLatNum) ? 0 : farmerLatNum,
             longitude: Number.isNaN(farmerLonNum) ? 0 : farmerLonNum,
             is_stockist: isStockist,
+            is_group: isGroup,
           },
           farm: {
             region_id: regionId,
@@ -258,6 +260,7 @@ export default function AddFarmerScreen() {
         latitude: isNaN(farmerLatNum) ? 0 : farmerLatNum,
         longitude: isNaN(farmerLonNum) ? 0 : farmerLonNum,
         is_stockist: isStockist,
+        is_group: isGroup,
       });
 
       const farmerId = farmer?.id;
@@ -323,6 +326,7 @@ export default function AddFarmerScreen() {
     returnTo,
     isOnline,
     isStockist,
+    isGroup,
   ]);
 
   const counties = locations
@@ -363,8 +367,25 @@ export default function AddFarmerScreen() {
           </Banner>
         )}
         <Text variant="titleMedium" style={styles.sectionTitle}>
-          {isStockist ? 'Stockist' : 'Farmer'} details
+          {isStockist ? 'Stockist' : isGroup ? 'Farmers group' : 'Farmer'} details
         </Text>
+        {!isStockist && (
+          <SegmentedButtons
+            value={isGroup ? 'group' : 'farmer'}
+            onValueChange={(value) => {
+              if (value === 'group') {
+                router.setParams({ asGroup: 'true' });
+              } else {
+                router.setParams({ asGroup: 'false' });
+              }
+            }}
+            style={styles.typeSwitch}
+            buttons={[
+              { value: 'farmer', label: 'Farmer' },
+              { value: 'group', label: 'Farmers Group' },
+            ]}
+          />
+        )}
         <TextInput
           label="First name *"
           value={firstName}
@@ -563,7 +584,7 @@ export default function AddFarmerScreen() {
             loading={submitting}
             disabled={submitting || !firstName.trim() || !lastName.trim() || !regionId || !countyId || !subCountyId || !village.trim()}
           >
-            {isStockist ? 'Add stockist' : 'Add farmer'}
+            {isStockist ? 'Add stockist' : isGroup ? 'Add farmers group' : 'Add farmer'}
           </Button>
           <Button mode="text" onPress={() => router.back()}>
             Cancel
@@ -578,7 +599,9 @@ export default function AddFarmerScreen() {
           <Dialog.Title>{dialogSuccess ? 'Success' : 'Error'}</Dialog.Title>
           <Dialog.Content>
             <Text variant="bodyMedium">
-              {dialogSuccess ? (isStockist ? 'Stockist' : 'Farmer') + ` and ${locationLabel.toLowerCase()} added.` : (submitError || (isStockist ? 'Failed to add stockist.' : 'Failed to add farmer.'))}
+              {dialogSuccess
+                ? `${isStockist ? 'Stockist' : isGroup ? 'Farmers group' : 'Farmer'} and ${locationLabel.toLowerCase()} added.`
+                : (submitError || (isStockist ? 'Failed to add stockist.' : isGroup ? 'Failed to add farmers group.' : 'Failed to add farmer.'))}
             </Text>
           </Dialog.Content>
           <Dialog.Actions>
@@ -609,6 +632,7 @@ const styles = StyleSheet.create({
   scrollContent: { padding: 16, paddingBottom: 32 },
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   sectionTitle: { marginTop: 16, marginBottom: 8 },
+  typeSwitch: { marginBottom: 10 },
   hint: { marginBottom: 8, opacity: 0.8 },
   label: { marginTop: 8, marginBottom: 4 },
   input: { marginBottom: 8 },

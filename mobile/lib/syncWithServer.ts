@@ -89,6 +89,7 @@ async function pushQueue(accessToken: string): Promise<{ ok: boolean; error?: st
         if (payload.survival_rate) form.append('survival_rate', String(payload.survival_rate))
         if (payload.pests_diseases) form.append('pests_diseases', String(payload.pests_diseases))
         if (payload.order_value != null) form.append('order_value', String(payload.order_value))
+        if (payload.stockist_payment_amount != null) form.append('stockist_payment_amount', String(payload.stockist_payment_amount))
         if (payload.harvest_kgs != null) form.append('harvest_kgs', String(payload.harvest_kgs))
         if (payload.farmers_feedback) form.append('farmers_feedback', String(payload.farmers_feedback))
         if (payload.photo_taken_at) form.append('photo_taken_at', String(payload.photo_taken_at))
@@ -159,6 +160,7 @@ async function pushQueue(accessToken: string): Promise<{ ok: boolean; error?: st
             latitude: farmerPayload.latitude,
             longitude: farmerPayload.longitude,
             is_stockist: farmerPayload.is_stockist ?? false,
+            is_group: farmerPayload.is_group ?? false,
           }),
         })
         if (!farmerRes.ok) {
@@ -359,6 +361,7 @@ export async function enqueueVisit(payload: {
   survival_rate?: string
   pests_diseases?: string
   order_value?: number | null
+  stockist_payment_amount?: number | null
   harvest_kgs?: number | null
   farmers_feedback?: string
   product_lines?: { product_id: string; quantity_sold?: number }[]
@@ -390,6 +393,7 @@ export async function enqueueFarmerWithFarm(payload: {
     latitude: number
     longitude: number
     is_stockist?: boolean
+    is_group?: boolean
   }
   farm: {
     region_id: number
