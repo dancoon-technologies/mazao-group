@@ -1,4 +1,5 @@
 import { colors, spacing } from '@/constants/theme';
+import { localWeekStartYmd } from '@/lib/dateLocal';
 import { api, type Route, type RouteReport, type Visit } from '@/lib/api';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -104,23 +105,16 @@ export default function RouteReportScreen() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
-  const weekStart = useMemo(() => {
-    const d = new Date();
-    const day = d.getDay();
-    const diff = (day + 6) % 7;
-    d.setDate(d.getDate() - diff);
-    return d.toISOString().slice(0, 10);
-  }, []);
+  const weekStart = useMemo(() => localWeekStartYmd(new Date()), []);
 
   const loadRoutes = useCallback(async () => {
     try {
-      const list = await api.getRoutes({ week_start: weekStart });
-      const arr = Array.isArray(list) ? list : [];
+      const arr = await api.getAllRoutes({ week_start: weekStart });
       // End-of-day report only applies to routes where at least one visit was recorded for that route.
       const withVisits = await Promise.all(
         arr.map(async (r) => {
           try {
-            const v = await api.getVisits({ route: r.id });
+            const v = await api.getAllVisits({ route: r.id });
             return v.length > 0 ? r : null;
           } catch {
             return null;
@@ -146,7 +140,8 @@ export default function RouteReportScreen() {
     try {
       const [reportRes, visitsRes] = await Promise.all([
         api.getRouteReport(route.id),
-        api.getVisits({ date: route.scheduled_date, route: route.id }),
+        // Visits for this route only (avoid created_at date mismatch vs scheduled_date).
+        api.getAllVisits({ route: route.id }),
       ]);
       setReport(reportRes);
       setVisits(Array.isArray(visitsRes) ? visitsRes : []);

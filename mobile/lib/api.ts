@@ -672,7 +672,7 @@ export const api = {
     return list;
   },
 
-  /** Routes (weekly plan). Optional week_start=YYYY-MM-DD for Mon–Sat of that week. First page only unless you use getAllRoutes. */
+  /** Routes (weekly plan). Optional week_start=YYYY-MM-DD (Monday) for Mon–Sat of that week. Prefer getAllRoutes for full week. */
   async getRoutes(params?: { week_start?: string; officer?: string }) {
     const q = new URLSearchParams();
     if (params?.week_start) q.set('week_start', params.week_start);
@@ -847,6 +847,31 @@ export const api = {
     const path = query ? `/visits/?${query}` : '/visits/';
     const data = await request<Visit[] | { results: Visit[] }>(path);
     return Array.isArray(data) ? data : (data?.results ?? []);
+  },
+
+  /** All visits matching filters (paginates until exhausted). */
+  async getAllVisits(params?: { officer?: string; date?: string; date_from?: string; date_to?: string; farm?: string; route?: string }) {
+    const all: Visit[] = [];
+    let page = 1;
+    type PageResponse = { results?: Visit[]; next?: string | null };
+    while (true) {
+      const q = new URLSearchParams();
+      q.set('page', String(page));
+      if (params?.officer) q.set('officer', params.officer);
+      if (params?.date) q.set('date', params.date);
+      if (params?.date_from) q.set('date_from', params.date_from);
+      if (params?.date_to) q.set('date_to', params.date_to);
+      if (params?.farm) q.set('farm', params.farm);
+      if (params?.route) q.set('route', params.route);
+      const data = await request<Visit[] | PageResponse>(`/visits/?${q.toString()}`);
+      const batch = Array.isArray(data) ? data : (data?.results ?? []);
+      all.push(...batch);
+      const hasNext =
+        !Array.isArray(data) && data != null && typeof data === 'object' && Boolean((data as PageResponse).next);
+      if (!hasNext || batch.length === 0) break;
+      page += 1;
+    }
+    return all;
   },
 
   /** Get a single visit by id (for visit detail screen). */

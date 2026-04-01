@@ -53,7 +53,8 @@ class RouteListCreateView(generics.ListCreateAPIView):
         if week_start:
             try:
                 start = datetime.strptime(week_start, "%Y-%m-%d").date()
-                end = start + timedelta(days=6)
+                # Mon–Sat inclusive (6 working days), aligned with mobile weekly planner.
+                end = start + timedelta(days=5)
                 queryset = queryset.filter(
                     scheduled_date__gte=start,
                     scheduled_date__lte=end,

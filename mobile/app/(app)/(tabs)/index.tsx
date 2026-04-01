@@ -9,6 +9,7 @@ import { cardShadow, cardStyle, colors, radius, spacing } from '@/constants/them
 import { useAppRefresh } from '@/contexts/AppRefreshContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { api, getLabels, type Farmer, type Schedule } from '@/lib/api';
+import { toLocalYmd } from '@/lib/dateLocal';
 import { formatDate } from '@/lib/format';
 import { farmerRowToFarmer, scheduleRowToSchedule } from '@/lib/offline-helpers';
 import { syncWithServer } from '@/lib/syncWithServer';
@@ -151,7 +152,7 @@ function HomeScreenInner() {
   const openProposeSchedule = useCallback(() => routerInstance.push('/(app)/propose-schedule'), [routerInstance]);
   const openMaintenance = useCallback(() => routerInstance.push('/(app)/(tabs)/maintenance' as never), [routerInstance]);
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = toLocalYmd(new Date());
   const totalScheduledToday = schedules.filter(
     (s) => s.scheduled_date === today && s.status === 'accepted'
   ).length;

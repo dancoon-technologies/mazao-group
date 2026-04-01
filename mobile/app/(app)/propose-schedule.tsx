@@ -36,6 +36,7 @@ import { appbarHeight, cardShadow, cardStyle, colors, scrollPaddingKeyboard, spa
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { DEFAULT_ACTIVITY_TYPE } from '@/lib/constants/activityTypes';
 import { logger } from '@/lib/logger';
+import { localWeekMonToSat, localWeekStartYmd, toLocalYmd } from '@/lib/dateLocal';
 
 function formatDate(iso: string) {
   try {
@@ -47,20 +48,12 @@ function formatDate(iso: string) {
 
 const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-/** Monday of the week containing d (local). */
-function getWeekStartMon(d: Date): Date {
-  const date = new Date(d);
-  const day = date.getDay();
-  const diff = (day + 6) % 7;
-  date.setDate(date.getDate() - diff);
-  return date;
-}
-
 function formatWeekdayHeader(dateStr: string): string {
-  const d = new Date(`${dateStr}T00:00:00.000Z`);
-  const dayIndex = d.getUTCDay() === 0 ? 6 : d.getUTCDay() - 1;
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const dt = new Date(y, m - 1, d);
+  const dayIndex = (dt.getDay() + 6) % 7;
   const dayLabel = DAY_LABELS[dayIndex] ?? '';
-  return `${dayLabel}, ${d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}`;
+  return `${dayLabel}, ${dt.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}`;
 }
 
 const isAssigner = (role: string | null) => role === 'admin' || role === 'supervisor';
@@ -118,24 +111,19 @@ export default function ProposeScheduleScreen() {
     setSnackbarMsg(null);
   }, []);
 
-  const weekStart = useMemo(() => {
-    const monday = getWeekStartMon(new Date());
-    return monday.toISOString().slice(0, 10);
-  }, []);
+  const weekStart = useMemo(() => localWeekStartYmd(new Date()), []);
 
-  const weekDays = useMemo(() => {
-    const start = new Date(`${weekStart}T00:00:00.000Z`);
-    return Array.from({ length: 6 }, (_, i) => {
-      const d = new Date(start);
-      d.setUTCDate(start.getUTCDate() + i);
-      return d.toISOString().slice(0, 10);
-    });
-  }, [weekStart]);
+  const weekDays = useMemo(() => localWeekMonToSat(weekStart), [weekStart]);
 
   const routeByDate = useMemo(() => {
     const map: Record<string, Route> = {};
     for (const r of routesWeek) {
-      map[r.scheduled_date] = r;
+      const prev = map[r.scheduled_date];
+      const prevStops = prev?.stops?.length ?? 0;
+      const nextStops = r.stops?.length ?? 0;
+      if (!prev || nextStops > prevStops || (nextStops === prevStops && r.updated_at && prev.updated_at && r.updated_at > prev.updated_at)) {
+        map[r.scheduled_date] = r;
+      }
     }
     return map;
   }, [routesWeek]);
@@ -154,7 +142,7 @@ export default function ProposeScheduleScreen() {
       else setRoutesLoading(true);
       try {
         setRoutesError('');
-        const list = await api.getRoutes({
+        const list = await api.getAllRoutes({
           week_start: weekStart,
           ...(assigner && selectedOfficerId ? { officer: selectedOfficerId } : {}),
         });
@@ -309,7 +297,7 @@ export default function ProposeScheduleScreen() {
   }, [load]);
 
   useEffect(() => {
-    const today = new Date().toISOString().slice(0, 10);
+    const today = toLocalYmd(new Date());
     if (!selectedDate) setSelectedDate(today);
   }, [selectedDate]);
 

@@ -36,6 +36,7 @@ import {
   DEFAULT_WARNING_DISTANCE_METERS,
 } from '@/constants/theme';
 import { logger } from '@/lib/logger';
+import { localWeekStartYmd, toLocalYmd } from '@/lib/dateLocal';
 
 export function useRecordVisitScreen() {
   const router = useRouter();
@@ -302,7 +303,7 @@ export function useRecordVisitScreen() {
         }
         if (!userId) return;
         try {
-          const todayStr = new Date().toISOString().slice(0, 10);
+          const todayStr = toLocalYmd(new Date());
           const startTs = new Date(`${todayStr}T00:00:00.000Z`).getTime();
           const endTs = startTs + 7 * 24 * 60 * 60 * 1000;
           const scheduleRows = await getPlannedSchedulesDb(userId, startTs, endTs);
@@ -351,14 +352,10 @@ export function useRecordVisitScreen() {
               }
               return;
             }
-            const monday = new Date();
-            const day = monday.getDay();
-            const diff = (day + 6) % 7;
-            monday.setDate(monday.getDate() - diff);
-            const weekStart = monday.toISOString().slice(0, 10);
-            const list = await api.getRoutes({ week_start: weekStart });
+            const weekStart = localWeekStartYmd(new Date());
+            const list = await api.getAllRoutes({ week_start: weekStart });
             if (cancelled) return;
-            const today = new Date().toISOString().slice(0, 10);
+            const today = toLocalYmd(new Date());
             const routeListForToday = (list ?? []).filter((rt) => rt.scheduled_date === today);
             setTodayRoutes(routeListForToday);
             setTodayRoute(routeListForToday[0] ?? null);
@@ -375,7 +372,7 @@ export function useRecordVisitScreen() {
   );
 
   const acceptedSchedules = useMemo(() => {
-    const today = new Date().toISOString().slice(0, 10);
+    const today = toLocalYmd(new Date());
     return plannedSchedules.filter(
       (s) =>
         s.status === 'accepted' &&

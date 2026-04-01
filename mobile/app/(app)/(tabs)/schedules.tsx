@@ -1,5 +1,6 @@
 import { ListItemRow } from '@/components/ListItemRow';
 import { colors, cardShadow, cardStyle, radius, spacing } from '@/constants/theme';
+import { toLocalYmd } from '@/lib/dateLocal';
 import { formatDateHeader, isScheduleEditableByDate, scheduleStatusColor, scheduleStatusLabel } from '@/lib/format';
 import { syncWithServer } from '@/lib/syncWithServer';
 import { farmerRowToFarmer, scheduleRowToSchedule, visitRowToVisit } from '@/lib/offline-helpers';
@@ -36,10 +37,11 @@ const TAB_BAR_HEIGHT = 56;
 
 type TabKey = 'upcoming' | 'past';
 
-/** Single visit schedule or one stop from a weekly route plan. */
+/** Single visit schedule, a planned route stop, or a route day with no stops yet. */
 type PlanRow =
   | { kind: 'schedule'; date: string; schedule: Schedule }
-  | { kind: 'route_stop'; date: string; route: Route; stop: RouteStop };
+  | { kind: 'route_stop'; date: string; route: Route; stop: RouteStop }
+  | { kind: 'route_empty'; date: string; route: Route };
 
 function visitMatchesRouteStop(v: Visit, route: Route, stop: RouteStop): boolean {
   if (!v.route || v.route !== route.id) return false;
@@ -48,11 +50,14 @@ function visitMatchesRouteStop(v: Visit, route: Route, stop: RouteStop): boolean
 }
 
 function sortPlanRows(rows: PlanRow[]): PlanRow[] {
+  const kindRank = (k: PlanRow['kind']) => (k === 'schedule' ? 0 : k === 'route_empty' ? 1 : 2);
   return [...rows].sort((a, b) => {
     const d = a.date.localeCompare(b.date);
     if (d !== 0) return d;
-    if (a.kind !== b.kind) return a.kind === 'schedule' ? -1 : 1;
+    const kr = kindRank(a.kind) - kindRank(b.kind);
+    if (kr !== 0) return kr;
     if (a.kind === 'schedule' && b.kind === 'schedule') return a.schedule.id.localeCompare(b.schedule.id);
+    if (a.kind === 'route_empty' && b.kind === 'route_empty') return a.route.id.localeCompare(b.route.id);
     if (a.kind === 'route_stop' && b.kind === 'route_stop') {
       const ia = a.route.stops?.findIndex((s: RouteStop) => s.id === a.stop.id) ?? 0;
       const ib = b.route.stops?.findIndex((s: RouteStop) => s.id === b.stop.id) ?? 0;
@@ -188,7 +193,7 @@ export default function SchedulesScreen() {
     return map;
   }, [visits]);
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = toLocalYmd(new Date());
   const routesVisible = useMemo(() => {
     if (!userId) return [];
     if (role === 'admin' || isSupervisor) return routes;
@@ -213,7 +218,15 @@ export default function SchedulesScreen() {
     const routePart: PlanRow[] = [];
     for (const route of routesVisible) {
       if (route.scheduled_date < today) continue;
-      for (const stop of route.stops ?? []) {
+      const stops = route.stops ?? [];
+      if (stops.length === 0) {
+        const anyVisitOnRoute = visits.some((v) => v.route === route.id);
+        if (!anyVisitOnRoute) {
+          routePart.push({ kind: 'route_empty', date: route.scheduled_date, route });
+        }
+        continue;
+      }
+      for (const stop of stops) {
         if (visits.some((v) => visitMatchesRouteStop(v, route, stop))) continue;
         routePart.push({ kind: 'route_stop', date: route.scheduled_date, route, stop });
       }
@@ -239,7 +252,15 @@ export default function SchedulesScreen() {
     }));
     const routePart: PlanRow[] = [];
     for (const route of routesVisible) {
-      for (const stop of route.stops ?? []) {
+      const stops = route.stops ?? [];
+      if (stops.length === 0) {
+        const anyVisitOnRoute = visits.some((v) => v.route === route.id);
+        if (route.scheduled_date < today || anyVisitOnRoute) {
+          routePart.push({ kind: 'route_empty', date: route.scheduled_date, route });
+        }
+        continue;
+      }
+      for (const stop of stops) {
         const recorded = visits.some((v) => visitMatchesRouteStop(v, route, stop));
         if (route.scheduled_date < today || recorded) {
           routePart.push({ kind: 'route_stop', date: route.scheduled_date, route, stop });
@@ -258,6 +279,13 @@ export default function SchedulesScreen() {
         return (
           farmerDisplayName(s).toLowerCase().includes(q) ||
           (s.notes ?? '').toLowerCase().includes(q)
+        );
+      }
+      if (row.kind === 'route_empty') {
+        const r = row.route;
+        return (
+          (r.name ?? '').toLowerCase().includes(q) ||
+          (r.notes ?? '').toLowerCase().includes(q)
         );
       }
       const stop = row.stop;
@@ -485,6 +513,58 @@ export default function SchedulesScreen() {
                           />
                         );
                       }
+                      if (row.kind === 'route_empty') {
+                        const { route } = row;
+                        const title = route.name?.trim() ? route.name : 'Day route';
+                        const rowPress = isOfficer
+                          ? () =>
+                              router.push({
+                                pathname: '/(app)/record-visit',
+                                params: { routeId: route.id },
+                              } as never)
+                          : () => openRouteFormForRoute(route);
+                        return (
+                          <ListItemRow
+                            key={`re-up-${route.id}`}
+                            avatarLetter="R"
+                            title={title}
+                            subtitle="No planned stops · add stops or record a visit"
+                            onPress={rowPress}
+                            right={
+                              <View style={styles.upcomingRight}>
+                                <View style={[styles.badge, { backgroundColor: colors.gray200 }]}>
+                                  <Text variant="labelSmall" style={[styles.badgeText, { color: colors.gray700 }]}>
+                                    Route
+                                  </Text>
+                                </View>
+                                {isOfficer && (
+                                  <>
+                                    <IconButton
+                                      icon="pencil"
+                                      size={22}
+                                      iconColor={colors.primary}
+                                      onPress={() => openRouteFormForRoute(route)}
+                                      accessibilityLabel="Edit route"
+                                    />
+                                    <IconButton
+                                      icon="camera"
+                                      size={22}
+                                      iconColor={colors.primary}
+                                      onPress={() =>
+                                        router.push({
+                                          pathname: '/(app)/record-visit',
+                                          params: { routeId: route.id },
+                                        } as never)
+                                      }
+                                      accessibilityLabel="Record visit"
+                                    />
+                                  </>
+                                )}
+                              </View>
+                            }
+                          />
+                        );
+                      }
                       const { route, stop } = row;
                       const rowPress = isOfficer
                         ? () => openRecordRouteStop(route, stop)
@@ -591,6 +671,46 @@ export default function SchedulesScreen() {
                                     </Text>
                                   </View>
                                 )}
+                                <View style={[styles.badge, { backgroundColor: (recorded ? colors.primary : colors.gray500) + '20' }]}>
+                                  <Text variant="labelSmall" style={[styles.badgeText, { color: recorded ? colors.primary : colors.gray700 }]}>
+                                    {recorded ? 'Recorded' : 'Not recorded'}
+                                  </Text>
+                                  <MaterialCommunityIcons name={recorded ? 'check-circle' : 'circle-outline'} size={14} color={recorded ? colors.primary : colors.gray700} />
+                                </View>
+                              </View>
+                            }
+                            onPress={rowPress}
+                          />
+                        );
+                      }
+                      if (row.kind === 'route_empty') {
+                        const { route } = row;
+                        const visitOnRoute = visits.find((v) => v.route === route.id);
+                        const recorded = !!visitOnRoute;
+                        const title = route.name?.trim() ? route.name : 'Day route';
+                        const rowPress =
+                          recorded && visitOnRoute
+                            ? () => openVisit(visitOnRoute.id)
+                            : isOfficer
+                              ? () =>
+                                  router.push({
+                                    pathname: '/(app)/record-visit',
+                                    params: { routeId: route.id },
+                                  } as never)
+                              : () => openRouteFormForRoute(route);
+                        return (
+                          <ListItemRow
+                            key={`re-past-${route.id}`}
+                            avatarLetter="R"
+                            title={title}
+                            subtitle="No planned stops"
+                            right={
+                              <View style={styles.pastRight}>
+                                <View style={[styles.badge, { backgroundColor: colors.gray200 }]}>
+                                  <Text variant="labelSmall" style={[styles.badgeText, { color: colors.gray700 }]}>
+                                    Route
+                                  </Text>
+                                </View>
                                 <View style={[styles.badge, { backgroundColor: (recorded ? colors.primary : colors.gray500) + '20' }]}>
                                   <Text variant="labelSmall" style={[styles.badgeText, { color: recorded ? colors.primary : colors.gray700 }]}>
                                     {recorded ? 'Recorded' : 'Not recorded'}
