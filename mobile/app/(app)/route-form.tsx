@@ -53,6 +53,7 @@ export default function RouteFormScreen() {
   const [activityTypes, setActivityTypes] = useState<string[]>([DEFAULT_ACTIVITY_TYPE]);
   const [notes, setNotes] = useState('');
   const [stops, setStops] = useState<StopEntry[]>([]);
+  const [planStops, setPlanStops] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -85,6 +86,7 @@ export default function RouteFormScreen() {
       setActivityTypes([DEFAULT_ACTIVITY_TYPE]);
       setNotes('');
       setStops([]);
+      setPlanStops(false);
       setLoading(false);
       return;
     }
@@ -104,6 +106,7 @@ export default function RouteFormScreen() {
           farm_display_name: s.farm_display_name ?? null,
         }))
       );
+      setPlanStops((found.stops ?? []).length > 0);
     } catch {
       setRoute(null);
       setError('Failed to load route.');
@@ -364,21 +367,35 @@ export default function RouteFormScreen() {
             style={styles.input}
           />
 
-          <Text variant="labelMedium" style={styles.fieldLabel}>Stops ({labels.partner}s / locations)</Text>
-          <Text variant="bodySmall" style={styles.hint}>Add the customers you plan to visit on this day, in order.</Text>
-          {stops.map((s, i) => (
-            <View key={`${s.farmer_id}-${s.farm_id ?? 'n'}-${i}`} style={styles.stopRow}>
-              <ListItemRow
-                avatarLetter={(s.farmer_display_name || '?').charAt(0)}
-                title={s.farmer_display_name}
-                subtitle={s.farm_display_name ? `${labels.location}: ${s.farm_display_name}` : undefined}
-              />
-              <IconButton icon="close" size={22} onPress={() => removeStop(i)} />
-            </View>
-          ))}
-          <Button mode="outlined" icon="plus" onPress={() => setFarmerModalOpen(true)} style={styles.addStopBtn}>
-            Add stop
+          <Text variant="labelMedium" style={styles.fieldLabel}>Planned customers (optional)</Text>
+          <Text variant="bodySmall" style={styles.hint}>
+            You can save this route without stops and record visits directly during the day.
+          </Text>
+          <Button
+            mode={planStops ? 'contained-tonal' : 'outlined'}
+            icon={planStops ? 'check' : 'plus'}
+            onPress={() => setPlanStops((v) => !v)}
+            style={styles.addStopBtn}
+          >
+            {planStops ? 'Planning customers enabled' : 'Add planned customers'}
           </Button>
+          {planStops ? (
+            <>
+              {stops.map((s, i) => (
+                <View key={`${s.farmer_id}-${s.farm_id ?? 'n'}-${i}`} style={styles.stopRow}>
+                  <ListItemRow
+                    avatarLetter={(s.farmer_display_name || '?').charAt(0)}
+                    title={s.farmer_display_name}
+                    subtitle={s.farm_display_name ? `${labels.location}: ${s.farm_display_name}` : undefined}
+                  />
+                  <IconButton icon="close" size={22} onPress={() => removeStop(i)} />
+                </View>
+              ))}
+              <Button mode="outlined" icon="plus" onPress={() => setFarmerModalOpen(true)} style={styles.addStopBtn}>
+                Add stop
+              </Button>
+            </>
+          ) : null}
 
           <View style={styles.actions}>
             <Button mode="contained" onPress={save} loading={saving} disabled={saving} style={styles.saveBtn}>

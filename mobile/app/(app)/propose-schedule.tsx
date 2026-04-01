@@ -34,6 +34,7 @@ import { SelectFarmerModal } from '@/components/SelectFarmerModal';
 import { SelectFarmModal } from '@/components/SelectFarmModal';
 import { appbarHeight, cardShadow, cardStyle, colors, scrollPaddingKeyboard, spacing } from '@/constants/theme';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { DEFAULT_ACTIVITY_TYPE } from '@/lib/constants/activityTypes';
 
 function formatDate(iso: string) {
   try {
@@ -198,6 +199,40 @@ export default function ProposeScheduleScreen() {
       } as never);
     },
     [router, assigner, selectedOfficerId]
+  );
+
+  const quickCreateRoute = useCallback(
+    async (date: string) => {
+      const officerForCreate = assigner ? selectedOfficerId : userId;
+      if (!officerForCreate) {
+        const msg = assigner
+          ? 'Select an extension officer before creating a weekly plan.'
+          : 'Could not determine logged-in officer. Please sign in again.';
+        setRoutesError(msg);
+        showSnackbar('error', msg);
+        return;
+      }
+      setRoutesRefreshing(true);
+      try {
+        await api.createRoute({
+          scheduled_date: date,
+          officer: officerForCreate,
+          name: '',
+          activity_types: [DEFAULT_ACTIVITY_TYPE],
+          notes: '',
+          stops: [],
+        });
+        showSnackbar('success', 'Weekly plan created. You can now record visits directly.');
+        await loadWeeklyRoutes(false);
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : 'Failed to create weekly plan.';
+        setRoutesError(msg);
+        showSnackbar('error', msg);
+      } finally {
+        setRoutesRefreshing(false);
+      }
+    },
+    [assigner, selectedOfficerId, userId, showSnackbar, loadWeeklyRoutes]
   );
 
   useEffect(() => {
@@ -648,15 +683,25 @@ export default function ProposeScheduleScreen() {
                                   </Text>
                                 ) : (
                                   <Text variant="bodySmall" style={styles.weekNoRoute}>
-                                    No route
+                                    No route yet
                                   </Text>
                                 )}
                               </View>
-                              <MaterialCommunityIcons
-                                name={hasRoute ? 'pencil' : 'plus-circle-outline'}
-                                size={24}
-                                color={hasRoute ? colors.primary : colors.gray500}
-                              />
+                              {hasRoute ? (
+                                <MaterialCommunityIcons
+                                  name="pencil"
+                                  size={24}
+                                  color={colors.primary}
+                                />
+                              ) : (
+                                <Button
+                                  mode="contained-tonal"
+                                  compact
+                                  onPress={() => quickCreateRoute(date)}
+                                >
+                                  Create plan
+                                </Button>
+                              )}
                             </View>
                           </Card.Content>
                         </Card>
