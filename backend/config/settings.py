@@ -128,7 +128,8 @@ REST_FRAMEWORK = {
 
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(days=1),
-    "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
+    # Keep users signed in for up to one month (single-device policy still enforced).
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=30),
 }
 
 # CORS

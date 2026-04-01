@@ -36,7 +36,7 @@ export const COOKIE_OPTIONS = {
 
 export const REFRESH_COOKIE_OPTIONS = {
   ...COOKIE_OPTIONS,
-  maxAge: 604800, // 7 days
+  maxAge: 2592000, // 30 days
 };
 
 /**

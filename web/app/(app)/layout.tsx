@@ -1,6 +1,7 @@
 "use client";
 
 import { AppShell, Box, Burger, Group, Text, UnstyledButton } from "@mantine/core";
+import { IconLogout } from "@tabler/icons-react";
 import { useDisclosure } from "@mantine/hooks";
 import Link from "next/link";
 import dynamic from "next/dynamic";
@@ -109,9 +110,29 @@ export default function AppLayout({
               Mazao Group
             </Text>
           </Group>
-          <ErrorBoundary fallback={null}>
-            <NotificationBell />
-          </ErrorBoundary>
+          <Group gap="xs">
+            <ErrorBoundary fallback={null}>
+              <NotificationBell />
+            </ErrorBoundary>
+            <UnstyledButton
+              component="button"
+              type="button"
+              aria-label="Log out"
+              title="Log out"
+              onClick={() => logout()}
+              style={{
+                width: 34,
+                height: 34,
+                borderRadius: 8,
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                color: "var(--mantine-color-gray-7)",
+              }}
+            >
+              <IconLogout size={18} />
+            </UnstyledButton>
+          </Group>
         </Group>
       </AppShell.Header>
 

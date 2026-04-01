@@ -12,6 +12,7 @@ import {
   verifyOfflineLogin,
   type CachedAuthPayload,
 } from '@/lib/offlineAuth';
+import { clearTrackingSessionStart, stopTracking } from '@/lib/trackingCollector';
 
 type AuthState = {
   isAuthenticated: boolean;
@@ -265,12 +266,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logout = useCallback(async () => {
     const { unregisterBackgroundSyncTask } = await import('@/lib/backgroundSync');
     await unregisterBackgroundSyncTask();
+    await clearTrackingSessionStart();
+    await stopTracking();
     await clearOfflineCredentials();
     await api.logout();
     if (!mounted.current) return;
     setState(clearAuthState);
     setIsUnlocked(false);
   }, []);
+
+  // Safety gate: never allow background tracking when unauthenticated.
+  useEffect(() => {
+    if (state.isAuthenticated) return;
+    const stopUnauthedTracking = async () => {
+      const { unregisterBackgroundSyncTask } = await import('@/lib/backgroundSync');
+      await unregisterBackgroundSyncTask();
+      await clearTrackingSessionStart();
+      await stopTracking();
+    };
+    stopUnauthedTracking().catch(() => {});
+  }, [state.isAuthenticated]);
 
   const clearMustChangePassword = useCallback(() => {
     setState((s) => (s.mustChangePassword ? { ...s, mustChangePassword: false } : s));

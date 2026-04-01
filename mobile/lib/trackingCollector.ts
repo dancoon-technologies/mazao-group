@@ -30,6 +30,7 @@ export const LOCATION_TRACKING_TASK = 'location-tracking';
 const LEGACY_LOCATION_TRACKING_TASK = 'mazao-location-tracking';
 
 const TRACKING_LAST_SENT_KEY = 'mazao_tracking_last_sent';
+const TRACKING_SESSION_START_KEY = 'mazao_tracking_session_start';
 
 /** Default working hours (0–23) and interval when backend config is unavailable. */
 const DEFAULT_WORKING_HOUR_START = 6;
@@ -94,15 +95,30 @@ let workingHourStart = DEFAULT_WORKING_HOUR_START;
 let workingHourEnd = DEFAULT_WORKING_HOUR_END;
 let trackingIntervalMs = DEFAULT_INTERVAL_MINUTES * 60 * 1000;
 
-function getDeviceInfo(): Record<string, unknown> {
+async function getSessionDurationSeconds(): Promise<number | null> {
+  try {
+    const raw = await AsyncStorage.getItem(TRACKING_SESSION_START_KEY);
+    if (!raw) return null;
+    const startedAtMs = Number(raw);
+    if (!Number.isFinite(startedAtMs) || startedAtMs <= 0) return null;
+    const seconds = Math.max(0, Math.floor((Date.now() - startedAtMs) / 1000));
+    return seconds;
+  } catch {
+    return null;
+  }
+}
+
+async function getDeviceInfo(): Promise<Record<string, unknown>> {
   const deviceName = Constants.deviceName ?? Device.deviceName ?? Platform.OS;
   const osVersion = Platform.Version != null ? String(Platform.Version) : '';
   const os = Platform.OS === 'ios' ? `iOS ${osVersion}` : `Android ${osVersion}`;
+  const sessionDurationSeconds = await getSessionDurationSeconds();
   return {
     device_name: deviceName,
     os,
     app_version: Constants.expoConfig?.version ?? Constants.manifest?.version ?? '1.0',
     platform: Platform.OS,
+    ...(sessionDurationSeconds != null && { session_duration_seconds: sessionDurationSeconds }),
   };
 }
 
@@ -131,7 +147,6 @@ TaskManager.defineTask(LOCATION_TRACKING_TASK, async ({ data, error }) => {
   const locations = (data as { locations?: Location.LocationObject[] })?.locations ?? [];
   if (!isWithinWorkingHours()) return;
   await loadLastEnqueued();
-  const deviceInfo = getDeviceInfo();
   const seenTimestamps = new Set<string>();
   for (const location of locations) {
     try {
@@ -163,6 +178,7 @@ TaskManager.defineTask(LOCATION_TRACKING_TASK, async ({ data, error }) => {
       if (!movedEnough) continue;
       const batteryPercent = await getBatteryPercent();
       const deviceClockOffsetSeconds = await getDeviceClockOffsetSeconds();
+      const deviceInfo = await getDeviceInfo();
       const deviceIntegrity = await getDeviceIntegrityAsync({
         latitude: lat,
         longitude: lon,
@@ -346,5 +362,23 @@ export async function stopTracking(): Promise<void> {
     logger.info('Tracking: stopped');
   } catch (e) {
     logger.warn('Tracking: stop failed', e instanceof Error ? e.message : e);
+  }
+}
+
+/** Mark tracking session start time (used for session duration telemetry). */
+export async function markTrackingSessionStart(): Promise<void> {
+  try {
+    await AsyncStorage.setItem(TRACKING_SESSION_START_KEY, String(Date.now()));
+  } catch {
+    // ignore
+  }
+}
+
+/** Clear tracking session timer data. */
+export async function clearTrackingSessionStart(): Promise<void> {
+  try {
+    await AsyncStorage.removeItem(TRACKING_SESSION_START_KEY);
+  } catch {
+    // ignore
   }
 }

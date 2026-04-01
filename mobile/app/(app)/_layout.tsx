@@ -8,7 +8,7 @@ import { api } from '@/lib/api';
 import { refreshDeviceClockOffset } from '@/lib/deviceClockSync';
 import { navigateFromNotificationPayload } from '@/lib/notificationNavigation';
 import { getLastSync, syncWithServer } from '@/lib/syncWithServer';
-import { startTracking, stopTracking } from '@/lib/trackingCollector';
+import { clearTrackingSessionStart, markTrackingSessionStart, startTracking, stopTracking } from '@/lib/trackingCollector';
 import NetInfo from '@react-native-community/netinfo';
 import * as Notifications from 'expo-notifications';
 import { Stack, useRouter } from 'expo-router';
@@ -100,9 +100,11 @@ function AppLayoutInner() {
   // Location tracking during working hours (config from admin; use cache when offline)
   useEffect(() => {
     if (!isAuthenticated) {
+      clearTrackingSessionStart().catch(() => {});
       stopTracking();
       return;
     }
+    markTrackingSessionStart().catch(() => {});
     let cancelled = false;
     api.getOptions().then((o) => {
       if (!cancelled) {

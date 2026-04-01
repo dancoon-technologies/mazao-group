@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Alert, Badge, Box, Button, Card, Group, SegmentedControl, Stack, Text, TextInput, Textarea, Title } from "@mantine/core";
+import { Alert, Badge, Box, Button, Card, Group, SegmentedControl, Stack, Tabs, Text, TextInput, Textarea, Title } from "@mantine/core";
 import { api } from "@/lib/api";
 import type { MaintenanceIncident, MaintenanceStatus } from "@/lib/types";
 import { useAuth } from "@/contexts/AuthContext";
@@ -113,6 +113,10 @@ export default function MaintenancePage() {
     () => items.filter((x) => x.status !== "approved" && x.status !== "rejected"),
     [items]
   );
+  const recordsIncidents = useMemo(
+    () => items.filter((x) => x.status === "approved" || x.status === "rejected"),
+    [items]
+  );
 
   return (
     <Stack>
@@ -155,60 +159,111 @@ export default function MaintenancePage() {
         </Card>
       ) : null}
 
-      {openIncidents.map((item) => (
-        <Card key={item.id} withBorder>
+      <Tabs defaultValue="open">
+        <Tabs.List>
+          <Tabs.Tab value="open">Open incidents ({openIncidents.length})</Tabs.Tab>
+          <Tabs.Tab value="records">Records ({recordsIncidents.length})</Tabs.Tab>
+        </Tabs.List>
+        <Tabs.Panel value="open" pt="md">
           <Stack>
-            <Group justify="space-between">
-              <Text fw={600}>
-                {(item.officer_display_name || item.officer_email || "Officer")} · {item.vehicle_type}
-              </Text>
-              <Badge>{STATUS_LABEL[item.status]}</Badge>
-            </Group>
-            <Text size="sm">{item.issue_description}</Text>
-            <Text size="xs" c="dimmed">
-              Reported GPS: {item.reported_latitude ?? "—"}, {item.reported_longitude ?? "—"}
-            </Text>
-            <Text size="xs" c="dimmed">
-              Verified GPS: {item.breakdown_verified_latitude ?? "—"}, {item.breakdown_verified_longitude ?? "—"}
-            </Text>
-            <Text size="xs" c="dimmed">
-              Garage GPS: {item.garage_latitude ?? "—"}, {item.garage_longitude ?? "—"}
-            </Text>
-
-            {isSupervisor ? (
-              <Box>
-                <TextInput
-                  label="Supervisor notes"
-                  value={supervisorNotes[item.id] ?? ""}
-                  onChange={(e) => setSupervisorNotes((prev) => ({ ...prev, [item.id]: e.currentTarget.value }))}
-                />
-                <Group mt="sm">
-                  {item.status === "reported" ? (
-                    <Button variant="light" onClick={() => updateIncident(item, "verified_breakdown")} loading={submitting}>
-                      Verify breakdown (GPS)
-                    </Button>
-                  ) : null}
-                  {item.status === "verified_breakdown" ? (
-                    <Button variant="light" onClick={() => updateIncident(item, "at_garage")} loading={submitting}>
-                      Mark at garage (GPS)
-                    </Button>
-                  ) : null}
-                  {item.status === "at_garage" ? (
-                    <>
-                      <Button onClick={() => updateIncident(item, "approved")} loading={submitting}>
-                        Approve
-                      </Button>
-                      <Button color="red" variant="light" onClick={() => updateIncident(item, "rejected")} loading={submitting}>
-                        Reject
-                      </Button>
-                    </>
-                  ) : null}
-                </Group>
-              </Box>
+            {openIncidents.length === 0 ? (
+              <Card withBorder>
+                <Text size="sm" c="dimmed">No open maintenance incidents.</Text>
+              </Card>
             ) : null}
+            {openIncidents.map((item) => (
+              <Card key={item.id} withBorder>
+                <Stack>
+                  <Group justify="space-between">
+                    <Text fw={600}>
+                      {(item.officer_display_name || item.officer_email || "Officer")} · {item.vehicle_type}
+                    </Text>
+                    <Badge>{STATUS_LABEL[item.status]}</Badge>
+                  </Group>
+                  <Text size="sm">{item.issue_description}</Text>
+                  <Text size="xs" c="dimmed">
+                    Reported GPS: {item.reported_latitude ?? "—"}, {item.reported_longitude ?? "—"}
+                  </Text>
+                  <Text size="xs" c="dimmed">
+                    Verified GPS: {item.breakdown_verified_latitude ?? "—"}, {item.breakdown_verified_longitude ?? "—"}
+                  </Text>
+                  <Text size="xs" c="dimmed">
+                    Garage GPS: {item.garage_latitude ?? "—"}, {item.garage_longitude ?? "—"}
+                  </Text>
+
+                  {isSupervisor ? (
+                    <Box>
+                      <TextInput
+                        label="Supervisor notes"
+                        value={supervisorNotes[item.id] ?? ""}
+                        onChange={(e) => setSupervisorNotes((prev) => ({ ...prev, [item.id]: e.currentTarget.value }))}
+                      />
+                      <Group mt="sm">
+                        {item.status === "reported" ? (
+                          <Button variant="light" onClick={() => updateIncident(item, "verified_breakdown")} loading={submitting}>
+                            Verify breakdown (GPS)
+                          </Button>
+                        ) : null}
+                        {item.status === "verified_breakdown" ? (
+                          <Button variant="light" onClick={() => updateIncident(item, "at_garage")} loading={submitting}>
+                            Mark at garage (GPS)
+                          </Button>
+                        ) : null}
+                        {item.status === "at_garage" ? (
+                          <>
+                            <Button onClick={() => updateIncident(item, "approved")} loading={submitting}>
+                              Approve
+                            </Button>
+                            <Button color="red" variant="light" onClick={() => updateIncident(item, "rejected")} loading={submitting}>
+                              Reject
+                            </Button>
+                          </>
+                        ) : null}
+                      </Group>
+                    </Box>
+                  ) : null}
+                </Stack>
+              </Card>
+            ))}
           </Stack>
-        </Card>
-      ))}
+        </Tabs.Panel>
+        <Tabs.Panel value="records" pt="md">
+          <Stack>
+            {recordsIncidents.length === 0 ? (
+              <Card withBorder>
+                <Text size="sm" c="dimmed">No approved/rejected records yet.</Text>
+              </Card>
+            ) : null}
+            {recordsIncidents.map((item) => (
+              <Card key={item.id} withBorder>
+                <Stack>
+                  <Group justify="space-between">
+                    <Text fw={600}>
+                      {(item.officer_display_name || item.officer_email || "Officer")} · {item.vehicle_type}
+                    </Text>
+                    <Badge color={item.status === "approved" ? "green" : "red"}>
+                      {STATUS_LABEL[item.status]}
+                    </Badge>
+                  </Group>
+                  <Text size="sm">{item.issue_description}</Text>
+                  {item.supervisor_notes ? (
+                    <Text size="sm" c="dimmed">Supervisor notes: {item.supervisor_notes}</Text>
+                  ) : null}
+                  <Text size="xs" c="dimmed">
+                    Reported GPS: {item.reported_latitude ?? "—"}, {item.reported_longitude ?? "—"}
+                  </Text>
+                  <Text size="xs" c="dimmed">
+                    Verified GPS: {item.breakdown_verified_latitude ?? "—"}, {item.breakdown_verified_longitude ?? "—"}
+                  </Text>
+                  <Text size="xs" c="dimmed">
+                    Garage GPS: {item.garage_latitude ?? "—"}, {item.garage_longitude ?? "—"}
+                  </Text>
+                </Stack>
+              </Card>
+            ))}
+          </Stack>
+        </Tabs.Panel>
+      </Tabs>
     </Stack>
   );
 }
