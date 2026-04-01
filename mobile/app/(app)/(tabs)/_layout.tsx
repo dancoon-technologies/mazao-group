@@ -1,5 +1,6 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { Tabs, useRouter } from 'expo-router';
+import { DrawerActions } from '@react-navigation/native';
+import { Tabs, useNavigation, useRouter } from 'expo-router';
 import { Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, shadows } from '@/constants/theme';
@@ -12,6 +13,7 @@ const TAB_ICONS: Record<string, keyof typeof MaterialCommunityIcons.glyphMap> = 
   record: 'plus-circle',
   farmers: 'account-group',
   stockists: 'store-outline',
+  menu: 'menu',
   maintenance: 'tools',
   tracking: 'map-marker-path',
   profile: 'account',
@@ -19,9 +21,15 @@ const TAB_ICONS: Record<string, keyof typeof MaterialCommunityIcons.glyphMap> = 
 
 export default function AppTabsLayout() {
   const router = useRouter();
+  const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const { role } = useAuth();
   const isSupervisor = role === 'supervisor';
+
+  const openDrawer = () => {
+    const parent = navigation.getParent();
+    if (parent) parent.dispatch(DrawerActions.openDrawer());
+  };
 
   return (
     <Tabs
@@ -148,6 +156,22 @@ export default function AppTabsLayout() {
           tabBarIcon: ({ color, size }) => (
             <MaterialCommunityIcons name={TAB_ICONS.stockists} size={size} color={color} />
           ),
+        }}
+      />
+      <Tabs.Screen
+        name="menu"
+        options={{
+          headerShown: false,
+          title: 'More',
+          tabBarIcon: ({ color, size }) => (
+            <MaterialCommunityIcons name={TAB_ICONS.menu} size={size} color={color} />
+          ),
+        }}
+        listeners={{
+          tabPress: (e) => {
+            e.preventDefault();
+            openDrawer();
+          },
         }}
       />
       <Tabs.Screen

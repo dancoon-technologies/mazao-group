@@ -12,7 +12,7 @@ import { appMeta$ } from '@/store/observable';
 import { useSelector } from '@legendapp/state/react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import NetInfo from '@react-native-community/netinfo';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
@@ -64,6 +64,8 @@ export default function RouteFormScreen() {
   const [farmers, setFarmers] = useState<Farmer[]>([]);
   const [farms, setFarms] = useState<Farm[]>([]);
   const [pendingFarmerId, setPendingFarmerId] = useState<string | null>(null);
+  /** True after onSelect handled adding the stop; avoids duplicate when modal calls onClose() in the same tick (stale pendingFarmerId). */
+  const farmPickHandledRef = useRef(false);
 
   const options = useSelector(() => appMeta$.cachedOptions.get());
   const activityTypeOptions: ActivityTypeOption[] = options?.activity_types ?? [];
@@ -169,7 +171,7 @@ export default function RouteFormScreen() {
   const handleAddFarmer = useCallback((farmerId: string | null) => {
     setFarmerModalOpen(false);
     if (!farmerId) return;
-    const farmer = farmers.find((f) => f.id === farmerId);
+    farmPickHandledRef.current = false;
     setPendingFarmerId(farmerId);
     setFarmModalOpen(true);
   }, [farmers]);
@@ -196,6 +198,7 @@ export default function RouteFormScreen() {
     (farmId: string | null) => {
       setFarmModalOpen(false);
       if (!pendingFarmerId) return;
+      farmPickHandledRef.current = true;
       addStopForFarmerAndFarm(pendingFarmerId, farmId);
     },
     [pendingFarmerId, addStopForFarmerAndFarm]
@@ -203,6 +206,11 @@ export default function RouteFormScreen() {
 
   const handleCloseFarmModal = useCallback(() => {
     setFarmModalOpen(false);
+    if (farmPickHandledRef.current) {
+      farmPickHandledRef.current = false;
+      setPendingFarmerId(null);
+      return;
+    }
     if (pendingFarmerId) {
       addStopForFarmerAndFarm(pendingFarmerId, null);
     }
