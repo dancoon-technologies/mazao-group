@@ -1,0 +1,30 @@
+name: Wiki Sync
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "docs/wiki/**"
+      - "scripts/sync-wiki.sh"
+      - ".github/workflows/wiki-sync.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  publish-wiki:
+    name: Publish docs/wiki to GitHub Wiki
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Make script executable
+        run: chmod +x scripts/sync-wiki.sh
+
+      - name: Sync wiki pages
+        env:
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          WIKI_PUSH_TOKEN: ${{ secrets.WIKI_PUSH_TOKEN }}
+        run: ./scripts/sync-wiki.sh

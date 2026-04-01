@@ -26,7 +26,7 @@ export default function UnlockScreen() {
         return;
       }
       const result = await LocalAuthentication.authenticateAsync({
-        promptMessage: 'Unlock Mazao',
+        promptMessage: 'Unlock Mazao Monitor',
         cancelLabel: 'Cancel',
       });
       if (result.success) {

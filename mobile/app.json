@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Mazao Group",
+    "name": "Mazao Monitor",
     "slug": "mazao-group",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -80,14 +80,14 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "Allow Mazao to take photos as proof of farmer visits."
+          "cameraPermission": "Allow Mazao Monitor to take photos as proof of farmer visits."
         }
       ],
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "Mazao uses your location to help verify visit locations and ensure your field activities are recorded accurately.",
-          "locationAlwaysAndWhenInUsePermission": "Allow Mazao to access your location so your field visits can be verified automatically and your work records remain accurate and complete.",
+          "locationWhenInUsePermission": "Mazao Monitor uses your location to help verify visit locations and ensure your field activities are recorded accurately.",
+          "locationAlwaysAndWhenInUsePermission": "Allow Mazao Monitor to access your location so your field visits can be verified automatically and your work records remain accurate and complete.",
           "isIosBackgroundLocationEnabled": true,
           "isAndroidBackgroundLocationEnabled": true
         }

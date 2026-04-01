@@ -72,7 +72,7 @@ export default function LoginScreen() {
               />
             </View>
             <Text variant="headlineSmall" style={styles.brand}>
-              Mazao Group
+              Mazao Monitor
             </Text>
             <Text variant="bodyMedium" style={styles.portalTitle}>
               Field Officer Portal
