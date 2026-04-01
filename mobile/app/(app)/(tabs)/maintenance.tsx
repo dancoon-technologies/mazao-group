@@ -5,10 +5,11 @@ import {
   type MaintenanceStatus,
 } from '@/lib/api';
 import NetInfo from '@react-native-community/netinfo';
+import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as Location from 'expo-location';
 import { useFocusEffect } from 'expo-router';
-import { useCallback, useMemo, useState } from 'react';
-import { RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
+import { useCallback, useMemo, useRef, useState } from 'react';
+import { Modal, Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import {
   ActivityIndicator,
   Button,
@@ -25,7 +26,7 @@ const STATUS_LABEL: Record<MaintenanceStatus, string> = {
   reported: 'Reported',
   verified_breakdown: 'Verified breakdown',
   at_garage: 'At garage',
-  approved: 'Approved',
+  released: 'Released',
   rejected: 'Rejected',
 };
 
@@ -33,7 +34,7 @@ const STATUS_COLOR: Record<MaintenanceStatus, string> = {
   reported: colors.warning,
   verified_breakdown: colors.primary,
   at_garage: '#6d28d9',
-  approved: '#15803d',
+  released: '#15803d',
   rejected: colors.error,
 };
 
@@ -58,6 +59,10 @@ export default function MaintenanceScreen() {
   const [vehicleType, setVehicleType] = useState<'motorbike' | 'car' | 'other'>('motorbike');
   const [issueDescription, setIssueDescription] = useState('');
   const [supervisorNote, setSupervisorNote] = useState<Record<string, string>>({});
+  const [photos, setPhotos] = useState<{ uri: string; type?: string; name?: string }[]>([]);
+  const [cameraOpen, setCameraOpen] = useState(false);
+  const [cameraPermission, requestCameraPermission] = useCameraPermissions();
+  const cameraRef = useRef<CameraView | null>(null);
 
   const load = useCallback(async (asRefresh?: boolean) => {
     if (asRefresh) setRefreshing(true);
@@ -113,6 +118,10 @@ export default function MaintenanceScreen() {
       setError('Describe what broke down.');
       return;
     }
+    if (photos.length === 0) {
+      setError('Take at least one photo before submitting.');
+      return;
+    }
     setSubmitting(true);
     setError('');
     try {
@@ -122,15 +131,47 @@ export default function MaintenanceScreen() {
         issue_description: issueDescription.trim(),
         reported_latitude: coords.latitude,
         reported_longitude: coords.longitude,
+        photo: photos,
       });
       setIssueDescription('');
+      setPhotos([]);
       await load();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to submit maintenance report.');
     } finally {
       setSubmitting(false);
     }
-  }, [getCurrentCoords, isOfficer, issueDescription, load, vehicleType]);
+  }, [getCurrentCoords, isOfficer, issueDescription, load, photos, vehicleType]);
+
+  const openCamera = useCallback(async () => {
+    setError('');
+    if (!cameraPermission?.granted) {
+      const req = await requestCameraPermission();
+      if (!req.granted) {
+        setError('Camera permission is required to take breakdown photos.');
+        return;
+      }
+    }
+    setCameraOpen(true);
+  }, [cameraPermission?.granted, requestCameraPermission]);
+
+  const capturePhoto = useCallback(async () => {
+    try {
+      const shot = await cameraRef.current?.takePictureAsync({ quality: 0.7 });
+      if (!shot?.uri) return;
+      setPhotos((prev) => [
+        ...prev,
+        {
+          uri: shot.uri,
+          type: 'image/jpeg',
+          name: `breakdown_${Date.now()}.jpg`,
+        },
+      ]);
+      setCameraOpen(false);
+    } catch {
+      setError('Could not capture photo. Try again.');
+    }
+  }, []);
 
   const updateStatus = useCallback(
     async (incident: MaintenanceIncident, nextStatus: MaintenanceStatus) => {
@@ -164,7 +205,7 @@ export default function MaintenanceScreen() {
   );
 
   const openItems = useMemo(
-    () => items.filter((x) => x.status !== 'approved' && x.status !== 'rejected'),
+    () => items.filter((x) => x.status !== 'released' && x.status !== 'rejected'),
     [items]
   );
 
@@ -178,10 +219,10 @@ export default function MaintenanceScreen() {
         }
       >
         <Text variant="titleLarge" style={styles.title}>
-          Maintenance control
+          Report breakdown
         </Text>
         <Text variant="bodySmall" style={styles.subtitle}>
-          Report breakdowns and verify progression to garage and approval.
+          Report a vehicle breakdown for supervisor review and approval.
         </Text>
 
         {isOfficer && (
@@ -212,13 +253,19 @@ export default function MaintenanceScreen() {
                 style={styles.input}
                 placeholder="e.g. puncture, engine overheating, brake failure"
               />
+              <View style={styles.photoRow}>
+                <Button mode="outlined" onPress={openCamera} disabled={submitting}>
+                  Take picture
+                </Button>
+                <Text variant="bodySmall">Photos attached: {photos.length}</Text>
+              </View>
               <Button
                 mode="contained"
                 onPress={submitIncident}
                 loading={submitting}
                 disabled={submitting}
               >
-                Submit with current GPS
+                Submit report
               </Button>
             </Card.Content>
           </Card>
@@ -268,17 +315,13 @@ export default function MaintenanceScreen() {
                     {item.issue_description || '—'}
                   </Text>
                   <Text variant="bodySmall" style={styles.meta}>
-                    Reported: {formatWhen(item.reported_at)} · GPS:{' '}
-                    {item.reported_latitude ?? '—'}, {item.reported_longitude ?? '—'}
+                    Reported: {formatWhen(item.reported_at)}
                   </Text>
                   <Text variant="bodySmall" style={styles.meta}>
-                    Breakdown verified: {formatWhen(item.breakdown_verified_at)} · GPS:{' '}
-                    {item.breakdown_verified_latitude ?? '—'},{' '}
-                    {item.breakdown_verified_longitude ?? '—'}
+                    Breakdown verified: {formatWhen(item.breakdown_verified_at)}
                   </Text>
                   <Text variant="bodySmall" style={styles.meta}>
-                    Garage recorded: {formatWhen(item.garage_recorded_at)} · GPS:{' '}
-                    {item.garage_latitude ?? '—'}, {item.garage_longitude ?? '—'}
+                    Garage recorded: {formatWhen(item.garage_recorded_at)}
                   </Text>
 
                   {isSupervisor && (
@@ -299,7 +342,7 @@ export default function MaintenanceScreen() {
                             onPress={() => updateStatus(item, 'verified_breakdown')}
                             disabled={submitting}
                           >
-                            Verify breakdown (GPS)
+                            Verify breakdown
                           </Button>
                         ) : null}
                         {item.status === 'verified_breakdown' ? (
@@ -308,17 +351,17 @@ export default function MaintenanceScreen() {
                             onPress={() => updateStatus(item, 'at_garage')}
                             disabled={submitting}
                           >
-                            Mark at garage (GPS)
+                            Mark at garage
                           </Button>
                         ) : null}
                         {item.status === 'at_garage' ? (
                           <View style={styles.rowActions}>
                             <Button
                               mode="contained"
-                              onPress={() => updateStatus(item, 'approved')}
+                              onPress={() => updateStatus(item, 'released')}
                               disabled={submitting}
                             >
-                              Approve
+                              Mark released
                             </Button>
                             <Button
                               mode="outlined"
@@ -337,6 +380,24 @@ export default function MaintenanceScreen() {
             );
           })
         )}
+        <Modal visible={cameraOpen} animationType="slide" onRequestClose={() => setCameraOpen(false)}>
+          <View style={styles.cameraModal}>
+            <View style={styles.cameraHeader}>
+              <Text variant="titleMedium">Take picture</Text>
+              <Pressable onPress={() => setCameraOpen(false)} hitSlop={12}>
+                <Text variant="titleLarge">×</Text>
+              </Pressable>
+            </View>
+            <View style={styles.cameraBody}>
+              <CameraView style={StyleSheet.absoluteFill} ref={cameraRef} />
+              <View style={styles.cameraActions}>
+                <Pressable style={styles.captureButton} onPress={capturePhoto}>
+                  <View style={styles.captureInner} />
+                </Pressable>
+              </View>
+            </View>
+          </View>
+        </Modal>
       </ScrollView>
     </SafeAreaView>
   );
@@ -352,6 +413,7 @@ const styles = StyleSheet.create({
   sectionTitle: { marginBottom: spacing.sm },
   segment: { marginBottom: spacing.md },
   input: { marginBottom: spacing.sm },
+  photoRow: { marginBottom: spacing.sm, gap: spacing.sm },
   errorText: { color: colors.error },
   loader: { marginTop: spacing.xl },
   row: { flexDirection: 'row', justifyContent: 'space-between', gap: spacing.sm },
@@ -360,4 +422,37 @@ const styles = StyleSheet.create({
   statusChip: { alignSelf: 'flex-start' },
   actions: { marginTop: spacing.sm, gap: spacing.sm },
   rowActions: { flexDirection: 'row', gap: spacing.sm },
+  cameraModal: { flex: 1, backgroundColor: '#000' },
+  cameraHeader: {
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.sm,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+  },
+  cameraBody: { flex: 1 },
+  cameraActions: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: spacing.xl,
+    alignItems: 'center',
+  },
+  captureButton: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    borderWidth: 3,
+    borderColor: '#fff',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  captureInner: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#fff',
+  },
 });

@@ -3,7 +3,7 @@ from rest_framework import generics, status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
-from .models import MaintenanceIncident
+from .models import MaintenanceIncident, MaintenanceIncidentPhoto
 from .serializers import (
     MaintenanceIncidentCreateSerializer,
     MaintenanceIncidentSerializer,
@@ -50,7 +50,10 @@ class MaintenanceIncidentListCreateView(generics.ListCreateAPIView):
             return Response({"detail": "Only officers can report maintenance incidents."}, status=status.HTTP_403_FORBIDDEN)
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
+        photos = serializer.validated_data.pop("photo", [])
         obj = serializer.save(officer=request.user, status=MaintenanceIncident.Status.REPORTED)
+        for idx, img in enumerate(photos):
+            MaintenanceIncidentPhoto.objects.create(incident=obj, image=img, order=idx)
         out = MaintenanceIncidentSerializer(obj)
         return Response(out.data, status=status.HTTP_201_CREATED)
 
@@ -86,8 +89,8 @@ class MaintenanceIncidentUpdateView(generics.UpdateAPIView):
                 incident.garage_recorded_at = now
                 incident.garage_latitude = serializer.validated_data.get("garage_latitude")
                 incident.garage_longitude = serializer.validated_data.get("garage_longitude")
-            elif status_value == MaintenanceIncident.Status.APPROVED:
-                incident.approved_at = now
+            elif status_value == MaintenanceIncident.Status.RELEASED:
+                incident.released_at = now
             elif status_value == MaintenanceIncident.Status.REJECTED:
                 incident.rejected_at = now
         incident.save()

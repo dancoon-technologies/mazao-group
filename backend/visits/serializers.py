@@ -4,7 +4,7 @@ from rest_framework import serializers
 
 from accounts.models import Department
 from .models import Product, Visit, VisitProduct
-from .models import MaintenanceIncident
+from .models import MaintenanceIncident, MaintenanceIncidentPhoto
 
 
 class ProductLinesField(serializers.Field):
@@ -228,6 +228,7 @@ class MaintenanceIncidentSerializer(serializers.ModelSerializer):
     officer_email = serializers.SerializerMethodField()
     officer_display_name = serializers.SerializerMethodField()
     supervisor_display_name = serializers.SerializerMethodField()
+    photos = serializers.SerializerMethodField()
 
     class Meta:
         model = MaintenanceIncident
@@ -250,9 +251,11 @@ class MaintenanceIncidentSerializer(serializers.ModelSerializer):
             "garage_recorded_at",
             "garage_latitude",
             "garage_longitude",
+            "released_at",
             "approved_at",
             "rejected_at",
             "supervisor_notes",
+            "photos",
             "created_at",
             "updated_at",
         )
@@ -263,6 +266,7 @@ class MaintenanceIncidentSerializer(serializers.ModelSerializer):
             "reported_at",
             "breakdown_verified_at",
             "garage_recorded_at",
+            "released_at",
             "approved_at",
             "rejected_at",
             "created_at",
@@ -278,11 +282,30 @@ class MaintenanceIncidentSerializer(serializers.ModelSerializer):
     def get_supervisor_display_name(self, obj):
         return obj.supervisor.display_name if obj.supervisor_id and obj.supervisor else ""
 
+    def get_photos(self, obj):
+        request = self.context.get("request")
+        out = []
+        for p in (obj.photos.all() if hasattr(obj, "photos") else []):
+            if not p.image:
+                continue
+            url = p.image.url
+            if request:
+                url = request.build_absolute_uri(url)
+            out.append(url)
+        return out
+
 
 class MaintenanceIncidentCreateSerializer(serializers.ModelSerializer):
+    photo = serializers.ListField(
+        child=serializers.ImageField(),
+        write_only=True,
+        required=False,
+        allow_empty=True,
+    )
+
     class Meta:
         model = MaintenanceIncident
-        fields = ("vehicle_type", "issue_description", "reported_latitude", "reported_longitude")
+        fields = ("vehicle_type", "issue_description", "reported_latitude", "reported_longitude", "photo")
 
 
 class MaintenanceIncidentUpdateSerializer(serializers.ModelSerializer):

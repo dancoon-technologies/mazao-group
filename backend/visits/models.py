@@ -261,7 +261,7 @@ class MaintenanceIncident(models.Model):
         REPORTED = "reported", "Reported"
         VERIFIED_BREAKDOWN = "verified_breakdown", "Verified breakdown"
         AT_GARAGE = "at_garage", "At garage"
-        APPROVED = "approved", "Approved"
+        RELEASED = "released", "Released"
         REJECTED = "rejected", "Rejected"
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -289,6 +289,7 @@ class MaintenanceIncident(models.Model):
     garage_recorded_at = models.DateTimeField(null=True, blank=True)
     garage_latitude = models.DecimalField(max_digits=10, decimal_places=7, null=True, blank=True)
     garage_longitude = models.DecimalField(max_digits=10, decimal_places=7, null=True, blank=True)
+    released_at = models.DateTimeField(null=True, blank=True)
     approved_at = models.DateTimeField(null=True, blank=True)
     rejected_at = models.DateTimeField(null=True, blank=True)
     supervisor_notes = models.CharField(max_length=1000, blank=True)
@@ -301,3 +302,18 @@ class MaintenanceIncident(models.Model):
             models.Index(fields=["status"], name="maint_status_idx"),
             models.Index(fields=["officer", "-reported_at"], name="maint_officer_reported_idx"),
         ]
+
+
+class MaintenanceIncidentPhoto(models.Model):
+    incident = models.ForeignKey(
+        MaintenanceIncident,
+        on_delete=models.CASCADE,
+        related_name="photos",
+    )
+    image = models.ImageField(upload_to="maintenance/%Y/%m/%d")
+    order = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["order", "created_at", "id"]
+        indexes = [models.Index(fields=["incident"], name="maint_photo_incident_idx")]

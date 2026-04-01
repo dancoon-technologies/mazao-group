@@ -1,6 +1,6 @@
 "use client";
 
-import { AppShell, Box, Burger, Group, Text, UnstyledButton } from "@mantine/core";
+import { ActionIcon, AppShell, Box, Burger, Group, Text, UnstyledButton } from "@mantine/core";
 import { IconLogout } from "@tabler/icons-react";
 import { useDisclosure } from "@mantine/hooks";
 import Link from "next/link";
@@ -114,24 +114,17 @@ export default function AppLayout({
             <ErrorBoundary fallback={null}>
               <NotificationBell />
             </ErrorBoundary>
-            <UnstyledButton
+            <ActionIcon
               component="button"
-              type="button"
               aria-label="Log out"
               title="Log out"
               onClick={() => logout()}
-              style={{
-                width: 34,
-                height: 34,
-                borderRadius: 8,
-                display: "inline-flex",
-                alignItems: "center",
-                justifyContent: "center",
-                color: "var(--mantine-color-gray-7)",
-              }}
+              variant="subtle"
+              color="gray"
+              size="lg"
             >
               <IconLogout size={18} />
-            </UnstyledButton>
+            </ActionIcon>
           </Group>
         </Group>
       </AppShell.Header>

@@ -289,7 +289,7 @@ export type MaintenanceStatus =
   | "reported"
   | "verified_breakdown"
   | "at_garage"
-  | "approved"
+  | "released"
   | "rejected";
 
 export interface MaintenanceIncident {
@@ -311,7 +311,7 @@ export interface MaintenanceIncident {
   garage_recorded_at?: string | null;
   garage_latitude?: number | null;
   garage_longitude?: number | null;
-  approved_at?: string | null;
+  released_at?: string | null;
   rejected_at?: string | null;
   supervisor_notes?: string | null;
   created_at?: string;

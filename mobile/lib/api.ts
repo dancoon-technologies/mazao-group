@@ -157,7 +157,7 @@ export type MaintenanceStatus =
   | 'reported'
   | 'verified_breakdown'
   | 'at_garage'
-  | 'approved'
+  | 'released'
   | 'rejected';
 
 export interface MaintenanceIncident {
@@ -179,9 +179,10 @@ export interface MaintenanceIncident {
   garage_recorded_at?: string | null;
   garage_latitude?: number | null;
   garage_longitude?: number | null;
-  approved_at?: string | null;
+  released_at?: string | null;
   rejected_at?: string | null;
   supervisor_notes?: string | null;
+  photos?: string[];
   created_at?: string;
   updated_at?: string;
 }
@@ -273,6 +274,7 @@ export interface CreateMaintenanceIncidentPayload {
   issue_description: string;
   reported_latitude: number;
   reported_longitude: number;
+  photo?: { uri: string; type?: string; name?: string }[];
 }
 
 export interface UpdateMaintenanceIncidentPayload {
@@ -1005,10 +1007,40 @@ export const api = {
   },
 
   async createMaintenanceIncident(payload: CreateMaintenanceIncidentPayload) {
-    return request<MaintenanceIncident>('/maintenance-incidents/', {
+    const access = await getAccessToken();
+    if (!access) throw new Error('Not authenticated');
+    const form = new FormData();
+    form.append('vehicle_type', payload.vehicle_type);
+    form.append('issue_description', payload.issue_description);
+    form.append('reported_latitude', String(payload.reported_latitude));
+    form.append('reported_longitude', String(payload.reported_longitude));
+    for (const p of payload.photo ?? []) {
+      form.append('photo', {
+        uri: p.uri,
+        type: p.type ?? 'image/jpeg',
+        name: p.name ?? 'breakdown.jpg',
+      } as unknown as Blob);
+    }
+    let res = await fetch(`${API_BASE}/maintenance-incidents/`, {
       method: 'POST',
-      body: JSON.stringify(payload),
+      headers: { Authorization: `Bearer ${access}` },
+      body: form,
     });
+    if (res.status === 401) {
+      const { access: newAccess } = await refreshAccessToken();
+      if (newAccess) {
+        res = await fetch(`${API_BASE}/maintenance-incidents/`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${newAccess}` },
+          body: form,
+        });
+      }
+    }
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error(formatDrfValidationErrors(data) || getApiErrorMessage(data) || 'Failed to create maintenance incident');
+    }
+    return data as MaintenanceIncident;
   },
 
   async updateMaintenanceIncident(id: string, payload: UpdateMaintenanceIncidentPayload) {

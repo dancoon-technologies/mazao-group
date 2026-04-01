@@ -10,7 +10,7 @@ const STATUS_LABEL: Record<MaintenanceStatus, string> = {
   reported: "Reported",
   verified_breakdown: "Verified breakdown",
   at_garage: "At garage",
-  approved: "Approved",
+  released: "Released",
   rejected: "Rejected",
 };
 
@@ -110,11 +110,11 @@ export default function MaintenancePage() {
   );
 
   const openIncidents = useMemo(
-    () => items.filter((x) => x.status !== "approved" && x.status !== "rejected"),
+    () => items.filter((x) => x.status !== "released" && x.status !== "rejected"),
     [items]
   );
   const recordsIncidents = useMemo(
-    () => items.filter((x) => x.status === "approved" || x.status === "rejected"),
+    () => items.filter((x) => x.status === "released" || x.status === "rejected"),
     [items]
   );
 
@@ -211,8 +211,8 @@ export default function MaintenancePage() {
                         ) : null}
                         {item.status === "at_garage" ? (
                           <>
-                            <Button onClick={() => updateIncident(item, "approved")} loading={submitting}>
-                              Approve
+                            <Button onClick={() => updateIncident(item, "released")} loading={submitting}>
+                              Mark released
                             </Button>
                             <Button color="red" variant="light" onClick={() => updateIncident(item, "rejected")} loading={submitting}>
                               Reject
@@ -231,7 +231,7 @@ export default function MaintenancePage() {
           <Stack>
             {recordsIncidents.length === 0 ? (
               <Card withBorder>
-                <Text size="sm" c="dimmed">No approved/rejected records yet.</Text>
+                <Text size="sm" c="dimmed">No released/rejected records yet.</Text>
               </Card>
             ) : null}
             {recordsIncidents.map((item) => (
@@ -241,7 +241,7 @@ export default function MaintenancePage() {
                     <Text fw={600}>
                       {(item.officer_display_name || item.officer_email || "Officer")} · {item.vehicle_type}
                     </Text>
-                    <Badge color={item.status === "approved" ? "green" : "red"}>
+                    <Badge color={item.status === "released" ? "green" : "red"}>
                       {STATUS_LABEL[item.status]}
                     </Badge>
                   </Group>
