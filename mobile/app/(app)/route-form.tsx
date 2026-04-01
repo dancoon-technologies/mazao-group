@@ -22,6 +22,7 @@ import {
 } from 'react-native';
 import { ActivityIndicator, Appbar, Banner, Button, HelperText, IconButton, Text, TextInput } from 'react-native-paper';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { logger } from '@/lib/logger';
 
 interface StopEntry {
   farmer_id: string;
@@ -110,6 +111,7 @@ export default function RouteFormScreen() {
     } catch {
       setRoute(null);
       setError('Failed to load route.');
+      logger.warn('Route load failed', { route_id: routeId, scheduled_date: date });
     } finally {
       setLoading(false);
     }
@@ -237,6 +239,12 @@ export default function RouteFormScreen() {
       };
       if (routeId) {
         await api.updateRoute(routeId, payload);
+        logger.info('Route updated', {
+          route_id: routeId,
+          scheduled_date: date,
+          stops_count: stops.length,
+          plan_stops: planStops,
+        });
         router.back();
       } else {
         const officerForCreate = assigner ? officerIdParam : userId;
@@ -252,14 +260,27 @@ export default function RouteFormScreen() {
           ...payload,
           officer: officerForCreate,
         });
+        logger.info('Route created', {
+          route_id: null,
+          scheduled_date: date,
+          officer_id: officerForCreate,
+          stops_count: stops.length,
+          plan_stops: planStops,
+        });
         router.back();
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to save route.');
+      logger.warn('Route save failed', {
+        route_id: routeId,
+        scheduled_date: date,
+        stops_count: stops.length,
+        error: e instanceof Error ? e.message : 'save failed',
+      });
     } finally {
       setSaving(false);
     }
-  }, [date, name, activityTypes, notes, stops, routeId, router, assigner, officerIdParam, userId]);
+  }, [date, name, activityTypes, notes, stops, routeId, router, assigner, officerIdParam, userId, planStops]);
 
   const deleteRoute = useCallback(async () => {
     if (!routeId) return;
@@ -267,13 +288,19 @@ export default function RouteFormScreen() {
     setError('');
     try {
       await api.deleteRoute(routeId);
+      logger.info('Route deleted', { route_id: routeId, scheduled_date: date });
       router.back();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to delete.');
+      logger.warn('Route delete failed', {
+        route_id: routeId,
+        scheduled_date: date,
+        error: e instanceof Error ? e.message : 'delete failed',
+      });
     } finally {
       setSaving(false);
     }
-  }, [routeId, router]);
+  }, [routeId, router, date]);
 
   if (!date) {
     return (

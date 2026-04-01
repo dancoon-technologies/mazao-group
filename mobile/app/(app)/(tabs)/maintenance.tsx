@@ -21,6 +21,7 @@ import {
 } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, spacing } from '@/constants/theme';
+import { logger } from '@/lib/logger';
 
 const STATUS_LABEL: Record<MaintenanceStatus, string> = {
   reported: 'Reported',
@@ -76,6 +77,7 @@ export default function MaintenanceScreen() {
         return;
       }
       const list = await api.getMaintenanceIncidents();
+      logger.info('Maintenance incidents loaded', { incidents_count: list.length, as_refresh: !!asRefresh });
       setItems(
         [...list].sort(
           (a, b) =>
@@ -85,6 +87,10 @@ export default function MaintenanceScreen() {
       );
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load maintenance records.');
+      logger.warn('Maintenance incidents load failed', {
+        as_refresh: !!asRefresh,
+        error: e instanceof Error ? e.message : 'load failed',
+      });
       setItems([]);
     } finally {
       setLoading(false);
@@ -133,11 +139,20 @@ export default function MaintenanceScreen() {
         reported_longitude: coords.longitude,
         photo: photos,
       });
+      logger.info('Maintenance incident submitted', {
+        vehicle_type: vehicleType,
+        photos_count: photos.length,
+      });
       setIssueDescription('');
       setPhotos([]);
       await load();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to submit maintenance report.');
+      logger.warn('Maintenance incident submit failed', {
+        vehicle_type: vehicleType,
+        photos_count: photos.length,
+        error: e instanceof Error ? e.message : 'submit failed',
+      });
     } finally {
       setSubmitting(false);
     }
@@ -194,9 +209,20 @@ export default function MaintenanceScreen() {
           payload.garage_longitude = coords.longitude;
         }
         await api.updateMaintenanceIncident(incident.id, payload);
+        logger.info('Maintenance incident status updated', {
+          incident_id: incident.id,
+          from_status: incident.status,
+          to_status: nextStatus,
+        });
         await load();
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Failed to update maintenance status.');
+        logger.warn('Maintenance incident status update failed', {
+          incident_id: incident.id,
+          from_status: incident.status,
+          to_status: nextStatus,
+          error: e instanceof Error ? e.message : 'update failed',
+        });
       } finally {
         setSubmitting(false);
       }

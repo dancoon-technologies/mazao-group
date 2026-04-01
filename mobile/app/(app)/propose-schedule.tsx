@@ -35,6 +35,7 @@ import { SelectFarmModal } from '@/components/SelectFarmModal';
 import { appbarHeight, cardShadow, cardStyle, colors, scrollPaddingKeyboard, spacing } from '@/constants/theme';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { DEFAULT_ACTIVITY_TYPE } from '@/lib/constants/activityTypes';
+import { logger } from '@/lib/logger';
 
 function formatDate(iso: string) {
   try {
@@ -158,10 +159,22 @@ export default function ProposeScheduleScreen() {
           ...(assigner && selectedOfficerId ? { officer: selectedOfficerId } : {}),
         });
         setRoutesWeek(Array.isArray(list) ? list : []);
+        logger.info('Weekly routes loaded', {
+          plan_mode: planMode,
+          week_start: weekStart,
+          officer_id: selectedOfficerId,
+          routes_count: Array.isArray(list) ? list.length : 0,
+        });
       } catch (e) {
         setRoutesWeek([]);
         const msg = e instanceof Error ? e.message : 'Failed to load weekly routes.';
         setRoutesError(msg);
+        logger.warn('Weekly routes load failed', {
+          plan_mode: planMode,
+          week_start: weekStart,
+          officer_id: selectedOfficerId,
+          error: msg,
+        });
         showSnackbar('error', msg);
       } finally {
         setRoutesLoading(false);
@@ -222,11 +235,21 @@ export default function ProposeScheduleScreen() {
           notes: '',
           stops: [],
         });
+        logger.info('Weekly route quick-created', {
+          scheduled_date: date,
+          officer_id: officerForCreate,
+          plan_mode: 'weekly',
+        });
         showSnackbar('success', 'Weekly plan created. You can now record visits directly.');
         await loadWeeklyRoutes(false);
       } catch (e) {
         const msg = e instanceof Error ? e.message : 'Failed to create weekly plan.';
         setRoutesError(msg);
+        logger.warn('Weekly route quick-create failed', {
+          scheduled_date: date,
+          officer_id: officerForCreate,
+          error: msg,
+        });
         showSnackbar('error', msg);
       } finally {
         setRoutesRefreshing(false);
@@ -356,6 +379,13 @@ export default function ProposeScheduleScreen() {
         scheduled_date: dateStr,
         notes: (notes?.trim() ?? '') || undefined,
       });
+      logger.info('Schedule created', {
+        mode: planMode,
+        officer_id: assigner ? selectedOfficerId : userId,
+        scheduled_date: dateStr,
+        farmer_id: selectedFarmerId,
+        farm_id: selectedFarmId,
+      });
       showSnackbar('success', assigner ? 'Schedule assigned successfully.' : 'Schedule proposed successfully.');
       setTimeout(() => router.back(), 1500);
     } catch (e) {
@@ -368,15 +398,33 @@ export default function ProposeScheduleScreen() {
             scheduled_date: dateStr,
             notes: (notes?.trim() ?? '') || undefined,
           });
+          logger.info('Schedule queued offline', {
+            mode: planMode,
+            officer_id: assigner ? selectedOfficerId : userId,
+            scheduled_date: dateStr,
+            farmer_id: selectedFarmerId,
+            farm_id: selectedFarmId,
+          });
           showSnackbar('success', 'Saved for sync when back online.');
           setTimeout(() => router.back(), 1500);
         } catch (enqErr) {
           setError(enqErr instanceof Error ? enqErr.message : 'Failed to save for sync');
+          logger.warn('Schedule offline queue failed', {
+            mode: planMode,
+            scheduled_date: dateStr,
+            error: enqErr instanceof Error ? enqErr.message : 'enqueue failed',
+          });
           showSnackbar('error', enqErr instanceof Error ? enqErr.message : 'Failed to save for sync');
         }
       } else {
         const message = e instanceof Error ? e.message : 'Failed to propose schedule';
         setError(message);
+        logger.warn('Schedule create failed', {
+          mode: planMode,
+          officer_id: assigner ? selectedOfficerId : userId,
+          scheduled_date: dateStr,
+          error: message,
+        });
         showSnackbar('error', message);
       }
     } finally {

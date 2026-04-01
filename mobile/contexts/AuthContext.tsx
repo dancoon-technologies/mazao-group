@@ -13,6 +13,8 @@ import {
   type CachedAuthPayload,
 } from '@/lib/offlineAuth';
 import { clearTrackingSessionStart, stopTracking } from '@/lib/trackingCollector';
+import { setSentryUser } from '@/lib/sentry';
+import { logger } from '@/lib/logger';
 
 type AuthState = {
   isAuthenticated: boolean;
@@ -276,6 +278,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   // Safety gate: never allow background tracking when unauthenticated.
+  useEffect(() => {
+    if (!state.isAuthenticated) {
+      setSentryUser(null);
+      logger.clearContext();
+      return;
+    }
+    setSentryUser({
+      id: state.userId,
+      email: state.email,
+      role: state.role,
+    });
+    logger.setContext({
+      user_id: state.userId,
+      user_email: state.email,
+      role: state.role,
+      department: state.department,
+    });
+  }, [state.isAuthenticated, state.userId, state.email, state.role, state.department]);
+
   useEffect(() => {
     if (state.isAuthenticated) return;
     const stopUnauthedTracking = async () => {

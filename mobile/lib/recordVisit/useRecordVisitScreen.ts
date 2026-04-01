@@ -35,6 +35,7 @@ import {
   DEFAULT_MAX_DISTANCE_METERS,
   DEFAULT_WARNING_DISTANCE_METERS,
 } from '@/constants/theme';
+import { logger } from '@/lib/logger';
 
 export function useRecordVisitScreen() {
   const router = useRouter();
@@ -595,6 +596,14 @@ export function useRecordVisitScreen() {
           ...step3Payload,
           product_lines: productLinesPayload,
         });
+        logger.info('Visit submitted online', {
+          farmer_id: selectedFarmerId,
+          farm_id: selectedFarmId,
+          schedule_id: scheduleIdForSubmit ?? null,
+          route_id: routeIdForSubmit ?? null,
+          photos_count: photoUris.length,
+          activity_types_count: activityTypes.length,
+        });
         if (scheduleIdForSubmit) {
           setScheduleIdsWithRecordedVisits((prev) => new Set(prev).add(scheduleIdForSubmit));
         }
@@ -605,6 +614,13 @@ export function useRecordVisitScreen() {
         const isValidation = apiError && typeof apiError === 'object' && 'isValidation' in apiError && (apiError as Error & { isValidation?: boolean }).isValidation;
         if (isValidation) {
           const msg = apiError instanceof Error ? apiError.message : 'Failed to submit visit.';
+          logger.warn('Visit submit validation failed', {
+            farmer_id: selectedFarmerId,
+            farm_id: selectedFarmId,
+            schedule_id: scheduleIdForSubmit ?? null,
+            route_id: routeIdForSubmit ?? null,
+            error: msg,
+          });
           setSubmitError(msg);
           setError(msg);
           setDialogSuccess(false);
@@ -631,20 +647,44 @@ export function useRecordVisitScreen() {
         ...step3Payload,
         product_lines: productLinesPayload,
       });
+      logger.info('Visit queued offline', {
+        farmer_id: selectedFarmerId,
+        farm_id: selectedFarmId,
+        schedule_id: scheduleIdForSubmit ?? null,
+        route_id: routeIdForSubmit ?? null,
+        photos_count: photoUris.length,
+      });
       if (scheduleIdForSubmit) {
         setScheduleIdsWithRecordedVisits((prev) => new Set(prev).add(scheduleIdForSubmit));
       }
 
       const syncResult = await syncWithServer();
       if (syncResult.success) {
+        logger.info('Visit sync succeeded', {
+          farmer_id: selectedFarmerId,
+          schedule_id: scheduleIdForSubmit ?? null,
+          route_id: routeIdForSubmit ?? null,
+        });
         setSnackbarMsg('Visit saved and synced.');
       } else {
+        logger.warn('Visit sync deferred', {
+          farmer_id: selectedFarmerId,
+          schedule_id: scheduleIdForSubmit ?? null,
+          route_id: routeIdForSubmit ?? null,
+          error: syncResult.error ?? null,
+        });
         setSnackbarMsg(
           `Visit saved. Could not sync now${syncResult.error ? `: ${syncResult.error}` : ''}. Will retry automatically.`
         );
       }
       setTimeout(() => router.back(), 1500);
     } catch (e) {
+      logger.error('Visit submit failed', {
+        farmer_id: selectedFarmerId,
+        farm_id: selectedFarmId,
+        schedule_id: scheduleIdForSubmit ?? null,
+        route_id: routeIdForSubmit ?? null,
+      }, e instanceof Error ? e : String(e));
       setSubmitError(e instanceof Error ? e.message : 'Failed to submit visit.');
       setDialogSuccess(false);
       setDialogVisible(true);

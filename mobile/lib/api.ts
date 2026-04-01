@@ -500,7 +500,7 @@ async function request<T>(
       (res.status === 400 ? formatDrfValidationErrors(error) : null) ||
       getApiErrorMessage(error) ||
       `Request failed (${res.status})`;
-    logger.warn(`API ${path} ${res.status}: ${errMsg}`);
+    logger.warn('API request failed', { path, status: res.status, message: errMsg });
     throw new Error(errMsg);
   }
   return res.json();
