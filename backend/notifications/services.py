@@ -16,8 +16,9 @@ import urllib.request
 from typing import Any, Dict, Optional
 
 from django.conf import settings
-from django.core.mail import send_mail
 from django.utils import timezone
+
+from config.mail_outbound import send_email
 
 from .models import Notification, PushDeliveryAttempt, PushToken
 
@@ -176,11 +177,11 @@ def notify_user(user, title: str, message: str, channels=None, action_data=None)
     if "email" in channels and user.email:
         try:
             from_email = getattr(settings, "DEFAULT_FROM_EMAIL", "noreply@mazao.local")
-            send_mail(
+            send_email(
                 subject=title,
                 message=message,
-                from_email=from_email,
                 recipient_list=[user.email],
+                from_email=from_email,
                 fail_silently=True,
             )
             if notification:

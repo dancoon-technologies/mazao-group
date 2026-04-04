@@ -109,6 +109,10 @@ if USE_S3:
     AWS_STORAGE_BUCKET_NAME = config("AWS_STORAGE_BUCKET_NAME")
     AWS_S3_REGION_NAME = config("AWS_S3_REGION_NAME", default="us-east-1")
     AWS_S3_OBJECT_PARAMETERS = {"CacheControl": "max-age=86400"}
+    # S3-compatible endpoints (e.g. DigitalOcean Spaces: https://nyc3.digitaloceanspaces.com)
+    _s3_endpoint = config("AWS_S3_ENDPOINT_URL", default="").strip()
+    if _s3_endpoint:
+        AWS_S3_ENDPOINT_URL = _s3_endpoint
     DEFAULT_FILE_STORAGE = "storages.backends.s3boto3.S3Boto3Storage"
 else:
     MEDIA_URL = "media/"
@@ -165,6 +169,15 @@ DEFAULT_FROM_EMAIL = config("NOTIFICATION_PROVIDER_FROM", default="no_reply@danc
 SERVER_EMAIL = config("SERVER_EMAIL", default=DEFAULT_FROM_EMAIL)
 
 FRONTEND_LOGIN_URL = config("FRONTEND_LOGIN_URL", default="http://localhost:3000/login")
+
+# Outbound email: optional Next.js internal API (Nodemailer). If WEB_MAIL_API_URL is set,
+# Django POSTs there first; on failure or if unset, Django uses EMAIL_* / SMTP below.
+WEB_MAIL_API_URL = config(
+    "WEB_MAIL_API_URL",
+    default="",
+)
+WEB_MAIL_INTERNAL_SECRET = config("WEB_MAIL_INTERNAL_SECRET", default="")
+WEB_MAIL_REQUEST_TIMEOUT = config("WEB_MAIL_REQUEST_TIMEOUT", default=30, cast=int)
 
 # Notifications: SMS backend (console = log only; twilio = notifications.sms_backends.TwilioSMSBackend)
 NOTIFICATION_SMS_BACKEND = config(

@@ -3,7 +3,7 @@ import * as Location from 'expo-location';
 import { Pressable, View } from 'react-native';
 import { Button, Chip, HelperText, Surface, Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import type { ActivityTypeOption, Farm, Farmer, Route, RouteStop, Schedule } from '@/lib/api';
+import type { ActivityTypeOption, Farm, Farmer, Route, Schedule } from '@/lib/api';
 import { SelectActivityTypesModal } from '@/components/SelectActivityTypesModal';
 import { SelectFarmerModal } from '@/components/SelectFarmerModal';
 import { SelectFarmModal } from '@/components/SelectFarmModal';
@@ -28,7 +28,6 @@ type Props = {
   acceptedSchedules: Schedule[];
   farmers: Farmer[];
   labels: RecordVisitLabels;
-  selectedRouteStopId: string | null;
   selectedRouteId: string | null;
   selectedScheduleId: string | null;
   selectedFarmerId: string | null;
@@ -55,7 +54,6 @@ type Props = {
   maxM: number;
   photoUris: string[];
   submitting: boolean;
-  onPickRouteStop: (stop: RouteStop) => void;
   onPickTodayRoute: (route: Route) => void;
   onAdHocRouteCustomer: () => void;
   onPickSchedule: (s: Schedule) => void;
@@ -82,7 +80,6 @@ export function RecordVisitStep0({
   acceptedSchedules,
   farmers,
   labels,
-  selectedRouteStopId,
   selectedRouteId,
   selectedScheduleId,
   selectedFarmerId,
@@ -108,7 +105,6 @@ export function RecordVisitStep0({
   maxM,
   photoUris,
   submitting,
-  onPickRouteStop,
   onPickTodayRoute,
   onAdHocRouteCustomer,
   onPickSchedule,
@@ -134,9 +130,9 @@ export function RecordVisitStep0({
     <>
       {!selectedScheduleId && todayRoute ? (
         <Surface style={styles.section} elevation={0}>
-          <Text variant="labelLarge" style={styles.fieldLabel}>Weekly route (today)</Text>
+          <Text variant="labelLarge" style={styles.fieldLabel}>Today&apos;s route plan</Text>
           <Text variant="bodySmall" style={styles.hint}>
-            Routes can include visits even when there are no planned stops. Pick a stop when listed, or record from your current location and choose the farmer or stockist — the visit stays on this route.
+            Choose which day route you are working on (usually one per day). You can record many visits on the same route — each visit picks the customer below.
           </Text>
           {todayRoutes.length > 1 ? (
             <View style={styles.scheduleChips}>
@@ -148,40 +144,20 @@ export function RecordVisitStep0({
                   style={styles.scheduleChip}
                   compact
                 >
-                  {r.notes || r.name || 'Route'} ({r.stops?.length ?? 0})
+                  {r.notes || r.name || 'Route'}
                 </Chip>
               ))}
             </View>
-          ) : null}
-          {todayRoute.stops && todayRoute.stops.length > 0 ? (
-            <View style={styles.scheduleChips}>
-              {todayRoute.stops.map((stop) => {
-                const f = farmers.find((x) => x.id === stop.farmer);
-                const partnerLine =
-                  (stop.farmer_display_name ?? f?.display_name ?? '—') + partnerKindSuffix(f);
-                return (
-                  <Chip
-                    key={stop.id}
-                    selected={selectedRouteStopId === stop.id}
-                    onPress={() => onPickRouteStop(stop)}
-                    style={styles.scheduleChip}
-                    compact
-                  >
-                    {partnerLine} · {labels.location}: {stop.farm_display_name ?? '—'}
-                  </Chip>
-                );
-              })}
-            </View>
           ) : (
             <Text variant="bodySmall" style={styles.muted}>
-              No stops on this plan — tap below to refresh your GPS, then choose the farmer or stockist for this route.
+              Using today&apos;s plan: {todayRoute.notes || todayRoute.name || 'Day route'}. Add more visits anytime — they all stay on this route.
             </Text>
           )}
           {mustSelectSchedule && acceptedSchedules.length === 0 && !selectedRouteId ? (
             <HelperText type="error" style={styles.errorHint}>
               {todayRoutes.length > 1
-                ? 'Select which route you are on, then a stop or “Record from here”.'
-                : 'Select a stop on this route, or “Record from here” to choose farmer or stockist at your location.'}
+                ? 'Select which route you are on, then choose customer below or “Record from here”.'
+                : 'Confirm your route above, then choose farmer or stockist — or use “Record from here”.'}
             </HelperText>
           ) : null}
           <Button

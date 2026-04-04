@@ -77,14 +77,14 @@ export function validateRecordVisit(input: ValidateRecordVisitInput): ValidateRe
       return {
         valid: false,
         error:
-          'Select a planned visit (accepted schedule) or today’s weekly route (a stop, or record from your location and choose farmer or stockist).',
+          'Select a planned visit (accepted schedule) or today’s route plan, then choose farmer or stockist.',
       };
     }
     if (hasWeeklyRouteToday) {
       return {
         valid: false,
         error:
-          'Select a stop on today’s weekly route, or use “Record from here” to choose farmer or stockist and link the visit to that route.',
+          'Select which route you are on (or use “Record from here”), then choose farmer or stockist.',
       };
     }
     if (acceptedSchedulesLength > 0) {

@@ -3,18 +3,14 @@ import uuid
 from django.conf import settings
 from django.db import models
 
-from farmers.models import Farm, Farmer
 from mobile_sync.models import MobileSyncModel
 
 
 class Route(MobileSyncModel):
     """
-    A route is a day plan for an officer: a collection of stops (farmers/stockists + locations)
-    to be visited in a single day. Same activities and same officer for the whole route.
-    Used for weekly plan: Mon–Sat routes.
-
-    Visits recorded against this route capture farm-level activities; the end-of-day
-    RouteReport summarizes what was done at those farms along the route.
+    A route is one officer’s plan for a single calendar day (weekly plan: Mon–Sat).
+    Multiple visits can reference the same route; customers are chosen when recording each visit.
+    End-of-day RouteReport summarizes activity on that route.
     """
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -33,7 +29,7 @@ class Route(MobileSyncModel):
     activity_types = models.JSONField(
         default=list,
         blank=True,
-        help_text="List of activity type slugs for this route (same for all stops).",
+        help_text="Default activity type slugs for visits on this route (can be overridden per visit).",
     )
     notes = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -57,50 +53,13 @@ class Route(MobileSyncModel):
         return " | ".join(parts)
 
 
-class RouteStop(MobileSyncModel):
-    """One stop on a route: farmer/stockist + optional farm/outlet, with display order."""
-
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    route = models.ForeignKey(
-        Route,
-        on_delete=models.CASCADE,
-        related_name="stops",
-    )
-    farmer = models.ForeignKey(
-        Farmer,
-        on_delete=models.CASCADE,
-        related_name="route_stops",
-    )
-    farm = models.ForeignKey(
-        Farm,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name="route_stops",
-        help_text="Optional specific farm/outlet for this stop.",
-    )
-    order = models.PositiveSmallIntegerField(
-        default=0,
-        help_text="Order of this stop in the route (0 = first).",
-    )
-
-    class Meta:
-        ordering = ["route", "order", "id"]
-        indexes = [
-            models.Index(fields=["route"], name="routestop_route_id"),
-        ]
-
-    def __str__(self):
-        return f"{self.route} — stop {self.order}: {self.farmer.name}"
-
-
 class RouteReport(models.Model):
     """
     End-of-day report for a route, grounded in farm activities actually carried out
     during that route (visits linked to the route and their activity types / extra fields).
 
     The officer completes it (e.g. after a reminder). It can be prefilled from those
-    visits so the report reflects what was done at each farm stop, not a generic template.
+    visits so the report reflects what was done at each customer, not a generic template.
     """
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)

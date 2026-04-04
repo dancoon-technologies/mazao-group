@@ -1,77 +1,16 @@
 from rest_framework import serializers
 
 from accounts.models import User
-from farmers.models import Farm, Farmer
 
-from .models import Route, RouteReport, RouteStop
-
-
-class RouteStopSerializer(serializers.ModelSerializer):
-    farmer = serializers.UUIDField(source="farmer_id", read_only=True)
-    farmer_display_name = serializers.CharField(source="farmer.name", read_only=True)
-    farm = serializers.UUIDField(source="farm_id", read_only=True, allow_null=True)
-    farm_display_name = serializers.SerializerMethodField()
-
-    class Meta:
-        model = RouteStop
-        fields = (
-            "id",
-            "farmer",
-            "farmer_display_name",
-            "farm",
-            "farm_display_name",
-            "order",
-        )
-
-    def get_farm_display_name(self, obj):
-        if obj.farm_id and obj.farm:
-            return obj.farm.village
-        return None
-
-
-class RouteStopCreateSerializer(serializers.ModelSerializer):
-    farmer_id = serializers.UUIDField(
-        write_only=True,
-        error_messages={
-            "required": "Each stop must include a customer (farmer or stockist).",
-            "null": "Each stop must include a customer (farmer or stockist).",
-        },
-    )
-    farm_id = serializers.UUIDField(write_only=True, required=False, allow_null=True)
-
-    class Meta:
-        model = RouteStop
-        fields = ("farmer_id", "farm_id", "order")
-
-    def validate(self, attrs):
-        farm_id = attrs.get("farm_id")
-        farmer_id = attrs.get("farmer_id")
-        if farm_id and farmer_id:
-            farm = Farm.objects.filter(pk=farm_id, farmer_id=farmer_id).first()
-            if not farm:
-                raise serializers.ValidationError(
-                    {"farm_id": "Farm must belong to the selected farmer."}
-                )
-        return attrs
-
-    def create(self, validated_data):
-        farmer_id = validated_data.pop("farmer_id")
-        farm_id = validated_data.pop("farm_id", None)
-        farmer = Farmer.objects.get(pk=farmer_id)
-        farm = Farm.objects.get(pk=farm_id) if farm_id else None
-        return RouteStop.objects.create(
-            route=self.context["route"],
-            farmer=farmer,
-            farm=farm,
-            **validated_data,
-        )
+from .models import Route, RouteReport
 
 
 class RouteSerializer(serializers.ModelSerializer):
+    """Day plan for an officer; visits are recorded against the route."""
+
     officer = serializers.UUIDField(source="officer_id", read_only=True)
     officer_email = serializers.EmailField(source="officer.email", read_only=True)
     officer_display_name = serializers.SerializerMethodField()
-    stops = RouteStopSerializer(many=True, read_only=True)
 
     class Meta:
         model = Route
@@ -84,7 +23,6 @@ class RouteSerializer(serializers.ModelSerializer):
             "name",
             "activity_types",
             "notes",
-            "stops",
             "created_at",
             "updated_at",
         )
@@ -94,15 +32,13 @@ class RouteSerializer(serializers.ModelSerializer):
 
 
 class RouteCreateSerializer(serializers.ModelSerializer):
-    """Create a route (weekly plan day). Officer creates for self; optional stops in same payload or added later."""
+    """Create a route (weekly plan day). Officer creates for self. Visits link to the route when recording."""
 
     officer = serializers.PrimaryKeyRelatedField(
         queryset=User.objects.filter(role=User.Role.OFFICER),
         required=False,
         allow_null=True,
     )
-    stops = RouteStopCreateSerializer(many=True, required=False, default=list)
-    # Explicit list/char fields so empty activity_types and blank name/notes are never treated as "required".
     activity_types = serializers.ListField(
         child=serializers.CharField(max_length=80),
         required=False,
@@ -114,28 +50,18 @@ class RouteCreateSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Route
-        fields = ("officer", "scheduled_date", "name", "activity_types", "notes", "stops")
+        fields = ("officer", "scheduled_date", "name", "activity_types", "notes")
 
     def create(self, validated_data):
-        stops_data = validated_data.pop("stops", [])
         user = self.context["request"].user
         if validated_data.get("officer") is None:
             validated_data["officer"] = user
-        route = Route.objects.create(**validated_data)
-        for i, stop_data in enumerate(stops_data):
-            stop_ser = RouteStopCreateSerializer(
-                data={**stop_data, "order": stop_data.get("order", i)},
-                context={"route": route, "request": self.context["request"]},
-            )
-            stop_ser.is_valid(raise_exception=True)
-            stop_ser.save()
-        return route
+        return Route.objects.create(**validated_data)
 
 
 class RouteUpdateSerializer(serializers.ModelSerializer):
-    """Update name, activity_types, notes. Stops updated via separate endpoint or replace list."""
+    """Update scheduled_date, name, activity_types, notes."""
 
-    stops = RouteStopCreateSerializer(many=True, required=False)
     activity_types = serializers.ListField(
         child=serializers.CharField(max_length=80),
         required=False,
@@ -146,22 +72,12 @@ class RouteUpdateSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Route
-        fields = ("scheduled_date", "name", "activity_types", "notes", "stops")
+        fields = ("scheduled_date", "name", "activity_types", "notes")
 
     def update(self, instance, validated_data):
-        stops_data = validated_data.pop("stops", None)
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
         instance.save()
-        if stops_data is not None:
-            instance.stops.all().delete()
-            for i, stop_data in enumerate(stops_data):
-                stop_ser = RouteStopCreateSerializer(
-                    data={**stop_data, "order": stop_data.get("order", i)},
-                    context={"route": instance, "request": self.context["request"]},
-                )
-                stop_ser.is_valid(raise_exception=True)
-                stop_ser.save()
         return instance
 
 

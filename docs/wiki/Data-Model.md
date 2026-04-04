@@ -12,8 +12,8 @@
   - Officer execution evidence (photo, GPS, activity + optional form fields).
 - **Schedule**
   - Planned field activity with status transitions.
-- **Route / Route Stops / Route Report**
-  - Day planning and end-of-day reporting.
+- **Route / Route Report**
+  - One officer’s plan per calendar day; visits link to a route; end-of-day reporting.
 - **Location Report**
   - Periodic tracking updates for supervisor visibility.
 - **Notification**
@@ -32,7 +32,7 @@ erDiagram
   FARMER ||--o{ VISIT : visited_in
   FARM ||--o{ VISIT : optional_location
   SCHEDULE ||--o{ VISIT : optional_source
-  ROUTE ||--o{ ROUTE_STOP : contains
+  ROUTE ||--o{ VISIT : planned_on
   ROUTE ||--o| ROUTE_REPORT : summarized_by
   USER ||--o{ MAINTENANCE_INCIDENT : reports_or_verifies
 ```

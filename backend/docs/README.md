@@ -50,8 +50,12 @@ See `.env.example`. Main ones:
 | `AWS_SECRET_ACCESS_KEY` | For S3 |
 | `AWS_STORAGE_BUCKET_NAME` | S3 bucket name |
 | `AWS_S3_REGION_NAME` | e.g. `us-east-1` |
+| `WEB_MAIL_API_URL` | Optional. Full URL of the Next.js mail endpoint, e.g. `https://your-app.com/api/internal/mail`. When set (with `WEB_MAIL_INTERNAL_SECRET`), transactional email is sent by the web app (Nodemailer) before falling back to Django SMTP. |
+| `WEB_MAIL_INTERNAL_SECRET` | Shared secret; must match the web app `INTERNAL_MAIL_SECRET`. |
 
 For **local dev without S3**, you can leave AWS vars unset; the app can store files locally (see settings).
+
+For **email via the web app**, set `WEB_MAIL_API_URL` and `WEB_MAIL_INTERNAL_SECRET`, configure SMTP on the Next.js side (`SMTP_*`, `INTERNAL_MAIL_SECRET`), and keep Django `EMAIL_*` as fallback.
 
 ---
 

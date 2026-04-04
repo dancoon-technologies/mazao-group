@@ -6,7 +6,7 @@ import { syncWithServer } from '@/lib/syncWithServer';
 import { farmerRowToFarmer, scheduleRowToSchedule, visitRowToVisit } from '@/lib/offline-helpers';
 import { useAppRefresh } from '@/contexts/AppRefreshContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { api, getLabels, type Route, type RouteStop, type Schedule, type Visit } from '@/lib/api';
+import { api, getLabels, type Route, type Schedule, type Visit } from '@/lib/api';
 import { appMeta$, farmers$, schedules$, visits$ } from '@/store/observable';
 import { useSelector } from '@legendapp/state/react';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -37,32 +37,21 @@ const TAB_BAR_HEIGHT = 56;
 
 type TabKey = 'upcoming' | 'past';
 
-/** Single visit schedule, a planned route stop, or a route day with no stops yet. */
+/** Single visit schedule or one day route plan (many visits can share the same route). */
 type PlanRow =
   | { kind: 'schedule'; date: string; schedule: Schedule }
-  | { kind: 'route_stop'; date: string; route: Route; stop: RouteStop }
-  | { kind: 'route_empty'; date: string; route: Route };
-
-function visitMatchesRouteStop(v: Visit, route: Route, stop: RouteStop): boolean {
-  if (!v.route || v.route !== route.id) return false;
-  if (v.farmer !== stop.farmer) return false;
-  return (v.farm ?? null) === (stop.farm ?? null);
-}
+  | { kind: 'route'; date: string; route: Route };
 
 function sortPlanRows(rows: PlanRow[]): PlanRow[] {
-  const kindRank = (k: PlanRow['kind']) => (k === 'schedule' ? 0 : k === 'route_empty' ? 1 : 2);
   return [...rows].sort((a, b) => {
     const d = a.date.localeCompare(b.date);
     if (d !== 0) return d;
-    const kr = kindRank(a.kind) - kindRank(b.kind);
-    if (kr !== 0) return kr;
-    if (a.kind === 'schedule' && b.kind === 'schedule') return a.schedule.id.localeCompare(b.schedule.id);
-    if (a.kind === 'route_empty' && b.kind === 'route_empty') return a.route.id.localeCompare(b.route.id);
-    if (a.kind === 'route_stop' && b.kind === 'route_stop') {
-      const ia = a.route.stops?.findIndex((s: RouteStop) => s.id === a.stop.id) ?? 0;
-      const ib = b.route.stops?.findIndex((s: RouteStop) => s.id === b.stop.id) ?? 0;
-      if (ia !== ib) return ia - ib;
-      return a.stop.id.localeCompare(b.stop.id);
+    if (a.kind !== b.kind) return a.kind === 'schedule' ? -1 : 1;
+    if (a.kind === 'schedule' && b.kind === 'schedule') {
+      return a.schedule.id.localeCompare(b.schedule.id);
+    }
+    if (a.kind === 'route' && b.kind === 'route') {
+      return a.route.id.localeCompare(b.route.id);
     }
     return 0;
   });
@@ -130,16 +119,6 @@ export default function SchedulesScreen() {
     },
     [farmers, labels.partner]
   );
-  const stopFarmerDisplayName = useCallback(
-    (stop: RouteStop) =>
-      (() => {
-        const farmer = farmers.find((f) => f.id === stop.farmer);
-        const name = stop.farmer_display_name ?? farmer?.display_name ?? `No ${labels.partner.toLowerCase()} assigned`;
-        return farmer?.is_stockist ? `${name} · Stockist` : name;
-      })(),
-    [farmers, labels.partner]
-  );
-
   const load = useCallback(async () => {
     const connected = await NetInfo.fetch().then((s) => s.isConnected ?? false);
     if (connected && userId) {
@@ -218,21 +197,10 @@ export default function SchedulesScreen() {
     const routePart: PlanRow[] = [];
     for (const route of routesVisible) {
       if (route.scheduled_date < today) continue;
-      const stops = route.stops ?? [];
-      if (stops.length === 0) {
-        const anyVisitOnRoute = visits.some((v) => v.route === route.id);
-        if (!anyVisitOnRoute) {
-          routePart.push({ kind: 'route_empty', date: route.scheduled_date, route });
-        }
-        continue;
-      }
-      for (const stop of stops) {
-        if (visits.some((v) => visitMatchesRouteStop(v, route, stop))) continue;
-        routePart.push({ kind: 'route_stop', date: route.scheduled_date, route, stop });
-      }
+      routePart.push({ kind: 'route', date: route.scheduled_date, route });
     }
     return [...schedulePart, ...routePart];
-  }, [upcomingSchedules, routesVisible, visits, today]);
+  }, [upcomingSchedules, routesVisible, today]);
 
   const upcomingByDate = useMemo(() => groupPlanRowsByDateAsc(upcomingPlanRows), [upcomingPlanRows]);
 
@@ -252,19 +220,9 @@ export default function SchedulesScreen() {
     }));
     const routePart: PlanRow[] = [];
     for (const route of routesVisible) {
-      const stops = route.stops ?? [];
-      if (stops.length === 0) {
-        const anyVisitOnRoute = visits.some((v) => v.route === route.id);
-        if (route.scheduled_date < today || anyVisitOnRoute) {
-          routePart.push({ kind: 'route_empty', date: route.scheduled_date, route });
-        }
-        continue;
-      }
-      for (const stop of stops) {
-        const recorded = visits.some((v) => visitMatchesRouteStop(v, route, stop));
-        if (route.scheduled_date < today || recorded) {
-          routePart.push({ kind: 'route_stop', date: route.scheduled_date, route, stop });
-        }
+      const visitCount = visits.filter((v) => v.route === route.id).length;
+      if (route.scheduled_date < today || visitCount > 0) {
+        routePart.push({ kind: 'route', date: route.scheduled_date, route });
       }
     }
     return [...schedulePart, ...routePart];
@@ -281,22 +239,13 @@ export default function SchedulesScreen() {
           (s.notes ?? '').toLowerCase().includes(q)
         );
       }
-      if (row.kind === 'route_empty') {
-        const r = row.route;
-        return (
-          (r.name ?? '').toLowerCase().includes(q) ||
-          (r.notes ?? '').toLowerCase().includes(q)
-        );
-      }
-      const stop = row.stop;
-      const name = stopFarmerDisplayName(stop).toLowerCase();
+      const r = row.route;
       return (
-        name.includes(q) ||
-        (row.route.notes ?? '').toLowerCase().includes(q) ||
-        (row.route.name ?? '').toLowerCase().includes(q)
+        (r.name ?? '').toLowerCase().includes(q) ||
+        (r.notes ?? '').toLowerCase().includes(q)
       );
     });
-  }, [pastPlanRows, search, farmerDisplayName, stopFarmerDisplayName]);
+  }, [pastPlanRows, search, farmerDisplayName]);
 
   const pastByDate = useMemo(() => groupPlanRowsByDateDesc(filteredPastPlanRows), [filteredPastPlanRows]);
 
@@ -328,16 +277,11 @@ export default function SchedulesScreen() {
     [router]
   );
 
-  const openRecordRouteStop = useCallback(
-    (route: Route, stop: RouteStop) => {
+  const openRecordWithRoute = useCallback(
+    (route: Route) => {
       router.push({
         pathname: '/(app)/record-visit',
-        params: {
-          routeId: route.id,
-          routeStopId: stop.id,
-          farmerId: stop.farmer,
-          ...(stop.farm ? { farmId: stop.farm } : {}),
-        },
+        params: { routeId: route.id },
       } as never);
     },
     [router]
@@ -447,7 +391,7 @@ export default function SchedulesScreen() {
                   <Card.Content>
                     <Text variant="bodyMedium" style={styles.emptyText}>No upcoming visits</Text>
                     <Text variant="bodySmall" style={styles.emptySubtext}>
-                      Single schedules and route stops for today or later appear here. Tap + to add a schedule.
+                      Single schedules and day routes for today or later appear here. Tap + to add a schedule.
                     </Text>
                   </Card.Content>
                 </Card>
@@ -513,22 +457,23 @@ export default function SchedulesScreen() {
                           />
                         );
                       }
-                      if (row.kind === 'route_empty') {
+                      if (row.kind === 'route') {
                         const { route } = row;
                         const title = route.name?.trim() ? route.name : 'Day route';
+                        const visitCount = visits.filter((v) => v.route === route.id).length;
                         const rowPress = isOfficer
-                          ? () =>
-                              router.push({
-                                pathname: '/(app)/record-visit',
-                                params: { routeId: route.id },
-                              } as never)
+                          ? () => openRecordWithRoute(route)
                           : () => openRouteFormForRoute(route);
                         return (
                           <ListItemRow
-                            key={`re-up-${route.id}`}
+                            key={`rt-up-${route.id}`}
                             avatarLetter="R"
                             title={title}
-                            subtitle="No planned stops · add stops or record a visit"
+                            subtitle={
+                              visitCount > 0
+                                ? `${visitCount} visit(s) logged · tap to add another`
+                                : 'Day plan · record visits against this route'
+                            }
                             onPress={rowPress}
                             right={
                               <View style={styles.upcomingRight}>
@@ -550,12 +495,7 @@ export default function SchedulesScreen() {
                                       icon="camera"
                                       size={22}
                                       iconColor={colors.primary}
-                                      onPress={() =>
-                                        router.push({
-                                          pathname: '/(app)/record-visit',
-                                          params: { routeId: route.id },
-                                        } as never)
-                                      }
+                                      onPress={() => openRecordWithRoute(route)}
                                       accessibilityLabel="Record visit"
                                     />
                                   </>
@@ -565,46 +505,7 @@ export default function SchedulesScreen() {
                           />
                         );
                       }
-                      const { route, stop } = row;
-                      const rowPress = isOfficer
-                        ? () => openRecordRouteStop(route, stop)
-                        : () => openRouteFormForRoute(route);
-                      return (
-                        <ListItemRow
-                          key={`r-${route.id}-s-${stop.id}`}
-                          avatarLetter={(stopFarmerDisplayName(stop) || '?').charAt(0)}
-                          title={stopFarmerDisplayName(stop)}
-                          subtitle={`${labels.location}: ${stop.farm_display_name ?? 'None'}`}
-                          onPress={rowPress}
-                          right={
-                            <View style={styles.upcomingRight}>
-                              <View style={[styles.badge, { backgroundColor: colors.gray200 }]}>
-                                <Text variant="labelSmall" style={[styles.badgeText, { color: colors.gray700 }]}>
-                                  Route
-                                </Text>
-                              </View>
-                              {isOfficer && (
-                                <>
-                                  <IconButton
-                                    icon="pencil"
-                                    size={22}
-                                    iconColor={colors.primary}
-                                    onPress={() => openRouteFormForRoute(route)}
-                                    accessibilityLabel="Edit route"
-                                  />
-                                  <IconButton
-                                    icon="camera"
-                                    size={22}
-                                    iconColor={colors.primary}
-                                    onPress={() => openRecordRouteStop(route, stop)}
-                                    accessibilityLabel="Record visit"
-                                  />
-                                </>
-                              )}
-                            </View>
-                          }
-                        />
-                      );
+                      return null;
                     })}
                   </View>
                 ))
@@ -634,7 +535,7 @@ export default function SchedulesScreen() {
                   <Card.Content>
                     <Text variant="bodyMedium" style={styles.emptyText}>No past visits</Text>
                     <Text variant="bodySmall" style={styles.emptySubtext}>
-                      Older plans, recorded visits, and missed route stops appear here
+                      Older schedules and routes with visit history appear here
                     </Text>
                   </Card.Content>
                 </Card>
@@ -683,27 +584,27 @@ export default function SchedulesScreen() {
                           />
                         );
                       }
-                      if (row.kind === 'route_empty') {
+                      if (row.kind === 'route') {
                         const { route } = row;
-                        const visitOnRoute = visits.find((v) => v.route === route.id);
-                        const recorded = !!visitOnRoute;
+                        const routeVisits = visits.filter((v) => v.route === route.id);
+                        const visitCount = routeVisits.length;
                         const title = route.name?.trim() ? route.name : 'Day route';
                         const rowPress =
-                          recorded && visitOnRoute
-                            ? () => openVisit(visitOnRoute.id)
+                          visitCount > 0 && routeVisits[0]
+                            ? () => openVisit(routeVisits[0].id)
                             : isOfficer
-                              ? () =>
-                                  router.push({
-                                    pathname: '/(app)/record-visit',
-                                    params: { routeId: route.id },
-                                  } as never)
+                              ? () => openRecordWithRoute(route)
                               : () => openRouteFormForRoute(route);
                         return (
                           <ListItemRow
-                            key={`re-past-${route.id}`}
+                            key={`rt-past-${route.id}`}
                             avatarLetter="R"
                             title={title}
-                            subtitle="No planned stops"
+                            subtitle={
+                              visitCount > 0
+                                ? `${visitCount} visit(s) on this route`
+                                : 'No visits logged yet'
+                            }
                             right={
                               <View style={styles.pastRight}>
                                 <View style={[styles.badge, { backgroundColor: colors.gray200 }]}>
@@ -711,11 +612,11 @@ export default function SchedulesScreen() {
                                     Route
                                   </Text>
                                 </View>
-                                <View style={[styles.badge, { backgroundColor: (recorded ? colors.primary : colors.gray500) + '20' }]}>
-                                  <Text variant="labelSmall" style={[styles.badgeText, { color: recorded ? colors.primary : colors.gray700 }]}>
-                                    {recorded ? 'Recorded' : 'Not recorded'}
+                                <View style={[styles.badge, { backgroundColor: (visitCount > 0 ? colors.primary : colors.gray500) + '20' }]}>
+                                  <Text variant="labelSmall" style={[styles.badgeText, { color: visitCount > 0 ? colors.primary : colors.gray700 }]}>
+                                    {visitCount > 0 ? `${visitCount} visit(s)` : 'None'}
                                   </Text>
-                                  <MaterialCommunityIcons name={recorded ? 'check-circle' : 'circle-outline'} size={14} color={recorded ? colors.primary : colors.gray700} />
+                                  <MaterialCommunityIcons name={visitCount > 0 ? 'check-circle' : 'circle-outline'} size={14} color={visitCount > 0 ? colors.primary : colors.gray700} />
                                 </View>
                               </View>
                             }
@@ -723,39 +624,7 @@ export default function SchedulesScreen() {
                           />
                         );
                       }
-                      const { route, stop } = row;
-                      const visit = visits.find((v) => visitMatchesRouteStop(v, route, stop));
-                      const recorded = !!visit;
-                      const rowPress =
-                        recorded && visit
-                          ? () => openVisit(visit.id)
-                          : isOfficer
-                            ? () => openRecordRouteStop(route, stop)
-                            : () => openRouteFormForRoute(route);
-                      return (
-                        <ListItemRow
-                          key={`r-${route.id}-s-${stop.id}`}
-                          avatarLetter={(stopFarmerDisplayName(stop) || '?').charAt(0)}
-                          title={stopFarmerDisplayName(stop)}
-                          subtitle={`${labels.location}: ${stop.farm_display_name ?? 'None'}`}
-                          right={
-                            <View style={styles.pastRight}>
-                              <View style={[styles.badge, { backgroundColor: colors.gray200 }]}>
-                                <Text variant="labelSmall" style={[styles.badgeText, { color: colors.gray700 }]}>
-                                  Route
-                                </Text>
-                              </View>
-                              <View style={[styles.badge, { backgroundColor: (recorded ? colors.primary : colors.gray500) + '20' }]}>
-                                <Text variant="labelSmall" style={[styles.badgeText, { color: recorded ? colors.primary : colors.gray700 }]}>
-                                  {recorded ? 'Recorded' : 'Not recorded'}
-                                </Text>
-                                <MaterialCommunityIcons name={recorded ? 'check-circle' : 'circle-outline'} size={14} color={recorded ? colors.primary : colors.gray700} />
-                              </View>
-                            </View>
-                          }
-                          onPress={rowPress}
-                        />
-                      );
+                      return null;
                     })}
                   </View>
                 ))

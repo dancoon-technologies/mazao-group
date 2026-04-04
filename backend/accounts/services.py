@@ -3,7 +3,8 @@
 import secrets
 
 from django.conf import settings
-from django.core.mail import send_mail
+
+from config.mail_outbound import send_email
 
 
 def generate_temporary_password(length: int = 8) -> str:
@@ -38,11 +39,11 @@ Sign in here: {login_url}
 Do not share this email. If you did not expect this, please contact your administrator.
 """
     from_email = getattr(settings, "DEFAULT_FROM_EMAIL", "noreply@mazao.local")
-    send_mail(
+    send_email(
         subject=subject,
         message=body,
-        from_email=from_email,
         recipient_list=[email],
+        from_email=from_email,
         fail_silently=False,
     )
 

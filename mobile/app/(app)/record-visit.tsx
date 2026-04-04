@@ -96,7 +96,6 @@ export default function RecordVisitScreen() {
               acceptedSchedules={v.acceptedSchedules}
               farmers={v.farmers}
               labels={v.labels}
-              selectedRouteStopId={v.selectedRouteStopId}
               selectedRouteId={v.selectedRouteId}
               selectedScheduleId={v.selectedScheduleId}
               selectedFarmerId={v.selectedFarmerId}
@@ -122,7 +121,6 @@ export default function RecordVisitScreen() {
               maxM={v.maxM}
               photoUris={v.photoUris}
               submitting={v.submitting}
-              onPickRouteStop={v.pickRouteStop}
               onPickTodayRoute={v.pickTodayRoute}
               onAdHocRouteCustomer={v.adHocRouteCustomer}
               onPickSchedule={v.pickSchedule}

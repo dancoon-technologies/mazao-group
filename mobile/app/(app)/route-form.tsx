@@ -1,18 +1,12 @@
-import { ListItemRow } from '@/components/ListItemRow';
 import { SelectActivityTypesModal } from '@/components/SelectActivityTypesModal';
-import { SelectFarmerModal } from '@/components/SelectFarmerModal';
-import { SelectFarmModal } from '@/components/SelectFarmModal';
 import { appbarHeight, colors, scrollPaddingKeyboard, spacing } from '@/constants/theme';
-import { getFarmers as getFarmersDb, getFarms as getFarmsDb } from '@/database';
-import { farmerRowToFarmer, farmRowToFarm } from '@/lib/offline-helpers';
 import { useAuth } from '@/contexts/AuthContext';
 import { ACTIVITY_TYPES, DEFAULT_ACTIVITY_TYPE } from '@/lib/constants/activityTypes';
-import { api, getLabels, type ActivityTypeOption, type Farm, type Farmer, type Route } from '@/lib/api';
+import { api, type ActivityTypeOption } from '@/lib/api';
 import { appMeta$ } from '@/store/observable';
 import { useSelector } from '@legendapp/state/react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import NetInfo from '@react-native-community/netinfo';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
@@ -20,16 +14,9 @@ import {
   StyleSheet,
   View,
 } from 'react-native';
-import { ActivityIndicator, Appbar, Banner, Button, HelperText, IconButton, Text, TextInput } from 'react-native-paper';
+import { ActivityIndicator, Appbar, Banner, Button, HelperText, Text, TextInput } from 'react-native-paper';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { logger } from '@/lib/logger';
-
-interface StopEntry {
-  farmer_id: string;
-  farm_id: string | null;
-  farmer_display_name: string;
-  farm_display_name: string | null;
-}
 
 function formatDate(iso: string): string {
   try {
@@ -49,27 +36,16 @@ export default function RouteFormScreen() {
   const { userId, role } = useAuth();
   const assigner = role === 'admin' || role === 'supervisor';
 
-  const [route, setRoute] = useState<Route | null>(null);
   const [name, setName] = useState('');
   const [activityTypes, setActivityTypes] = useState<string[]>([DEFAULT_ACTIVITY_TYPE]);
   const [notes, setNotes] = useState('');
-  const [stops, setStops] = useState<StopEntry[]>([]);
-  const [planStops, setPlanStops] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [activityModalOpen, setActivityModalOpen] = useState(false);
-  const [farmerModalOpen, setFarmerModalOpen] = useState(false);
-  const [farmModalOpen, setFarmModalOpen] = useState(false);
-  const [farmers, setFarmers] = useState<Farmer[]>([]);
-  const [farms, setFarms] = useState<Farm[]>([]);
-  const [pendingFarmerId, setPendingFarmerId] = useState<string | null>(null);
-  /** True after onSelect handled adding the stop; avoids duplicate when modal calls onClose() in the same tick (stale pendingFarmerId). */
-  const farmPickHandledRef = useRef(false);
 
   const options = useSelector(() => appMeta$.cachedOptions.get());
   const activityTypeOptions: ActivityTypeOption[] = options?.activity_types ?? [];
-  const labels = useSelector(() => getLabels(options));
 
   const activityTypesButtonLabel = useMemo(() => {
     if (activityTypes.length === 0) return 'Select activities';
@@ -84,142 +60,30 @@ export default function RouteFormScreen() {
 
   const loadRoute = useCallback(async () => {
     if (!routeId) {
-      setRoute(null);
       setName('');
       setActivityTypes([DEFAULT_ACTIVITY_TYPE]);
       setNotes('');
-      setStops([]);
-      setPlanStops(false);
       setLoading(false);
       return;
     }
     try {
       const found = await api.getRoute(routeId);
-      setRoute(found);
       setName(found.name ?? '');
       setActivityTypes(
         found.activity_types?.length ? found.activity_types : [DEFAULT_ACTIVITY_TYPE]
       );
       setNotes(found.notes ?? '');
-      setStops(
-        (found.stops ?? []).map((s) => ({
-          farmer_id: s.farmer,
-          farm_id: s.farm,
-          farmer_display_name: s.farmer_display_name ?? '',
-          farm_display_name: s.farm_display_name ?? null,
-        }))
-      );
-      setPlanStops((found.stops ?? []).length > 0);
     } catch {
-      setRoute(null);
       setError('Failed to load route.');
       logger.warn('Route load failed', { route_id: routeId, scheduled_date: date });
     } finally {
       setLoading(false);
     }
-  }, [routeId]);
+  }, [routeId, date]);
 
   useEffect(() => {
     loadRoute();
   }, [loadRoute]);
-
-  useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      const connected = await NetInfo.fetch().then((s) => s.isConnected ?? false);
-      if (connected) {
-        try {
-          const f = await api.getFarmers();
-          if (!cancelled) setFarmers(Array.isArray(f) ? f : []);
-        } catch {
-          const rows = await getFarmersDb();
-          if (!cancelled) setFarmers(rows.map(farmerRowToFarmer));
-        }
-      } else {
-        const rows = await getFarmersDb();
-        if (!cancelled) setFarmers(rows.map(farmerRowToFarmer));
-      }
-    };
-    load();
-    return () => { cancelled = true; };
-  }, []);
-
-  useEffect(() => {
-    if (!pendingFarmerId) {
-      setFarms([]);
-      return;
-    }
-    let cancelled = false;
-    const load = async () => {
-      try {
-        const connected = await NetInfo.fetch().then((s) => s.isConnected ?? false);
-        if (connected) {
-          const list = await api.getFarms(pendingFarmerId);
-          if (!cancelled) setFarms(Array.isArray(list) ? list : []);
-        } else {
-          const rows = await getFarmsDb(pendingFarmerId);
-          if (!cancelled) setFarms(rows.map(farmRowToFarm));
-        }
-      } catch {
-        if (!cancelled) setFarms([]);
-      }
-    };
-    load();
-    return () => { cancelled = true; };
-  }, [pendingFarmerId]);
-
-  const handleAddFarmer = useCallback((farmerId: string | null) => {
-    setFarmerModalOpen(false);
-    if (!farmerId) return;
-    farmPickHandledRef.current = false;
-    setPendingFarmerId(farmerId);
-    setFarmModalOpen(true);
-  }, [farmers]);
-
-  const addStopForFarmerAndFarm = useCallback(
-    (farmerId: string, farmId: string | null) => {
-      const farmer = farmers.find((f) => f.id === farmerId);
-      const farm = farmId ? farms.find((f) => f.id === farmId) : null;
-      setStops((prev) => [
-        ...prev,
-        {
-          farmer_id: farmerId,
-          farm_id: farmId ?? null,
-          farmer_display_name: farmer?.display_name ?? farmer?.first_name ?? '',
-          farm_display_name: farm?.village ?? null,
-        },
-      ]);
-      setPendingFarmerId(null);
-    },
-    [farmers, farms]
-  );
-
-  const handleAddFarm = useCallback(
-    (farmId: string | null) => {
-      setFarmModalOpen(false);
-      if (!pendingFarmerId) return;
-      farmPickHandledRef.current = true;
-      addStopForFarmerAndFarm(pendingFarmerId, farmId);
-    },
-    [pendingFarmerId, addStopForFarmerAndFarm]
-  );
-
-  const handleCloseFarmModal = useCallback(() => {
-    setFarmModalOpen(false);
-    if (farmPickHandledRef.current) {
-      farmPickHandledRef.current = false;
-      setPendingFarmerId(null);
-      return;
-    }
-    if (pendingFarmerId) {
-      addStopForFarmerAndFarm(pendingFarmerId, null);
-    }
-    setPendingFarmerId(null);
-  }, [pendingFarmerId, addStopForFarmerAndFarm]);
-
-  const removeStop = useCallback((index: number) => {
-    setStops((prev) => prev.filter((_, i) => i !== index));
-  }, []);
 
   const save = useCallback(async () => {
     if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
@@ -230,11 +94,6 @@ export default function RouteFormScreen() {
       setError('Select at least one activity type (tap Select activities).');
       return;
     }
-    const incompleteStop = stops.find((s) => !String(s.farmer_id ?? '').trim());
-    if (incompleteStop) {
-      setError('Each stop must have a customer. Remove incomplete stops or finish adding them.');
-      return;
-    }
     setSaving(true);
     setError('');
     try {
@@ -243,15 +102,12 @@ export default function RouteFormScreen() {
         name: name.trim(),
         activity_types: activityTypes,
         notes: notes.trim(),
-        stops: stops.map((s, i) => ({ farmer_id: s.farmer_id, farm_id: s.farm_id, order: i })),
       };
       if (routeId) {
         await api.updateRoute(routeId, payload);
         logger.info('Route updated', {
           route_id: routeId,
           scheduled_date: date,
-          stops_count: stops.length,
-          plan_stops: planStops,
         });
         router.back();
       } else {
@@ -272,8 +128,6 @@ export default function RouteFormScreen() {
           route_id: null,
           scheduled_date: date,
           officer_id: officerForCreate,
-          stops_count: stops.length,
-          plan_stops: planStops,
         });
         router.back();
       }
@@ -282,13 +136,12 @@ export default function RouteFormScreen() {
       logger.warn('Route save failed', {
         route_id: routeId,
         scheduled_date: date,
-        stops_count: stops.length,
         error: e instanceof Error ? e.message : 'save failed',
       });
     } finally {
       setSaving(false);
     }
-  }, [date, name, activityTypes, notes, stops, routeId, router, assigner, officerIdParam, userId, planStops]);
+  }, [date, name, activityTypes, notes, routeId, router, assigner, officerIdParam, userId]);
 
   const deleteRoute = useCallback(async () => {
     if (!routeId) return;
@@ -363,6 +216,10 @@ export default function RouteFormScreen() {
         >
           <Text variant="labelLarge" style={styles.dateLabel}>{formatDate(date)}</Text>
 
+          <Text variant="bodySmall" style={styles.hint}>
+            This is the day plan for the officer. When recording visits, they choose this route and can log many visits against it (different customers each time).
+          </Text>
+
           <Text variant="labelMedium" style={styles.fieldLabel}>Route name (optional)</Text>
           <TextInput
             value={name}
@@ -374,7 +231,7 @@ export default function RouteFormScreen() {
 
           <Text variant="labelMedium" style={styles.fieldLabel}>Activity types *</Text>
           <Text variant="bodySmall" style={styles.hint}>
-            Applies to the whole route for this day. Defaults to one activity; change if needed.
+            Default focus for visits on this route. You can still pick activities per visit when recording.
           </Text>
           <Button
             mode="outlined"
@@ -402,36 +259,6 @@ export default function RouteFormScreen() {
             style={styles.input}
           />
 
-          <Text variant="labelMedium" style={styles.fieldLabel}>Planned customers (optional)</Text>
-          <Text variant="bodySmall" style={styles.hint}>
-            You can save this route without stops and record visits directly during the day.
-          </Text>
-          <Button
-            mode={planStops ? 'contained-tonal' : 'outlined'}
-            icon={planStops ? 'check' : 'plus'}
-            onPress={() => setPlanStops((v) => !v)}
-            style={styles.addStopBtn}
-          >
-            {planStops ? 'Planning customers enabled' : 'Add planned customers'}
-          </Button>
-          {planStops ? (
-            <>
-              {stops.map((s, i) => (
-                <View key={`${s.farmer_id}-${s.farm_id ?? 'n'}-${i}`} style={styles.stopRow}>
-                  <ListItemRow
-                    avatarLetter={(s.farmer_display_name || '?').charAt(0)}
-                    title={s.farmer_display_name}
-                    subtitle={s.farm_display_name ? `${labels.location}: ${s.farm_display_name}` : undefined}
-                  />
-                  <IconButton icon="close" size={22} onPress={() => removeStop(i)} />
-                </View>
-              ))}
-              <Button mode="outlined" icon="plus" onPress={() => setFarmerModalOpen(true)} style={styles.addStopBtn}>
-                Add stop
-              </Button>
-            </>
-          ) : null}
-
           <View style={styles.actions}>
             <Button mode="contained" onPress={save} loading={saving} disabled={saving} style={styles.saveBtn}>
               {routeId ? 'Save route' : 'Create route'}
@@ -453,24 +280,6 @@ export default function RouteFormScreen() {
         onSelect={setActivityTypes}
         title="Activities for this route"
       />
-
-      <SelectFarmerModal
-        visible={farmerModalOpen}
-        onClose={() => setFarmerModalOpen(false)}
-        onSelect={handleAddFarmer}
-        farmers={farmers}
-        selectedFarmerId={null}
-        title={`Select ${labels.partner.toLowerCase()}`}
-      />
-
-      <SelectFarmModal
-        visible={farmModalOpen}
-        onClose={handleCloseFarmModal}
-        farms={farms}
-        onSelect={handleAddFarm}
-        selectedFarmId={null}
-        title={`Select ${labels.location.toLowerCase()} (optional)`}
-      />
     </SafeAreaView>
   );
 }
@@ -490,8 +299,6 @@ const styles = StyleSheet.create({
   selectBtn: { marginBottom: spacing.sm },
   selectBtnContent: { justifyContent: 'flex-start', paddingVertical: spacing.sm, minHeight: 48 },
   activityTypesBtnText: { textAlign: 'left', color: colors.gray900 },
-  stopRow: { flexDirection: 'row', alignItems: 'center', marginBottom: spacing.xs },
-  addStopBtn: { marginTop: spacing.sm, marginBottom: spacing.lg },
   actions: { gap: spacing.md, marginTop: spacing.lg },
   saveBtn: {},
   deleteBtn: { borderColor: colors.error },

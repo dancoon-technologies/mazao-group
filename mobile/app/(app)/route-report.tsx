@@ -210,7 +210,7 @@ export default function RouteReportScreen() {
               <Card key={r.id} style={styles.card} onPress={() => loadReportAndVisits(r)}>
                 <Card.Content>
                   <Text variant="titleMedium">{formatDate(r.scheduled_date)}</Text>
-                  <Text variant="bodySmall" style={styles.cardSub}>{r.name || 'Route'} · {r.stops?.length ?? 0} stops</Text>
+                  <Text variant="bodySmall" style={styles.cardSub}>{r.name || 'Day route'}</Text>
                 </Card.Content>
               </Card>
             ))
@@ -245,7 +245,7 @@ export default function RouteReportScreen() {
             mode="outlined"
             multiline
             numberOfLines={3}
-            placeholder="Any blockers, missed stops, stock issues, etc."
+            placeholder="Any blockers, missed visits, stock issues, etc."
             style={styles.input}
           />
           <Text variant="labelMedium" style={styles.fieldLabel}>Farmer feedback</Text>

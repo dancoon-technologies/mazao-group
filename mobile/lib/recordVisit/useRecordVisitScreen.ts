@@ -14,7 +14,6 @@ import {
   type Farm,
   type Farmer,
   type Route,
-  type RouteStop,
   type Schedule,
   type VisitSettings,
 } from '@/lib/api';
@@ -46,7 +45,6 @@ export function useRecordVisitScreen() {
     farmId?: string;
     scheduleId?: string;
     routeId?: string;
-    routeStopId?: string;
   }>();
   const [permission, requestPermission] = useCameraPermissions();
 
@@ -62,7 +60,6 @@ export function useRecordVisitScreen() {
   const [scheduleIdsWithRecordedVisits, setScheduleIdsWithRecordedVisits] = useState<Set<string>>(new Set());
   const [selectedScheduleId, setSelectedScheduleId] = useState<string | null>(params.scheduleId ?? null);
   const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null);
-  const [selectedRouteStopId, setSelectedRouteStopId] = useState<string | null>(null);
   const [todayRoutes, setTodayRoutes] = useState<Route[]>([]);
   const [todayRoute, setTodayRoute] = useState<Route | null>(null);
   const [selectedFarmerId, setSelectedFarmerId] = useState<string | null>(params.farmerId ?? null);
@@ -321,12 +318,6 @@ export function useRecordVisitScreen() {
               : Array.isArray(params.routeId)
                 ? params.routeId[0]
                 : undefined;
-          const routeStopParam =
-            typeof params.routeStopId === 'string'
-              ? params.routeStopId
-              : Array.isArray(params.routeStopId)
-                ? params.routeStopId[0]
-                : undefined;
           try {
             if (routeIdParam) {
               const r = await api.getRoute(routeIdParam);
@@ -335,21 +326,7 @@ export function useRecordVisitScreen() {
               setTodayRoute(r);
               setSelectedScheduleId(null);
               setRecordingWithoutPlan(false);
-              if (routeStopParam) {
-                const stop = (r.stops ?? []).find((s) => s.id === routeStopParam);
-                if (stop) {
-                  setSelectedRouteId(r.id);
-                  setSelectedRouteStopId(stop.id);
-                  setSelectedFarmerId(stop.farmer);
-                  setSelectedFarmId(stop.farm ?? null);
-                } else {
-                  setSelectedRouteId(r.id);
-                  setSelectedRouteStopId(null);
-                }
-              } else {
-                setSelectedRouteId(r.id);
-                setSelectedRouteStopId(null);
-              }
+              setSelectedRouteId(r.id);
               return;
             }
             const weekStart = localWeekStartYmd(new Date());
@@ -368,7 +345,7 @@ export function useRecordVisitScreen() {
         })();
       })();
       return () => { cancelled = true; };
-    }, [params.farmerId, params.routeId, params.routeStopId, userId, applyOptions])
+    }, [params.farmerId, params.routeId, userId, applyOptions])
   );
 
   const acceptedSchedules = useMemo(() => {
@@ -395,7 +372,6 @@ export function useRecordVisitScreen() {
       if (s?.status === 'accepted') {
         setSelectedScheduleId(s.id);
         setSelectedRouteId(null);
-        setSelectedRouteStopId(null);
         setRecordingWithoutPlan(false);
         setSelectedFarmerId(s.farmer ?? null);
         setSelectedFarmId(s.farm ?? null);
@@ -403,7 +379,7 @@ export function useRecordVisitScreen() {
     }
   }, [params.scheduleId, plannedSchedules]);
 
-  /** Single route for today with no planned stops: route is already chosen; user only picks farmer/stockist (or ad-hoc from here). */
+  /** Exactly one route for today: select it so the officer can log visits (same route, many visits). */
   useEffect(() => {
     const routeIdParam =
       typeof params.routeId === 'string'
@@ -416,7 +392,6 @@ export function useRecordVisitScreen() {
     if (recordingWithoutPlan) return;
     if (todayRoutes.length !== 1) return;
     const r = todayRoutes[0];
-    if ((r.stops?.length ?? 0) > 0) return;
     setTodayRoute(r);
     setSelectedRouteId((prev) => prev ?? r.id);
   }, [todayRoutes, params.routeId, selectedScheduleId, recordingWithoutPlan]);
@@ -708,22 +683,10 @@ export function useRecordVisitScreen() {
     (distanceM === null || gpsValid) &&
     !!selectedFarmerId;
 
-  const pickRouteStop = useCallback((stop: RouteStop) => {
-    const route = todayRoute;
-    if (!route) return;
-    setRecordingWithoutPlan(false);
-    setSelectedRouteStopId(stop.id);
-    setSelectedRouteId(route.id);
-    setSelectedScheduleId(null);
-    setSelectedFarmerId(stop.farmer);
-    setSelectedFarmId(stop.farm ?? null);
-  }, [todayRoute]);
-
   const pickTodayRoute = useCallback((route: Route) => {
     setRecordingWithoutPlan(false);
     setTodayRoute(route);
     setSelectedRouteId(route.id);
-    setSelectedRouteStopId(null);
     setSelectedScheduleId(null);
     setSelectedFarmerId(null);
     setSelectedFarmId(null);
@@ -744,7 +707,6 @@ export function useRecordVisitScreen() {
     if (!route) return;
     await refreshLocation();
     setRecordingWithoutPlan(false);
-    setSelectedRouteStopId(null);
     setSelectedRouteId(route.id);
     setSelectedScheduleId(null);
     setSelectedFarmerId(null);
@@ -757,7 +719,6 @@ export function useRecordVisitScreen() {
     setRecordingWithoutPlan(false);
     setSelectedScheduleId(s.id);
     setSelectedRouteId(null);
-    setSelectedRouteStopId(null);
     if (s.farmer) setSelectedFarmerId(s.farmer);
     setSelectedFarmId(s.farm ?? null);
   }, []);
@@ -766,7 +727,6 @@ export function useRecordVisitScreen() {
     setRecordingWithoutPlan(true);
     setSelectedScheduleId(null);
     setSelectedRouteId(null);
-    setSelectedRouteStopId(null);
     setSelectedFarmerId(null);
     setSelectedFarmId(null);
     setFarmerModalTitle(null);
@@ -819,7 +779,6 @@ export function useRecordVisitScreen() {
     todayRoutes,
     acceptedSchedules,
     farmers,
-    selectedRouteStopId,
     selectedRouteId,
     selectedScheduleId,
     selectedFarmerId,
@@ -851,7 +810,6 @@ export function useRecordVisitScreen() {
     maxM,
     photoUris,
     submitting,
-    pickRouteStop,
     pickTodayRoute,
     adHocRouteCustomer,
     pickSchedule,

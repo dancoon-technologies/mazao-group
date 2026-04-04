@@ -119,9 +119,7 @@ export default function ProposeScheduleScreen() {
     const map: Record<string, Route> = {};
     for (const r of routesWeek) {
       const prev = map[r.scheduled_date];
-      const prevStops = prev?.stops?.length ?? 0;
-      const nextStops = r.stops?.length ?? 0;
-      if (!prev || nextStops > prevStops || (nextStops === prevStops && r.updated_at && prev.updated_at && r.updated_at > prev.updated_at)) {
+      if (!prev || (r.updated_at && prev.updated_at && r.updated_at > prev.updated_at)) {
         map[r.scheduled_date] = r;
       }
     }
@@ -221,7 +219,6 @@ export default function ProposeScheduleScreen() {
           name: '',
           activity_types: [DEFAULT_ACTIVITY_TYPE],
           notes: '',
-          stops: [],
         });
         logger.info('Weekly route quick-created', {
           scheduled_date: date,
@@ -698,7 +695,7 @@ export default function ProposeScheduleScreen() {
                     weekDays.map((date) => {
                       const route = routeByDate[date];
                       const hasRoute = !!route;
-                      const stopCount = route?.stops?.length ?? 0;
+                      const actCount = route?.activity_types?.length ?? 0;
                       return (
                         <Card
                           key={date}
@@ -714,8 +711,10 @@ export default function ProposeScheduleScreen() {
                                 </Text>
                                 {hasRoute ? (
                                   <Text variant="bodyMedium" style={styles.weekRouteSummary}>
-                                    {route.name || 'Route'} · {stopCount}{' '}
-                                    {stopCount === 1 ? 'stop' : 'stops'}
+                                    {route.name || 'Day route'}
+                                    {actCount > 0
+                                      ? ` · ${actCount} ${actCount === 1 ? 'activity' : 'activities'}`
+                                      : ''}
                                   </Text>
                                 ) : (
                                   <Text variant="bodySmall" style={styles.weekNoRoute}>

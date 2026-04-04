@@ -8,7 +8,7 @@ from rest_framework.response import Response
 
 from accounts.models import User
 
-from .models import Route, RouteReport, RouteStop
+from .models import Route, RouteReport
 from .serializers import (
     RouteCreateSerializer,
     RouteReportCreateUpdateSerializer,
@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 def _routes_queryset(user):
     qs = Route.objects.filter(is_deleted=False).select_related(
         "officer", "officer__department"
-    ).prefetch_related("stops", "stops__farmer", "stops__farm")
+    )
     if user.role == User.Role.ADMIN:
         return qs
     if user.role == User.Role.SUPERVISOR:
@@ -84,9 +84,7 @@ class RouteListCreateView(generics.ListCreateAPIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
         route = serializer.save()
-        route = Route.objects.select_related("officer").prefetch_related(
-            "stops", "stops__farmer", "stops__farm"
-        ).get(pk=route.pk)
+        route = Route.objects.select_related("officer").get(pk=route.pk)
         out = RouteSerializer(route)
         return Response(out.data, status=status.HTTP_201_CREATED)
 

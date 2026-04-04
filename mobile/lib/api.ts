@@ -57,17 +57,7 @@ export interface Schedule {
   created_at?: string;
 }
 
-/** One stop on a route: farmer/stockist + optional farm. */
-export interface RouteStop {
-  id: string;
-  farmer: string;
-  farmer_display_name: string;
-  farm: string | null;
-  farm_display_name: string | null;
-  order: number;
-}
-
-/** Route = day plan: many stops (farmers/locations), same officer and activities. */
+/** Route = one officer’s plan for a calendar day. Many visits can link to the same route. */
 export interface Route {
   id: string;
   officer: string;
@@ -77,7 +67,6 @@ export interface Route {
   name: string;
   activity_types: string[];
   notes: string;
-  stops: RouteStop[];
   created_at?: string;
   updated_at?: string;
 }
@@ -381,7 +370,6 @@ const DRF_FIELD_LABELS: Record<string, string> = {
   name: 'Route name',
   activity_types: 'Activity types',
   notes: 'Notes',
-  stops: 'Stops',
   farmer_id: 'Customer',
   farm_id: 'Farm or outlet',
   order: 'Stop order',
@@ -390,7 +378,7 @@ const DRF_FIELD_LABELS: Record<string, string> = {
 };
 
 /**
- * Flatten DRF validation errors (including nested `stops: [{ farmer_id: [...] }]`) into readable sentences.
+ * Flatten DRF validation errors (including nested lists of object errors) into readable sentences.
  */
 function formatDrfValidationErrors(error: unknown): string | null {
   if (error == null || typeof error !== 'object' || Array.isArray(error)) return null;
@@ -429,9 +417,9 @@ function formatDrfValidationErrors(error: unknown): string | null {
       if (typeof value[0] === 'object' && value[0] !== null && !Array.isArray(value[0])) {
         value.forEach((item, i) => {
           if (item && typeof item === 'object' && !Array.isArray(item)) {
-            const stopPrefix = key === 'stops' ? `Stop ${i + 1}` : `${label(key)} ${i + 1}`;
+            const itemPrefix = `${label(key)} ${i + 1}`;
             for (const [k, v] of Object.entries(item as Record<string, unknown>)) {
-              walk(stopPrefix, k, v);
+              walk(itemPrefix, k, v);
             }
           }
         });
@@ -715,18 +703,12 @@ export const api = {
     name?: string;
     activity_types?: string[];
     notes?: string;
-    stops?: { farmer_id: string; farm_id?: string | null; order?: number }[];
   }) {
     const payload: Record<string, unknown> = {
       scheduled_date: String(body.scheduled_date).trim(),
       name: body.name?.trim() ?? '',
       activity_types: body.activity_types ?? [],
       notes: body.notes?.trim() ?? '',
-      stops: (body.stops ?? []).map((s, i) => ({
-        farmer_id: s.farmer_id,
-        farm_id: s.farm_id ?? null,
-        order: s.order ?? i,
-      })),
     };
     if (body.officer != null && body.officer !== '') {
       payload.officer = body.officer;
@@ -741,7 +723,6 @@ export const api = {
       name?: string;
       activity_types?: string[];
       notes?: string;
-      stops?: { farmer_id: string; farm_id?: string | null; order?: number }[];
     }
   ) {
     const payload: Record<string, unknown> = {};
@@ -749,13 +730,6 @@ export const api = {
     if (body.name !== undefined) payload.name = body.name?.trim() ?? '';
     if (body.activity_types !== undefined) payload.activity_types = body.activity_types;
     if (body.notes !== undefined) payload.notes = body.notes?.trim() ?? '';
-    if (body.stops !== undefined) {
-      payload.stops = body.stops.map((s, i) => ({
-        farmer_id: s.farmer_id,
-        farm_id: s.farm_id ?? null,
-        order: s.order ?? i,
-      }));
-    }
     return request<Route>(`/routes/${id}/`, {
       method: 'PATCH',
       body: JSON.stringify(payload),
