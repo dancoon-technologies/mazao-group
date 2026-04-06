@@ -41,7 +41,7 @@ These are requested at runtime when needed.
 
 ## App icon and splash screen
 
-Source files live under `assets/images/` (`icon.png`, `splash-icon.png`, Android adaptive layers, `favicon.png`). After you **replace** those PNGs, the native launcher and splash do **not** update until the Android project is regenerated from `app.json`.
+Source files live under `assets/images/` (`icon.png`, `splash-icon.png`, `favicon.png`). The Android launcher uses **the same** `icon.png` as iOS (adaptive icon: foreground + white background in `app.json`). After you **replace** PNGs, the native launcher and splash do **not** update until the Android project is regenerated from `app.json`.
 
 1. Update the images (1024×1024 for `icon.png`; splash icon typically centered on a transparent or solid background — see [Expo splash & icon](https://docs.expo.dev/develop/user-interface/splash-screen-and-app-icon/)).
 2. From `mobile/`, sync native Android resources: `npm run sync:android` (or `npm run sync:android:clean` if icons/splash still look stale; this rewrites the `android/` folder).

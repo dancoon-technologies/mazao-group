@@ -5,6 +5,8 @@ import { Alert, Badge, Box, Button, Card, Group, SegmentedControl, Stack, Tabs, 
 import { api } from "@/lib/api";
 import type { MaintenanceIncident, MaintenanceStatus } from "@/lib/types";
 import { useAuth } from "@/contexts/AuthContext";
+import { LocationMiniMap, type LocationMiniMapPoint } from "@/components/LocationMiniMap";
+import { formatDateTime } from "@/lib/format";
 
 const STATUS_LABEL: Record<MaintenanceStatus, string> = {
   reported: "Reported",
@@ -13,6 +15,75 @@ const STATUS_LABEL: Record<MaintenanceStatus, string> = {
   released: "Released",
   rejected: "Rejected",
 };
+
+const PIN_REPORTED = "#228be6";
+const PIN_VERIFIED = "#40c057";
+const PIN_GARAGE = "#6d28d9";
+
+function mapPointsFrom(
+  id: string,
+  lat: number | null | undefined,
+  lng: number | null | undefined,
+  color: string
+): LocationMiniMapPoint[] {
+  if (lat == null || lng == null) return [];
+  const la = Number(lat);
+  const ln = Number(lng);
+  if (!Number.isFinite(la) || !Number.isFinite(ln)) return [];
+  return [{ id, latitude: la, longitude: ln, color }];
+}
+
+function IncidentLocationMaps({ item }: { item: MaintenanceIncident }) {
+  const reported = mapPointsFrom(`rep-${item.id}`, item.reported_latitude, item.reported_longitude, PIN_REPORTED);
+  const verified = mapPointsFrom(
+    `ver-${item.id}`,
+    item.breakdown_verified_latitude,
+    item.breakdown_verified_longitude,
+    PIN_VERIFIED
+  );
+  const garage = mapPointsFrom(`gar-${item.id}`, item.garage_latitude, item.garage_longitude, PIN_GARAGE);
+
+  return (
+    <Stack gap="sm">
+      <Box>
+        <Text size="xs" c="dimmed">
+          Reported: {formatDateTime(item.reported_at)}
+        </Text>
+        {reported.length > 0 ? (
+          <LocationMiniMap points={reported} height={120} title="Reported location" />
+        ) : (
+          <Text size="xs" c="dimmed" mt={4}>
+            Reported location: —
+          </Text>
+        )}
+      </Box>
+      <Box>
+        <Text size="xs" c="dimmed">
+          Breakdown verified: {item.breakdown_verified_at ? formatDateTime(item.breakdown_verified_at) : "—"}
+        </Text>
+        {verified.length > 0 ? (
+          <LocationMiniMap points={verified} height={120} title="Verified breakdown" />
+        ) : (
+          <Text size="xs" c="dimmed" mt={4}>
+            Verified location: —
+          </Text>
+        )}
+      </Box>
+      <Box>
+        <Text size="xs" c="dimmed">
+          Garage recorded: {item.garage_recorded_at ? formatDateTime(item.garage_recorded_at) : "—"}
+        </Text>
+        {garage.length > 0 ? (
+          <LocationMiniMap points={garage} height={120} title="At garage" />
+        ) : (
+          <Text size="xs" c="dimmed" mt={4}>
+            Garage location: —
+          </Text>
+        )}
+      </Box>
+    </Stack>
+  );
+}
 
 export default function MaintenancePage() {
   const { role } = useAuth();
@@ -25,6 +96,10 @@ export default function MaintenancePage() {
   const [vehicleType, setVehicleType] = useState<"motorbike" | "car" | "other">("motorbike");
   const [issueDescription, setIssueDescription] = useState("");
   const [supervisorNotes, setSupervisorNotes] = useState<Record<string, string>>({});
+
+  const [previewCoords, setPreviewCoords] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [locLoading, setLocLoading] = useState(false);
+  const [locError, setLocError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -41,6 +116,44 @@ export default function MaintenancePage() {
   useEffect(() => {
     load();
   }, [load]);
+
+  const refreshPreviewLocation = useCallback(() => {
+    if (typeof navigator === "undefined" || !navigator.geolocation) {
+      setLocError("Geolocation is not available in this browser.");
+      setPreviewCoords(null);
+      return;
+    }
+    setLocLoading(true);
+    setLocError(null);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setPreviewCoords({ latitude: pos.coords.latitude, longitude: pos.coords.longitude });
+        setLocLoading(false);
+      },
+      () => {
+        setLocError("Could not get location. Allow access in the browser and tap Refresh.");
+        setPreviewCoords(null);
+        setLocLoading(false);
+      },
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+    );
+  }, []);
+
+  useEffect(() => {
+    if (isOfficer) refreshPreviewLocation();
+  }, [isOfficer, refreshPreviewLocation]);
+
+  const officerPreviewPoints = useMemo((): LocationMiniMapPoint[] => {
+    if (!previewCoords) return [];
+    return [
+      {
+        id: "preview-gps",
+        latitude: previewCoords.latitude,
+        longitude: previewCoords.longitude,
+        color: PIN_REPORTED,
+      },
+    ];
+  }, [previewCoords]);
 
   const getCoords = useCallback(async (): Promise<{ latitude: number; longitude: number }> => {
     if (!navigator.geolocation) throw new Error("Geolocation is not available in this browser.");
@@ -136,6 +249,41 @@ export default function MaintenancePage() {
         <Card withBorder>
           <Stack>
             <Text fw={600}>Report breakdown</Text>
+            <Group justify="space-between" align="center" wrap="nowrap">
+              <Text fw={600} size="sm">
+                Location
+              </Text>
+              <Button variant="light" size="xs" onClick={refreshPreviewLocation} loading={locLoading}>
+                Refresh
+              </Button>
+            </Group>
+            {locLoading && !previewCoords ? (
+              <Text size="sm" c="dimmed">
+                Getting location…
+              </Text>
+            ) : null}
+            {locError ? (
+              <Text size="sm" c="red">
+                {locError}
+              </Text>
+            ) : null}
+            {officerPreviewPoints.length > 0 ? (
+              <LocationMiniMap
+                points={officerPreviewPoints}
+                height={140}
+                title="Your location"
+                subtitle="Where this report will be pinned"
+                aria-label={
+                  previewCoords
+                    ? `Map preview at ${previewCoords.latitude.toFixed(5)}, ${previewCoords.longitude.toFixed(5)}`
+                    : undefined
+                }
+              />
+            ) : !locLoading && !locError ? (
+              <Text size="sm" c="dimmed">
+                No GPS fix yet — tap Refresh
+              </Text>
+            ) : null}
             <SegmentedControl
               value={vehicleType}
               onChange={(v) => setVehicleType(v as "motorbike" | "car" | "other")}
@@ -168,7 +316,9 @@ export default function MaintenancePage() {
           <Stack>
             {openIncidents.length === 0 ? (
               <Card withBorder>
-                <Text size="sm" c="dimmed">No open maintenance incidents.</Text>
+                <Text size="sm" c="dimmed">
+                  No open maintenance incidents.
+                </Text>
               </Card>
             ) : null}
             {openIncidents.map((item) => (
@@ -181,15 +331,7 @@ export default function MaintenancePage() {
                     <Badge>{STATUS_LABEL[item.status]}</Badge>
                   </Group>
                   <Text size="sm">{item.issue_description}</Text>
-                  <Text size="xs" c="dimmed">
-                    Reported GPS: {item.reported_latitude ?? "—"}, {item.reported_longitude ?? "—"}
-                  </Text>
-                  <Text size="xs" c="dimmed">
-                    Verified GPS: {item.breakdown_verified_latitude ?? "—"}, {item.breakdown_verified_longitude ?? "—"}
-                  </Text>
-                  <Text size="xs" c="dimmed">
-                    Garage GPS: {item.garage_latitude ?? "—"}, {item.garage_longitude ?? "—"}
-                  </Text>
+                  <IncidentLocationMaps item={item} />
 
                   {isSupervisor ? (
                     <Box>
@@ -231,7 +373,9 @@ export default function MaintenancePage() {
           <Stack>
             {recordsIncidents.length === 0 ? (
               <Card withBorder>
-                <Text size="sm" c="dimmed">No released/rejected records yet.</Text>
+                <Text size="sm" c="dimmed">
+                  No released/rejected records yet.
+                </Text>
               </Card>
             ) : null}
             {recordsIncidents.map((item) => (
@@ -247,17 +391,11 @@ export default function MaintenancePage() {
                   </Group>
                   <Text size="sm">{item.issue_description}</Text>
                   {item.supervisor_notes ? (
-                    <Text size="sm" c="dimmed">Supervisor notes: {item.supervisor_notes}</Text>
+                    <Text size="sm" c="dimmed">
+                      Supervisor notes: {item.supervisor_notes}
+                    </Text>
                   ) : null}
-                  <Text size="xs" c="dimmed">
-                    Reported GPS: {item.reported_latitude ?? "—"}, {item.reported_longitude ?? "—"}
-                  </Text>
-                  <Text size="xs" c="dimmed">
-                    Verified GPS: {item.breakdown_verified_latitude ?? "—"}, {item.breakdown_verified_longitude ?? "—"}
-                  </Text>
-                  <Text size="xs" c="dimmed">
-                    Garage GPS: {item.garage_latitude ?? "—"}, {item.garage_longitude ?? "—"}
-                  </Text>
+                  <IncidentLocationMaps item={item} />
                 </Stack>
               </Card>
             ))}

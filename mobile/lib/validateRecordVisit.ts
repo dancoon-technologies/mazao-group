@@ -81,90 +81,88 @@ export function validateRecordVisit(input: ValidateRecordVisitInput): ValidateRe
     if (bothVisitLinkOptions && visitLinkMode === null) {
       return {
         valid: false,
-        error:
-          'Choose whether this visit is a planned visit or part of today’s weekly route, then continue below.',
+        error: 'Choose planned visit or weekly route.',
       };
     }
     if (acceptedSchedulesLength > 0 && hasWeeklyRouteToday) {
       return {
         valid: false,
-        error:
-          'Select a planned visit (accepted schedule) or today’s route plan, then choose farmer or stockist.',
+        error: 'Select a planned visit or weekly route, then a customer.',
       };
     }
     if (hasWeeklyRouteToday) {
       return {
         valid: false,
-        error:
-          'Select which route you are on (or use “Record from here”), then choose farmer or stockist.',
+        error: 'Select your route (or Record from here), then a customer.',
       };
     }
     if (acceptedSchedulesLength > 0) {
       return {
         valid: false,
-        error: 'Select a planned visit (accepted schedule) with date today or in the past.',
+        error: 'Select a planned visit (today or earlier).',
       };
     }
     return {
       valid: false,
-      error:
-        'You need an accepted schedule for today or a past date, or a weekly route for today, to record this visit.',
+      error: 'Select a schedule, weekly route, or use Not on my schedule.',
     };
   }
   // Schedule and route are optional: backend allows farmer-only visits (unplanned field stop).
   if (!selectedFarmerId || !location) {
-    return { valid: false, error: `Select ${partnerLabel.toLowerCase()} and ensure location is available.` };
+    return { valid: false, error: `Select ${partnerLabel.toLowerCase()} and wait for GPS.` };
   }
   if (photoUrisLength === 0) {
-    return { valid: false, error: 'Capture at least one photo for verification.' };
+    return { valid: false, error: 'Add at least one photo.' };
   }
   if (distanceM !== null && distanceM > maxDistanceM) {
     return {
       valid: false,
-      error: `You must be within ${maxDistanceM}m of the ${partnerLabel.toLowerCase()}/${partnerLabel.toLowerCase()}'s location to record this visit. You are ${distanceM}m away.`,
+      error: `Too far (${distanceM}m; max ${maxDistanceM}m). Move closer to the ${partnerLabel.toLowerCase()}.`,
     };
   }
   if (activityTypes.length === 0) {
-    return { valid: false, error: 'Select at least one activity type.' };
+    return { valid: false, error: 'Pick at least one activity.' };
   }
   const allowedValues = new Set(activityTypesList.map((a) => a.value));
   const invalidActivity = activityTypes.find((a) => !allowedValues.has(a));
   if (invalidActivity) {
-    return { valid: false, error: 'Selected activity type is not allowed for your department. Please choose from the list.' };
+    return { valid: false, error: 'Pick an activity from the list.' };
   }
   if (notes.length > FIELD_MAX_LENGTHS.notes) {
     return { valid: false, error: `Notes must be ${FIELD_MAX_LENGTHS.notes} characters or fewer.` };
   }
-  for (const f of step3Fields) {
-    const val = (step3Values[f.key] ?? '').trim();
-    if (f.required && !val) {
-      return { valid: false, error: `Additional details: "${f.label}" is required.` };
-    }
-    const schema = visitFormFieldSchema?.[f.key];
-    if (f.key === 'stockist_payment_amount' && val !== '') {
-      const n = parseFloat(val);
-      if (Number.isNaN(n)) {
-        return { valid: false, error: `"${f.label}" must be a number.` };
+  if (!skipStep3) {
+    for (const f of step3Fields) {
+      const val = (step3Values[f.key] ?? '').trim();
+      if (f.required && !val) {
+        return { valid: false, error: `"${f.label}" is required.` };
       }
-      if (n < 0) {
-        return { valid: false, error: `"${f.label}" cannot be negative.` };
+      const schema = visitFormFieldSchema?.[f.key];
+      if (f.key === 'stockist_payment_amount' && val !== '') {
+        const n = parseFloat(val);
+        if (Number.isNaN(n)) {
+          return { valid: false, error: `"${f.label}" must be a number.` };
+        }
+        if (n < 0) {
+          return { valid: false, error: `"${f.label}" cannot be negative.` };
+        }
       }
-    }
-    if (schema?.value_type === 'number' && val !== '') {
-      const n = parseFloat(val);
-      if (Number.isNaN(n)) {
-        return { valid: false, error: `"${f.label}" must be a number.` };
+      if (schema?.value_type === 'number' && val !== '') {
+        const n = parseFloat(val);
+        if (Number.isNaN(n)) {
+          return { valid: false, error: `"${f.label}" must be a number.` };
+        }
       }
-    }
-    if (schema?.value_type === 'integer' && val !== '') {
-      const n = parseFloat(val);
-      if (Number.isNaN(n) || !Number.isInteger(n)) {
-        return { valid: false, error: `"${f.label}" must be a whole number.` };
+      if (schema?.value_type === 'integer' && val !== '') {
+        const n = parseFloat(val);
+        if (Number.isNaN(n) || !Number.isInteger(n)) {
+          return { valid: false, error: `"${f.label}" must be a whole number.` };
+        }
       }
-    }
-    const maxLen = FIELD_MAX_LENGTHS[f.key];
-    if (maxLen != null && val.length > maxLen) {
-      return { valid: false, error: `"${f.label}" must be ${maxLen} characters or fewer.` };
+      const maxLen = FIELD_MAX_LENGTHS[f.key];
+      if (maxLen != null && val.length > maxLen) {
+        return { valid: false, error: `"${f.label}" must be ${maxLen} characters or fewer.` };
+      }
     }
   }
   return { valid: true };

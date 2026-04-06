@@ -1,4 +1,4 @@
-import { cardShadow, cardStyle, colors, spacing } from '@/constants/theme';
+import { colors, radius, spacing } from '@/constants/theme';
 import { memo } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { Text } from 'react-native-paper';
@@ -61,13 +61,21 @@ export const ListItemRow = memo(function ListItemRow({
 
 const styles = StyleSheet.create({
   card: {
-    ...cardStyle,
-    ...cardShadow,
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.md,
     marginBottom: spacing.sm,
+    backgroundColor: colors.white,
+    borderRadius: radius.card,
+    borderWidth: 1,
+    borderColor: colors.gray200,
+    // Light edge only — list rows are not floating action tiles
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 3,
+    elevation: 1,
   },
   row: {
     flexDirection: 'row',

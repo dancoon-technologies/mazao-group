@@ -5,11 +5,13 @@ import {
   type MaintenanceStatus,
 } from '@/lib/api';
 import NetInfo from '@react-native-community/netinfo';
+import { LocationMiniMap, type LocationMiniMapPoint } from '@/components/LocationMiniMap';
+import { RecordVisitCameraModal } from '@/components/recordVisit/RecordVisitCameraModal';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as Location from 'expo-location';
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useMemo, useRef, useState } from 'react';
-import { Modal, Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
+import { Platform, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import {
   ActivityIndicator,
   Button,
@@ -48,6 +50,16 @@ function formatWhen(iso: string | null | undefined): string {
   }
 }
 
+function reportedMapPoints(item: MaintenanceIncident): LocationMiniMapPoint[] {
+  const lat = item.reported_latitude;
+  const lng = item.reported_longitude;
+  if (lat == null || lng == null) return [];
+  const la = Number(lat);
+  const ln = Number(lng);
+  if (!Number.isFinite(la) || !Number.isFinite(ln)) return [];
+  return [{ id: `rep-${item.id}`, latitude: la, longitude: ln, color: colors.primary }];
+}
+
 export default function MaintenanceScreen() {
   const { role } = useAuth();
   const isSupervisor = role === 'supervisor';
@@ -61,9 +73,12 @@ export default function MaintenanceScreen() {
   const [issueDescription, setIssueDescription] = useState('');
   const [supervisorNote, setSupervisorNote] = useState<Record<string, string>>({});
   const [photos, setPhotos] = useState<{ uri: string; type?: string; name?: string }[]>([]);
-  const [cameraOpen, setCameraOpen] = useState(false);
+  const [cameraModalVisible, setCameraModalVisible] = useState(false);
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
-  const cameraRef = useRef<CameraView | null>(null);
+  const cameraRef = useRef<CameraView>(null);
+  const [reportLocation, setReportLocation] = useState<Location.LocationObject | null>(null);
+  const [locationLoading, setLocationLoading] = useState(false);
+  const [locationError, setLocationError] = useState('');
 
   const load = useCallback(async (asRefresh?: boolean) => {
     if (asRefresh) setRefreshing(true);
@@ -98,10 +113,41 @@ export default function MaintenanceScreen() {
     }
   }, []);
 
+  const refreshLocation = useCallback(async () => {
+    setLocationError('');
+    setLocationLoading(true);
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        setLocationError('Location permission is required for GPS on reports and status updates.');
+        setReportLocation(null);
+        return;
+      }
+      if (Platform.OS === 'android') {
+        try {
+          await Location.enableNetworkProviderAsync();
+        } catch {
+          // User may dismiss or provider unavailable
+        }
+      }
+      const loc = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.High,
+        mayShowUserSettingsDialog: true,
+      });
+      setReportLocation(loc);
+    } catch {
+      setLocationError('Could not get location. Turn on GPS and tap Refresh.');
+      setReportLocation(null);
+    } finally {
+      setLocationLoading(false);
+    }
+  }, []);
+
   useFocusEffect(
     useCallback(() => {
       load();
-    }, [load])
+      void refreshLocation();
+    }, [load, refreshLocation])
   );
 
   const getCurrentCoords = useCallback(async () => {
@@ -109,9 +155,18 @@ export default function MaintenanceScreen() {
     if (status !== 'granted') {
       throw new Error('Location permission is required.');
     }
+    if (Platform.OS === 'android') {
+      try {
+        await Location.enableNetworkProviderAsync();
+      } catch {
+        // ignore
+      }
+    }
     const loc = await Location.getCurrentPositionAsync({
-      accuracy: Location.Accuracy.Balanced,
+      accuracy: Location.Accuracy.High,
+      mayShowUserSettingsDialog: true,
     });
+    setReportLocation(loc);
     return {
       latitude: loc.coords.latitude,
       longitude: loc.coords.longitude,
@@ -132,6 +187,14 @@ export default function MaintenanceScreen() {
     setError('');
     try {
       const coords = await getCurrentCoords();
+      if (
+        typeof coords.latitude !== 'number' ||
+        typeof coords.longitude !== 'number' ||
+        !Number.isFinite(coords.latitude) ||
+        !Number.isFinite(coords.longitude)
+      ) {
+        throw new Error('Could not read GPS coordinates. Try again after a fix.');
+      }
       await api.createMaintenanceIncident({
         vehicle_type: vehicleType,
         issue_description: issueDescription.trim(),
@@ -142,6 +205,8 @@ export default function MaintenanceScreen() {
       logger.info('Maintenance incident submitted', {
         vehicle_type: vehicleType,
         photos_count: photos.length,
+        reported_latitude: coords.latitude,
+        reported_longitude: coords.longitude,
       });
       setIssueDescription('');
       setPhotos([]);
@@ -158,7 +223,7 @@ export default function MaintenanceScreen() {
     }
   }, [getCurrentCoords, isOfficer, issueDescription, load, photos, vehicleType]);
 
-  const openCamera = useCallback(async () => {
+  const openCameraModal = useCallback(async () => {
     setError('');
     if (!cameraPermission?.granted) {
       const req = await requestCameraPermission();
@@ -167,26 +232,41 @@ export default function MaintenanceScreen() {
         return;
       }
     }
-    setCameraOpen(true);
+    setCameraModalVisible(true);
   }, [cameraPermission?.granted, requestCameraPermission]);
 
-  const capturePhoto = useCallback(async () => {
+  const takePhoto = useCallback(async () => {
+    if (!cameraRef.current || !cameraPermission?.granted) return;
     try {
-      const shot = await cameraRef.current?.takePictureAsync({ quality: 0.7 });
-      if (!shot?.uri) return;
-      setPhotos((prev) => [
-        ...prev,
-        {
-          uri: shot.uri,
-          type: 'image/jpeg',
-          name: `breakdown_${Date.now()}.jpg`,
-        },
-      ]);
-      setCameraOpen(false);
+      const takenAt = new Date().toISOString();
+      const photo = await cameraRef.current.takePictureAsync({
+        quality: 0.8,
+        base64: false,
+        exif: true,
+        ...(reportLocation?.coords && {
+          additionalExif: {
+            GPSLatitude: reportLocation.coords.latitude,
+            GPSLongitude: reportLocation.coords.longitude,
+            GPSAltitude: reportLocation.coords.altitude ?? 0,
+            DateTimeOriginal: takenAt.replace(/\.\d{3}Z$/, ''),
+          },
+        }),
+      });
+      if (photo?.uri) {
+        setPhotos((prev) => [
+          ...prev,
+          {
+            uri: photo.uri,
+            type: 'image/jpeg',
+            name: `breakdown_${Date.now()}.jpg`,
+          },
+        ]);
+        setCameraModalVisible(false);
+      }
     } catch {
       setError('Could not capture photo. Try again.');
     }
-  }, []);
+  }, [cameraPermission?.granted, reportLocation?.coords]);
 
   const updateStatus = useCallback(
     async (incident: MaintenanceIncident, nextStatus: MaintenanceStatus) => {
@@ -235,13 +315,32 @@ export default function MaintenanceScreen() {
     [items]
   );
 
+  const officerMapPoints = useMemo((): LocationMiniMapPoint[] => {
+    const c = reportLocation?.coords;
+    if (!c || !Number.isFinite(c.latitude) || !Number.isFinite(c.longitude)) return [];
+    return [
+      {
+        id: 'current-gps',
+        latitude: c.latitude,
+        longitude: c.longitude,
+        color: colors.primary,
+      },
+    ];
+  }, [reportLocation]);
+
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
       <ScrollView
         style={styles.container}
         contentContainerStyle={styles.content}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={() => load(true)} />
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => {
+              void load(true);
+              void refreshLocation();
+            }}
+          />
         }
       >
         <Text variant="titleLarge" style={styles.title}>
@@ -257,6 +356,37 @@ export default function MaintenanceScreen() {
               <Text variant="labelLarge" style={styles.sectionTitle}>
                 Report breakdown
               </Text>
+              <View style={styles.locationRow}>
+                <Text variant="labelLarge" style={styles.locationHeading}>
+                  Location
+                </Text>
+                <Button mode="text" compact onPress={() => void refreshLocation()} disabled={locationLoading}>
+                  Refresh
+                </Button>
+              </View>
+              {locationLoading ? (
+                <ActivityIndicator style={styles.locationSpinner} />
+              ) : locationError ? (
+                <Text variant="bodySmall" style={styles.locationText}>
+                  {locationError}
+                </Text>
+              ) : officerMapPoints.length > 0 ? (
+                <LocationMiniMap
+                  points={officerMapPoints}
+                  height={140}
+                  title="Your location"
+                  subtitle="Where this report will be pinned"
+                  accessibilityLabel={
+                    reportLocation?.coords
+                      ? `Map preview at ${reportLocation.coords.latitude.toFixed(5)}, ${reportLocation.coords.longitude.toFixed(5)}`
+                      : undefined
+                  }
+                />
+              ) : (
+                <Text variant="bodySmall" style={styles.locationText}>
+                  No GPS fix yet — tap Refresh
+                </Text>
+              )}
               <SegmentedButtons
                 value={vehicleType}
                 onValueChange={(v) =>
@@ -280,14 +410,14 @@ export default function MaintenanceScreen() {
                 placeholder="e.g. puncture, engine overheating, brake failure"
               />
               <View style={styles.photoRow}>
-                <Button mode="outlined" onPress={openCamera} disabled={submitting}>
+                <Button mode="outlined" onPress={() => void openCameraModal()} disabled={submitting}>
                   Take picture
                 </Button>
                 <Text variant="bodySmall">Photos attached: {photos.length}</Text>
               </View>
               <Button
                 mode="contained"
-                onPress={submitIncident}
+                onPress={() => void submitIncident()}
                 loading={submitting}
                 disabled={submitting}
               >
@@ -319,6 +449,7 @@ export default function MaintenanceScreen() {
           </Card>
         ) : (
           openItems.map((item) => {
+            const repPoints = reportedMapPoints(item);
             const badgeColor = STATUS_COLOR[item.status] ?? colors.gray500;
             return (
               <Card key={item.id} style={styles.card} elevation={0}>
@@ -343,6 +474,20 @@ export default function MaintenanceScreen() {
                   <Text variant="bodySmall" style={styles.meta}>
                     Reported: {formatWhen(item.reported_at)}
                   </Text>
+                  {repPoints.length > 0 ? (
+                    <View style={styles.reportedMapWrap}>
+                      <LocationMiniMap
+                        points={repPoints}
+                        height={120}
+                        title="Reported location"
+                        accessibilityLabel={`Reported location map for incident ${item.id}`}
+                      />
+                    </View>
+                  ) : (
+                    <Text variant="bodySmall" style={styles.meta}>
+                      Reported location: —
+                    </Text>
+                  )}
                   <Text variant="bodySmall" style={styles.meta}>
                     Breakdown verified: {formatWhen(item.breakdown_verified_at)}
                   </Text>
@@ -365,7 +510,7 @@ export default function MaintenanceScreen() {
                         {item.status === 'reported' ? (
                           <Button
                             mode="contained-tonal"
-                            onPress={() => updateStatus(item, 'verified_breakdown')}
+                            onPress={() => void updateStatus(item, 'verified_breakdown')}
                             disabled={submitting}
                           >
                             Verify breakdown
@@ -374,7 +519,7 @@ export default function MaintenanceScreen() {
                         {item.status === 'verified_breakdown' ? (
                           <Button
                             mode="contained-tonal"
-                            onPress={() => updateStatus(item, 'at_garage')}
+                            onPress={() => void updateStatus(item, 'at_garage')}
                             disabled={submitting}
                           >
                             Mark at garage
@@ -384,14 +529,14 @@ export default function MaintenanceScreen() {
                           <View style={styles.rowActions}>
                             <Button
                               mode="contained"
-                              onPress={() => updateStatus(item, 'released')}
+                              onPress={() => void updateStatus(item, 'released')}
                               disabled={submitting}
                             >
                               Mark released
                             </Button>
                             <Button
                               mode="outlined"
-                              onPress={() => updateStatus(item, 'rejected')}
+                              onPress={() => void updateStatus(item, 'rejected')}
                               disabled={submitting}
                             >
                               Reject
@@ -406,25 +551,13 @@ export default function MaintenanceScreen() {
             );
           })
         )}
-        <Modal visible={cameraOpen} animationType="slide" onRequestClose={() => setCameraOpen(false)}>
-          <View style={styles.cameraModal}>
-            <View style={styles.cameraHeader}>
-              <Text variant="titleMedium">Take picture</Text>
-              <Pressable onPress={() => setCameraOpen(false)} hitSlop={12}>
-                <Text variant="titleLarge">×</Text>
-              </Pressable>
-            </View>
-            <View style={styles.cameraBody}>
-              <CameraView style={StyleSheet.absoluteFill} ref={cameraRef} />
-              <View style={styles.cameraActions}>
-                <Pressable style={styles.captureButton} onPress={capturePhoto}>
-                  <View style={styles.captureInner} />
-                </Pressable>
-              </View>
-            </View>
-          </View>
-        </Modal>
       </ScrollView>
+      <RecordVisitCameraModal
+        visible={cameraModalVisible}
+        onClose={() => setCameraModalVisible(false)}
+        cameraRef={cameraRef}
+        onCapture={() => void takePhoto()}
+      />
     </SafeAreaView>
   );
 }
@@ -437,6 +570,17 @@ const styles = StyleSheet.create({
   subtitle: { marginTop: 4, opacity: 0.8, marginBottom: spacing.md },
   card: { marginBottom: spacing.md },
   sectionTitle: { marginBottom: spacing.sm },
+  locationHeading: { fontWeight: '700' },
+  locationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+    marginBottom: spacing.xs,
+  },
+  locationText: { opacity: 0.9, marginBottom: spacing.sm },
+  locationSpinner: { marginBottom: spacing.sm },
+  reportedMapWrap: { marginTop: spacing.xs, marginBottom: spacing.xs },
   segment: { marginBottom: spacing.md },
   input: { marginBottom: spacing.sm },
   photoRow: { marginBottom: spacing.sm, gap: spacing.sm },
@@ -448,37 +592,4 @@ const styles = StyleSheet.create({
   statusChip: { alignSelf: 'flex-start' },
   actions: { marginTop: spacing.sm, gap: spacing.sm },
   rowActions: { flexDirection: 'row', gap: spacing.sm },
-  cameraModal: { flex: 1, backgroundColor: '#000' },
-  cameraHeader: {
-    paddingHorizontal: spacing.md,
-    paddingTop: spacing.lg,
-    paddingBottom: spacing.sm,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: '#fff',
-  },
-  cameraBody: { flex: 1 },
-  cameraActions: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: spacing.xl,
-    alignItems: 'center',
-  },
-  captureButton: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    borderWidth: 3,
-    borderColor: '#fff',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  captureInner: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: '#fff',
-  },
 });

@@ -27,8 +27,8 @@ export default function AppTabsLayout() {
   const isSupervisor = role === 'supervisor';
 
   const openDrawer = () => {
-    const parent = navigation.getParent();
-    if (parent) parent.dispatch(DrawerActions.openDrawer());
+    // Drawer wraps (tabs). getParent() is often null in Expo Router; DrawerActions bubble from nested navigators.
+    navigation.dispatch(DrawerActions.openDrawer());
   };
 
   return (
@@ -166,11 +166,9 @@ export default function AppTabsLayout() {
           tabBarIcon: ({ color, size }) => (
             <MaterialCommunityIcons name={TAB_ICONS.menu} size={size} color={color} />
           ),
-        }}
-        listeners={{
-          tabPress: (e) => {
-            e.preventDefault();
-            openDrawer();
+          tabBarButton: (props) => {
+            const { ref: _ref, ...rest } = props as { ref?: unknown; [k: string]: unknown };
+            return <Pressable {...rest} onPress={() => openDrawer()} />;
           },
         }}
       />

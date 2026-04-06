@@ -1,11 +1,13 @@
 import {
   ActionCard,
   EmptyStateCard,
+  HomeHero,
+  PrimaryVisitCta,
   SectionHeader,
   StatCard,
 } from '@/components/dashboard';
 import { ListItemRow } from '@/components/ListItemRow';
-import { cardShadow, cardStyle, colors, radius, spacing } from '@/constants/theme';
+import { colors, radius, spacing } from '@/constants/theme';
 import { useAppRefresh } from '@/contexts/AppRefreshContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { api, getLabels, type Farmer, type Schedule } from '@/lib/api';
@@ -16,22 +18,21 @@ import { syncWithServer } from '@/lib/syncWithServer';
 import { appMeta$, farmers$, schedules$, visits$ } from '@/store/observable';
 import { observer, useSelector } from '@legendapp/state/react';
 import NetInfo from '@react-native-community/netinfo';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Pressable,
   RefreshControl,
   ScrollView,
   StyleSheet,
+  Text,
   View,
 } from 'react-native';
 import {
   ActivityIndicator,
   Card,
   Chip,
-  IconButton,
   Surface,
-  Text,
 } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -55,6 +56,16 @@ function HomeScreenInner() {
   const [error, setError] = useState('');
 
   const labels = useSelector(() => getLabels(appMeta$.cachedOptions.get()));
+  const lastSyncAt = useSelector(() => appMeta$.lastSyncAt.get());
+
+  const syncLabel = useMemo(() => {
+    if (!lastSyncAt) return null;
+    const mins = Math.round((Date.now() - new Date(lastSyncAt).getTime()) / 60000);
+    if (mins < 1) return 'Synced · Just now';
+    if (mins === 1) return 'Synced · 1 min ago';
+    return `Synced · ${mins} min ago`;
+  }, [lastSyncAt, refreshTrigger]);
+
   /** Reactive read from store — updates when rehydration or sync populates store. */
   const farmers = useSelector<Farmer[]>(() => {
     const list = farmers$.get() ?? [];
@@ -117,7 +128,6 @@ function HomeScreenInner() {
     load();
   }, [load]);
 
-  // Refetch when app returns to foreground and sync completed (e.g. after unlock)
   useEffect(() => {
     if (refreshTrigger > 0 && refreshTrigger !== prevRefreshTrigger.current) {
       prevRefreshTrigger.current = refreshTrigger;
@@ -182,108 +192,68 @@ function HomeScreenInner() {
     return 'Good evening';
   }, []);
 
+  const heroName = displayName ?? email ?? (isSupervisor ? 'Supervisor' : 'Field officer');
+
   if (loading) {
     return (
       <SafeAreaView style={styles.safe} edges={['top']}>
-        <Surface style={styles.centered} elevation={0}>
-          <ActivityIndicator size="large" />
-          <Text variant="bodyLarge" style={styles.loadingText}>
-            Loading dashboard…
-          </Text>
-        </Surface>
+        <LinearGradient
+          colors={['#14532D', '#1B8F3A']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.loadingGradient}
+        >
+          <ActivityIndicator size="large" color={colors.white} />
+          <Text style={styles.loadingCaption}>Loading dashboard…</Text>
+        </LinearGradient>
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={styles.safe} edges={['top']}>
       <ScrollView
         style={styles.container}
-        contentContainerStyle={styles.content}
+        contentContainerStyle={styles.scrollContent}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         showsVerticalScrollIndicator={false}
       >
-        <Surface style={styles.welcomeCard} elevation={0}>
-          <View style={styles.welcomeRow}>
-            <Pressable
-              style={styles.notificationTouch}
-              onPress={() => routerInstance.push('/(app)/notifications' as never)}
-              android_ripple={{ color: 'rgba(0,0,0,0.1)', borderless: true }}
-            >
-              <IconButton
-                icon="bell-outline"
-                size={24}
-                iconColor={colors.gray700}
-                style={styles.notificationIcon}
-              />
-            </Pressable>
-            <View style={styles.welcomeTextBlock}>
-              <Text variant="bodyLarge" style={styles.welcomeGreeting}>{greeting}</Text>
-              <Text variant="bodyLarge" style={styles.welcomeName}>
-                {displayName ?? email ?? (isSupervisor ? 'Supervisor' : 'Field officer')}
-              </Text>
-              <View style={styles.welcomeMeta}>
-                {department ? (
-                  <Chip style={styles.tag} textStyle={styles.tagText} compact>
-                    {department}
-                  </Chip>
-                ) : null}
-                {(() => {
-                  const last = appMeta$.lastSyncAt.get();
-                  if (!last) return null;
-                  const mins = Math.round((Date.now() - new Date(last).getTime()) / 60000);
-                  const label = mins < 1 ? 'Just now' : mins === 1 ? '1 min ago' : `${mins} min ago`;
-                  return (
-                    <Text variant="bodySmall" style={styles.lastSync}>
-                      Synced {label}
-                    </Text>
-                  );
-                })()}
-              </View>
+        <HomeHero
+          greeting={greeting}
+          displayName={heroName}
+          departmentLabel={department}
+          syncLabel={syncLabel}
+          onPressNotifications={() => routerInstance.push('/(app)/notifications' as never)}
+        />
+
+        <View style={styles.sheet}>
+          {isOfficer ? <PrimaryVisitCta onPress={() => openRecordVisit()} /> : null}
+
+          <Text style={styles.sectionEyebrow}>Quick actions</Text>
+          <Text style={styles.sectionHint}>Shortcuts to common tasks</Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.actionsScroll}
+          >
+            <ActionCard icon="account-plus" label="Add farmer" onPress={openAddFarmer} />
+            <ActionCard icon="store-outline" label="Add stockist" onPress={openAddStockist} />
+            <ActionCard icon="calendar" label="Schedule" onPress={openProposeSchedule} />
+            <ActionCard icon="tools" label="Maintenance" onPress={openMaintenance} />
+          </ScrollView>
+
+          <View style={styles.statsPanel}>
+            <Text style={styles.sectionEyebrow}>At a glance</Text>
+            <Text style={styles.sectionHint}>Numbers from your work</Text>
+            <View style={styles.statsGrid}>
+              <StatCard icon={STAT_ICONS.today} label="Today" value={todayLabel} hint={todayHint} />
+              <StatCard icon={STAT_ICONS.month} label="This month" value={visitsThisMonth} hint="visits recorded" />
+              <StatCard icon={STAT_ICONS.schedules} label="To do" value={todaySchedules.length} hint="visits left to record" />
+              <StatCard icon={STAT_ICONS.farmers} label={`${labels.partner}s`} value={farmers.length} hint="in your list" />
             </View>
           </View>
-        </Surface>
 
-        <View style={styles.contentContainer}>
-          <View style={styles.actionRow}>
-            {isOfficer && (
-              <ActionCard
-                icon="camera"
-                label="Record Visit"
-                variant="primary"
-                onPress={() => openRecordVisit()}
-              />
-            )}
-            <ActionCard
-              icon="account-plus"
-              label="Add farmer"
-              onPress={openAddFarmer}
-            />
-            <ActionCard
-              icon="store-outline"
-              label="Add stockist"
-              onPress={openAddStockist}
-            />
-            <ActionCard
-              icon="calendar"
-              label="Schedule"
-              onPress={openProposeSchedule}
-            />
-            <ActionCard
-              icon="tools"
-              label="Maintenance"
-              onPress={openMaintenance}
-            />
-          </View>
-
-          <View style={styles.statsGrid}>
-            <StatCard icon={STAT_ICONS.today} label="Today" value={todayLabel} hint={todayHint} />
-            <StatCard icon={STAT_ICONS.month} label="This month" value={visitsThisMonth} hint="visits recorded" />
-            <StatCard icon={STAT_ICONS.schedules} label="To do" value={todaySchedules.length} hint="visits left to record" />
-            <StatCard icon={STAT_ICONS.farmers} label={`${labels.partner}s`} value={farmers.length} hint="in your list" />
-          </View>
-
-          <SectionHeader title="Today's Schedule" />
+          <SectionHeader title="Today's schedule" />
           {todaySchedules.length === 0 ? (
             <EmptyStateCard message={isSupervisor ? 'No team visits scheduled for today' : 'No visits scheduled for today'} />
           ) : (
@@ -306,7 +276,7 @@ function HomeScreenInner() {
           {error ? (
             <Card style={styles.errorCard} elevation={0}>
               <Card.Content>
-                <Text variant="bodyMedium" style={styles.errorText}>{error}</Text>
+                <Text style={styles.errorText}>{error}</Text>
               </Card.Content>
             </Card>
           ) : null}
@@ -317,82 +287,81 @@ function HomeScreenInner() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1 },
-  container: { flex: 1, backgroundColor: colors.backgroundWelcome },
-  content: { padding: 0, flexGrow: 1 },
-  contentContainer: { flex: 1, paddingTop: spacing.lg, paddingHorizontal: spacing.lg, backgroundColor: colors.accentLight, borderTopLeftRadius: 24, borderTopRightRadius: 24, overflow: 'hidden', minHeight: 0 },
-  centered: {
+  safe: { flex: 1, backgroundColor: colors.white },
+  container: { flex: 1, backgroundColor: colors.white },
+  scrollContent: {
+    flexGrow: 1,
+    paddingBottom: spacing.xxl,
+  },
+  loadingGradient: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 24,
+    padding: spacing.xl,
   },
-  loadingText: { marginTop: 16 },
-  welcomeCard: {
-    marginHorizontal: spacing.lg,
-    marginTop: spacing.md,
-    marginBottom: spacing.lg,
-    paddingVertical: spacing.lg,
-    paddingLeft: spacing.sm,
-    paddingRight: spacing.lg,
-    backgroundColor: 'rgba(255,255,255,0.85)',
-    borderRadius: radius.card,
-    overflow: 'hidden',
-  },
-  welcomeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  notificationTouch: {
-    borderRadius: radius.full,
-    marginRight: spacing.xs,
-  },
-  notificationIcon: { margin: 0 },
-  welcomeTextBlock: { flex: 1, justifyContent: 'center', minWidth: 0 },
-  welcomeGreeting: {
-    color: colors.gray500,
-    fontSize: 14,
+  loadingCaption: {
+    marginTop: spacing.lg,
+    color: 'rgba(255,255,255,0.92)',
+    fontSize: 16,
     fontWeight: '600',
-    letterSpacing: 0.2,
+  },
+  sheet: {
+    marginTop: -20,
+    backgroundColor: colors.white,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    paddingTop: spacing.xl + 4,
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.xl,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.07,
+    shadowRadius: 12,
+    elevation: 6,
+  },
+  sectionEyebrow: {
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 0.9,
     textTransform: 'uppercase',
+    color: colors.gray500,
+    marginBottom: 4,
   },
-  welcomeName: {
-    color: colors.gray900,
-    fontSize: 22,
-    fontWeight: '700',
-    lineHeight: 28,
-    marginTop: 2,
+  sectionHint: {
+    fontSize: 13,
+    color: colors.gray500,
+    marginBottom: spacing.md,
   },
-  welcomeMeta: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flexWrap: 'wrap',
-    gap: spacing.sm,
-    marginTop: spacing.sm,
-  },
-  lastSync: { color: colors.gray500, fontSize: 12 },
-  tag: {
-    alignSelf: 'flex-start',
-    backgroundColor: colors.primaryLight,
-    height: 28,
-  },
-  tagText: { color: colors.primary, fontWeight: '600', fontSize: 12 },
-  actionRow: {
+  actionsScroll: {
     flexDirection: 'row',
     gap: spacing.md,
+    paddingBottom: spacing.xl,
+    paddingRight: spacing.lg,
+  },
+  statsPanel: {
+    backgroundColor: colors.gray100,
+    borderRadius: radius.card + 4,
+    padding: spacing.lg,
     marginBottom: spacing.xl,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.04)',
   },
   statsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: spacing.md,
-    marginBottom: spacing.xl,
+    marginTop: spacing.sm,
   },
   statusChip: { backgroundColor: colors.primaryLight },
   statusChipText: { color: colors.primary, fontSize: 12 },
-  errorCard: { ...cardStyle, ...cardShadow, marginTop: spacing.md, borderColor: colors.error },
-  errorText: { color: colors.error },
+  errorCard: {
+    marginTop: spacing.md,
+    borderRadius: radius.card,
+    borderWidth: 1,
+    borderColor: colors.error,
+    backgroundColor: colors.errorLight,
+  },
+  errorText: { color: colors.error, fontSize: 15 },
 });
 
 export default observer(HomeScreenInner);

@@ -47,10 +47,10 @@ export function RecordVisitStep1({
   return (
     <>
       <Surface style={styles.section} elevation={0}>
-        <Text variant="labelLarge" style={styles.fieldLabel}>Additional details</Text>
-        <Text variant="bodySmall" style={styles.hint}>
-          {step3Fields.length ? 'Relevant fields for this activity type.' : 'Optional details.'}
-        </Text>
+        <Text variant="labelLarge" style={styles.fieldLabel}>Extra fields</Text>
+        {step3Fields.length > 0 ? (
+          <Text variant="bodySmall" style={styles.hint}>For this activity type.</Text>
+        ) : null}
         {step3Fields.map((f) => {
           const requiredLabel = f.required ? `${f.label} (required)` : f.label;
           const value = step3Values[f.key] ?? '';
@@ -79,9 +79,7 @@ export function RecordVisitStep1({
       {step3Fields.some((f) => f.key === 'product_lines') && (
         <Surface style={styles.section} elevation={0}>
           <Text variant="labelLarge" style={styles.fieldLabel}>Products</Text>
-          <Text variant="bodySmall" style={styles.hint}>
-            Optional. Record products sold during this visit.
-          </Text>
+          <Text variant="bodySmall" style={styles.hint}>Optional.</Text>
           {productLines.map((line, index) => {
             const productLabel = line.product_name + (line.product_unit ? ` (${line.product_unit})` : '');
             return (

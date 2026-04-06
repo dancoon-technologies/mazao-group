@@ -153,10 +153,7 @@ export function RecordVisitStep0({
     <>
       {bothVisitLinkOptions ? (
         <Surface style={styles.section} elevation={0}>
-          <Text variant="labelLarge" style={styles.fieldLabel}>This visit is for *</Text>
-          <Text variant="bodySmall" style={styles.hint}>
-            You have both a planned visit and today&apos;s weekly route. Choose which one this recording should count toward.
-          </Text>
+          <Text variant="labelLarge" style={styles.fieldLabel}>Count as *</Text>
           <View style={styles.scheduleChips}>
             <Chip
               selected={visitLinkMode === 'schedule'}
@@ -172,12 +169,12 @@ export function RecordVisitStep0({
               style={styles.scheduleChip}
               compact
             >
-              Today&apos;s weekly route
+              Weekly route
             </Chip>
           </View>
           {visitLinkMode === null && mustSelectSchedule ? (
             <HelperText type="error" style={styles.errorHint}>
-              Select Planned visit or Today&apos;s weekly route to continue.
+              Choose planned visit or weekly route.
             </HelperText>
           ) : null}
         </Surface>
@@ -185,10 +182,7 @@ export function RecordVisitStep0({
 
       {showWeeklySection ? (
         <Surface style={styles.section} elevation={0}>
-          <Text variant="labelLarge" style={styles.fieldLabel}>Today&apos;s route plan</Text>
-          <Text variant="bodySmall" style={styles.hint}>
-            Choose which day route you are working on (usually one per day). You can record many visits on the same route — each visit picks the customer below.
-          </Text>
+          <Text variant="labelLarge" style={styles.fieldLabel}>Today&apos;s route</Text>
           {todayRoutes.length > 1 ? (
             <View style={styles.scheduleChips}>
               {todayRoutes.map((r) => (
@@ -205,14 +199,14 @@ export function RecordVisitStep0({
             </View>
           ) : (
             <Text variant="bodySmall" style={styles.muted}>
-              Using today&apos;s plan: {(todayRoute ?? todayRoutes[0])?.notes || (todayRoute ?? todayRoutes[0])?.name || 'Day route'}. Add more visits anytime — they all stay on this route.
+              {(todayRoute ?? todayRoutes[0])?.notes || (todayRoute ?? todayRoutes[0])?.name || 'Today’s route'} · multiple visits OK
             </Text>
           )}
           {showWeeklySection && mustSelectSchedule && !selectedRouteId ? (
             <HelperText type="error" style={styles.errorHint}>
               {todayRoutes.length > 1
-                ? 'Select which route you are on, then choose customer below or “Record from here”.'
-                : 'Confirm your route above, then choose farmer or stockist — or use “Record from here”.'}
+                ? 'Select a route, then pick a customer (or use Record from here).'
+                : 'Pick a customer below, or Record from here.'}
             </HelperText>
           ) : null}
           <Button
@@ -222,16 +216,13 @@ export function RecordVisitStep0({
             onPress={onAdHocRouteCustomer}
             style={styles.routeAdHocBtn}
           >
-            Record from here — choose farmer or stockist
+            Record from here
           </Button>
         </Surface>
       ) : null}
       {showScheduleSection ? (
         <Surface style={styles.section} elevation={0}>
           <Text variant="labelLarge" style={styles.fieldLabel}>Planned visit *</Text>
-          <Text variant="bodySmall" style={styles.hint}>
-            Accepted schedules for today or earlier. Each line shows Farmer vs Stockist when known.
-          </Text>
           <View style={styles.scheduleChips}>
             {acceptedSchedules.map((s) => {
               const f = farmers.find((x) => x.id === s.farmer);
@@ -254,8 +245,8 @@ export function RecordVisitStep0({
           {mustSelectSchedule && (
             <HelperText type="error" style={styles.errorHint}>
               {requiresPlanChoice && todayRoutes.length > 0 && !bothVisitLinkOptions
-                ? 'Select a planned visit or today’s weekly route (see above).'
-                : 'Select a planned visit from the list.'}
+                ? 'Pick a planned visit or weekly route above.'
+                : 'Select a planned visit.'}
             </HelperText>
           )}
         </Surface>
@@ -268,7 +259,7 @@ export function RecordVisitStep0({
           onPress={onFieldVisitNotFromList}
           style={styles.skipPlanBtn}
         >
-          Field visit — not linked to a schedule or route
+          Not on my schedule / route
         </Button>
       ) : null}
 
@@ -276,9 +267,9 @@ export function RecordVisitStep0({
         <View style={styles.warningBox}>
           <MaterialCommunityIcons name="alert-circle-outline" size={22} color={colors.warning} style={styles.warningBoxIcon} />
           <View style={styles.warningBoxContent}>
-            <Text variant="labelLarge" style={styles.warningBoxTitle}>Nothing to visit yet</Text>
+            <Text variant="labelLarge" style={styles.warningBoxTitle}>No plan yet</Text>
             <Text variant="bodySmall" style={styles.warningBoxText}>
-              Add an accepted schedule in Schedules, or submit today’s route under Plan visits → Weekly routes. If you have neither, you can record a field visit and pick a customer below.
+              Add a schedule or weekly route in Schedules — or pick a customer below.
             </Text>
           </View>
         </View>
@@ -287,17 +278,10 @@ export function RecordVisitStep0({
       {!mustSelectSchedule && (
         <>
           <Text variant="labelMedium" style={styles.step2SectionTitle}>
-            {selectedScheduleId
-              ? `${partnerLabel.toUpperCase()} & ${locationLabel.toUpperCase()} (from schedule)`
-              : selectedRouteId
-                ? `${partnerLabel.toUpperCase()} & ${locationLabel.toUpperCase()} (weekly route)`
-                : `${partnerLabel.toUpperCase()} & ${locationLabel.toUpperCase()}`}
+            {`${partnerLabel} · ${locationLabel}`}
           </Text>
           {!selectedScheduleId ? (
             <>
-              <Text variant="bodySmall" style={styles.partnerTypeHint}>
-                Choose whether you are visiting a {labels.partner.toLowerCase()} or a stockist; the list below matches your choice.
-              </Text>
               <View style={styles.partnerTypeRow}>
                 <Button
                   mode={partnerType === 'farmer' ? 'contained' : 'outlined'}
@@ -405,8 +389,7 @@ export function RecordVisitStep0({
             )
           ) : null}
 
-          <Text variant="labelMedium" style={styles.step2SectionTitle}>ACTIVITY TYPES</Text>
-          <Text variant="bodySmall" style={styles.hint}>You can record more than one activity per visit.</Text>
+          <Text variant="labelMedium" style={styles.step2SectionTitle}>Activities</Text>
           <Button
             mode="outlined"
             onPress={onOpenActivityTypesModal}
@@ -443,31 +426,31 @@ export function RecordVisitStep0({
                 ) : locationLoading ? (
                   <>
                     <Text variant="labelLarge" style={styles.locationCardTitle}>Location</Text>
-                    <Text variant="bodySmall" style={styles.locationStatus}>Getting location…</Text>
+                    <Text variant="bodySmall" style={styles.locationStatus}>Getting GPS…</Text>
                   </>
                 ) : location && gpsValid && distanceM !== null ? (
                   <>
-                    <Text variant="labelLarge" style={styles.locationCardTitleVerified}>Location Verified ✓</Text>
+                    <Text variant="labelLarge" style={styles.locationCardTitleVerified}>Within range ✓</Text>
                     <Text variant="bodySmall" style={styles.locationCardDetail}>
-                      {distanceM}m away · within {maxM}m limit
+                      {distanceM}m / max {maxM}m
                     </Text>
                   </>
                 ) : location ? (
                   <>
                     <Text variant="labelLarge" style={styles.locationCardTitle}>
-                      {distanceM !== null && !gpsValid ? 'Out of range' : 'Location'}
+                      {distanceM !== null && !gpsValid ? 'Too far' : 'Location'}
                     </Text>
                     <Text variant="bodySmall" style={styles.locationStatus}>
-                      {distanceM !== null ? `${distanceM}m (max ${maxM}m)` : 'Location captured'}
+                      {distanceM !== null ? `${distanceM}m (max ${maxM}m)` : 'Captured'}
                     </Text>
                     {distanceM !== null && !gpsValid && (
-                      <HelperText type="error">Must be within {maxM}m to record this visit.</HelperText>
+                      <HelperText type="error">Within {maxM}m required.</HelperText>
                     )}
                   </>
                 ) : (
                   <>
                     <Text variant="labelLarge" style={styles.locationCardTitle}>Location</Text>
-                    <Text variant="bodySmall" style={styles.locationStatus}>Location not captured</Text>
+                    <Text variant="bodySmall" style={styles.locationStatus}>No fix yet</Text>
                   </>
                 )}
               </View>
@@ -477,8 +460,7 @@ export function RecordVisitStep0({
             </Pressable>
           </View>
 
-          <Text variant="labelMedium" style={styles.step2SectionTitle}>PHOTO EVIDENCE *</Text>
-          <Text variant="bodySmall" style={styles.hint}>You can add more than one photo. At least one required.</Text>
+          <Text variant="labelMedium" style={styles.step2SectionTitle}>Photos *</Text>
           {photoUris.length > 0 ? (
             <View style={styles.photosRow}>
               {photoUris.map((uri, index) => (
@@ -504,8 +486,8 @@ export function RecordVisitStep0({
           ) : (
             <Pressable style={styles.photoPlaceholder} onPress={openCameraModal}>
               <MaterialCommunityIcons name="camera" size={48} color={colors.gray500} />
-              <Text variant="bodyLarge" style={styles.photoPlaceholderText}>Tap to take photo</Text>
-              <Text variant="bodySmall" style={styles.photoPlaceholderHint}>At least one required for verification</Text>
+              <Text variant="bodyLarge" style={styles.photoPlaceholderText}>Add photo</Text>
+              <Text variant="bodySmall" style={styles.photoPlaceholderHint}>Minimum 1</Text>
             </Pressable>
           )}
 
@@ -538,7 +520,7 @@ export function RecordVisitStep0({
               contentStyle={styles.nextBtnContent}
               icon="playlist-plus"
             >
-              Optional details
+              More fields
             </Button>
           </View>
         </>

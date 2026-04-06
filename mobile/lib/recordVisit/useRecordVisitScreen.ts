@@ -593,7 +593,7 @@ export function useRecordVisitScreen() {
       skipStep3: opts?.skipStep3,
     });
     if (!validation.valid) {
-      setError(validation.error ?? 'Please fix the errors below.');
+      setError(validation.error ?? 'Check the form.');
       return;
     }
     if (!selectedFarmerId || !location) return;

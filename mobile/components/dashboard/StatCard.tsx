@@ -1,7 +1,7 @@
-import { cardShadow, cardStyle, colors, spacing } from '@/constants/theme';
+import { cardShadow, colors, radius, spacing } from '@/constants/theme';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { StyleSheet, View } from 'react-native';
-import { Card, Text } from 'react-native-paper';
+import { Text } from 'react-native-paper';
 
 type StatCardProps = {
   icon: keyof typeof MaterialCommunityIcons.glyphMap;
@@ -10,38 +10,60 @@ type StatCardProps = {
   hint?: string;
 };
 
+/**
+ * Read-only metric tile: elevated surface with border — distinct from tappable action controls.
+ */
 export function StatCard({ icon, label, value, hint }: StatCardProps) {
   return (
-    <Card style={[cardStyle, cardShadow, styles.card]} elevation={1}>
-      <Card.Content style={styles.content}>
-        <View style={styles.iconContainer}>
-          <MaterialCommunityIcons name={icon} size={22} color={colors.gray700} />
-          <Text variant="labelMedium" style={styles.label}>
-            {label}
-          </Text>
+    <View style={styles.wrap}>
+      <View style={styles.iconRow}>
+        <View style={styles.iconCircle}>
+          <MaterialCommunityIcons name={icon} size={20} color={colors.primary} />
         </View>
-        <Text variant="headlineMedium" style={styles.value}>
-          {value}
+        <Text variant="labelMedium" style={styles.label} numberOfLines={2}>
+          {label}
         </Text>
-        {hint && <Text variant="bodySmall" style={styles.hint}>
+      </View>
+      <Text variant="headlineMedium" style={styles.value}>
+        {value}
+      </Text>
+      {hint ? (
+        <Text variant="bodySmall" style={styles.hint} numberOfLines={2}>
           {hint}
         </Text>
-        }
-      </Card.Content>
-    </Card>
+      ) : null}
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  iconContainer: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  card: {
+  wrap: {
     width: '47%',
     minWidth: 0,
+    backgroundColor: colors.white,
+    borderRadius: radius.card,
+    borderWidth: 1,
+    borderColor: colors.gray200,
     paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: spacing.md,
+    ...cardShadow,
+    elevation: 2,
   },
-  content: { alignItems: 'flex-start', paddingHorizontal: 0, paddingVertical: 0 },
-  label: { color: colors.gray700, marginTop: 4 },
-  value: { fontWeight: '700', color: colors.gray900, marginTop: 2 },
-  hint: { color: colors.gray500, marginTop: 2 },
+  iconRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginBottom: spacing.xs,
+  },
+  iconCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: colors.primaryLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  label: { color: colors.gray700, flex: 1, fontWeight: '600' },
+  value: { fontWeight: '800', color: colors.gray900, marginTop: 2 },
+  hint: { color: colors.gray500, marginTop: 4, lineHeight: 18 },
 });

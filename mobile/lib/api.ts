@@ -1019,8 +1019,8 @@ export const api = {
     const form = new FormData();
     form.append('vehicle_type', payload.vehicle_type);
     form.append('issue_description', payload.issue_description);
-    form.append('reported_latitude', String(payload.reported_latitude));
-    form.append('reported_longitude', String(payload.reported_longitude));
+    form.append('reported_latitude', payload.reported_latitude.toFixed(7));
+    form.append('reported_longitude', payload.reported_longitude.toFixed(7));
     for (const p of payload.photo ?? []) {
       form.append('photo', {
         uri: p.uri,

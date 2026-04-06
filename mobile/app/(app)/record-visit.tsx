@@ -41,7 +41,7 @@ export default function RecordVisitScreen() {
   if (!v.permission.granted) {
     return (
       <Surface style={styles.centered} elevation={0}>
-        <Text variant="bodyLarge">Camera access is required to record visit proof.</Text>
+        <Text variant="bodyLarge">Camera required for visit photos.</Text>
         <Button mode="contained" onPress={v.requestPermission} style={styles.topBtn}>
           Allow camera
         </Button>
@@ -54,7 +54,7 @@ export default function RecordVisitScreen() {
       <View style={styles.header}>
         <View style={styles.headerLeft}>
           <Text variant="labelSmall" style={styles.headerStepLabel}>
-            {v.step === 0 ? 'Photo & location' : 'Extra details (optional)'}
+            {v.step === 0 ? 'Visit' : 'Extras'}
           </Text>
           <Text variant="headlineSmall" style={styles.headerTitle}>
             Record visit
@@ -78,7 +78,7 @@ export default function RecordVisitScreen() {
         >
           {!v.isOnline && v.isOnline !== null && (
             <Chip icon="cloud-off-outline" style={styles.offlineChip} compact>
-              Offline — will sync when back online
+              Offline · syncs later
             </Chip>
           )}
 

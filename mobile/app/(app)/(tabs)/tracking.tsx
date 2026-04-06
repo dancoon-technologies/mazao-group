@@ -1,4 +1,5 @@
 import { ListItemRow } from '@/components/ListItemRow';
+import { LocationMiniMap, type LocationMiniMapPoint } from '@/components/LocationMiniMap';
 import { useAuth } from '@/contexts/AuthContext';
 import { api, type LocationReport } from '@/lib/api';
 import { formatDateTime } from '@/lib/format';
@@ -28,16 +29,6 @@ function reportTime(r: LocationReport): string {
 function formatLatLng(n: number, decimals = 5): string {
   if (!Number.isFinite(n)) return '—';
   return n.toFixed(decimals);
-}
-
-const USER_COLORS = ['#228be6', '#40c057', '#fd7e14', '#be4bdb', '#fa5252', '#15aabf', '#fab005', '#7950f2'];
-function hashToIndex(s: string, mod: number): number {
-  let h = 0;
-  for (let i = 0; i < s.length; i++) {
-    h = (h << 5) - h + s.charCodeAt(i);
-    h |= 0;
-  }
-  return Math.abs(h) % mod;
 }
 
 export default function TrackingTeamScreen() {
@@ -126,35 +117,16 @@ export default function TrackingTeamScreen() {
     return map;
   }, [reports]);
 
-  const bounds = useMemo(() => {
-    if (latestByUser.length === 0) return null;
-    let minLat = Infinity;
-    let maxLat = -Infinity;
-    let minLon = Infinity;
-    let maxLon = -Infinity;
-    for (const r of latestByUser) {
-      if (!Number.isFinite(r.latitude) || !Number.isFinite(r.longitude)) continue;
-      minLat = Math.min(minLat, r.latitude);
-      maxLat = Math.max(maxLat, r.latitude);
-      minLon = Math.min(minLon, r.longitude);
-      maxLon = Math.max(maxLon, r.longitude);
-    }
-    if (!Number.isFinite(minLat) || !Number.isFinite(minLon)) return null;
-    return { minLat, maxLat, minLon, maxLon };
+  const mapPoints = useMemo((): LocationMiniMapPoint[] => {
+    return latestByUser
+      .filter((r) => Number.isFinite(r.latitude) && Number.isFinite(r.longitude))
+      .map((r) => ({
+        id: r.id,
+        latitude: r.latitude,
+        longitude: r.longitude,
+        colorKey: r.user_id ?? 'unknown',
+      }));
   }, [latestByUser]);
-
-  const mapDots = useMemo(() => {
-    if (!bounds) return [];
-    const lonSpan = bounds.maxLon - bounds.minLon || 1;
-    const latSpan = bounds.maxLat - bounds.minLat || 1;
-    return latestByUser.map((r) => {
-      const uid = r.user_id ?? 'unknown';
-      const x = ((r.longitude - bounds.minLon) / lonSpan) * 100;
-      const y = ((bounds.maxLat - r.latitude) / latSpan) * 100;
-      const color = USER_COLORS[hashToIndex(uid, USER_COLORS.length)] ?? colors.primary;
-      return { report: r, x, y, color };
-    });
-  }, [bounds, latestByUser]);
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
@@ -197,27 +169,18 @@ export default function TrackingTeamScreen() {
           </Card>
         ) : (
           <>
-            <Card style={styles.card} elevation={0}>
-              <Card.Content>
-                <Text variant="labelLarge" style={styles.mapTitle}>
-                  Map (today)
-                </Text>
-                <Text variant="bodySmall" style={styles.mapSub}>
-                  Latest point per team member
-                </Text>
-                <View style={styles.mapArea}>
-                  {mapDots.map(({ report: r, x, y, color }) => (
-                    <View
-                      key={r.id}
-                      style={[
-                        styles.dot,
-                        { backgroundColor: color, left: `${x}%`, top: `${y}%` },
-                      ]}
-                    />
-                  ))}
-                </View>
-              </Card.Content>
-            </Card>
+            {mapPoints.length > 0 ? (
+              <Card style={styles.card} elevation={0}>
+                <Card.Content>
+                  <LocationMiniMap
+                    points={mapPoints}
+                    height={220}
+                    title="Map (today)"
+                    subtitle="Latest point per team member"
+                  />
+                </Card.Content>
+              </Card>
+            ) : null}
 
             {listForToday.slice(0, 20).map((r) => {
               const userName = r.user_display_name || r.user_email || 'User';
@@ -280,24 +243,5 @@ const styles = StyleSheet.create({
   badge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 999 },
   badgeText: { fontSize: 12, fontWeight: '700', color: colors.gray700 },
   badgeErrorText: { fontSize: 12, fontWeight: '700', color: colors.error },
-  mapTitle: { fontWeight: '700', marginBottom: 2 },
-  mapSub: { color: colors.gray500, marginBottom: spacing.sm },
-  mapArea: {
-    height: 220,
-    borderRadius: 12,
-    backgroundColor: colors.gray200,
-    overflow: 'hidden',
-    position: 'relative',
-    justifyContent: 'center',
-  },
-  dot: {
-    position: 'absolute',
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    transform: [{ translateX: -5 }, { translateY: -5 }],
-    borderWidth: 2,
-    borderColor: colors.white,
-  },
 });
 

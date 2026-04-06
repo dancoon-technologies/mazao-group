@@ -302,6 +302,13 @@ class MaintenanceIncidentCreateSerializer(serializers.ModelSerializer):
         required=False,
         allow_empty=True,
     )
+    # Multipart form sends decimals as strings; explicit fields coerce reliably.
+    reported_latitude = serializers.DecimalField(
+        max_digits=10, decimal_places=7, required=False, allow_null=True
+    )
+    reported_longitude = serializers.DecimalField(
+        max_digits=10, decimal_places=7, required=False, allow_null=True
+    )
 
     class Meta:
         model = MaintenanceIncident
