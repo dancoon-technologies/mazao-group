@@ -27,6 +27,9 @@ export interface ValidateRecordVisitInput {
   acceptedSchedulesLength: number;
   /** True when the officer has at least one weekly route scheduled for today. */
   hasWeeklyRouteToday: boolean;
+  /** True when both accepted schedules and a weekly route exist for today (user must pick one). */
+  bothVisitLinkOptions?: boolean;
+  visitLinkMode?: 'schedule' | 'route' | null;
   selectedFarmerId: string | null;
   location: { coords: { latitude: number; longitude: number } } | null;
   photoUrisLength: number;
@@ -57,6 +60,8 @@ export function validateRecordVisit(input: ValidateRecordVisitInput): ValidateRe
     mustSelectSchedule,
     acceptedSchedulesLength,
     hasWeeklyRouteToday,
+    bothVisitLinkOptions,
+    visitLinkMode,
     selectedFarmerId,
     location,
     photoUrisLength,
@@ -73,6 +78,13 @@ export function validateRecordVisit(input: ValidateRecordVisitInput): ValidateRe
   } = input;
 
   if (mustSelectSchedule) {
+    if (bothVisitLinkOptions && visitLinkMode === null) {
+      return {
+        valid: false,
+        error:
+          'Choose whether this visit is a planned visit or part of today’s weekly route, then continue below.',
+      };
+    }
     if (acceptedSchedulesLength > 0 && hasWeeklyRouteToday) {
       return {
         valid: false,

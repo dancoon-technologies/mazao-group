@@ -202,6 +202,13 @@ export default function ProposeScheduleScreen() {
 
   const quickCreateRoute = useCallback(
     async (date: string) => {
+      const todayStr = toLocalYmd(new Date());
+      if (date < todayStr) {
+        const msg = 'You can’t create a weekly route plan for a past day.';
+        setRoutesError(msg);
+        showSnackbar('error', msg);
+        return;
+      }
       const officerForCreate = assigner ? selectedOfficerId : userId;
       if (!officerForCreate) {
         const msg = assigner
@@ -693,15 +700,21 @@ export default function ProposeScheduleScreen() {
                     <ActivityIndicator size="large" style={styles.weekLoader} />
                   ) : (
                     weekDays.map((date) => {
+                      const todayStr = toLocalYmd(new Date());
+                      const isPastDay = date < todayStr;
                       const route = routeByDate[date];
                       const hasRoute = !!route;
                       const actCount = route?.activity_types?.length ?? 0;
+                      const canCreateForDay = !isPastDay || hasRoute;
                       return (
                         <Card
                           key={date}
-                          style={styles.weekCard}
+                          style={[styles.weekCard, isPastDay && !hasRoute && styles.weekCardPast]}
                           elevation={0}
-                          onPress={() => openRouteForm(date, route?.id)}
+                          onPress={() => {
+                            if (!canCreateForDay && !hasRoute) return;
+                            openRouteForm(date, route?.id);
+                          }}
                         >
                           <Card.Content style={styles.weekCardContent}>
                             <View style={styles.weekRow}>
@@ -728,6 +741,10 @@ export default function ProposeScheduleScreen() {
                                   size={24}
                                   color={colors.primary}
                                 />
+                              ) : isPastDay ? (
+                                <Text variant="labelSmall" style={styles.weekPastLabel}>
+                                  Past
+                                </Text>
                               ) : (
                                 <Button
                                   mode="contained-tonal"
@@ -833,4 +850,6 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   weekErrorText: { color: colors.error },
+  weekCardPast: { opacity: 0.72 },
+  weekPastLabel: { color: colors.gray500, fontWeight: '600' },
 });

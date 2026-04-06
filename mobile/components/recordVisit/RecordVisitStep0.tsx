@@ -72,6 +72,11 @@ type Props = {
   openCameraModal: () => void;
   onSubmitVisit: () => void;
   onOpenOptionalDetails: () => void;
+  /** User has both accepted schedules and a weekly route for today — pick one before the lists. */
+  bothVisitLinkOptions: boolean;
+  visitLinkMode: 'schedule' | 'route' | null;
+  effectiveVisitLinkMode: 'schedule' | 'route' | null;
+  onSelectVisitLinkMode: (mode: 'schedule' | 'route') => void;
 };
 
 export function RecordVisitStep0({
@@ -123,12 +128,50 @@ export function RecordVisitStep0({
   openCameraModal,
   onSubmitVisit,
   onOpenOptionalDetails,
+  bothVisitLinkOptions,
+  visitLinkMode,
+  effectiveVisitLinkMode,
+  onSelectVisitLinkMode,
 }: Props) {
   const requiresPlanChoice = acceptedSchedules.length > 0 || todayRoutes.length > 0;
+  const showWeeklySection = effectiveVisitLinkMode === 'route' && todayRoutes.length > 0;
+  const showScheduleSection = effectiveVisitLinkMode === 'schedule' && acceptedSchedules.length > 0;
 
   return (
     <>
-      {!selectedScheduleId && todayRoute ? (
+      {bothVisitLinkOptions ? (
+        <Surface style={styles.section} elevation={0}>
+          <Text variant="labelLarge" style={styles.fieldLabel}>This visit is for *</Text>
+          <Text variant="bodySmall" style={styles.hint}>
+            You have both a planned visit and today&apos;s weekly route. Choose which one this recording should count toward.
+          </Text>
+          <View style={styles.scheduleChips}>
+            <Chip
+              selected={visitLinkMode === 'schedule'}
+              onPress={() => onSelectVisitLinkMode('schedule')}
+              style={styles.scheduleChip}
+              compact
+            >
+              Planned visit
+            </Chip>
+            <Chip
+              selected={visitLinkMode === 'route'}
+              onPress={() => onSelectVisitLinkMode('route')}
+              style={styles.scheduleChip}
+              compact
+            >
+              Today&apos;s weekly route
+            </Chip>
+          </View>
+          {visitLinkMode === null && mustSelectSchedule ? (
+            <HelperText type="error" style={styles.errorHint}>
+              Select Planned visit or Today&apos;s weekly route to continue.
+            </HelperText>
+          ) : null}
+        </Surface>
+      ) : null}
+
+      {showWeeklySection ? (
         <Surface style={styles.section} elevation={0}>
           <Text variant="labelLarge" style={styles.fieldLabel}>Today&apos;s route plan</Text>
           <Text variant="bodySmall" style={styles.hint}>
@@ -150,10 +193,10 @@ export function RecordVisitStep0({
             </View>
           ) : (
             <Text variant="bodySmall" style={styles.muted}>
-              Using today&apos;s plan: {todayRoute.notes || todayRoute.name || 'Day route'}. Add more visits anytime — they all stay on this route.
+              Using today&apos;s plan: {(todayRoute ?? todayRoutes[0])?.notes || (todayRoute ?? todayRoutes[0])?.name || 'Day route'}. Add more visits anytime — they all stay on this route.
             </Text>
           )}
-          {mustSelectSchedule && acceptedSchedules.length === 0 && !selectedRouteId ? (
+          {showWeeklySection && mustSelectSchedule && !selectedRouteId ? (
             <HelperText type="error" style={styles.errorHint}>
               {todayRoutes.length > 1
                 ? 'Select which route you are on, then choose customer below or “Record from here”.'
@@ -171,7 +214,7 @@ export function RecordVisitStep0({
           </Button>
         </Surface>
       ) : null}
-      {acceptedSchedules.length > 0 ? (
+      {showScheduleSection ? (
         <Surface style={styles.section} elevation={0}>
           <Text variant="labelLarge" style={styles.fieldLabel}>Planned visit *</Text>
           <Text variant="bodySmall" style={styles.hint}>
@@ -186,7 +229,7 @@ export function RecordVisitStep0({
               return (
                 <Chip
                   key={s.id}
-                  selected={selectedScheduleId === s.id && !selectedRouteId}
+                  selected={selectedScheduleId === s.id}
                   onPress={() => onPickSchedule(s)}
                   style={styles.scheduleChip}
                   compact
@@ -197,26 +240,27 @@ export function RecordVisitStep0({
             })}
           </View>
           {mustSelectSchedule && (
-            <>
-              <HelperText type="error" style={styles.errorHint}>
-                {requiresPlanChoice && todayRoutes.length > 0
-                  ? 'Select a planned visit or today’s weekly route (see above).'
-                  : 'Select a planned visit from the list.'}
-              </HelperText>
-              {!requiresPlanChoice ? (
-                <Button
-                  mode="text"
-                  compact
-                  onPress={onFieldVisitNotFromList}
-                  style={styles.skipPlanBtn}
-                >
-                  Field visit (not from this list)
-                </Button>
-              ) : null}
-            </>
+            <HelperText type="error" style={styles.errorHint}>
+              {requiresPlanChoice && todayRoutes.length > 0 && !bothVisitLinkOptions
+                ? 'Select a planned visit or today’s weekly route (see above).'
+                : 'Select a planned visit from the list.'}
+            </HelperText>
           )}
         </Surface>
-      ) : todayRoutes.length === 0 && acceptedSchedules.length === 0 ? (
+      ) : null}
+
+      {requiresPlanChoice ? (
+        <Button
+          mode="text"
+          compact
+          onPress={onFieldVisitNotFromList}
+          style={styles.skipPlanBtn}
+        >
+          Field visit — not linked to a schedule or route
+        </Button>
+      ) : null}
+
+      {todayRoutes.length === 0 && acceptedSchedules.length === 0 ? (
         <View style={styles.warningBox}>
           <MaterialCommunityIcons name="alert-circle-outline" size={22} color={colors.warning} style={styles.warningBoxIcon} />
           <View style={styles.warningBoxContent}>

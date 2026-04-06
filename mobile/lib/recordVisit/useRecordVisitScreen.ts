@@ -70,6 +70,8 @@ export function useRecordVisitScreen() {
   const [farmerModalTitle, setFarmerModalTitle] = useState<string | null>(null);
   const [farmModalOpen, setFarmModalOpen] = useState(false);
   const [recordingWithoutPlan, setRecordingWithoutPlan] = useState(false);
+  /** When both accepted schedules and today’s route exist, user must pick Planned visit vs Weekly route. */
+  const [visitLinkMode, setVisitLinkMode] = useState<'schedule' | 'route' | null>(null);
   const [activityTypesModalOpen, setActivityTypesModalOpen] = useState(false);
   const [locationLoading, setLocationLoading] = useState(false);
   const [notes, setNotes] = useState('');
@@ -373,11 +375,24 @@ export function useRecordVisitScreen() {
         setSelectedScheduleId(s.id);
         setSelectedRouteId(null);
         setRecordingWithoutPlan(false);
+        setVisitLinkMode('schedule');
         setSelectedFarmerId(s.farmer ?? null);
         setSelectedFarmId(s.farm ?? null);
       }
     }
   }, [params.scheduleId, plannedSchedules]);
+
+  useEffect(() => {
+    const routeIdParam =
+      typeof params.routeId === 'string'
+        ? params.routeId
+        : Array.isArray(params.routeId)
+          ? params.routeId[0]
+          : undefined;
+    if (routeIdParam) {
+      setVisitLinkMode('route');
+    }
+  }, [params.routeId]);
 
   /** Exactly one route for today: select it so the officer can log visits (same route, many visits). */
   useEffect(() => {
@@ -390,11 +405,14 @@ export function useRecordVisitScreen() {
     if (routeIdParam) return;
     if (selectedScheduleId) return;
     if (recordingWithoutPlan) return;
+    const hasSchedules = acceptedSchedules.length > 0;
+    const hasRoutes = todayRoutes.length > 0;
+    if (hasSchedules && hasRoutes && visitLinkMode !== 'route') return;
     if (todayRoutes.length !== 1) return;
     const r = todayRoutes[0];
     setTodayRoute(r);
     setSelectedRouteId((prev) => prev ?? r.id);
-  }, [todayRoutes, params.routeId, selectedScheduleId, recordingWithoutPlan]);
+  }, [todayRoutes, params.routeId, selectedScheduleId, recordingWithoutPlan, acceptedSchedules.length, visitLinkMode]);
 
   const selectedSchedule = plannedSchedules.find((s) => s.id === selectedScheduleId);
   const scheduleLockedForFarm = !!selectedScheduleId && selectedSchedule?.status === 'accepted' && !!selectedSchedule?.farm;
@@ -504,11 +522,21 @@ export function useRecordVisitScreen() {
   /** User must pick either a planned (accepted) schedule or today’s weekly route when either exists. */
   const hasWeeklyRouteToday = todayRoutes.length > 0;
   const requiresPlanChoice = acceptedSchedules.length > 0 || hasWeeklyRouteToday;
+  const bothVisitLinkOptions = acceptedSchedules.length > 0 && hasWeeklyRouteToday;
+  const effectiveVisitLinkMode: 'schedule' | 'route' | null = bothVisitLinkOptions
+    ? visitLinkMode
+    : acceptedSchedules.length > 0
+      ? 'schedule'
+      : hasWeeklyRouteToday
+        ? 'route'
+        : null;
   const mustSelectSchedule =
     !recordingWithoutPlan &&
     requiresPlanChoice &&
-    (!selectedScheduleId || (selectedSchedule != null && selectedSchedule.status !== 'accepted')) &&
-    !selectedRouteId;
+    ((bothVisitLinkOptions && visitLinkMode === null) ||
+      (effectiveVisitLinkMode === 'schedule' &&
+        (!selectedScheduleId || (selectedSchedule != null && selectedSchedule.status !== 'accepted'))) ||
+      (effectiveVisitLinkMode === 'route' && !selectedRouteId));
   const scheduleIdForSubmit = selectedScheduleId ?? undefined;
   const routeIdForSubmit = selectedRouteId ?? undefined;
 
@@ -519,6 +547,8 @@ export function useRecordVisitScreen() {
       mustSelectSchedule,
       acceptedSchedulesLength: acceptedSchedules.length,
       hasWeeklyRouteToday,
+      bothVisitLinkOptions,
+      visitLinkMode,
       selectedFarmerId,
       location,
       photoUrisLength: photoUris.length,
@@ -663,7 +693,7 @@ export function useRecordVisitScreen() {
     } finally {
       setSubmitting(false);
     }
-  }, [scheduleIdForSubmit, routeIdForSubmit, mustSelectSchedule, acceptedSchedules.length, selectedFarmerId, selectedFarmId, location, photoUris, photoTakenAts, step3Fields, step3Values, visitFormFieldSchema, activityTypes, activityTypesList, notes, distanceM, maxM, labels.partner, router, productLines, selectedFarm, selectedFarmer]);
+  }, [scheduleIdForSubmit, routeIdForSubmit, mustSelectSchedule, acceptedSchedules.length, bothVisitLinkOptions, visitLinkMode, selectedFarmerId, selectedFarmId, location, photoUris, photoTakenAts, step3Fields, step3Values, visitFormFieldSchema, activityTypes, activityTypesList, notes, distanceM, maxM, labels.partner, router, productLines, selectedFarm, selectedFarmer]);
 
   const activityLabel = useMemo(() => {
     if (activityTypes.length === 0) return 'Select activities';
@@ -683,8 +713,28 @@ export function useRecordVisitScreen() {
     (distanceM === null || gpsValid) &&
     !!selectedFarmerId;
 
+  const selectVisitLinkMode = useCallback((mode: 'schedule' | 'route') => {
+    setRecordingWithoutPlan(false);
+    setVisitLinkMode(mode);
+    if (mode === 'schedule') {
+      setSelectedRouteId(null);
+      setTodayRoute(todayRoutes[0] ?? null);
+    } else {
+      setSelectedScheduleId(null);
+      if (todayRoutes.length === 1) {
+        const r = todayRoutes[0];
+        setTodayRoute(r);
+        setSelectedRouteId(r.id);
+      } else {
+        setTodayRoute(null);
+        setSelectedRouteId(null);
+      }
+    }
+  }, [todayRoutes]);
+
   const pickTodayRoute = useCallback((route: Route) => {
     setRecordingWithoutPlan(false);
+    setVisitLinkMode('route');
     setTodayRoute(route);
     setSelectedRouteId(route.id);
     setSelectedScheduleId(null);
@@ -707,6 +757,7 @@ export function useRecordVisitScreen() {
     if (!route) return;
     await refreshLocation();
     setRecordingWithoutPlan(false);
+    setVisitLinkMode('route');
     setSelectedRouteId(route.id);
     setSelectedScheduleId(null);
     setSelectedFarmerId(null);
@@ -717,6 +768,7 @@ export function useRecordVisitScreen() {
 
   const pickSchedule = useCallback((s: Schedule) => {
     setRecordingWithoutPlan(false);
+    setVisitLinkMode('schedule');
     setSelectedScheduleId(s.id);
     setSelectedRouteId(null);
     if (s.farmer) setSelectedFarmerId(s.farmer);
@@ -777,6 +829,10 @@ export function useRecordVisitScreen() {
     visitFormFieldSchema,
     todayRoute,
     todayRoutes,
+    bothVisitLinkOptions,
+    visitLinkMode,
+    selectVisitLinkMode,
+    effectiveVisitLinkMode,
     acceptedSchedules,
     farmers,
     selectedRouteId,

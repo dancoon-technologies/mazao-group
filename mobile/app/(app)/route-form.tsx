@@ -17,6 +17,7 @@ import {
 import { ActivityIndicator, Appbar, Banner, Button, HelperText, Text, TextInput } from 'react-native-paper';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { logger } from '@/lib/logger';
+import { toLocalYmd } from '@/lib/dateLocal';
 
 function formatDate(iso: string): string {
   try {
@@ -92,6 +93,11 @@ export default function RouteFormScreen() {
     }
     if (activityTypes.length === 0) {
       setError('Select at least one activity type (tap Select activities).');
+      return;
+    }
+    const todayStr = toLocalYmd(new Date());
+    if (!routeId && date < todayStr) {
+      setError('Cannot create a route for a past date.');
       return;
     }
     setSaving(true);

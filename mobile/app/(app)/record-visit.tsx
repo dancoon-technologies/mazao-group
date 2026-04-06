@@ -93,6 +93,10 @@ export default function RecordVisitScreen() {
             <RecordVisitStep0
               todayRoute={v.todayRoute}
               todayRoutes={v.todayRoutes}
+              bothVisitLinkOptions={v.bothVisitLinkOptions}
+              visitLinkMode={v.visitLinkMode}
+              effectiveVisitLinkMode={v.effectiveVisitLinkMode}
+              onSelectVisitLinkMode={v.selectVisitLinkMode}
               acceptedSchedules={v.acceptedSchedules}
               farmers={v.farmers}
               labels={v.labels}
