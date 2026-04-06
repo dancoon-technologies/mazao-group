@@ -99,6 +99,9 @@ export default function RecordVisitScreen() {
               onSelectVisitLinkMode={v.selectVisitLinkMode}
               acceptedSchedules={v.acceptedSchedules}
               farmers={v.farmers}
+              farmersForModal={v.farmersForModal}
+              partnerType={v.partnerType}
+              onPartnerTypeChange={v.onPartnerTypeChange}
               labels={v.labels}
               selectedRouteId={v.selectedRouteId}
               selectedScheduleId={v.selectedScheduleId}

@@ -72,6 +72,8 @@ export function useRecordVisitScreen() {
   const [recordingWithoutPlan, setRecordingWithoutPlan] = useState(false);
   /** When both accepted schedules and today’s route exist, user must pick Planned visit vs Weekly route. */
   const [visitLinkMode, setVisitLinkMode] = useState<'schedule' | 'route' | null>(null);
+  /** When choosing a partner without a fixed schedule, filter list to farmers vs stockists. */
+  const [partnerType, setPartnerType] = useState<'farmer' | 'stockist'>('farmer');
   const [activityTypesModalOpen, setActivityTypesModalOpen] = useState(false);
   const [locationLoading, setLocationLoading] = useState(false);
   const [notes, setNotes] = useState('');
@@ -97,6 +99,33 @@ export function useRecordVisitScreen() {
 
   const selectedFarmer = farmers.find((f) => f.id === selectedFarmerId);
   const selectedFarm = farms.find((f) => f.id === selectedFarmId);
+
+  const farmersForModal = useMemo(
+    () => farmers.filter((f) => Boolean(f.is_stockist) === (partnerType === 'stockist')),
+    [farmers, partnerType]
+  );
+
+  const onPartnerTypeChange = useCallback(
+    (t: 'farmer' | 'stockist') => {
+      setPartnerType(t);
+      setSelectedFarmerId((prev) => {
+        if (!prev) return null;
+        const f = farmers.find((x) => x.id === prev);
+        if (!f || Boolean(f.is_stockist) !== (t === 'stockist')) {
+          return null;
+        }
+        return prev;
+      });
+    },
+    [farmers]
+  );
+
+  useEffect(() => {
+    if (!selectedFarmerId) return;
+    const f = farmers.find((fr) => fr.id === selectedFarmerId);
+    if (!f) return;
+    setPartnerType(f.is_stockist ? 'stockist' : 'farmer');
+  }, [selectedFarmerId, farmers]);
 
   const refPoint = selectedFarm ?? (selectedFarmer && selectedFarmer.latitude != null && selectedFarmer.longitude != null
     ? { latitude: Number(selectedFarmer.latitude), longitude: Number(selectedFarmer.longitude) }
@@ -740,6 +769,7 @@ export function useRecordVisitScreen() {
     setSelectedScheduleId(null);
     setSelectedFarmerId(null);
     setSelectedFarmId(null);
+    setPartnerType('farmer');
   }, []);
 
   const openFarmerPicker = useCallback(() => {
@@ -762,8 +792,7 @@ export function useRecordVisitScreen() {
     setSelectedScheduleId(null);
     setSelectedFarmerId(null);
     setSelectedFarmId(null);
-    setFarmerModalTitle('Choose farmer or stockist');
-    setFarmerModalOpen(true);
+    setPartnerType('farmer');
   }, [todayRoute, refreshLocation]);
 
   const pickSchedule = useCallback((s: Schedule) => {
@@ -777,12 +806,12 @@ export function useRecordVisitScreen() {
 
   const fieldVisitNotFromList = useCallback(() => {
     setRecordingWithoutPlan(true);
+    setVisitLinkMode(null);
     setSelectedScheduleId(null);
     setSelectedRouteId(null);
     setSelectedFarmerId(null);
     setSelectedFarmId(null);
-    setFarmerModalTitle(null);
-    setFarmerModalOpen(true);
+    setPartnerType('farmer');
   }, []);
 
   const selectFarmerAndClose = useCallback((id: string | null) => {
@@ -835,6 +864,9 @@ export function useRecordVisitScreen() {
     effectiveVisitLinkMode,
     acceptedSchedules,
     farmers,
+    farmersForModal,
+    partnerType,
+    onPartnerTypeChange,
     selectedRouteId,
     selectedScheduleId,
     selectedFarmerId,

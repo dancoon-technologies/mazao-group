@@ -77,6 +77,10 @@ type Props = {
   visitLinkMode: 'schedule' | 'route' | null;
   effectiveVisitLinkMode: 'schedule' | 'route' | null;
   onSelectVisitLinkMode: (mode: 'schedule' | 'route') => void;
+  partnerType: 'farmer' | 'stockist';
+  onPartnerTypeChange: (t: 'farmer' | 'stockist') => void;
+  /** Filtered by partnerType for the picker; full list still used for schedule chips. */
+  farmersForModal: Farmer[];
 };
 
 export function RecordVisitStep0({
@@ -132,8 +136,16 @@ export function RecordVisitStep0({
   visitLinkMode,
   effectiveVisitLinkMode,
   onSelectVisitLinkMode,
+  partnerType,
+  onPartnerTypeChange,
+  farmersForModal,
 }: Props) {
   const requiresPlanChoice = acceptedSchedules.length > 0 || todayRoutes.length > 0;
+  const isStockistContext =
+    (Boolean(selectedScheduleId) && Boolean(selectedFarmer?.is_stockist)) ||
+    (!selectedScheduleId && partnerType === 'stockist');
+  const partnerLabel = isStockistContext ? 'Stockist' : labels.partner;
+  const locationLabel = isStockistContext ? 'Outlet' : labels.location;
   const showWeeklySection = effectiveVisitLinkMode === 'route' && todayRoutes.length > 0;
   const showScheduleSection = effectiveVisitLinkMode === 'schedule' && acceptedSchedules.length > 0;
 
@@ -276,31 +288,55 @@ export function RecordVisitStep0({
         <>
           <Text variant="labelMedium" style={styles.step2SectionTitle}>
             {selectedScheduleId
-              ? `${labels.partner.toUpperCase()} & ${labels.location.toUpperCase()} (from schedule)`
+              ? `${partnerLabel.toUpperCase()} & ${locationLabel.toUpperCase()} (from schedule)`
               : selectedRouteId
-                ? `${labels.partner.toUpperCase()} & ${labels.location.toUpperCase()} (weekly route)`
-                : `${labels.partner.toUpperCase()} & ${labels.location.toUpperCase()}`}
+                ? `${partnerLabel.toUpperCase()} & ${locationLabel.toUpperCase()} (weekly route)`
+                : `${partnerLabel.toUpperCase()} & ${locationLabel.toUpperCase()}`}
           </Text>
           {!selectedScheduleId ? (
-            <Button
-              mode="outlined"
-              onPress={onOpenFarmerModal}
-              style={styles.farmerSelectBtn}
-              contentStyle={styles.farmerSelectBtnContent}
-              icon="account-search"
-            >
-              {selectedFarmerId
-                ? `Change ${labels.partner.toLowerCase()}`
-                : `Select ${labels.partner.toLowerCase()} *`}
-            </Button>
+            <>
+              <Text variant="bodySmall" style={styles.partnerTypeHint}>
+                Choose whether you are visiting a {labels.partner.toLowerCase()} or a stockist; the list below matches your choice.
+              </Text>
+              <View style={styles.partnerTypeRow}>
+                <Button
+                  mode={partnerType === 'farmer' ? 'contained' : 'outlined'}
+                  compact
+                  onPress={() => onPartnerTypeChange('farmer')}
+                  style={styles.partnerTypeBtn}
+                >
+                  {labels.partner}
+                </Button>
+                <Button
+                  mode={partnerType === 'stockist' ? 'contained' : 'outlined'}
+                  compact
+                  onPress={() => onPartnerTypeChange('stockist')}
+                  style={styles.partnerTypeBtn}
+                >
+                  Stockist
+                </Button>
+              </View>
+              <Button
+                mode="outlined"
+                onPress={onOpenFarmerModal}
+                style={styles.farmerSelectBtn}
+                contentStyle={styles.farmerSelectBtnContent}
+                icon="account-search"
+              >
+                {selectedFarmerId
+                  ? `Change ${partnerLabel.toLowerCase()}`
+                  : `Select ${partnerLabel.toLowerCase()} *`}
+              </Button>
+            </>
           ) : null}
           <SelectFarmerModal
             visible={farmerModalOpen}
             onClose={onCloseFarmerModal}
-            farmers={farmers}
+            farmers={farmersForModal}
             selectedFarmerId={selectedFarmerId}
             onSelect={onSelectFarmer}
-            title={farmerModalTitle ?? `Select ${labels.partner.toLowerCase()}`}
+            title={farmerModalTitle ?? `Select ${partnerLabel.toLowerCase()}`}
+            noPartnerLabel={partnerType === 'stockist' ? 'No stockist' : undefined}
           />
           {selectedFarmer && (
             <View style={styles.farmerCard}>
@@ -327,10 +363,10 @@ export function RecordVisitStep0({
           )}
 
           <Text variant="labelMedium" style={styles.step2SectionTitle}>
-            {`${labels.location.toUpperCase()} (optional)`}
+            {`${locationLabel.toUpperCase()} (optional)`}
           </Text>
           <Text variant="bodySmall" style={styles.hint}>
-            Farm vs outlet is shown when this {labels.location.toLowerCase()} is saved on the partner record.
+            Farm vs outlet is shown when this location is saved on the partner record.
           </Text>
           {(scheduleLockedForFarm && selectedFarm) ? (
             <View style={styles.farmDisplay}>
@@ -341,7 +377,9 @@ export function RecordVisitStep0({
             </View>
           ) : selectedFarmer && !scheduleLockedForFarm ? (
             farms.length === 0 ? (
-              <Text variant="bodySmall" style={styles.muted}>No {labels.location.toLowerCase()}s for this {labels.partner.toLowerCase()}</Text>
+              <Text variant="bodySmall" style={styles.muted}>
+                No {locationLabel.toLowerCase()}s for this {partnerLabel.toLowerCase()}
+              </Text>
             ) : (
               <>
                 <Button
@@ -353,7 +391,7 @@ export function RecordVisitStep0({
                 >
                   {selectedFarm
                     ? `${selectedFarm.village}${locationKindSuffix(selectedFarm)}`
-                    : `Select ${labels.location.toLowerCase()}`}
+                    : `Select ${locationLabel.toLowerCase()}`}
                 </Button>
                 <SelectFarmModal
                   visible={farmModalOpen}
@@ -361,7 +399,7 @@ export function RecordVisitStep0({
                   farms={farms}
                   selectedFarmId={selectedFarmId}
                   onSelect={onSelectFarm}
-                  title={`Select ${labels.location.toLowerCase()}`}
+                  title={`Select ${locationLabel.toLowerCase()}`}
                 />
               </>
             )

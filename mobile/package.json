@@ -8,6 +8,9 @@
     "reset-project": "node ./scripts/reset-project.js",
     "android": "expo run:android",
     "ios": "expo run:ios",
+    "sync:android": "expo prebuild -p android --no-install",
+    "sync:android:clean": "expo prebuild -p android --clean --no-install",
+    "ios:rebuild": "expo run:ios --no-build-cache",
     "web": "expo start --web",
     "lint": "expo lint",
     "test": "jest"
