@@ -48,3 +48,7 @@ Source files live under `assets/images/` (`icon.png`, `splash-icon.png`, Android
 3. Reinstall the app: `npm run android`. Expo Go and dev clients often show **cached** or **default** splash; use a release/preview build to verify the real launch screen.
 
 On iOS, if you add an `ios/` project later, use `npm run ios:rebuild` to avoid a cached launch screen after asset changes.
+
+### Sentry and release builds
+
+Gradle runs a Sentry step to upload JS source maps. Without `SENTRY_ORG`, `SENTRY_PROJECT`, and `SENTRY_AUTH_TOKEN`, that step fails. Preview/production profiles in `eas.json` set `SENTRY_DISABLE_AUTO_UPLOAD=true` so CI and local EAS builds succeed. To enable uploads, add the Sentry env vars (e.g. in EAS Secrets or your CI) and remove or set `SENTRY_DISABLE_AUTO_UPLOAD` to `false`.

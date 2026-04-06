@@ -236,6 +236,8 @@ jobs:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
           NODE_ENV: production
           EXPO_PUBLIC_API_URL: ${{ secrets.EXPO_PUBLIC_API_URL }}
+          # Sentry source-map upload needs SENTRY_ORG / SENTRY_PROJECT / SENTRY_AUTH_TOKEN; skip until configured.
+          SENTRY_DISABLE_AUTO_UPLOAD: true
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v7
