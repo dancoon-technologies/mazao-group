@@ -5,7 +5,6 @@ import {
   type MaintenanceStatus,
 } from '@/lib/api';
 import NetInfo from '@react-native-community/netinfo';
-import { LocationMiniMap, type LocationMiniMapPoint } from '@/components/LocationMiniMap';
 import { RecordVisitCameraModal } from '@/components/recordVisit/RecordVisitCameraModal';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as Location from 'expo-location';
@@ -52,16 +51,6 @@ function formatWhen(iso: string | null | undefined): string {
   }
 }
 
-function reportedMapPoints(item: MaintenanceIncident): LocationMiniMapPoint[] {
-  const lat = item.reported_latitude;
-  const lng = item.reported_longitude;
-  if (lat == null || lng == null) return [];
-  const la = Number(lat);
-  const ln = Number(lng);
-  if (!Number.isFinite(la) || !Number.isFinite(ln)) return [];
-  return [{ id: `rep-${item.id}`, latitude: la, longitude: ln, color: colors.primary }];
-}
-
 export default function MaintenanceScreen() {
   const { role } = useAuth();
   const isSupervisor = role === 'supervisor' || role === 'admin';
@@ -78,9 +67,6 @@ export default function MaintenanceScreen() {
   const [cameraModalVisible, setCameraModalVisible] = useState(false);
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
   const cameraRef = useRef<CameraView>(null);
-  const [reportLocation, setReportLocation] = useState<Location.LocationObject | null>(null);
-  const [locationLoading, setLocationLoading] = useState(false);
-  const [locationError, setLocationError] = useState('');
 
   const load = useCallback(async (asRefresh?: boolean) => {
     if (asRefresh) setRefreshing(true);
@@ -122,41 +108,10 @@ export default function MaintenanceScreen() {
     }
   }, []);
 
-  const refreshLocation = useCallback(async () => {
-    setLocationError('');
-    setLocationLoading(true);
-    try {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
-        setLocationError('');
-        setReportLocation(null);
-        return;
-      }
-      if (Platform.OS === 'android') {
-        try {
-          await Location.enableNetworkProviderAsync();
-        } catch {
-          // User may dismiss or provider unavailable
-        }
-      }
-      const loc = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.High,
-        mayShowUserSettingsDialog: true,
-      });
-      setReportLocation(loc);
-    } catch {
-      setLocationError('');
-      setReportLocation(null);
-    } finally {
-      setLocationLoading(false);
-    }
-  }, []);
-
   useFocusEffect(
     useCallback(() => {
       load();
-      void refreshLocation();
-    }, [load, refreshLocation])
+    }, [load])
   );
 
   const getCurrentCoords = useCallback(async () => {
@@ -175,7 +130,6 @@ export default function MaintenanceScreen() {
       accuracy: Location.Accuracy.High,
       mayShowUserSettingsDialog: true,
     });
-    setReportLocation(loc);
     return {
       latitude: loc.coords.latitude,
       longitude: loc.coords.longitude,
@@ -252,14 +206,9 @@ export default function MaintenanceScreen() {
         quality: 0.8,
         base64: false,
         exif: true,
-        ...(reportLocation?.coords && {
-          additionalExif: {
-            GPSLatitude: reportLocation.coords.latitude,
-            GPSLongitude: reportLocation.coords.longitude,
-            GPSAltitude: reportLocation.coords.altitude ?? 0,
-            DateTimeOriginal: takenAt.replace(/\.\d{3}Z$/, ''),
-          },
-        }),
+        additionalExif: {
+          DateTimeOriginal: takenAt.replace(/\.\d{3}Z$/, ''),
+        },
       });
       if (photo?.uri) {
         setPhotos((prev) => [
@@ -275,7 +224,7 @@ export default function MaintenanceScreen() {
     } catch {
       setError('Could not capture photo. Try again.');
     }
-  }, [cameraPermission?.granted, reportLocation?.coords]);
+  }, [cameraPermission?.granted]);
 
   const updateStatus = useCallback(
     async (incident: MaintenanceIncident, nextStatus: MaintenanceStatus) => {
@@ -320,19 +269,14 @@ export default function MaintenanceScreen() {
     () => items.filter((x) => x.status !== 'released' && x.status !== 'rejected'),
     [items]
   );
-
-  const officerMapPoints = useMemo((): LocationMiniMapPoint[] => {
-    const c = reportLocation?.coords;
-    if (!c || !Number.isFinite(c.latitude) || !Number.isFinite(c.longitude)) return [];
-    return [
-      {
-        id: 'current-gps',
-        latitude: c.latitude,
-        longitude: c.longitude,
-        color: colors.primary,
-      },
-    ];
-  }, [reportLocation]);
+  const reportedItems = useMemo(
+    () => openItems.filter((x) => x.status === 'reported'),
+    [openItems]
+  );
+  const fixingItems = useMemo(
+    () => openItems.filter((x) => x.status === 'at_garage'),
+    [openItems]
+  );
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
@@ -344,55 +288,23 @@ export default function MaintenanceScreen() {
             refreshing={refreshing}
             onRefresh={() => {
               void load(true);
-              void refreshLocation();
             }}
           />
         }
       >
         <Text variant="titleLarge" style={styles.title}>
-          Maintenance incidents
+          Report incidence
         </Text>
         <Text variant="bodySmall" style={styles.subtitle}>
-          Report issue in the field, then report fixing at garage. Supervisor acknowledges completion.
+          Flow: report issue, then report fixing/garage, then supervisor acknowledges.
         </Text>
 
         {isOfficer && (
           <Card style={styles.card} elevation={0}>
             <Card.Content>
               <Text variant="labelLarge" style={styles.sectionTitle}>
-                Report issue
+                1) Report issue
               </Text>
-              <View style={styles.locationRow}>
-                <Text variant="labelLarge" style={styles.locationHeading}>
-                  Location
-                </Text>
-                <Button mode="text" compact onPress={() => void refreshLocation()} disabled={locationLoading}>
-                  Refresh
-                </Button>
-              </View>
-              {locationLoading ? (
-                <ActivityIndicator style={styles.locationSpinner} />
-              ) : locationError ? (
-                <Text variant="bodySmall" style={styles.locationText}>
-                  {locationError}
-                </Text>
-              ) : officerMapPoints.length > 0 ? (
-                <LocationMiniMap
-                  points={officerMapPoints}
-                  height={140}
-                  title="Your location"
-                  subtitle="Where this report will be pinned"
-                  accessibilityLabel={
-                    reportLocation?.coords
-                      ? `Map preview at ${reportLocation.coords.latitude.toFixed(5)}, ${reportLocation.coords.longitude.toFixed(5)}`
-                      : undefined
-                  }
-                />
-              ) : (
-                <Text variant="bodySmall" style={styles.locationText}>
-                  No GPS fix yet — tap Refresh
-                </Text>
-              )}
               <SegmentedButtons
                 value={vehicleType}
                 onValueChange={(v) =>
@@ -454,8 +366,60 @@ export default function MaintenanceScreen() {
             </Card.Content>
           </Card>
         ) : (
-          openItems.map((item) => {
-            const repPoints = reportedMapPoints(item);
+          <>
+            {reportedItems.length > 0 ? (
+              <Text variant="titleSmall" style={styles.stageTitle}>
+                2) Awaiting fixing report
+              </Text>
+            ) : null}
+            {reportedItems.map((item) => {
+              const badgeColor = STATUS_COLOR[item.status] ?? colors.gray500;
+              return (
+                <Card key={item.id} style={styles.card} elevation={0}>
+                  <Card.Content>
+                    <View style={styles.row}>
+                      <Text variant="titleMedium">
+                        {(item.officer_display_name ||
+                          item.officer_email ||
+                          'Officer') + ` · ${item.vehicle_type}`}
+                      </Text>
+                      <Chip
+                        compact
+                        style={[styles.statusChip, { backgroundColor: `${badgeColor}20` }]}
+                        textStyle={{ color: badgeColor, fontWeight: '700' }}
+                      >
+                        {STATUS_LABEL[item.status] ?? item.status}
+                      </Chip>
+                    </View>
+                    <Text variant="bodyMedium" style={styles.desc}>
+                      {item.issue_description || '—'}
+                    </Text>
+                    <Text variant="bodySmall" style={styles.meta}>
+                      Reported: {formatWhen(item.reported_at)}
+                    </Text>
+
+                    {isOfficer && (
+                      <View style={styles.actions}>
+                        <Button
+                          mode="contained-tonal"
+                          onPress={() => void updateStatus(item, 'at_garage')}
+                          disabled={submitting}
+                        >
+                          I have started fixing (garage)
+                        </Button>
+                      </View>
+                    )}
+                  </Card.Content>
+                </Card>
+              );
+            })}
+
+            {fixingItems.length > 0 ? (
+              <Text variant="titleSmall" style={styles.stageTitle}>
+                3) Awaiting supervisor acknowledgement
+              </Text>
+            ) : null}
+            {fixingItems.map((item) => {
             const badgeColor = STATUS_COLOR[item.status] ?? colors.gray500;
             return (
               <Card key={item.id} style={styles.card} elevation={0}>
@@ -478,40 +442,14 @@ export default function MaintenanceScreen() {
                     {item.issue_description || '—'}
                   </Text>
                   <Text variant="bodySmall" style={styles.meta}>
-                    Reported: {formatWhen(item.reported_at)}
+                    Reported issue: {formatWhen(item.reported_at)}
                   </Text>
-                  {repPoints.length > 0 ? (
-                    <View style={styles.reportedMapWrap}>
-                      <LocationMiniMap
-                        points={repPoints}
-                        height={120}
-                        title="Reported location"
-                        accessibilityLabel={`Reported location map for incident ${item.id}`}
-                      />
-                    </View>
-                  ) : (
-                    <Text variant="bodySmall" style={styles.meta}>
-                      Reported location: —
-                    </Text>
-                  )}
                   <Text variant="bodySmall" style={styles.meta}>
                     Reported fixing: {formatWhen(item.garage_recorded_at)}
                   </Text>
                   <Text variant="bodySmall" style={styles.meta}>
                     Acknowledged: {formatWhen(item.released_at)}
                   </Text>
-
-                  {isOfficer && item.status === 'reported' && (
-                    <View style={styles.actions}>
-                      <Button
-                        mode="contained-tonal"
-                        onPress={() => void updateStatus(item, 'at_garage')}
-                        disabled={submitting}
-                      >
-                        Report fixing in garage
-                      </Button>
-                    </View>
-                  )}
 
                   {isSupervisor && (
                     <>
@@ -532,7 +470,7 @@ export default function MaintenanceScreen() {
                               onPress={() => void updateStatus(item, 'released')}
                               disabled={submitting}
                             >
-                              Acknowledge issue
+                              Acknowledge
                             </Button>
                             <Button
                               mode="outlined"
@@ -549,7 +487,8 @@ export default function MaintenanceScreen() {
                 </Card.Content>
               </Card>
             );
-          })
+          })}
+          </>
         )}
       </ScrollView>
       <RecordVisitCameraModal
@@ -570,17 +509,7 @@ const styles = StyleSheet.create({
   subtitle: { marginTop: 4, opacity: 0.8, marginBottom: spacing.md },
   card: { marginBottom: spacing.md },
   sectionTitle: { marginBottom: spacing.sm },
-  locationHeading: { fontWeight: '700' },
-  locationRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: spacing.sm,
-    marginBottom: spacing.xs,
-  },
-  locationText: { opacity: 0.9, marginBottom: spacing.sm },
-  locationSpinner: { marginBottom: spacing.sm },
-  reportedMapWrap: { marginTop: spacing.xs, marginBottom: spacing.xs },
+  stageTitle: { marginBottom: spacing.xs, marginTop: spacing.xs, fontWeight: '700' },
   segment: { marginBottom: spacing.md },
   input: { marginBottom: spacing.sm },
   photoRow: { marginBottom: spacing.sm, gap: spacing.sm },

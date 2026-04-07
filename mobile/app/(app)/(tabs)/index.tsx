@@ -25,6 +25,7 @@ import {
   RefreshControl,
   ScrollView,
   StyleSheet,
+  StatusBar,
   Text,
   View,
 } from 'react-native';
@@ -34,7 +35,7 @@ import {
   Chip,
   Surface,
 } from 'react-native-paper';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const STAT_ICONS = {
   today: 'clipboard-text-outline',
@@ -44,6 +45,7 @@ const STAT_ICONS = {
 } as const;
 
 function HomeScreenInner() {
+  const insets = useSafeAreaInsets();
   const routerInstance = useRouter();
   const { email, department, userId, displayName, role } = useAuth();
   const isOfficer = role === 'officer';
@@ -196,7 +198,9 @@ function HomeScreenInner() {
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.safe} edges={['top']}>
+      <SafeAreaView style={styles.safe} edges={['bottom']}>
+        <StatusBar backgroundColor="#14532D" barStyle="light-content" />
+        <View style={[styles.statusBarInset, { height: insets.top }]} />
         <LinearGradient
           colors={['#14532D', '#1B8F3A']}
           start={{ x: 0, y: 0 }}
@@ -211,7 +215,9 @@ function HomeScreenInner() {
   }
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top']}>
+    <SafeAreaView style={styles.safe} edges={['bottom']}>
+      <StatusBar backgroundColor="#14532D" barStyle="light-content" />
+      <View style={[styles.statusBarInset, { height: insets.top }]} />
       <ScrollView
         style={styles.container}
         contentContainerStyle={styles.scrollContent}
@@ -239,7 +245,7 @@ function HomeScreenInner() {
             <ActionCard icon="account-plus" label="Add farmer" onPress={openAddFarmer} />
             <ActionCard icon="store-outline" label="Add stockist" onPress={openAddStockist} />
             <ActionCard icon="calendar" label="Schedule" onPress={openProposeSchedule} />
-            <ActionCard icon="tools" label="Maintenance" onPress={openMaintenance} />
+            <ActionCard icon="tools" label="Report incidence" onPress={openMaintenance} />
           </ScrollView>
 
           <View style={styles.statsPanel}>
@@ -287,8 +293,9 @@ function HomeScreenInner() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.white },
-  container: { flex: 1, backgroundColor: colors.white },
+  safe: { flex: 1, backgroundColor: '#14532D' },
+  statusBarInset: { backgroundColor: '#14532D' },
+  container: { flex: 1, backgroundColor: '#14532D' },
   scrollContent: {
     flexGrow: 1,
     paddingBottom: spacing.xxl,

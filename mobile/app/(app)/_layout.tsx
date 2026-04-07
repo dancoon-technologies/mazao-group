@@ -74,11 +74,13 @@ function AppDrawerContent(props: DrawerContentComponentProps) {
         icon={({ size, color }) => <MaterialCommunityIcons name="history" size={size} color={color} />}
         onPress={() => go('/(app)/(tabs)/history')}
       />
-      <DrawerItem
-        label={isSupervisor ? 'Track team' : 'Tracking'}
-        icon={({ size, color }) => <MaterialCommunityIcons name="map-marker-path" size={size} color={color} />}
-        onPress={() => go('/(app)/(tabs)/tracking')}
-      />
+      {isSupervisor ? (
+        <DrawerItem
+          label="Track team"
+          icon={({ size, color }) => <MaterialCommunityIcons name="map-marker-path" size={size} color={color} />}
+          onPress={() => go('/(app)/(tabs)/tracking')}
+        />
+      ) : null}
       <DrawerItem
         label="Profile"
         icon={({ size, color }) => <MaterialCommunityIcons name="account-outline" size={size} color={color} />}
