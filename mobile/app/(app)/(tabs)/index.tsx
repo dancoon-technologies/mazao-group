@@ -298,7 +298,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#14532D' },
   scrollContent: {
     flexGrow: 1,
-    paddingBottom: spacing.xxl,
+    paddingBottom: 0,
   },
   loadingGradient: {
     flex: 1,

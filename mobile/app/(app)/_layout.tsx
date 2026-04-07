@@ -16,11 +16,11 @@ import { useRouter } from 'expo-router';
 import { DrawerContentScrollView, DrawerItem, type DrawerContentComponentProps } from '@react-navigation/drawer';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useEffect, useRef } from 'react';
-import { AppState, Alert, type AppStateStatus } from 'react-native';
+import { AppState, Alert, Pressable, StyleSheet, Text, View, type AppStateStatus } from 'react-native';
 
 function AppDrawerContent(props: DrawerContentComponentProps) {
   const router = useRouter();
-  const { role, logout } = useAuth();
+  const { role, logout, displayName, email } = useAuth();
   const isSupervisor = role === 'supervisor' || role === 'admin';
 
   const go = (path: string) => {
@@ -44,6 +44,20 @@ function AppDrawerContent(props: DrawerContentComponentProps) {
 
   return (
     <DrawerContentScrollView {...props}>
+      <Pressable onPress={() => go('/(app)/(tabs)/profile')} style={drawerStyles.profileHeader}>
+        <View style={drawerStyles.avatar}>
+          <Text style={drawerStyles.avatarText}>
+            {(displayName?.trim() || email || 'U').charAt(0).toUpperCase()}
+          </Text>
+        </View>
+        <View style={drawerStyles.profileTextWrap}>
+          <Text style={drawerStyles.profileTitle}>{displayName?.trim() || 'Profile'}</Text>
+          <Text style={drawerStyles.profileSubtitle} numberOfLines={1}>
+            {email || 'View profile'}
+          </Text>
+        </View>
+        <MaterialCommunityIcons name="chevron-right" size={20} color="#6B7280" />
+      </Pressable>
       <DrawerItem
         label="Home"
         icon={({ size, color }) => <MaterialCommunityIcons name="home" size={size} color={color} />}
@@ -82,11 +96,6 @@ function AppDrawerContent(props: DrawerContentComponentProps) {
         />
       ) : null}
       <DrawerItem
-        label="Profile"
-        icon={({ size, color }) => <MaterialCommunityIcons name="account-outline" size={size} color={color} />}
-        onPress={() => go('/(app)/(tabs)/profile')}
-      />
-      <DrawerItem
         label="Report incident"
         icon={({ size, color }) => <MaterialCommunityIcons name="tools" size={size} color={color} />}
         onPress={() => go('/(app)/(tabs)/maintenance')}
@@ -104,6 +113,31 @@ function AppDrawerContent(props: DrawerContentComponentProps) {
     </DrawerContentScrollView>
   );
 }
+
+const drawerStyles = StyleSheet.create({
+  profileHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginHorizontal: 8,
+    marginBottom: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 8,
+    borderRadius: 12,
+    backgroundColor: '#F3F4F6',
+  },
+  avatar: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: '#1B8F3A',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarText: { color: '#FFFFFF', fontSize: 18, fontWeight: '700' },
+  profileTextWrap: { flex: 1, marginLeft: 10, marginRight: 6 },
+  profileTitle: { fontSize: 15, fontWeight: '700', color: '#111827' },
+  profileSubtitle: { fontSize: 12, color: '#6B7280', marginTop: 2 },
+});
 
 function AppLayoutInner() {
   const router = useRouter();
