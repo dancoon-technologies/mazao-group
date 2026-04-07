@@ -12,6 +12,26 @@ import '@/lib/sentry';
 // Initialize Legend State persistence (AsyncStorage) before any screens load
 import '@/store/observable';
 import { paperTheme } from '@/lib/paper-theme';
+import * as Sentry from '@sentry/react-native';
+
+Sentry.init({
+  dsn: 'https://1d644c4c976e425cec4b7b3c9c382d85@o4511144680554496.ingest.us.sentry.io/4511144702246912',
+
+  // Adds more context data to events (IP address, cookies, user, etc.)
+  // For more information, visit: https://docs.sentry.io/platforms/react-native/data-management/data-collected/
+  sendDefaultPii: true,
+
+  // Enable Logs
+  enableLogs: true,
+
+  // Configure Session Replay
+  replaysSessionSampleRate: 0.1,
+  replaysOnErrorSampleRate: 1,
+  integrations: [Sentry.mobileReplayIntegration(), Sentry.feedbackIntegration()],
+
+  // uncomment the line below to enable Spotlight (https://spotlightjs.com)
+  // spotlight: __DEV__,
+});
 
 // Keep native splash visible until we hide it after auth is ready
 SplashScreen.preventAutoHideAsync();
@@ -26,7 +46,7 @@ function ConfigErrorScreen() {
   );
 }
 
-export default function RootLayout() {
+export default Sentry.wrap(function RootLayout() {
   if (!hasValidApiBase) {
     return (
       <SafeAreaProvider>
@@ -52,4 +72,4 @@ export default function RootLayout() {
       </PaperProvider>
     </SafeAreaProvider>
   );
-}
+});

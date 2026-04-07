@@ -134,7 +134,9 @@
       [
         "@sentry/react-native/expo",
         {
-          "url": "https://sentry.io/"
+          "url": "https://sentry.io/",
+          "project": "mazao-monitor",
+          "organization": "dancoon-technologies"
         }
       ]
     ],

@@ -1,6 +1,7 @@
 import { colors, radius, spacing } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
 import { api } from '@/lib/api';
+import { Sentry } from '@/lib/sentry';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import NetInfo from '@react-native-community/netinfo';
 import { useFocusEffect, useRouter } from 'expo-router';
@@ -73,6 +74,10 @@ export default function ProfileScreen() {
   const handleLogout = async () => {
     await logout();
     router.replace('/login');
+  };
+
+  const handleSentryTest = () => {
+    Sentry.captureException(new Error('First error'));
   };
 
   const name = (displayName?.trim() || email || (role === 'supervisor' ? 'Supervisor' : 'Field officer')).trim();
@@ -188,6 +193,9 @@ export default function ProfileScreen() {
         </Card>
 
         <View style={styles.logoutWrap}>
+          <Button mode="contained" onPress={handleSentryTest} style={styles.testPushBtn}>
+            Try!
+          </Button>
           <Button mode="outlined" onPress={handleLogout} style={styles.logout} textColor={colors.error}>
             Sign out
           </Button>
