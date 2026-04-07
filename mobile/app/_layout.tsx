@@ -61,13 +61,13 @@ export default Sentry.wrap(function RootLayout() {
     <SafeAreaProvider>
       <PaperProvider theme={paperTheme}>
         <AuthProvider>
-        <Stack screenOptions={{ headerShown: false }}>
-          <Stack.Screen name="index" />
-          <Stack.Screen name="login" />
-          <Stack.Screen name="change-password" options={{ title: 'Set new password' }} />
-          <Stack.Screen name="(app)" options={{ headerShown: false }} />
-        </Stack>
-        <StatusBar style="dark" />
+          <Stack screenOptions={{ headerShown: false }}>
+            <Stack.Screen name="index" />
+            <Stack.Screen name="login" />
+            <Stack.Screen name="change-password" options={{ title: 'Set new password' }} />
+            <Stack.Screen name="(app)" options={{ headerShown: false }} />
+          </Stack>
+          <StatusBar style="dark" />
         </AuthProvider>
       </PaperProvider>
     </SafeAreaProvider>
