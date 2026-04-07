@@ -23,7 +23,8 @@ export default function AddFarmScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const theme = useTheme();
-  const { id: farmerId } = useLocalSearchParams<{ id: string }>();
+  const { id: farmerId, asOutlet } = useLocalSearchParams<{ id: string; asOutlet?: string }>();
+  const isOutlet = asOutlet === '1' || asOutlet === 'true';
   const labels = useSelector(() => getLabels(appMeta$.cachedOptions.get()));
   const [locations, setLocations] = useState<LocationState | null>(null);
   const [loadingLocations, setLoadingLocations] = useState(true);
@@ -115,7 +116,7 @@ export default function AddFarmScreen() {
   const getDeviceLocation = useCallback(async (): Promise<{ latitude: number; longitude: number }> => {
     const { status } = await Location.requestForegroundPermissionsAsync();
     if (status !== 'granted') {
-      throw new Error('Location permission is required to add a farm.');
+      throw new Error(`Location permission is required to add a ${isOutlet ? 'outlet' : 'farm'}.`);
     }
     const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
     return { latitude: loc.coords.latitude, longitude: loc.coords.longitude };
@@ -127,11 +128,11 @@ export default function AddFarmScreen() {
       return;
     }
     if (!regionId || !countyId || !subCountyId) {
-      setError('Select region, county and sub-county.');
+      setError('Select region, county, and sub-county.');
       return;
     }
     if (!village.trim()) {
-      setError('Village is required.');
+      setError('Enter village.');
       return;
     }
     const farmLatNum = parseFloat(farmLat);
@@ -177,6 +178,7 @@ export default function AddFarmScreen() {
           latitude: farmLatNum,
           longitude: farmLonNum,
           plot_size: plotSize.trim() || undefined,
+          is_outlet: isOutlet,
           device_latitude: deviceLat,
           device_longitude: deviceLon,
         });
@@ -206,6 +208,7 @@ export default function AddFarmScreen() {
         latitude: farmLatNum,
         longitude: farmLonNum,
         plot_size: plotSize.trim() || undefined,
+        is_outlet: isOutlet,
         device_latitude: deviceLat,
         device_longitude: deviceLon,
       });
@@ -235,6 +238,7 @@ export default function AddFarmScreen() {
     getDeviceLocation,
     labels.location,
     labels.partner,
+    isOutlet,
   ]);
 
   const counties = locations ? locations.counties.filter((c) => c.region_id === regionId) : [];
@@ -247,7 +251,7 @@ export default function AddFarmScreen() {
       <SafeAreaView style={styles.safe} edges={['bottom']}>
         <Appbar.Header>
           <Appbar.BackAction onPress={() => router.back()} />
-          <Appbar.Content title="Add farm" />
+          <Appbar.Content title={isOutlet ? 'Add outlet' : 'Add farm'} />
         </Appbar.Header>
         <View style={styles.centered}>
           <ActivityIndicator size="large" />
@@ -260,7 +264,7 @@ export default function AddFarmScreen() {
     <SafeAreaView style={styles.safe} edges={['bottom']}>
       <Appbar.Header>
         <Appbar.BackAction onPress={() => router.back()} />
-        <Appbar.Content title="Add farm" />
+        <Appbar.Content title={isOutlet ? 'Add outlet' : 'Add farm'} />
       </Appbar.Header>
       <KeyboardAvoidingView
         style={styles.container}
@@ -283,7 +287,7 @@ export default function AddFarmScreen() {
               <View style={styles.bannerRow}>
                 <ActivityIndicator size="small" />
                 <Text variant="bodySmall">
-                  {gpsLocation.status === 'locating' ? 'Getting GPS…' : 'Identifying your location…'}
+                  {gpsLocation.status === 'locating' ? 'Getting GPS…' : 'Checking area…'}
                 </Text>
               </View>
             </Banner>
@@ -292,8 +296,8 @@ export default function AddFarmScreen() {
             <Banner visible style={[styles.banner, { backgroundColor: '#E6F4EA' }]}>
               <Text variant="bodySmall">
                 {gpsLocation.detectedSubcounty
-                  ? 'Region, county, and sub-county set from your GPS location and cannot be changed.'
-                  : 'Region and county set from your GPS location. Select sub-county below if not detected.'}
+                  ? 'Region/county/sub-county auto-set from GPS.'
+                  : 'Region/county auto-set from GPS. Pick sub-county if needed.'}
               </Text>
             </Banner>
           )}
@@ -303,7 +307,7 @@ export default function AddFarmScreen() {
             </Banner>
           ) : null}
           <Text variant="bodyMedium" style={styles.hint}>
-            Add a new farm location. Village is required.
+            {isOutlet ? 'Add an outlet. Enter village.' : 'Add a farm. Enter village.'}
           </Text>
 
           {locations && (
@@ -386,24 +390,11 @@ export default function AddFarmScreen() {
             mode="outlined"
             style={styles.input}
           />
-          <View style={styles.row}>
-            <TextInput
-              label="Latitude *"
-              value={farmLat}
-              onChangeText={setFarmLat}
-              keyboardType="decimal-pad"
-              mode="outlined"
-              style={[styles.input, styles.flex]}
-            />
-            <TextInput
-              label="Longitude *"
-              value={farmLon}
-              onChangeText={setFarmLon}
-              keyboardType="decimal-pad"
-              mode="outlined"
-              style={[styles.input, styles.flex]}
-            />
-          </View>
+          {gpsLocation.coords ? (
+            <Text variant="bodySmall" style={styles.hint}>
+              GPS captured automatically for this {(isOutlet ? 'outlet' : labels.location).toLowerCase()}.
+            </Text>
+          ) : null}
           <TextInput
             label="Plot size"
             value={plotSize}
@@ -428,7 +419,7 @@ export default function AddFarmScreen() {
                 !village.trim()
               }
             >
-              Add farm
+              {isOutlet ? 'Add outlet' : 'Add farm'}
             </Button>
             <Button mode="text" onPress={() => router.back()}>
               Cancel

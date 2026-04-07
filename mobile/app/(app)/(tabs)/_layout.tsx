@@ -167,8 +167,24 @@ export default function AppTabsLayout() {
             <MaterialCommunityIcons name={TAB_ICONS.menu} size={size} color={color} />
           ),
           tabBarButton: (props) => {
-            const { ref: _ref, ...rest } = props as { ref?: unknown; [k: string]: unknown };
-            return <Pressable {...rest} onPress={() => openDrawer()} />;
+            const { ref: _ref, onPress, children, ...rest } = props as {
+              ref?: unknown;
+              onPress?: () => void;
+              children?: React.ReactNode;
+              [k: string]: unknown;
+            };
+            return (
+              <Pressable
+                {...rest}
+                style={({ pressed }) => [rest.style as object, pressed && { opacity: 0.72 }]}
+                onPress={() => {
+                  onPress?.();
+                  openDrawer();
+                }}
+              >
+                {children}
+              </Pressable>
+            );
           },
         }}
       />

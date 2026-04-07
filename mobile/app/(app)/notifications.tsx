@@ -16,6 +16,7 @@ import {
 } from 'react-native';
 import { Appbar, Button, Card, Text } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { notifications$ } from '@/store/observable';
 
 function formatNotificationDate(iso: string | null) {
   if (!iso) return '—';
@@ -42,7 +43,6 @@ export default function NotificationsScreen() {
   const [markingId, setMarkingId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    setList([]);
     if (!userId) {
       setError(null);
       setLoading(false);
@@ -51,7 +51,9 @@ export default function NotificationsScreen() {
     }
     try {
       const data = await api.getNotifications();
-      setList(Array.isArray(data) ? data : []);
+      const safeData = Array.isArray(data) ? data : [];
+      setList(safeData);
+      notifications$.set(safeData);
       setError(null);
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Failed to load notifications';
@@ -60,12 +62,18 @@ export default function NotificationsScreen() {
         msg.includes('Not authenticated') ||
         msg.includes('Session') ||
         msg.toLowerCase().includes('401');
-      setError(
-        isAuthError
-          ? 'Sign in when online to see notifications.'
-          : msg
-      );
-      setList([]);
+      const cached = notifications$.get();
+      if (cached) {
+        setList(cached);
+        setError(isAuthError ? 'Offline — showing saved notifications.' : 'Showing saved notifications.');
+      } else {
+        setError(
+          isAuthError
+            ? 'Sign in when online to see notifications.'
+            : msg
+        );
+        setList([]);
+      }
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -94,6 +102,11 @@ export default function NotificationsScreen() {
           item.id === n.id ? { ...item, read_at: new Date().toISOString() } : item
         )
       );
+      notifications$.set((prev) =>
+        (prev ?? []).map((item) =>
+          item.id === n.id ? { ...item, read_at: new Date().toISOString() } : item
+        )
+      );
     } finally {
       setMarkingId(null);
     }
@@ -115,6 +128,7 @@ export default function NotificationsScreen() {
       await api.markAllNotificationsRead();
       const now = new Date().toISOString();
       setList((prev) => prev.map((item) => ({ ...item, read_at: item.read_at ?? now })));
+      notifications$.set((prev) => (prev ?? []).map((item) => ({ ...item, read_at: item.read_at ?? now })));
     } finally {
       setMarkingId(null);
     }

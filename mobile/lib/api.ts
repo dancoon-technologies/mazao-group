@@ -2,6 +2,7 @@ import * as SecureStore from 'expo-secure-store';
 import { API_BASE, STORAGE_KEYS } from '@/constants/config';
 import { getOrCreateDeviceId } from '@/lib/deviceIdentity';
 import { logger } from '@/lib/logger';
+import { locationsCache$ } from '@/store/observable';
 
 export interface Farmer {
   id: string;
@@ -637,7 +638,17 @@ export const api = {
     });
   },
 
-  getLocations: () => request<LocationData>('/locations/'),
+  async getLocations() {
+    try {
+      const data = await request<LocationData>('/locations/');
+      locationsCache$.set(data);
+      return data;
+    } catch (e) {
+      const cached = locationsCache$.get();
+      if (cached) return cached;
+      throw e;
+    }
+  },
 
   /** Location reports list for admin/supervisor. Backend scopes supervisor to their department. */
   async getTrackingReports(params?: {

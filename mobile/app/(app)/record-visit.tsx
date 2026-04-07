@@ -135,9 +135,11 @@ export default function RecordVisitScreen() {
               onCloseFarmerModal={v.closeFarmerModal}
               onSelectFarmer={v.selectFarmerAndClose}
               onOpenFarmerModal={v.openFarmerPicker}
+              onCreatePartnerRecord={v.createPartnerFromPicker}
               onCloseFarmModal={() => v.setFarmModalOpen(false)}
               onSelectFarm={setSelectedFarmId}
               onOpenFarmModal={() => v.setFarmModalOpen(true)}
+              onCreateLocationRecord={v.createLocationFromPicker}
               onCloseActivityTypesModal={() => v.setActivityTypesModalOpen(false)}
               onSelectActivityTypes={v.setActivityTypes}
               onOpenActivityTypesModal={() => v.setActivityTypesModalOpen(true)}

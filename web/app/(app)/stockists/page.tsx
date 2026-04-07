@@ -45,16 +45,6 @@ const STOCKIST_COLUMNS: DataTableColumn<Farmer>[] = [
     label: "Phone",
     render: (f) => <Text size="sm" c="dimmed">{f.phone || "—"}</Text>,
   },
-  {
-    key: "location",
-    label: "Location",
-    visibleFrom: "md",
-    render: (f) => (
-      <Text size="sm" c="dimmed">
-        {f.latitude}, {f.longitude}
-      </Text>
-    ),
-  },
 ];
 
 const INITIAL_FORM = {
@@ -86,7 +76,7 @@ export default function StockistsPage() {
       const first = form.first_name.trim();
       const last = form.last_name.trim();
       if (!first || !last) {
-        setFormError("First name and last name are required.");
+        setFormError("Enter first and last name.");
         return;
       }
       const lat = parseFloat(form.latitude);
@@ -179,7 +169,7 @@ export default function StockistsPage() {
               />
               <Box>
                 <Text size="sm" fw={500} mb={4} component="label">
-                  Location *
+                  Location
                 </Text>
                 <MapPicker
                   latitude={
@@ -193,9 +183,6 @@ export default function StockistsPage() {
                     updateField("longitude", lng.toFixed(7));
                   }}
                 />
-                <Text size="xs" c="dimmed" mt="xs">
-                  Lat: {form.latitude || "—"} · Lng: {form.longitude || "—"}
-                </Text>
               </Box>
               <Group>
                 <Button type="submit" color="yellow" loading={submitting}>
@@ -219,7 +206,7 @@ export default function StockistsPage() {
         rowKey="id"
         columns={STOCKIST_COLUMNS}
         minWidth={400}
-        emptyMessage="No stockists found"
+        emptyMessage="No stockists yet"
         pageSize={15}
       />
     </Box>

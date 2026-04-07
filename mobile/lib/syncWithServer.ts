@@ -420,6 +420,7 @@ export async function enqueueFarm(payload: {
   latitude: number
   longitude: number
   plot_size?: string
+  is_outlet?: boolean
   device_latitude?: number
   device_longitude?: number
 }): Promise<void> {

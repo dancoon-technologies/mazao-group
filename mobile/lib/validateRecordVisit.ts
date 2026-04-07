@@ -31,6 +31,7 @@ export interface ValidateRecordVisitInput {
   bothVisitLinkOptions?: boolean;
   visitLinkMode?: 'schedule' | 'route' | null;
   selectedFarmerId: string | null;
+  selectedFarmId: string | null;
   location: { coords: { latitude: number; longitude: number } } | null;
   photoUrisLength: number;
   step3Fields: ActivityFormFieldOption[];
@@ -63,6 +64,7 @@ export function validateRecordVisit(input: ValidateRecordVisitInput): ValidateRe
     bothVisitLinkOptions,
     visitLinkMode,
     selectedFarmerId,
+    selectedFarmId,
     location,
     photoUrisLength,
     step3Fields,
@@ -108,8 +110,8 @@ export function validateRecordVisit(input: ValidateRecordVisitInput): ValidateRe
     };
   }
   // Schedule and route are optional: backend allows farmer-only visits (unplanned field stop).
-  if (!selectedFarmerId || !location) {
-    return { valid: false, error: `Select ${partnerLabel.toLowerCase()} and wait for GPS.` };
+  if (!selectedFarmerId || !selectedFarmId || !location) {
+    return { valid: false, error: `Select ${partnerLabel.toLowerCase()}, location, and wait for GPS.` };
   }
   if (photoUrisLength === 0) {
     return { valid: false, error: 'Add at least one photo.' };

@@ -8,6 +8,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Card, Divider, Text, Button } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { notifications$ } from '@/store/observable';
 
 function InfoRow({
   icon,
@@ -58,7 +59,8 @@ export default function ProfileScreen() {
       const { unread_count } = await api.getNotificationUnreadCount();
       setUnreadNotifications(unread_count);
     } catch {
-      setUnreadNotifications(0);
+      const cachedUnread = (notifications$.get() ?? []).filter((n) => !n.read_at).length;
+      setUnreadNotifications(cachedUnread);
     }
   }, []);
 

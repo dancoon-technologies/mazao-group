@@ -361,6 +361,14 @@ export default function ProposeScheduleScreen() {
       showSnackbar('error', msg);
       return;
     }
+    if (!selectedFarmerId) {
+      setError(`Select ${partnerTypeLabelLower}.`);
+      return;
+    }
+    if (!selectedFarmId) {
+      setError(`Select ${locationLabelLower}.`);
+      return;
+    }
     setSubmitting(true);
     setError('');
     try {
@@ -422,7 +430,7 @@ export default function ProposeScheduleScreen() {
     } finally {
       setSubmitting(false);
     }
-  }, [assigner, userId, selectedDate, selectedOfficerId, selectedFarmerId, selectedFarmId, notes, router, showSnackbar, isOnline]);
+  }, [assigner, userId, selectedDate, selectedOfficerId, selectedFarmerId, selectedFarmId, notes, router, showSnackbar, isOnline, partnerTypeLabelLower, locationLabelLower]);
 
   const selectedFarm = farms.find((f) => f.id === selectedFarmId);
 
@@ -591,7 +599,7 @@ export default function ProposeScheduleScreen() {
             keyboardType="numbers-and-punctuation"
           />
 
-          <Text variant="labelLarge" style={styles.label}>{partnerTypeLabel} (optional)</Text>
+          <Text variant="labelLarge" style={styles.label}>{partnerTypeLabel} *</Text>
           <Button
             mode="outlined"
             onPress={() => setFarmerModalOpen(true)}
@@ -620,11 +628,18 @@ export default function ProposeScheduleScreen() {
             onSelect={setSelectedFarmerId}
             title={`Select ${partnerTypeLabelLower}`}
             noPartnerLabel={partnerType === 'stockist' ? 'No stockist' : 'No farmer'}
+            onCreateNew={() =>
+              router.push({
+                pathname: '/(app)/add-farmer',
+                params: { returnTo: 'propose-schedule', asStockist: partnerType === 'stockist' ? '1' : undefined },
+              })
+            }
+            createNewLabel={`Create new ${partnerTypeLabelLower}`}
           />
 
           {selectedFarmerId && (
             <>
-              <Text variant="labelLarge" style={styles.label}>{locationLabel} (optional)</Text>
+              <Text variant="labelLarge" style={styles.label}>{locationLabel} *</Text>
               {farms.length === 0 ? (
                 <Text variant="bodySmall" style={styles.muted}>No {locationLabelLower}s for this {partnerTypeLabelLower}</Text>
               ) : (
@@ -647,6 +662,20 @@ export default function ProposeScheduleScreen() {
                     selectedFarmId={selectedFarmId}
                     onSelect={setSelectedFarmId}
                     title={`Select ${locationLabelLower}`}
+                    onCreateNew={() => {
+                      if (!selectedFarmerId) {
+                        router.push({
+                          pathname: '/(app)/add-farmer',
+                          params: { returnTo: 'propose-schedule', asStockist: partnerType === 'stockist' ? '1' : undefined },
+                        });
+                        return;
+                      }
+                      router.push({
+                        pathname: '/(app)/farmers/[id]/add-farm',
+                        params: { id: selectedFarmerId, ...(partnerType === 'stockist' ? { asOutlet: '1' } : {}) },
+                      });
+                    }}
+                    createNewLabel={`Create new ${locationLabelLower}`}
                   />
                 </>
               )}
@@ -669,7 +698,7 @@ export default function ProposeScheduleScreen() {
               mode="contained"
               onPress={submit}
               loading={submitting}
-              disabled={submitting || !selectedDate || (assigner && !selectedOfficerId)}
+              disabled={submitting || !selectedDate || !selectedFarmerId || !selectedFarmId || (assigner && !selectedOfficerId)}
             >
               {assigner ? 'Assign schedule' : 'Propose schedule'}
             </Button>

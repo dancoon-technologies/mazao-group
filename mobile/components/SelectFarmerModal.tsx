@@ -25,8 +25,11 @@ export interface SelectFarmerModalProps {
   selectedFarmerId: string | null;
   onSelect: (farmerId: string | null) => void;
   title?: string;
-  /** Label for "No partner" option and empty search (e.g. "No stockist" when selecting stockists). Defaults to "No {partner}". */
+  /** Label for empty-state text (e.g. "No stockist"). Defaults to "No {partner}". */
   noPartnerLabel?: string;
+  /** Optional quick action to create a new partner from this picker. */
+  onCreateNew?: () => void;
+  createNewLabel?: string;
 }
 
 function matchFarmer(f: Farmer, q: string): boolean {
@@ -46,10 +49,11 @@ export function SelectFarmerModal({
   onSelect,
   title,
   noPartnerLabel,
+  onCreateNew,
+  createNewLabel,
 }: SelectFarmerModalProps) {
   const labels = useSelector(() => getLabels(appMeta$.cachedOptions.get()));
   const modalTitle = title ?? `Select ${labels.partner.toLowerCase()}`;
-  const noLabel = noPartnerLabel ?? `No ${labels.partner.toLowerCase()}`;
   const noMatchLabel = noPartnerLabel ? noPartnerLabel.replace(/^No /, "") + "s" : `${labels.partner.toLowerCase()}s`;
   const [search, setSearch] = useState("");
   const [keyboardHeight, setKeyboardHeight] = useState(0);
@@ -78,7 +82,7 @@ export function SelectFarmerModal({
     return farmers.filter((f) => matchFarmer(f, search));
   }, [farmers, search]);
 
-  const handleSelect = (id: string | null) => {
+  const handleSelect = (id: string) => {
     onSelect(id);
     setSearch("");
     onClose();
@@ -141,16 +145,6 @@ export function SelectFarmerModal({
             onChangeText={setSearch}
             style={styles.searchInput}
           />
-          <View style={styles.noFarmerRow}>
-            <Button
-              mode={selectedFarmerId === null ? "contained" : "outlined"}
-              compact
-              onPress={() => handleSelect(null)}
-              style={styles.noFarmerBtn}
-            >
-              {noLabel}
-            </Button>
-          </View>
           <FlatList
             data={filtered}
             keyExtractor={(item) => item.id}
@@ -158,13 +152,28 @@ export function SelectFarmerModal({
             style={[styles.list, keyboardHeight > 0 && { flex: 1 }]}
             keyboardShouldPersistTaps="handled"
             ListEmptyComponent={
-              search.trim() ? (
-                <View style={styles.empty}>
-                  <Text variant="bodySmall" style={styles.emptyText}>
-                    No {noMatchLabel} match &quot;{search.trim()}&quot;
-                  </Text>
-                </View>
-              ) : null
+              <View style={styles.empty}>
+                <Text variant="bodySmall" style={styles.emptyText}>
+                  {search.trim()
+                    ? `No ${noMatchLabel} match "${search.trim()}"`
+                    : `No ${noMatchLabel} found`}
+                </Text>
+                {onCreateNew ? (
+                  <Button
+                    mode="contained-tonal"
+                    compact
+                    icon="account-plus"
+                    onPress={() => {
+                      setSearch("");
+                      onClose();
+                      onCreateNew();
+                    }}
+                    style={styles.createBtn}
+                  >
+                    {createNewLabel ?? `Create new ${noPartnerLabel ? noPartnerLabel.replace(/^No /, '').toLowerCase() : labels.partner.toLowerCase()}`}
+                  </Button>
+                ) : null}
+              </View>
             }
           />
         </View>
@@ -213,13 +222,6 @@ const styles = StyleSheet.create({
     marginHorizontal: spacing.lg,
     marginBottom: spacing.sm,
   },
-  noFarmerRow: {
-    paddingHorizontal: spacing.lg,
-    marginBottom: spacing.sm,
-  },
-  noFarmerBtn: {
-    alignSelf: "flex-start",
-  },
   list: {
     maxHeight: 480,
   },
@@ -246,5 +248,8 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     color: colors.gray500,
+  },
+  createBtn: {
+    marginTop: spacing.sm,
   },
 });

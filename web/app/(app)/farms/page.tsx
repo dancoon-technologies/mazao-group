@@ -28,8 +28,6 @@ const INITIAL_FARM_FORM = {
   sub_county_id: "",
   region_id: "",
   village: "",
-  latitude: "",
-  longitude: "",
   plot_size: "",
 };
 
@@ -119,24 +117,29 @@ export default function FarmsPage() {
       e.preventDefault();
       setFormError("");
       if (!form.farmer_id || !form.region_id || !form.county_id || !form.sub_county_id || !form.village.trim()) {
-        setFormError("Farmer, county, sub-county and village are required.");
+        setFormError("Select farmer, county, sub-county, and village.");
         return;
       }
-      const lat = parseFloat(form.latitude);
-      const lon = parseFloat(form.longitude);
-      if (Number.isNaN(lat) || Number.isNaN(lon)) {
-        setFormError("Enter valid latitude and longitude.");
+      if (typeof navigator === "undefined" || !navigator.geolocation) {
+        setFormError("Location unavailable in this browser.");
         return;
       }
       setSubmitting(true);
       try {
+        const coords = await new Promise<{ latitude: number; longitude: number }>((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(
+            (pos) => resolve({ latitude: pos.coords.latitude, longitude: pos.coords.longitude }),
+            () => reject(new Error("Could not get location. Allow GPS and retry.")),
+            { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+          );
+        });
         await api.createFarm({
           farmer_id: form.farmer_id,
           county_id: form.county_id,
           sub_county_id: form.sub_county_id,
           village: form.village.trim(),
-          latitude: lat,
-          longitude: lon,
+          latitude: coords.latitude,
+          longitude: coords.longitude,
           plot_size: form.plot_size.trim() || undefined,
           is_outlet: false,
         });
@@ -227,33 +230,16 @@ export default function FarmsPage() {
                 value={form.sub_county_id || null}
                 onChange={(v) => updateField("sub_county_id", v ?? "")}
               />
-              <TextInput
+      <TextInput
                 label="Village"
                 required
                 value={form.village}
                 onChange={(e) => updateField("village", e.target.value)}
                 placeholder="Village or area"
               />
-              <Group grow>
-                <TextInput
-                  label="Latitude"
-                  required
-                  type="number"
-                  step="any"
-                  value={form.latitude}
-                  onChange={(e) => updateField("latitude", e.target.value)}
-                  placeholder="-1.2921"
-                />
-                <TextInput
-                  label="Longitude"
-                  required
-                  type="number"
-                  step="any"
-                  value={form.longitude}
-                  onChange={(e) => updateField("longitude", e.target.value)}
-                  placeholder="36.8219"
-                />
-              </Group>
+              <Text size="xs" c="dimmed">
+                GPS captured on submit.
+              </Text>
               <TextInput
                 label="Plot size (optional)"
                 value={form.plot_size}
@@ -278,7 +264,7 @@ export default function FarmsPage() {
         rowKey="id"
         columns={farmColumns(farmers, labels.partner)}
         minWidth={500}
-        emptyMessage="No farms found"
+        emptyMessage="No farms yet"
         pageSize={15}
       />
     </Box>

@@ -24,6 +24,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, spacing } from '@/constants/theme';
 import { logger } from '@/lib/logger';
+import { maintenanceIncidents$ } from '@/store/observable';
 
 const STATUS_LABEL: Record<MaintenanceStatus, string> = {
   reported: 'Reported',
@@ -40,6 +41,7 @@ const STATUS_COLOR: Record<MaintenanceStatus, string> = {
   released: '#15803d',
   rejected: colors.error,
 };
+
 
 function formatWhen(iso: string | null | undefined): string {
   if (!iso) return '—';
@@ -87,26 +89,33 @@ export default function MaintenanceScreen() {
     try {
       const online = await NetInfo.fetch().then((s) => s.isConnected ?? false);
       if (!online) {
-        setError('Connect to load maintenance records.');
-        setItems([]);
+        const cached = maintenanceIncidents$.get();
+        setItems(cached ?? []);
+        setError(cached ? 'Offline — showing saved records.' : 'Offline — no saved records yet.');
         return;
       }
       const list = await api.getMaintenanceIncidents();
       logger.info('Maintenance incidents loaded', { incidents_count: list.length, as_refresh: !!asRefresh });
-      setItems(
-        [...list].sort(
-          (a, b) =>
-            new Date(b.reported_at || b.created_at || 0).getTime() -
-            new Date(a.reported_at || a.created_at || 0).getTime()
-        )
+      const sorted = [...list].sort(
+        (a, b) =>
+          new Date(b.reported_at || b.created_at || 0).getTime() -
+          new Date(a.reported_at || a.created_at || 0).getTime()
       );
+      setItems(sorted);
+      maintenanceIncidents$.set(sorted);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load maintenance records.');
+      const cached = maintenanceIncidents$.get();
+      if (cached) {
+        setItems(cached);
+        setError('Showing saved records (sync failed).');
+      } else {
+        setError(e instanceof Error ? e.message : 'Failed to load maintenance records.');
+        setItems([]);
+      }
       logger.warn('Maintenance incidents load failed', {
         as_refresh: !!asRefresh,
         error: e instanceof Error ? e.message : 'load failed',
       });
-      setItems([]);
     } finally {
       setLoading(false);
       setRefreshing(false);

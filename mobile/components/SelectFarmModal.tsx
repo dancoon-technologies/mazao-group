@@ -20,8 +20,10 @@ export interface SelectFarmModalProps {
   onClose: () => void;
   farms: Farm[];
   selectedFarmId: string | null;
-  onSelect: (farmId: string | null) => void;
+  onSelect: (farmId: string) => void;
   title?: string;
+  onCreateNew?: () => void;
+  createNewLabel?: string;
 }
 
 function matchFarm(f: Farm, q: string): boolean {
@@ -52,6 +54,8 @@ export function SelectFarmModal({
   selectedFarmId,
   onSelect,
   title = "Select farm",
+  onCreateNew,
+  createNewLabel,
 }: SelectFarmModalProps) {
   const [search, setSearch] = useState("");
   const [keyboardHeight, setKeyboardHeight] = useState(0);
@@ -80,7 +84,7 @@ export function SelectFarmModal({
     return farms.filter((f) => matchFarm(f, search));
   }, [farms, search]);
 
-  const handleSelect = (id: string | null) => {
+  const handleSelect = (id: string) => {
     onSelect(id);
     setSearch("");
     onClose();
@@ -142,16 +146,6 @@ export function SelectFarmModal({
             onChangeText={setSearch}
             style={styles.searchInput}
           />
-          <View style={styles.noneRow}>
-            <Button
-              mode={selectedFarmId === null ? "contained" : "outlined"}
-              compact
-              onPress={() => handleSelect(null)}
-              style={styles.noneBtn}
-            >
-              None
-            </Button>
-          </View>
           <FlatList
             data={filtered}
             keyExtractor={(item) => item.id}
@@ -159,13 +153,26 @@ export function SelectFarmModal({
             style={[styles.list, keyboardHeight > 0 && { flex: 1 }]}
             keyboardShouldPersistTaps="handled"
             ListEmptyComponent={
-              search.trim() ? (
-                <View style={styles.empty}>
-                  <Text variant="bodySmall" style={styles.emptyText}>
-                    No farms match &quot;{search.trim()}&quot;
-                  </Text>
-                </View>
-              ) : null
+              <View style={styles.empty}>
+                <Text variant="bodySmall" style={styles.emptyText}>
+                  {search.trim() ? `No farms match "${search.trim()}"` : 'No farms found'}
+                </Text>
+                {onCreateNew ? (
+                  <Button
+                    mode="contained-tonal"
+                    compact
+                    icon="map-marker-plus"
+                    onPress={() => {
+                      setSearch("");
+                      onClose();
+                      onCreateNew();
+                    }}
+                    style={styles.createBtn}
+                  >
+                    {createNewLabel ?? 'Create new farm'}
+                  </Button>
+                ) : null}
+              </View>
             }
           />
         </View>
@@ -214,13 +221,6 @@ const styles = StyleSheet.create({
     marginHorizontal: spacing.lg,
     marginBottom: spacing.sm,
   },
-  noneRow: {
-    paddingHorizontal: spacing.lg,
-    marginBottom: spacing.sm,
-  },
-  noneBtn: {
-    alignSelf: "flex-start",
-  },
   list: {
     maxHeight: 480,
   },
@@ -247,5 +247,8 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     color: colors.gray500,
+  },
+  createBtn: {
+    marginTop: spacing.sm,
   },
 });

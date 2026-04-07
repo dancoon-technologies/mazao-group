@@ -61,9 +61,11 @@ type Props = {
   onCloseFarmerModal: () => void;
   onSelectFarmer: (id: string | null) => void;
   onOpenFarmerModal: () => void;
+  onCreatePartnerRecord: () => void;
   onCloseFarmModal: () => void;
   onSelectFarm: (id: string | null) => void;
   onOpenFarmModal: () => void;
+  onCreateLocationRecord: () => void;
   onCloseActivityTypesModal: () => void;
   onSelectActivityTypes: (values: string[]) => void;
   onOpenActivityTypesModal: () => void;
@@ -121,9 +123,11 @@ export function RecordVisitStep0({
   onCloseFarmerModal,
   onSelectFarmer,
   onOpenFarmerModal,
+  onCreatePartnerRecord,
   onCloseFarmModal,
   onSelectFarm,
   onOpenFarmModal,
+  onCreateLocationRecord,
   onCloseActivityTypesModal,
   onSelectActivityTypes,
   onOpenActivityTypesModal,
@@ -321,6 +325,8 @@ export function RecordVisitStep0({
             onSelect={onSelectFarmer}
             title={farmerModalTitle ?? `Select ${partnerLabel.toLowerCase()}`}
             noPartnerLabel={partnerType === 'stockist' ? 'No stockist' : undefined}
+            onCreateNew={onCreatePartnerRecord}
+            createNewLabel={`Create new ${partnerLabel.toLowerCase()}`}
           />
           {selectedFarmer && (
             <View style={styles.farmerCard}>
@@ -347,10 +353,10 @@ export function RecordVisitStep0({
           )}
 
           <Text variant="labelMedium" style={styles.step2SectionTitle}>
-            {`${locationLabel.toUpperCase()} (optional)`}
+            {`${locationLabel.toUpperCase()} *`}
           </Text>
           <Text variant="bodySmall" style={styles.hint}>
-            Farm vs outlet is shown when this location is saved on the partner record.
+            Choose a saved {locationLabel.toLowerCase()}.
           </Text>
           {(scheduleLockedForFarm && selectedFarm) ? (
             <View style={styles.farmDisplay}>
@@ -384,6 +390,8 @@ export function RecordVisitStep0({
                   selectedFarmId={selectedFarmId}
                   onSelect={onSelectFarm}
                   title={`Select ${locationLabel.toLowerCase()}`}
+                  onCreateNew={onCreateLocationRecord}
+                  createNewLabel={`Create new ${locationLabel.toLowerCase()}`}
                 />
               </>
             )

@@ -579,6 +579,7 @@ export function useRecordVisitScreen() {
       bothVisitLinkOptions,
       visitLinkMode,
       selectedFarmerId,
+      selectedFarmId,
       location,
       photoUrisLength: photoUris.length,
       step3Fields,
@@ -596,7 +597,7 @@ export function useRecordVisitScreen() {
       setError(validation.error ?? 'Check the form.');
       return;
     }
-    if (!selectedFarmerId || !location) return;
+    if (!selectedFarmerId || !selectedFarmId || !location) return;
     setSubmitting(true);
     setError('');
     try {
@@ -832,6 +833,30 @@ export function useRecordVisitScreen() {
     router.back();
   }, [router]);
 
+  const createPartnerFromPicker = useCallback(() => {
+    router.push({
+      pathname: '/(app)/add-farmer',
+      params: {
+        returnTo: 'record-visit',
+        ...(partnerType === 'stockist' ? { asStockist: '1' } : {}),
+      },
+    });
+  }, [router, partnerType]);
+
+  const createLocationFromPicker = useCallback(() => {
+    if (!selectedFarmerId) {
+      createPartnerFromPicker();
+      return;
+    }
+    router.push({
+      pathname: '/(app)/farmers/[id]/add-farm',
+      params: {
+        id: selectedFarmerId,
+        ...(partnerType === 'stockist' ? { asOutlet: '1' } : {}),
+      },
+    });
+  }, [router, selectedFarmerId, partnerType, createPartnerFromPicker]);
+
   return {
     permission,
     requestPermission,
@@ -882,6 +907,8 @@ export function useRecordVisitScreen() {
     farmerModalTitle,
     openFarmerPicker,
     closeFarmerModal,
+    createPartnerFromPicker,
+    createLocationFromPicker,
     farmModalOpen,
     setFarmModalOpen,
     activityTypesModalOpen,

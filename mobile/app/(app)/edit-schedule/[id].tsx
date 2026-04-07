@@ -154,6 +154,14 @@ export default function EditScheduleScreen() {
       setError('Please explain why you are changing this schedule. Your supervisor must approve.');
       return;
     }
+    if (!selectedFarmerId) {
+      setError(`Select ${labels.partner.toLowerCase()}.`);
+      return;
+    }
+    if (!selectedFarmId) {
+      setError(`Select ${labels.location.toLowerCase()}.`);
+      return;
+    }
     setSubmitting(true);
     setError('');
     try {
@@ -243,7 +251,7 @@ export default function EditScheduleScreen() {
             keyboardType="numbers-and-punctuation"
           />
 
-          <Text variant="labelLarge" style={styles.label}>{labels.partner} (optional)</Text>
+          <Text variant="labelLarge" style={styles.label}>{labels.partner} *</Text>
           <Button
             mode="outlined"
             onPress={() => setFarmerModalOpen(true)}
@@ -271,11 +279,13 @@ export default function EditScheduleScreen() {
             selectedFarmerId={selectedFarmerId}
             onSelect={setSelectedFarmerId}
             title={`Select ${labels.partner}`}
+            onCreateNew={() => router.push({ pathname: '/(app)/add-farmer', params: { returnTo: 'edit-schedule' } })}
+            createNewLabel={`Create new ${labels.partner.toLowerCase()}`}
           />
 
           {selectedFarmerId && (
             <>
-              <Text variant="labelLarge" style={styles.label}>{labels.location} (optional)</Text>
+              <Text variant="labelLarge" style={styles.label}>{labels.location} *</Text>
               {farms.length === 0 ? (
                 <Text variant="bodySmall" style={styles.muted}>No {labels.location.toLowerCase()}s for this {labels.partner.toLowerCase()}</Text>
               ) : (
@@ -298,6 +308,14 @@ export default function EditScheduleScreen() {
                     selectedFarmId={selectedFarmId}
                     onSelect={setSelectedFarmId}
                     title={`Select ${labels.location}`}
+                    onCreateNew={() => {
+                      if (!selectedFarmerId) {
+                        router.push({ pathname: '/(app)/add-farmer', params: { returnTo: 'edit-schedule' } });
+                        return;
+                      }
+                      router.push({ pathname: '/(app)/farmers/[id]/add-farm', params: { id: selectedFarmerId } });
+                    }}
+                    createNewLabel={`Create new ${labels.location.toLowerCase()}`}
                   />
                 </>
               )}
@@ -339,7 +357,7 @@ export default function EditScheduleScreen() {
               mode="contained"
               onPress={submit}
               loading={submitting}
-              disabled={submitting || !selectedDate || (!isSupervisor && !editReason.trim())}
+              disabled={submitting || !selectedDate || !selectedFarmerId || !selectedFarmId || (!isSupervisor && !editReason.trim())}
             >
               Save changes
             </Button>

@@ -10,7 +10,7 @@ import {
 } from '@legendapp/state/persist';
 import { ObservablePersistAsyncStorage } from '@legendapp/state/persist-plugins/async-storage';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import type { Farm, LocationData, OptionsResponse } from '@/lib/api';
+import type { Farm, LocationData, MaintenanceIncident, Notification, OptionsResponse, LocationReport } from '@/lib/api';
 import type { FarmerRow, FarmRow, ScheduleRow, SyncQueueRow, VisitRow } from './types';
 
 configureObservablePersistence({
@@ -57,6 +57,18 @@ persistObservable(visits$, { local: 'mazao_visits' });
 /** Pending sync queue. */
 export const syncQueue$ = observable<SyncQueueRow[]>([]);
 persistObservable(syncQueue$, { local: 'mazao_sync_queue' });
+
+/** Maintenance incidents cache (offline-first list view). */
+export const maintenanceIncidents$ = observable<MaintenanceIncident[]>([]);
+persistObservable(maintenanceIncidents$, { local: 'mazao_maintenance_incidents' });
+
+/** Tracking reports cache (offline-first list/map view). */
+export const trackingReports$ = observable<LocationReport[]>([]);
+persistObservable(trackingReports$, { local: 'mazao_tracking_reports_cache' });
+
+/** Notifications cache (offline-first inbox view). */
+export const notifications$ = observable<Notification[]>([]);
+persistObservable(notifications$, { local: 'mazao_notifications' });
 
 /** Last farm added via Add Farm (online). Detail screen merges it and clears. Not persisted. */
 export const lastAddedFarm$ = observable<{ farmerId: string; farm: Farm } | null>(null);

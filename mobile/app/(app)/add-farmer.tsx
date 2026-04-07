@@ -130,28 +130,18 @@ export default function AddFarmerScreen() {
     }
   }, [locations, gpsLocation.status, gpsLocation.detectedRegion, gpsLocation.detectedCounty, gpsLocation.detectedSubcounty, gpsLocation.isOutsideKenya]);
 
-  // Auto-fill farm latitude and longitude from GPS when coords are available
+  // Auto-fill hidden farmer/farm coordinates from GPS when coords are available
   useEffect(() => {
-    if (hasAutoFilledFarmCoords.current || !gpsLocation.coords) return;
+    if (!gpsLocation.coords) return;
+    if (!lat || !lon) {
+      setLat(String(gpsLocation.coords.latitude));
+      setLon(String(gpsLocation.coords.longitude));
+    }
+    if (hasAutoFilledFarmCoords.current) return;
     hasAutoFilledFarmCoords.current = true;
     setFarmLat(String(gpsLocation.coords.latitude));
     setFarmLon(String(gpsLocation.coords.longitude));
-  }, [gpsLocation.coords]);
-
-  const getCurrentLocation = useCallback(async () => {
-    const { status } = await Location.requestForegroundPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('Permission', 'Location permission is required.');
-      return;
-    }
-    try {
-      const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-      setLat(String(loc.coords.latitude));
-      setLon(String(loc.coords.longitude));
-    } catch {
-      Alert.alert('Error', 'Could not get location.');
-    }
-  }, []);
+  }, [gpsLocation.coords, lat, lon]);
 
   /** Get current device position for farm GPS validation. */
   const getDeviceLocation = useCallback(async (): Promise<{ latitude: number; longitude: number }> => {
@@ -169,7 +159,7 @@ export default function AddFarmerScreen() {
       return;
     }
     if (!regionId || !countyId || !subCountyId) {
-      setError('Select region, county and sub-county for the farm.');
+      setError('Select region, county, and sub-county.');
       return;
     }
     if (!village.trim()) {
@@ -415,28 +405,6 @@ export default function AddFarmerScreen() {
           mode="outlined"
           style={styles.input}
         />
-        <View style={styles.row}>
-          <TextInput
-            label="Latitude"
-            value={lat}
-            onChangeText={setLat}
-            keyboardType="decimal-pad"
-            mode="outlined"
-            style={[styles.input, styles.flex]}
-          />
-          <TextInput
-            label="Longitude"
-            value={lon}
-            onChangeText={setLon}
-            keyboardType="decimal-pad"
-            mode="outlined"
-            style={[styles.input, styles.flex]}
-          />
-        </View>
-        <Button mode="outlined" onPress={getCurrentLocation} style={styles.locationBtn}>
-          Use my location
-        </Button>
-
         <Text variant="titleMedium" style={styles.sectionTitle}>
           First {locationLabel.toLowerCase()} (required)
         </Text>
@@ -445,7 +413,7 @@ export default function AddFarmerScreen() {
             <View style={styles.bannerRow}>
               <ActivityIndicator size="small" />
               <Text variant="bodySmall">
-                {gpsLocation.status === 'locating' ? 'Getting GPS…' : 'Identifying your location…'}
+                {gpsLocation.status === 'locating' ? 'Getting GPS…' : 'Checking area…'}
               </Text>
             </View>
           </Banner>
@@ -454,8 +422,8 @@ export default function AddFarmerScreen() {
           <Banner visible style={[styles.banner, { backgroundColor: '#E6F4EA' }]}>
             <Text variant="bodySmall">
               {gpsLocation.detectedSubcounty
-                ? 'Region, county, and sub-county set from your GPS location and cannot be changed.'
-                : 'Region and county set from your GPS location. Select sub-county below if not detected.'}
+                ? 'Region/county/sub-county auto-set from GPS.'
+                : 'Region/county auto-set from GPS. Pick sub-county if needed.'}
             </Text>
           </Banner>
         )}
@@ -465,7 +433,7 @@ export default function AddFarmerScreen() {
           </Banner>
         ) : null}
         <Text variant="bodySmall" style={styles.hint}>
-          Select region, then county, then sub-county. Village is required.
+          Pick region, county, and sub-county.
         </Text>
         {locations && (
           <>
@@ -638,7 +606,6 @@ const styles = StyleSheet.create({
   input: { marginBottom: 8 },
   row: { flexDirection: 'row', gap: 8 },
   flex: { flex: 1 },
-  locationBtn: { marginBottom: 8 },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 8 },
   chip: { margin: 0 },
   error: { color: colors.error, marginVertical: 8 },

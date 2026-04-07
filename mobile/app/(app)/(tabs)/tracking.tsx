@@ -11,6 +11,7 @@ import { ScrollView, StyleSheet, View } from 'react-native';
 import { ActivityIndicator, Card, IconButton, Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { trackingReports$ } from '@/store/observable';
 
 function formatDuration(seconds: number | null | undefined): string {
   if (seconds == null || seconds < 0 || !Number.isFinite(seconds)) return '—';
@@ -52,8 +53,9 @@ export default function TrackingTeamScreen() {
       const net = await NetInfo.fetch();
       const online = net.isConnected ?? false;
       if (!online) {
-        setError('Connect to load team updates.');
-        setReports([]);
+        const cached = trackingReports$.get();
+        setReports(cached ?? []);
+        setError(cached ? 'Offline — showing saved updates.' : 'Offline — no saved updates yet.');
         return;
       }
 
@@ -61,10 +63,18 @@ export default function TrackingTeamScreen() {
         date: new Date().toISOString().slice(0, 10),
         page_size: 200,
       });
-      setReports(Array.isArray(list) ? list : []);
+      const safeList = Array.isArray(list) ? list : [];
+      setReports(safeList);
+      trackingReports$.set(safeList);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load team updates.');
-      setReports([]);
+      const cached = trackingReports$.get();
+      if (cached) {
+        setReports(cached);
+        setError('Showing saved updates (sync failed).');
+      } else {
+        setError(e instanceof Error ? e.message : 'Failed to load team updates.');
+        setReports([]);
+      }
     } finally {
       setLoading(false);
     }
