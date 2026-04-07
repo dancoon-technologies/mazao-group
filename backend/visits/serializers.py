@@ -154,7 +154,7 @@ class VisitSerializer(serializers.ModelSerializer):
 
 class VisitCreateSerializer(serializers.ModelSerializer):
     farmer_id = serializers.UUIDField(write_only=True)
-    farm_id = serializers.UUIDField(write_only=True, required=False, allow_null=True)
+    farm_id = serializers.UUIDField(write_only=True, required=True, allow_null=False)
     # Optional: visits can be recorded either from an accepted schedule or from a route stop.
     schedule_id = serializers.UUIDField(write_only=True, required=False, allow_null=True)
     route_id = serializers.UUIDField(write_only=True, required=False, allow_null=True)

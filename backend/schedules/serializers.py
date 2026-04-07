@@ -59,10 +59,10 @@ class ScheduleCreateSerializer(serializers.ModelSerializer):
         allow_null=True,
     )
     farmer = serializers.PrimaryKeyRelatedField(
-        queryset=Farmer.objects.all(), required=False, allow_null=True
+        queryset=Farmer.objects.all(), required=True, allow_null=False
     )
     farm = serializers.PrimaryKeyRelatedField(
-        queryset=Farm.objects.all(), required=False, allow_null=True
+        queryset=Farm.objects.all(), required=True, allow_null=False
     )
 
     class Meta:
@@ -71,6 +71,10 @@ class ScheduleCreateSerializer(serializers.ModelSerializer):
         fields = ("officer", "farmer", "farm", "scheduled_date", "notes")
 
     def validate(self, attrs):
+        if attrs.get("farmer") is None:
+            raise serializers.ValidationError({"farmer": "Farmer is required."})
+        if attrs.get("farm") is None:
+            raise serializers.ValidationError({"farm": "Farm/outlet is required."})
         farm = attrs.get("farm")
         farmer = attrs.get("farmer")
         if farm is not None and (farmer is None or farm.farmer_id != farmer.id):
@@ -107,9 +111,13 @@ class ScheduleUpdateSerializer(serializers.ModelSerializer):
         fields = ("officer", "farmer", "farm", "scheduled_date", "notes", "edit_reason")
 
     def validate(self, attrs):
-        farm = attrs.get("farm")
-        farmer = attrs.get("farmer")
-        if farm is not None and farmer is not None and farm.farmer_id != farmer.id:
+        farmer = attrs.get("farmer", getattr(self.instance, "farmer", None))
+        farm = attrs.get("farm", getattr(self.instance, "farm", None))
+        if farmer is None:
+            raise serializers.ValidationError({"farmer": "Farmer is required."})
+        if farm is None:
+            raise serializers.ValidationError({"farm": "Farm/outlet is required."})
+        if farm.farmer_id != farmer.id:
             raise serializers.ValidationError(
                 {"farm": "Farm must belong to the selected farmer."}
             )

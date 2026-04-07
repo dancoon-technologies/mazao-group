@@ -152,6 +152,11 @@ class VisitListCreateView(generics.ListCreateAPIView):
         except Farmer.DoesNotExist:
             logger.warning("POST /api/visits/ farmer_id=%s not found", farmer_id)
             return Response({"farmer_id": [f"{partner_label} not found."]}, status=status.HTTP_404_NOT_FOUND)
+        if not farm_id:
+            return Response(
+                {"farm_id": [f"{location_label} is required."]},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         allowed_activities = _allowed_activity_type_values(user)
         activity_types_raw = data.get("activity_types")
         if activity_types_raw and isinstance(activity_types_raw, list) and len(activity_types_raw) > 0:
@@ -197,29 +202,15 @@ class VisitListCreateView(generics.ListCreateAPIView):
                 payload["travel_validation"] = travel_extra
             return Response(payload, status=status.HTTP_400_BAD_REQUEST)
 
-        ref_lat, ref_lon = None, None
-        farm = None
-        if farm_id:
-            try:
-                farm = Farm.objects.select_related("farmer").get(pk=farm_id, farmer=farmer)
-                ref_lat, ref_lon = float(farm.latitude), float(farm.longitude)
-            except Farm.DoesNotExist:
-                logger.warning("POST /api/visits/ farm_id=%s not found for farmer_id=%s", farm_id, farmer_id)
-                return Response(
-                    {"farm_id": [f"{location_label} not found or does not belong to this {partner_label.lower()}."]},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-        if ref_lat is None and farmer.farms.exists():
-            farms = list(farmer.farms.all())
-            min_d = float("inf")
-            for f in farms:
-                d = haversine_meters(lat, lon, float(f.latitude), float(f.longitude))
-                if d < min_d:
-                    min_d = d
-                    ref_lat, ref_lon = float(f.latitude), float(f.longitude)
-                    farm = f
-        if ref_lat is None:
-            ref_lat, ref_lon = float(farmer.latitude), float(farmer.longitude)
+        try:
+            farm = Farm.objects.select_related("farmer").get(pk=farm_id, farmer=farmer)
+            ref_lat, ref_lon = float(farm.latitude), float(farm.longitude)
+        except Farm.DoesNotExist:
+            logger.warning("POST /api/visits/ farm_id=%s not found for farmer_id=%s", farm_id, farmer_id)
+            return Response(
+                {"farm_id": [f"{location_label} not found or does not belong to this {partner_label.lower()}."]},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         schedule = None
         route = None
