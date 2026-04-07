@@ -8,7 +8,7 @@ from rest_framework import status
 from rest_framework.test import APIClient
 
 from accounts.models import Department, User
-from farmers.models import Farmer
+from farmers.models import Farm, Farmer
 from locations.models import Region
 
 from .models import Schedule
@@ -52,6 +52,12 @@ class ScheduleAPITests(TestCase):
             first_name="Test",
             last_name="Farmer",
             phone="+255111",
+            latitude=-6.0,
+            longitude=39.0,
+        )
+        self.farm = Farm.objects.create(
+            farmer=self.farmer,
+            village="Test Village",
             latitude=-6.0,
             longitude=39.0,
         )
@@ -108,6 +114,7 @@ class ScheduleAPITests(TestCase):
         today = timezone.now().date()
         payload = {
             "farmer": str(self.farmer.pk),
+            "farm": str(self.farm.pk),
             "scheduled_date": today.isoformat(),
             "notes": "Field visit",
         }
@@ -123,12 +130,26 @@ class ScheduleAPITests(TestCase):
         payload = {
             "officer": str(self.officer.pk),
             "farmer": str(self.farmer.pk),
+            "farm": str(self.farm.pk),
             "scheduled_date": today.isoformat(),
             "notes": "Assigned by supervisor",
         }
         r = self.client.post("/api/schedules/", payload, format="json")
         self.assertEqual(r.status_code, status.HTTP_201_CREATED)
         self.assertEqual(r.json()["status"], Schedule.Status.ACCEPTED)
+
+    def test_create_schedule_requires_farmer_and_farm(self):
+        token = self._login("officer@test.com", "officer123")
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
+        today = timezone.now().date()
+        payload = {
+            "scheduled_date": today.isoformat(),
+            "notes": "Missing required selections",
+        }
+        r = self.client.post("/api/schedules/", payload, format="json")
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("farmer", r.json())
+        self.assertIn("farm", r.json())
 
     def test_supervisor_approve_accept(self):
         schedule = Schedule.objects.create(

@@ -11,8 +11,8 @@ import { formatDateTime } from "@/lib/format";
 const STATUS_LABEL: Record<MaintenanceStatus, string> = {
   reported: "Reported",
   verified_breakdown: "Verified breakdown",
-  at_garage: "At garage",
-  released: "Released",
+  at_garage: "Repair reported",
+  released: "Acknowledged",
   rejected: "Rejected",
 };
 
@@ -193,18 +193,13 @@ export default function MaintenancePage() {
 
   const updateIncident = useCallback(
     async (incident: MaintenanceIncident, status: MaintenanceStatus) => {
-      if (!isSupervisor) return;
+      if (!isSupervisor && !isOfficer) return;
       setSubmitting(true);
       try {
         const payload: Parameters<typeof api.updateMaintenanceIncident>[1] = {
           status,
-          supervisor_notes: supervisorNotes[incident.id]?.trim() || undefined,
+          supervisor_notes: isSupervisor ? supervisorNotes[incident.id]?.trim() || undefined : undefined,
         };
-        if (status === "verified_breakdown") {
-          const coords = await getCoords();
-          payload.breakdown_verified_latitude = coords.latitude;
-          payload.breakdown_verified_longitude = coords.longitude;
-        }
         if (status === "at_garage") {
           const coords = await getCoords();
           payload.garage_latitude = coords.latitude;
@@ -219,7 +214,7 @@ export default function MaintenancePage() {
         setSubmitting(false);
       }
     },
-    [getCoords, isSupervisor, load, supervisorNotes]
+    [getCoords, isOfficer, isSupervisor, load, supervisorNotes]
   );
 
   const openIncidents = useMemo(
@@ -301,7 +296,7 @@ export default function MaintenancePage() {
               placeholder="Describe the issue"
             />
             <Button onClick={submitIncident} loading={submitting}>
-              Submit with current GPS
+              Report issue
             </Button>
           </Stack>
         </Card>
@@ -333,6 +328,14 @@ export default function MaintenancePage() {
                   <Text size="sm">{item.issue_description}</Text>
                   <IncidentLocationMaps item={item} />
 
+                  {isOfficer && item.status === "reported" ? (
+                    <Group>
+                      <Button variant="light" onClick={() => updateIncident(item, "at_garage")} loading={submitting}>
+                        Report fixing / at garage
+                      </Button>
+                    </Group>
+                  ) : null}
+
                   {isSupervisor ? (
                     <Box>
                       <TextInput
@@ -341,20 +344,10 @@ export default function MaintenancePage() {
                         onChange={(e) => setSupervisorNotes((prev) => ({ ...prev, [item.id]: e.currentTarget.value }))}
                       />
                       <Group mt="sm">
-                        {item.status === "reported" ? (
-                          <Button variant="light" onClick={() => updateIncident(item, "verified_breakdown")} loading={submitting}>
-                            Verify breakdown (GPS)
-                          </Button>
-                        ) : null}
-                        {item.status === "verified_breakdown" ? (
-                          <Button variant="light" onClick={() => updateIncident(item, "at_garage")} loading={submitting}>
-                            Mark at garage (GPS)
-                          </Button>
-                        ) : null}
                         {item.status === "at_garage" ? (
                           <>
                             <Button onClick={() => updateIncident(item, "released")} loading={submitting}>
-                              Mark released
+                              Acknowledge issue
                             </Button>
                             <Button color="red" variant="light" onClick={() => updateIncident(item, "rejected")} loading={submitting}>
                               Reject

@@ -10,8 +10,8 @@ from rest_framework import status
 from rest_framework.test import APIClient
 
 from accounts.models import Department, User
-from farmers.models import Farmer
-from locations.models import Region
+from farmers.models import Farm, Farmer
+from locations.models import County, Region, SubCounty
 
 from django.utils import timezone
 from datetime import timedelta
@@ -73,7 +73,6 @@ class TravelValidationTests(TestCase):
 
     def setUp(self):
         from accounts.models import User
-        from farmers.models import Farmer
         from locations.models import Region
 
         region = Region.objects.create(name="North")
@@ -87,6 +86,15 @@ class TravelValidationTests(TestCase):
             first_name="Test",
             last_name="Farmer",
             phone="+255111",
+            latitude=-6.0,
+            longitude=39.0,
+        )
+        county = County.objects.create(region=region, name="County N")
+        sub_county = SubCounty.objects.create(county=county, name="SubCounty N")
+        self.farm = Farm.objects.create(
+            farmer=self.farmer,
+            village="Farm One",
+            sub_county_id=sub_county,
             latitude=-6.0,
             longitude=39.0,
         )
@@ -164,6 +172,15 @@ class VisitAPITests(TestCase):
             latitude=-6.0,
             longitude=39.0,
         )
+        county_north = County.objects.create(region=region_north, name="County North")
+        sub_county_north = SubCounty.objects.create(county=county_north, name="SubCounty North")
+        self.farm = Farm.objects.create(
+            farmer=self.farmer,
+            village="Farm One",
+            sub_county_id=sub_county_north,
+            latitude=-6.0,
+            longitude=39.0,
+        )
         self.other_officer = User.objects.create_user(
             email="other@test.com",
             password="other123",
@@ -174,6 +191,15 @@ class VisitAPITests(TestCase):
             first_name="Other",
             last_name="Farmer",
             phone="+255222",
+            latitude=-6.01,
+            longitude=39.01,
+        )
+        county_south = County.objects.create(region=region_south, name="County South")
+        sub_county_south = SubCounty.objects.create(county=county_south, name="SubCounty South")
+        self.farm_other = Farm.objects.create(
+            farmer=self.farmer_other,
+            village="Farm Two",
+            sub_county_id=sub_county_south,
             latitude=-6.01,
             longitude=39.01,
         )
@@ -211,6 +237,7 @@ class VisitAPITests(TestCase):
         # Officer at same location as farmer
         data = {
             "farmer_id": str(self.farmer.pk),
+            "farm_id": str(self.farm.pk),
             "schedule_id": str(self.schedule.pk),
             "latitude": -6.0,
             "longitude": 39.0,
@@ -230,6 +257,7 @@ class VisitAPITests(TestCase):
         # Move officer ~500m away (roughly 0.0045 deg lat)
         data = {
             "farmer_id": str(self.farmer.pk),
+            "farm_id": str(self.farm.pk),
             "schedule_id": str(self.schedule.pk),
             "latitude": -6.0 + 0.005,
             "longitude": 39.0,
@@ -246,6 +274,7 @@ class VisitAPITests(TestCase):
         self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
         data = {
             "farmer_id": str(self.farmer.pk),
+            "farm_id": str(self.farm.pk),
             "schedule_id": str(self.schedule.pk),
             "latitude": -6.0,
             "longitude": 39.0,
@@ -254,12 +283,27 @@ class VisitAPITests(TestCase):
         self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("photo", r.json())
 
+    def test_create_visit_requires_farm(self):
+        token = self._login("officer@test.com", "officer123")
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
+        data = {
+            "farmer_id": str(self.farmer.pk),
+            "schedule_id": str(self.schedule.pk),
+            "latitude": -6.0,
+            "longitude": 39.0,
+        }
+        photo = make_jpeg_file()
+        r = self.client.post("/api/visits/", {**data, "photo": photo}, format="multipart")
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("farm_id", r.json())
+
     def test_create_visit_officer_can_record_for_any_farmer(self):
         """Any officer can record a visit for any farmer (no assignment required)."""
         token = self._login("officer@test.com", "officer123")
         self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
         data = {
             "farmer_id": str(self.farmer_other.pk),
+            "farm_id": str(self.farm_other.pk),
             "schedule_id": str(self.schedule_officer_other_farmer.pk),
             "latitude": -6.01,
             "longitude": 39.01,
@@ -276,6 +320,7 @@ class VisitAPITests(TestCase):
         self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
         data = {
             "farmer_id": str(uuid.uuid4()),
+            "farm_id": str(self.farm.pk),
             "schedule_id": str(self.schedule.pk),
             "latitude": -6.0,
             "longitude": 39.0,
@@ -493,6 +538,7 @@ class VisitAPITests(TestCase):
         self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
         data = {
             "farmer_id": str(self.farmer.pk),
+            "farm_id": str(self.farm.pk),
             "schedule_id": str(uuid.uuid4()),
             "latitude": -6.0,
             "longitude": 39.0,
@@ -531,6 +577,15 @@ class VisitVerifyAPITests(TestCase):
             first_name="Test",
             last_name="Farmer",
             phone="+255111",
+            latitude=-6.0,
+            longitude=39.0,
+        )
+        county = County.objects.create(region=region, name="Verify County")
+        sub_county = SubCounty.objects.create(county=county, name="Verify SubCounty")
+        self.farm = Farm.objects.create(
+            farmer=self.farmer,
+            village="Product Farm",
+            sub_county_id=sub_county,
             latitude=-6.0,
             longitude=39.0,
         )
@@ -639,6 +694,15 @@ class VisitProductLinesAPITests(TestCase):
             latitude=-6.0,
             longitude=39.0,
         )
+        county = County.objects.create(region=region, name="Sales County")
+        sub_county = SubCounty.objects.create(county=county, name="Sales SubCounty")
+        self.farm = Farm.objects.create(
+            farmer=self.farmer,
+            village="Sales Farm",
+            sub_county_id=sub_county,
+            latitude=-6.0,
+            longitude=39.0,
+        )
         self.schedule = Schedule.objects.create(
             created_by=self.admin,
             officer=self.officer,
@@ -675,6 +739,7 @@ class VisitProductLinesAPITests(TestCase):
         ]
         data = {
             "farmer_id": str(self.farmer.pk),
+            "farm_id": str(self.farm.pk),
             "schedule_id": str(self.schedule.pk),
             "latitude": -6.0,
             "longitude": 39.0,
@@ -735,6 +800,7 @@ class VisitProductLinesAPITests(TestCase):
         ]
         data = {
             "farmer_id": str(self.farmer.pk),
+            "farm_id": str(self.farm.pk),
             "route_id": str(self.route.pk),
             "latitude": -6.0,
             "longitude": 39.0,

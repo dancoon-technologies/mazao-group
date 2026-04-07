@@ -13,9 +13,95 @@ import NetInfo from '@react-native-community/netinfo';
 import * as Notifications from 'expo-notifications';
 import { Drawer } from 'expo-router/drawer';
 import { useRouter } from 'expo-router';
+import { DrawerContentScrollView, DrawerItem, type DrawerContentComponentProps } from '@react-navigation/drawer';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useEffect, useRef } from 'react';
-import { AppState, type AppStateStatus } from 'react-native';
+import { AppState, Alert, type AppStateStatus } from 'react-native';
+
+function AppDrawerContent(props: DrawerContentComponentProps) {
+  const router = useRouter();
+  const { role, logout } = useAuth();
+  const isSupervisor = role === 'supervisor' || role === 'admin';
+
+  const go = (path: string) => {
+    props.navigation.closeDrawer();
+    router.push(path as never);
+  };
+
+  const handleLogout = () => {
+    props.navigation.closeDrawer();
+    Alert.alert('Log out', 'Are you sure you want to log out?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Log out',
+        style: 'destructive',
+        onPress: () => {
+          void logout();
+        },
+      },
+    ]);
+  };
+
+  return (
+    <DrawerContentScrollView {...props}>
+      <DrawerItem
+        label="Home"
+        icon={({ size, color }) => <MaterialCommunityIcons name="home" size={size} color={color} />}
+        onPress={() => go('/(app)/(tabs)')}
+      />
+      <DrawerItem
+        label="Visits"
+        icon={({ size, color }) => <MaterialCommunityIcons name="format-list-bulleted" size={size} color={color} />}
+        onPress={() => go('/(app)/(tabs)/visits')}
+      />
+      <DrawerItem
+        label="Schedules"
+        icon={({ size, color }) => <MaterialCommunityIcons name="calendar" size={size} color={color} />}
+        onPress={() => go('/(app)/(tabs)/schedules')}
+      />
+      <DrawerItem
+        label="Farmers"
+        icon={({ size, color }) => <MaterialCommunityIcons name="account-group" size={size} color={color} />}
+        onPress={() => go('/(app)/(tabs)/farmers')}
+      />
+      <DrawerItem
+        label="Stockists"
+        icon={({ size, color }) => <MaterialCommunityIcons name="store-outline" size={size} color={color} />}
+        onPress={() => go('/(app)/(tabs)/stockists')}
+      />
+      <DrawerItem
+        label="History"
+        icon={({ size, color }) => <MaterialCommunityIcons name="history" size={size} color={color} />}
+        onPress={() => go('/(app)/(tabs)/history')}
+      />
+      <DrawerItem
+        label={isSupervisor ? 'Track team' : 'Tracking'}
+        icon={({ size, color }) => <MaterialCommunityIcons name="map-marker-path" size={size} color={color} />}
+        onPress={() => go('/(app)/(tabs)/tracking')}
+      />
+      <DrawerItem
+        label="Profile"
+        icon={({ size, color }) => <MaterialCommunityIcons name="account-outline" size={size} color={color} />}
+        onPress={() => go('/(app)/(tabs)/profile')}
+      />
+      <DrawerItem
+        label="Report incident"
+        icon={({ size, color }) => <MaterialCommunityIcons name="tools" size={size} color={color} />}
+        onPress={() => go('/(app)/(tabs)/maintenance')}
+      />
+      <DrawerItem
+        label="Change password"
+        icon={({ size, color }) => <MaterialCommunityIcons name="lock-reset" size={size} color={color} />}
+        onPress={() => go('/change-password')}
+      />
+      <DrawerItem
+        label="Logout"
+        icon={({ size, color }) => <MaterialCommunityIcons name="logout" size={size} color={color} />}
+        onPress={handleLogout}
+      />
+    </DrawerContentScrollView>
+  );
+}
 
 function AppLayoutInner() {
   const router = useRouter();
@@ -214,55 +300,22 @@ function AppLayoutInner() {
 
   return (
     <Drawer
+      drawerContent={(props) => <AppDrawerContent {...props} />}
       screenOptions={{
         headerShown: false,
       }}
     >
-      <Drawer.Screen
-        name="(tabs)"
-        options={{
-          drawerLabel: 'Dashboard',
-          drawerIcon: ({ size, color }) => (
-            <MaterialCommunityIcons name="view-dashboard-outline" size={size} color={color} />
-          ),
-        }}
-      />
-      <Drawer.Screen
-        name="(tabs)/maintenance"
-        options={{
-          drawerLabel: 'Report breakdown',
-          drawerIcon: ({ size, color }) => (
-            <MaterialCommunityIcons name="tools" size={size} color={color} />
-          ),
-        }}
-      />
-      <Drawer.Screen
-        name="(tabs)/tracking"
-        options={{
-          drawerLabel: 'Track team',
-          drawerIcon: ({ size, color }) => (
-            <MaterialCommunityIcons name="map-marker-path" size={size} color={color} />
-          ),
-        }}
-      />
-      <Drawer.Screen
-        name="(tabs)/history"
-        options={{
-          drawerLabel: 'History',
-          drawerIcon: ({ size, color }) => (
-            <MaterialCommunityIcons name="history" size={size} color={color} />
-          ),
-        }}
-      />
-      <Drawer.Screen
-        name="(tabs)/profile"
-        options={{
-          drawerLabel: 'Profile',
-          drawerIcon: ({ size, color }) => (
-            <MaterialCommunityIcons name="account-outline" size={size} color={color} />
-          ),
-        }}
-      />
+      <Drawer.Screen name="(tabs)" options={{ drawerItemStyle: { display: 'none' } }} />
+      <Drawer.Screen name="(tabs)/index" options={{ drawerItemStyle: { display: 'none' } }} />
+      <Drawer.Screen name="(tabs)/visits" options={{ drawerItemStyle: { display: 'none' } }} />
+      <Drawer.Screen name="(tabs)/schedules" options={{ drawerItemStyle: { display: 'none' } }} />
+      <Drawer.Screen name="(tabs)/farmers" options={{ drawerItemStyle: { display: 'none' } }} />
+      <Drawer.Screen name="(tabs)/stockists" options={{ drawerItemStyle: { display: 'none' } }} />
+      <Drawer.Screen name="(tabs)/history" options={{ drawerItemStyle: { display: 'none' } }} />
+      <Drawer.Screen name="(tabs)/tracking" options={{ drawerItemStyle: { display: 'none' } }} />
+      <Drawer.Screen name="(tabs)/profile" options={{ drawerItemStyle: { display: 'none' } }} />
+      <Drawer.Screen name="(tabs)/maintenance" options={{ drawerItemStyle: { display: 'none' } }} />
+      <Drawer.Screen name="(tabs)/menu" options={{ drawerItemStyle: { display: 'none' } }} />
       <Drawer.Screen name="index" options={{ drawerItemStyle: { display: 'none' } }} />
       <Drawer.Screen name="unlock" options={{ drawerItemStyle: { display: 'none' } }} />
       <Drawer.Screen name="record-visit" options={{ drawerItemStyle: { display: 'none' } }} />

@@ -29,8 +29,8 @@ import { maintenanceIncidents$ } from '@/store/observable';
 const STATUS_LABEL: Record<MaintenanceStatus, string> = {
   reported: 'Reported',
   verified_breakdown: 'Verified breakdown',
-  at_garage: 'At garage',
-  released: 'Released',
+  at_garage: 'Fixing reported',
+  released: 'Acknowledged',
   rejected: 'Rejected',
 };
 
@@ -64,7 +64,7 @@ function reportedMapPoints(item: MaintenanceIncident): LocationMiniMapPoint[] {
 
 export default function MaintenanceScreen() {
   const { role } = useAuth();
-  const isSupervisor = role === 'supervisor';
+  const isSupervisor = role === 'supervisor' || role === 'admin';
   const isOfficer = role === 'officer';
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -128,7 +128,7 @@ export default function MaintenanceScreen() {
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
-        setLocationError('Location permission is required for GPS on reports and status updates.');
+        setLocationError('');
         setReportLocation(null);
         return;
       }
@@ -145,7 +145,7 @@ export default function MaintenanceScreen() {
       });
       setReportLocation(loc);
     } catch {
-      setLocationError('Could not get location. Turn on GPS and tap Refresh.');
+      setLocationError('');
       setReportLocation(null);
     } finally {
       setLocationLoading(false);
@@ -162,7 +162,7 @@ export default function MaintenanceScreen() {
   const getCurrentCoords = useCallback(async () => {
     const { status } = await Location.requestForegroundPermissionsAsync();
     if (status !== 'granted') {
-      throw new Error('Location permission is required.');
+      throw new Error('Could not get location right now.');
     }
     if (Platform.OS === 'android') {
       try {
@@ -279,19 +279,14 @@ export default function MaintenanceScreen() {
 
   const updateStatus = useCallback(
     async (incident: MaintenanceIncident, nextStatus: MaintenanceStatus) => {
-      if (!isSupervisor) return;
+      if (!isSupervisor && !isOfficer) return;
       setSubmitting(true);
       setError('');
       try {
         const payload: Parameters<typeof api.updateMaintenanceIncident>[1] = {
           status: nextStatus,
-          supervisor_notes: supervisorNote[incident.id]?.trim() || undefined,
+          supervisor_notes: isSupervisor ? supervisorNote[incident.id]?.trim() || undefined : undefined,
         };
-        if (nextStatus === 'verified_breakdown') {
-          const coords = await getCurrentCoords();
-          payload.breakdown_verified_latitude = coords.latitude;
-          payload.breakdown_verified_longitude = coords.longitude;
-        }
         if (nextStatus === 'at_garage') {
           const coords = await getCurrentCoords();
           payload.garage_latitude = coords.latitude;
@@ -302,6 +297,7 @@ export default function MaintenanceScreen() {
           incident_id: incident.id,
           from_status: incident.status,
           to_status: nextStatus,
+          actor_role: role,
         });
         await load();
       } catch (e) {
@@ -310,13 +306,14 @@ export default function MaintenanceScreen() {
           incident_id: incident.id,
           from_status: incident.status,
           to_status: nextStatus,
+          actor_role: role,
           error: e instanceof Error ? e.message : 'update failed',
         });
       } finally {
         setSubmitting(false);
       }
     },
-    [getCurrentCoords, isSupervisor, load, supervisorNote]
+    [getCurrentCoords, isOfficer, isSupervisor, load, role, supervisorNote]
   );
 
   const openItems = useMemo(
@@ -353,17 +350,17 @@ export default function MaintenanceScreen() {
         }
       >
         <Text variant="titleLarge" style={styles.title}>
-          Report breakdown
+          Maintenance incidents
         </Text>
         <Text variant="bodySmall" style={styles.subtitle}>
-          Report a vehicle breakdown for supervisor review and approval.
+          Report issue in the field, then report fixing at garage. Supervisor acknowledges completion.
         </Text>
 
         {isOfficer && (
           <Card style={styles.card} elevation={0}>
             <Card.Content>
               <Text variant="labelLarge" style={styles.sectionTitle}>
-                Report breakdown
+                Report issue
               </Text>
               <View style={styles.locationRow}>
                 <Text variant="labelLarge" style={styles.locationHeading}>
@@ -430,7 +427,7 @@ export default function MaintenanceScreen() {
                 loading={submitting}
                 disabled={submitting}
               >
-                Submit report
+                Report incident
               </Button>
             </Card.Content>
           </Card>
@@ -498,11 +495,23 @@ export default function MaintenanceScreen() {
                     </Text>
                   )}
                   <Text variant="bodySmall" style={styles.meta}>
-                    Breakdown verified: {formatWhen(item.breakdown_verified_at)}
+                    Reported fixing: {formatWhen(item.garage_recorded_at)}
                   </Text>
                   <Text variant="bodySmall" style={styles.meta}>
-                    Garage recorded: {formatWhen(item.garage_recorded_at)}
+                    Acknowledged: {formatWhen(item.released_at)}
                   </Text>
+
+                  {isOfficer && item.status === 'reported' && (
+                    <View style={styles.actions}>
+                      <Button
+                        mode="contained-tonal"
+                        onPress={() => void updateStatus(item, 'at_garage')}
+                        disabled={submitting}
+                      >
+                        Report fixing in garage
+                      </Button>
+                    </View>
+                  )}
 
                   {isSupervisor && (
                     <>
@@ -516,24 +525,6 @@ export default function MaintenanceScreen() {
                         style={styles.input}
                       />
                       <View style={styles.actions}>
-                        {item.status === 'reported' ? (
-                          <Button
-                            mode="contained-tonal"
-                            onPress={() => void updateStatus(item, 'verified_breakdown')}
-                            disabled={submitting}
-                          >
-                            Verify breakdown
-                          </Button>
-                        ) : null}
-                        {item.status === 'verified_breakdown' ? (
-                          <Button
-                            mode="contained-tonal"
-                            onPress={() => void updateStatus(item, 'at_garage')}
-                            disabled={submitting}
-                          >
-                            Mark at garage
-                          </Button>
-                        ) : null}
                         {item.status === 'at_garage' ? (
                           <View style={styles.rowActions}>
                             <Button
@@ -541,7 +532,7 @@ export default function MaintenanceScreen() {
                               onPress={() => void updateStatus(item, 'released')}
                               disabled={submitting}
                             >
-                              Mark released
+                              Acknowledge issue
                             </Button>
                             <Button
                               mode="outlined"
