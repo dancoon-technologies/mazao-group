@@ -229,6 +229,10 @@ export default function MaintenanceScreen() {
   const updateStatus = useCallback(
     async (incident: MaintenanceIncident, nextStatus: MaintenanceStatus) => {
       if (!isSupervisor && !isOfficer) return;
+      if (nextStatus === 'at_garage' && photos.length === 0) {
+        setError('Take at least one photo before confirming issue is fixed.');
+        return;
+      }
       setSubmitting(true);
       setError('');
       try {
@@ -247,6 +251,7 @@ export default function MaintenanceScreen() {
           from_status: incident.status,
           to_status: nextStatus,
           actor_role: role,
+          photos_count: nextStatus === 'at_garage' ? photos.length : undefined,
         });
         await load();
       } catch (e) {
@@ -262,7 +267,7 @@ export default function MaintenanceScreen() {
         setSubmitting(false);
       }
     },
-    [getCurrentCoords, isOfficer, isSupervisor, load, role, supervisorNote]
+    [getCurrentCoords, isOfficer, isSupervisor, load, photos.length, role, supervisorNote]
   );
 
   const openItems = useMemo(
@@ -296,7 +301,7 @@ export default function MaintenanceScreen() {
           Report incidence
         </Text>
         <Text variant="bodySmall" style={styles.subtitle}>
-          Flow: report issue, then report fixing/garage, then supervisor acknowledges.
+          Flow: report issue with photo, then confirm fixed and photos taken, then supervisor acknowledges.
         </Text>
 
         {isOfficer && (
@@ -400,12 +405,17 @@ export default function MaintenanceScreen() {
 
                     {isOfficer && (
                       <View style={styles.actions}>
+                        {photos.length === 0 ? (
+                          <Text variant="bodySmall" style={styles.helperText}>
+                            Capture at least one photo above before confirming fixed.
+                          </Text>
+                        ) : null}
                         <Button
                           mode="contained-tonal"
                           onPress={() => void updateStatus(item, 'at_garage')}
-                          disabled={submitting}
+                          disabled={submitting || photos.length === 0}
                         >
-                          I have started fixing (garage)
+                          I have fixed and taken photos
                         </Button>
                       </View>
                     )}
@@ -520,5 +530,6 @@ const styles = StyleSheet.create({
   meta: { opacity: 0.8, marginBottom: 2 },
   statusChip: { alignSelf: 'flex-start' },
   actions: { marginTop: spacing.sm, gap: spacing.sm },
+  helperText: { opacity: 0.8 },
   rowActions: { flexDirection: 'row', gap: spacing.sm },
 });

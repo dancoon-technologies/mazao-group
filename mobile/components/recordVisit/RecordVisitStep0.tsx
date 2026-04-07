@@ -77,8 +77,8 @@ type Props = {
   visitLinkMode: 'schedule' | 'route' | null;
   effectiveVisitLinkMode: 'schedule' | 'route' | null;
   onSelectVisitLinkMode: (mode: 'schedule' | 'route') => void;
-  partnerType: 'farmer' | 'stockist';
-  onPartnerTypeChange: (t: 'farmer' | 'stockist') => void;
+  partnerType: 'individual' | 'group' | 'stockist';
+  onPartnerTypeChange: (t: 'individual' | 'group' | 'stockist') => void;
   /** Filtered by partnerType for the picker; full list still used for schedule chips. */
   farmersForModal: Farmer[];
 };
@@ -144,7 +144,10 @@ export function RecordVisitStep0({
   const isStockistContext =
     (Boolean(selectedScheduleId) && Boolean(selectedFarmer?.is_stockist)) ||
     (!selectedScheduleId && partnerType === 'stockist');
-  const partnerLabel = isStockistContext ? 'Stockist' : labels.partner;
+  const isGroupContext =
+    (Boolean(selectedScheduleId) && Boolean(selectedFarmer?.is_group) && !Boolean(selectedFarmer?.is_stockist)) ||
+    (!selectedScheduleId && partnerType === 'group');
+  const partnerLabel = isStockistContext ? 'SACCO' : isGroupContext ? 'Farm group' : labels.partner;
   const locationLabel = isStockistContext ? 'Outlet' : labels.location;
   const showWeeklySection = effectiveVisitLinkMode === 'route' && todayRoutes.length > 0;
   const showScheduleSection = effectiveVisitLinkMode === 'schedule' && acceptedSchedules.length > 0;
@@ -264,16 +267,28 @@ export function RecordVisitStep0({
             <>
               <View style={styles.partnerTypeRow}>
                 <Button
-                  mode={partnerType === 'farmer' ? 'contained-tonal' : 'text'}
+                  mode={partnerType === 'individual' ? 'contained-tonal' : 'text'}
                   compact
-                  onPress={() => onPartnerTypeChange('farmer')}
+                  onPress={() => onPartnerTypeChange('individual')}
                   style={[
                     styles.partnerTypeBtn,
-                    partnerType === 'farmer' ? styles.partnerTypeBtnActive : styles.partnerTypeBtnInactive,
+                    partnerType === 'individual' ? styles.partnerTypeBtnActive : styles.partnerTypeBtnInactive,
                   ]}
                   labelStyle={styles.partnerTypeBtnLabel}
                 >
-                  {labels.partner}
+                  Individual
+                </Button>
+                <Button
+                  mode={partnerType === 'group' ? 'contained-tonal' : 'text'}
+                  compact
+                  onPress={() => onPartnerTypeChange('group')}
+                  style={[
+                    styles.partnerTypeBtn,
+                    partnerType === 'group' ? styles.partnerTypeBtnActive : styles.partnerTypeBtnInactive,
+                  ]}
+                  labelStyle={styles.partnerTypeBtnLabel}
+                >
+                  Farm group
                 </Button>
                 <Button
                   mode={partnerType === 'stockist' ? 'contained-tonal' : 'text'}
@@ -285,7 +300,7 @@ export function RecordVisitStep0({
                   ]}
                   labelStyle={styles.partnerTypeBtnLabel}
                 >
-                  Stockist
+                  SACCO
                 </Button>
               </View>
               <Button
@@ -308,7 +323,13 @@ export function RecordVisitStep0({
             selectedFarmerId={selectedFarmerId}
             onSelect={onSelectFarmer}
             title={farmerModalTitle ?? `Select ${partnerLabel.toLowerCase()}`}
-            noPartnerLabel={partnerType === 'stockist' ? 'No stockist' : undefined}
+            noPartnerLabel={
+              partnerType === 'stockist'
+                ? 'No SACCO'
+                : partnerType === 'group'
+                  ? 'No farm group'
+                  : `No ${labels.partner.toLowerCase()}`
+            }
             onCreateNew={onCreatePartnerRecord}
             createNewLabel={`Create new ${partnerLabel.toLowerCase()}`}
           />
@@ -322,7 +343,7 @@ export function RecordVisitStep0({
               <View style={styles.farmerCardBody}>
                 <Text variant="titleMedium" style={styles.farmerCardName}>{selectedFarmer.display_name ?? '—'}</Text>
                 <Text variant="bodySmall" style={styles.farmerCardMeta}>
-                  {selectedFarmer.is_stockist ? 'Selected stockist' : 'Selected farmer'}
+                  {selectedFarmer.is_stockist ? 'Selected SACCO' : selectedFarmer.is_group ? 'Selected farm group' : 'Selected farmer'}
                 </Text>
                 {selectedFarmer.phone ? (
                   <View style={styles.farmerCardPhone}>
@@ -333,7 +354,7 @@ export function RecordVisitStep0({
               </View>
               <View style={styles.farmerCardTag}>
                 <Chip mode="flat" style={styles.activeChip} textStyle={styles.activeChipText} compact>
-                  {selectedFarmer.is_stockist ? 'Stockist' : 'Farmer'}
+                  {selectedFarmer.is_stockist ? 'SACCO' : selectedFarmer.is_group ? 'Farm group' : 'Farmer'}
                 </Chip>
               </View>
             </View>
