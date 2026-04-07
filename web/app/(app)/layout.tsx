@@ -4,6 +4,7 @@ import { ActionIcon, AppShell, Box, Burger, Group, Text, UnstyledButton } from "
 import { IconLogout } from "@tabler/icons-react";
 import { useDisclosure } from "@mantine/hooks";
 import Link from "next/link";
+import Image from "next/image";
 import dynamic from "next/dynamic";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo } from "react";
@@ -99,16 +100,20 @@ export default function AppLayout({
               size="sm"
               aria-label="Toggle menu"
             />
-            <Text
-              component={Link}
-              href={filteredNav[0]?.href ?? ROUTES.FARMERS}
-              fw={700}
-              size="lg"
-              visibleFrom="md"
-              style={{ textDecoration: "none", color: "var(--mantine-color-green-7)" }}
-            >
-              Mazao Group
-            </Text>
+            <Box visibleFrom="md">
+              <Link
+                href={filteredNav[0]?.href ?? ROUTES.FARMERS}
+                style={{ textDecoration: "none", display: "inline-flex", alignItems: "center" }}
+              >
+                <Image
+                  src="/favicon.png"
+                  alt="Mazao logo"
+                  width={36}
+                  height={36}
+                  style={{ display: "block" }}
+                />
+              </Link>
+            </Box>
           </Group>
           <Group gap="xs">
             <ErrorBoundary fallback={null}>
@@ -131,17 +136,18 @@ export default function AppLayout({
 
       <AppShell.Navbar p="md">
         <AppShell.Section grow>
-          <Text
-            component={Link}
+          <Link
             href={filteredNav[0]?.href ?? ROUTES.FARMERS}
-            fw={700}
-            size="lg"
-            hiddenFrom="md"
-            style={{ textDecoration: "none", color: "var(--mantine-color-green-7)" }}
-            mb="md"
+            style={{ textDecoration: "none", display: "inline-flex", alignItems: "center", marginBottom: "var(--mantine-spacing-md)" }}
           >
-            Mazao Group
-          </Text>
+            <Image
+              src="/favicon.png"
+              alt="Mazao logo"
+              width={36}
+              height={36}
+              style={{ display: "block" }}
+            />
+          </Link>
           <Box mt="xs">
             {filteredNav.map((item) => {
               const Icon = item.icon;

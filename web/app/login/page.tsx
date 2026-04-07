@@ -8,11 +8,11 @@ import {
   Stack,
   Text,
   TextInput,
-  Title,
 } from "@mantine/core";
 import { LoadingScreen } from "@/components/ui";
 import { ROUTES } from "@/lib/constants";
 import { useRouter, useSearchParams } from "next/navigation";
+import Image from "next/image";
 import { Suspense, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -60,9 +60,9 @@ function LoginForm() {
       }}
     >
       <Paper w="100%" maw={400} p="xl" radius="lg" shadow="md" withBorder>
-        <Title order={1} size="h2" ta="center" c="green.8">
-          Mazao Group
-        </Title>
+        <div style={{ display: "flex", justifyContent: "center" }}>
+          <Image src="/favicon.png" alt="Mazao logo" width={56} height={56} priority />
+        </div>
         <Text size="sm" c="dimmed" ta="center" mt="xs">
           Sign in to manage farmers and field visits
         </Text>

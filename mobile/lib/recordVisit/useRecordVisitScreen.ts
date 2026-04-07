@@ -69,7 +69,6 @@ export function useRecordVisitScreen() {
   const [farmerModalOpen, setFarmerModalOpen] = useState(false);
   const [farmerModalTitle, setFarmerModalTitle] = useState<string | null>(null);
   const [farmModalOpen, setFarmModalOpen] = useState(false);
-  const [recordingWithoutPlan, setRecordingWithoutPlan] = useState(false);
   /** When both accepted schedules and today’s route exist, user must pick Planned visit vs Weekly route. */
   const [visitLinkMode, setVisitLinkMode] = useState<'schedule' | 'route' | null>(null);
   /** When choosing a partner without a fixed schedule, filter list to farmers vs stockists. */
@@ -356,7 +355,6 @@ export function useRecordVisitScreen() {
               setTodayRoutes([r]);
               setTodayRoute(r);
               setSelectedScheduleId(null);
-              setRecordingWithoutPlan(false);
               setSelectedRouteId(r.id);
               return;
             }
@@ -403,7 +401,6 @@ export function useRecordVisitScreen() {
       if (s?.status === 'accepted') {
         setSelectedScheduleId(s.id);
         setSelectedRouteId(null);
-        setRecordingWithoutPlan(false);
         setVisitLinkMode('schedule');
         setSelectedFarmerId(s.farmer ?? null);
         setSelectedFarmId(s.farm ?? null);
@@ -433,7 +430,6 @@ export function useRecordVisitScreen() {
           : undefined;
     if (routeIdParam) return;
     if (selectedScheduleId) return;
-    if (recordingWithoutPlan) return;
     const hasSchedules = acceptedSchedules.length > 0;
     const hasRoutes = todayRoutes.length > 0;
     if (hasSchedules && hasRoutes && visitLinkMode !== 'route') return;
@@ -441,7 +437,7 @@ export function useRecordVisitScreen() {
     const r = todayRoutes[0];
     setTodayRoute(r);
     setSelectedRouteId((prev) => prev ?? r.id);
-  }, [todayRoutes, params.routeId, selectedScheduleId, recordingWithoutPlan, acceptedSchedules.length, visitLinkMode]);
+  }, [todayRoutes, params.routeId, selectedScheduleId, acceptedSchedules.length, visitLinkMode]);
 
   const selectedSchedule = plannedSchedules.find((s) => s.id === selectedScheduleId);
   const scheduleLockedForFarm = !!selectedScheduleId && selectedSchedule?.status === 'accepted' && !!selectedSchedule?.farm;
@@ -560,12 +556,11 @@ export function useRecordVisitScreen() {
         ? 'route'
         : null;
   const mustSelectSchedule =
-    !recordingWithoutPlan &&
-    requiresPlanChoice &&
-    ((bothVisitLinkOptions && visitLinkMode === null) ||
-      (effectiveVisitLinkMode === 'schedule' &&
-        (!selectedScheduleId || (selectedSchedule != null && selectedSchedule.status !== 'accepted'))) ||
-      (effectiveVisitLinkMode === 'route' && !selectedRouteId));
+    !requiresPlanChoice ||
+    (bothVisitLinkOptions && visitLinkMode === null) ||
+    (effectiveVisitLinkMode === 'schedule' &&
+      (!selectedScheduleId || (selectedSchedule != null && selectedSchedule.status !== 'accepted'))) ||
+    (effectiveVisitLinkMode === 'route' && !selectedRouteId);
   const scheduleIdForSubmit = selectedScheduleId ?? undefined;
   const routeIdForSubmit = selectedRouteId ?? undefined;
 
@@ -737,14 +732,12 @@ export function useRecordVisitScreen() {
   }, [activityTypes, activityTypesList]);
 
   const canOpenExtraStep =
-    !mustSelectSchedule &&
     photoUris.length > 0 &&
     !!location &&
     (distanceM === null || gpsValid) &&
     !!selectedFarmerId;
 
   const selectVisitLinkMode = useCallback((mode: 'schedule' | 'route') => {
-    setRecordingWithoutPlan(false);
     setVisitLinkMode(mode);
     if (mode === 'schedule') {
       setSelectedRouteId(null);
@@ -763,7 +756,6 @@ export function useRecordVisitScreen() {
   }, [todayRoutes]);
 
   const pickTodayRoute = useCallback((route: Route) => {
-    setRecordingWithoutPlan(false);
     setVisitLinkMode('route');
     setTodayRoute(route);
     setSelectedRouteId(route.id);
@@ -783,36 +775,12 @@ export function useRecordVisitScreen() {
     setFarmerModalOpen(false);
   }, []);
 
-  const adHocRouteCustomer = useCallback(async () => {
-    const route = todayRoute;
-    if (!route) return;
-    await refreshLocation();
-    setRecordingWithoutPlan(false);
-    setVisitLinkMode('route');
-    setSelectedRouteId(route.id);
-    setSelectedScheduleId(null);
-    setSelectedFarmerId(null);
-    setSelectedFarmId(null);
-    setPartnerType('farmer');
-  }, [todayRoute, refreshLocation]);
-
   const pickSchedule = useCallback((s: Schedule) => {
-    setRecordingWithoutPlan(false);
     setVisitLinkMode('schedule');
     setSelectedScheduleId(s.id);
     setSelectedRouteId(null);
     if (s.farmer) setSelectedFarmerId(s.farmer);
     setSelectedFarmId(s.farm ?? null);
-  }, []);
-
-  const fieldVisitNotFromList = useCallback(() => {
-    setRecordingWithoutPlan(true);
-    setVisitLinkMode(null);
-    setSelectedScheduleId(null);
-    setSelectedRouteId(null);
-    setSelectedFarmerId(null);
-    setSelectedFarmId(null);
-    setPartnerType('farmer');
   }, []);
 
   const selectFarmerAndClose = useCallback((id: string | null) => {
@@ -926,9 +894,7 @@ export function useRecordVisitScreen() {
     photoUris,
     submitting,
     pickTodayRoute,
-    adHocRouteCustomer,
     pickSchedule,
-    fieldVisitNotFromList,
     selectFarmerAndClose,
     removePhotoAt,
     step3Fields,

@@ -55,9 +55,7 @@ type Props = {
   photoUris: string[];
   submitting: boolean;
   onPickTodayRoute: (route: Route) => void;
-  onAdHocRouteCustomer: () => void;
   onPickSchedule: (s: Schedule) => void;
-  onFieldVisitNotFromList: () => void;
   onCloseFarmerModal: () => void;
   onSelectFarmer: (id: string | null) => void;
   onOpenFarmerModal: () => void;
@@ -117,9 +115,7 @@ export function RecordVisitStep0({
   photoUris,
   submitting,
   onPickTodayRoute,
-  onAdHocRouteCustomer,
   onPickSchedule,
-  onFieldVisitNotFromList,
   onCloseFarmerModal,
   onSelectFarmer,
   onOpenFarmerModal,
@@ -157,7 +153,7 @@ export function RecordVisitStep0({
     <>
       {bothVisitLinkOptions ? (
         <Surface style={styles.section} elevation={0}>
-          <Text variant="labelLarge" style={styles.fieldLabel}>Count as *</Text>
+          <Text variant="labelLarge" style={styles.fieldLabel}>1) Visit source *</Text>
           <View style={styles.scheduleChips}>
             <Chip
               selected={visitLinkMode === 'schedule'}
@@ -165,7 +161,7 @@ export function RecordVisitStep0({
               style={styles.scheduleChip}
               compact
             >
-              Planned visit
+              Scheduled plan
             </Chip>
             <Chip
               selected={visitLinkMode === 'route'}
@@ -173,7 +169,7 @@ export function RecordVisitStep0({
               style={styles.scheduleChip}
               compact
             >
-              Weekly route
+              Today&apos;s route
             </Chip>
           </View>
           {visitLinkMode === null && mustSelectSchedule ? (
@@ -186,7 +182,7 @@ export function RecordVisitStep0({
 
       {showWeeklySection ? (
         <Surface style={styles.section} elevation={0}>
-          <Text variant="labelLarge" style={styles.fieldLabel}>Today&apos;s route</Text>
+          <Text variant="labelLarge" style={styles.fieldLabel}>1) Today&apos;s route</Text>
           {todayRoutes.length > 1 ? (
             <View style={styles.scheduleChips}>
               {todayRoutes.map((r) => (
@@ -209,24 +205,15 @@ export function RecordVisitStep0({
           {showWeeklySection && mustSelectSchedule && !selectedRouteId ? (
             <HelperText type="error" style={styles.errorHint}>
               {todayRoutes.length > 1
-                ? 'Select a route, then pick a customer (or use Record from here).'
-                : 'Pick a customer below, or Record from here.'}
+                ? 'Select a route, then pick a customer.'
+                : 'Pick a customer below.'}
             </HelperText>
           ) : null}
-          <Button
-            mode="outlined"
-            compact
-            icon="crosshairs-gps"
-            onPress={onAdHocRouteCustomer}
-            style={styles.routeAdHocBtn}
-          >
-            Record from here
-          </Button>
         </Surface>
       ) : null}
       {showScheduleSection ? (
         <Surface style={styles.section} elevation={0}>
-          <Text variant="labelLarge" style={styles.fieldLabel}>Planned visit *</Text>
+          <Text variant="labelLarge" style={styles.fieldLabel}>1) Scheduled plan *</Text>
           <View style={styles.scheduleChips}>
             {acceptedSchedules.map((s) => {
               const f = farmers.find((x) => x.id === s.farmer);
@@ -256,24 +243,13 @@ export function RecordVisitStep0({
         </Surface>
       ) : null}
 
-      {requiresPlanChoice ? (
-        <Button
-          mode="text"
-          compact
-          onPress={onFieldVisitNotFromList}
-          style={styles.skipPlanBtn}
-        >
-          Not on my schedule / route
-        </Button>
-      ) : null}
-
       {todayRoutes.length === 0 && acceptedSchedules.length === 0 ? (
         <View style={styles.warningBox}>
           <MaterialCommunityIcons name="alert-circle-outline" size={22} color={colors.warning} style={styles.warningBoxIcon} />
           <View style={styles.warningBoxContent}>
-            <Text variant="labelLarge" style={styles.warningBoxTitle}>No plan yet</Text>
+            <Text variant="labelLarge" style={styles.warningBoxTitle}>No eligible plan</Text>
             <Text variant="bodySmall" style={styles.warningBoxText}>
-              Add a schedule or weekly route in Schedules — or pick a customer below.
+              You can record visits only from today&apos;s route or an accepted planned visit.
             </Text>
           </View>
         </View>
@@ -282,24 +258,32 @@ export function RecordVisitStep0({
       {!mustSelectSchedule && (
         <>
           <Text variant="labelMedium" style={styles.step2SectionTitle}>
-            {`${partnerLabel} · ${locationLabel}`}
+            {`2) ${partnerLabel} and ${locationLabel}`}
           </Text>
           {!selectedScheduleId ? (
             <>
               <View style={styles.partnerTypeRow}>
                 <Button
-                  mode={partnerType === 'farmer' ? 'contained' : 'outlined'}
+                  mode={partnerType === 'farmer' ? 'contained-tonal' : 'text'}
                   compact
                   onPress={() => onPartnerTypeChange('farmer')}
-                  style={styles.partnerTypeBtn}
+                  style={[
+                    styles.partnerTypeBtn,
+                    partnerType === 'farmer' ? styles.partnerTypeBtnActive : styles.partnerTypeBtnInactive,
+                  ]}
+                  labelStyle={styles.partnerTypeBtnLabel}
                 >
                   {labels.partner}
                 </Button>
                 <Button
-                  mode={partnerType === 'stockist' ? 'contained' : 'outlined'}
+                  mode={partnerType === 'stockist' ? 'contained-tonal' : 'text'}
                   compact
                   onPress={() => onPartnerTypeChange('stockist')}
-                  style={styles.partnerTypeBtn}
+                  style={[
+                    styles.partnerTypeBtn,
+                    partnerType === 'stockist' ? styles.partnerTypeBtnActive : styles.partnerTypeBtnInactive,
+                  ]}
+                  labelStyle={styles.partnerTypeBtnLabel}
                 >
                   Stockist
                 </Button>
@@ -337,6 +321,9 @@ export function RecordVisitStep0({
               </View>
               <View style={styles.farmerCardBody}>
                 <Text variant="titleMedium" style={styles.farmerCardName}>{selectedFarmer.display_name ?? '—'}</Text>
+                <Text variant="bodySmall" style={styles.farmerCardMeta}>
+                  {selectedFarmer.is_stockist ? 'Selected stockist' : 'Selected farmer'}
+                </Text>
                 {selectedFarmer.phone ? (
                   <View style={styles.farmerCardPhone}>
                     <MaterialCommunityIcons name="phone" size={16} color="#DB2777" />
@@ -360,10 +347,18 @@ export function RecordVisitStep0({
           </Text>
           {(scheduleLockedForFarm && selectedFarm) ? (
             <View style={styles.farmDisplay}>
-              <Text variant="bodyLarge">
-                {selectedFarm.village}
-                {locationKindSuffix(selectedFarm)}
-              </Text>
+              <View style={styles.selectedLocationRow}>
+                <MaterialCommunityIcons name="map-marker" size={20} color={colors.primary} />
+                <View style={styles.selectedLocationTextWrap}>
+                  <Text variant="labelMedium" style={styles.selectedLocationTitle}>
+                    Selected {selectedFarm.is_outlet ? 'outlet' : 'farm'}
+                  </Text>
+                  <Text variant="bodyLarge" style={styles.selectedLocationValue}>
+                    {selectedFarm.village}
+                    {locationKindSuffix(selectedFarm)}
+                  </Text>
+                </View>
+              </View>
             </View>
           ) : selectedFarmer && !scheduleLockedForFarm ? (
             farms.length === 0 ? (
@@ -383,6 +378,22 @@ export function RecordVisitStep0({
                     ? `${selectedFarm.village}${locationKindSuffix(selectedFarm)}`
                     : `Select ${locationLabel.toLowerCase()}`}
                 </Button>
+                {selectedFarm ? (
+                  <View style={styles.farmDisplay}>
+                    <View style={styles.selectedLocationRow}>
+                      <MaterialCommunityIcons name="map-marker" size={20} color={colors.primary} />
+                      <View style={styles.selectedLocationTextWrap}>
+                        <Text variant="labelMedium" style={styles.selectedLocationTitle}>
+                          Selected {selectedFarm.is_outlet ? 'outlet' : 'farm'}
+                        </Text>
+                        <Text variant="bodyLarge" style={styles.selectedLocationValue}>
+                          {selectedFarm.village}
+                          {locationKindSuffix(selectedFarm)}
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
+                ) : null}
                 <SelectFarmModal
                   visible={farmModalOpen}
                   onClose={onCloseFarmModal}
@@ -514,7 +525,7 @@ export function RecordVisitStep0({
               contentStyle={styles.nextBtnContent}
               icon="check"
             >
-              Submit visit
+              Save visit now
             </Button>
             <Button
               mode="outlined"
@@ -528,7 +539,7 @@ export function RecordVisitStep0({
               contentStyle={styles.nextBtnContent}
               icon="playlist-plus"
             >
-              More fields
+              Continue to additional fields
             </Button>
           </View>
         </>

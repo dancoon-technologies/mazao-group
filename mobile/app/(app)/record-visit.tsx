@@ -54,7 +54,7 @@ export default function RecordVisitScreen() {
       <View style={styles.header}>
         <View style={styles.headerLeft}>
           <Text variant="labelSmall" style={styles.headerStepLabel}>
-            {v.step === 0 ? 'Visit' : 'Extras'}
+            {v.step === 0 ? 'Step 1 of 2 · Visit details' : 'Step 2 of 2 · Additional fields'}
           </Text>
           <Text variant="headlineSmall" style={styles.headerTitle}>
             Record visit
@@ -129,9 +129,7 @@ export default function RecordVisitScreen() {
               photoUris={v.photoUris}
               submitting={v.submitting}
               onPickTodayRoute={v.pickTodayRoute}
-              onAdHocRouteCustomer={v.adHocRouteCustomer}
               onPickSchedule={v.pickSchedule}
-              onFieldVisitNotFromList={v.fieldVisitNotFromList}
               onCloseFarmerModal={v.closeFarmerModal}
               onSelectFarmer={v.selectFarmerAndClose}
               onOpenFarmerModal={v.openFarmerPicker}

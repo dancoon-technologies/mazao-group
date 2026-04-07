@@ -95,7 +95,7 @@ export function validateRecordVisit(input: ValidateRecordVisitInput): ValidateRe
     if (hasWeeklyRouteToday) {
       return {
         valid: false,
-        error: 'Select your route (or Record from here), then a customer.',
+        error: 'Select your route, then a customer.',
       };
     }
     if (acceptedSchedulesLength > 0) {
@@ -106,7 +106,7 @@ export function validateRecordVisit(input: ValidateRecordVisitInput): ValidateRe
     }
     return {
       valid: false,
-      error: 'Select a schedule, weekly route, or use Not on my schedule.',
+      error: 'No eligible route/schedule found for this visit.',
     };
   }
   // Schedule and route are optional: backend allows farmer-only visits (unplanned field stop).
