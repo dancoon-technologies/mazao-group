@@ -2,8 +2,9 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Alert, Badge, Box, Button, Card, Group, Modal, SegmentedControl, Stack, Tabs, Text, TextInput, Textarea, Title } from "@mantine/core";
+import dynamic from "next/dynamic";
 import { api } from "@/lib/api";
-import type { MaintenanceIncident, MaintenanceStatus } from "@/lib/types";
+import type { LocationReport, MaintenanceIncident, MaintenanceStatus } from "@/lib/types";
 import { useAuth } from "@/contexts/AuthContext";
 import { LocationMiniMap, type LocationMiniMapPoint } from "@/components/LocationMiniMap";
 
@@ -17,6 +18,13 @@ const STATUS_LABEL: Record<MaintenanceStatus, string> = {
 
 const PIN_REPORTED = "#228be6";
 const PIN_GARAGE = "#6d28d9";
+const MAP_CENTER: [number, number] = [-1.292066, 36.821946];
+
+const MapView = dynamic(
+  () =>
+    import("@/components/tracking/TrackingMap").then((m) => ({ default: m.TrackingMap })),
+  { ssr: false }
+);
 
 function mapPointsFrom(
   id: string,
@@ -47,7 +55,6 @@ function IncidentLocationMaps({
         <Button
           variant="light"
           size="xs"
-          disabled={reported.length === 0}
           onClick={() => onOpenMap("Incident location", reported)}
         >
           Incident location
@@ -55,7 +62,6 @@ function IncidentLocationMaps({
         <Button
           variant="light"
           size="xs"
-          disabled={garage.length === 0}
           onClick={() => onOpenMap("Garage location", garage)}
         >
           Garage location
@@ -208,7 +214,10 @@ export default function MaintenancePage() {
   );
 
   const openLocationModal = useCallback((title: string, points: LocationMiniMapPoint[]) => {
-    if (points.length === 0) return;
+    if (points.length === 0) {
+      setFlash({ color: "red", message: `${title} is not available for this incident yet.` });
+      return;
+    }
     setMapModal({ title, points });
   }, []);
 
@@ -221,7 +230,34 @@ export default function MaintenancePage() {
         centered
         size="lg"
       >
-        {mapModal ? <LocationMiniMap points={mapModal.points} height={340} title={mapModal.title} /> : null}
+        {mapModal ? (
+          <Stack gap="sm">
+            <Box style={{ overflow: "hidden", borderRadius: 12, border: "1px solid var(--mantine-color-gray-3)" }}>
+              <MapView
+                reports={mapModal.points.map<LocationReport>((p, i) => ({
+                  id: i + 1,
+                  user_id: p.id,
+                  user_email: "maintenance@location.local",
+                  user_display_name: mapModal.title,
+                  reported_at: new Date().toISOString(),
+                  latitude: p.latitude,
+                  longitude: p.longitude,
+                  accuracy: null,
+                  battery_percent: null,
+                  device_info: {},
+                  created_at: new Date().toISOString(),
+                }))}
+                center={mapModal.points[0] ? [mapModal.points[0].latitude, mapModal.points[0].longitude] : MAP_CENTER}
+                zoom={15}
+                singleUserPathMode={false}
+              />
+            </Box>
+            <LocationMiniMap points={mapModal.points} height={180} title={mapModal.title} />
+            <Text size="xs" c="dimmed">
+              Lat: {mapModal.points[0].latitude.toFixed(6)} · Lng: {mapModal.points[0].longitude.toFixed(6)}
+            </Text>
+          </Stack>
+        ) : null}
       </Modal>
       <Group justify="space-between">
         <Title order={2}>Maintenance</Title>
