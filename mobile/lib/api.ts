@@ -1,8 +1,10 @@
 import * as SecureStore from 'expo-secure-store';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_BASE, STORAGE_KEYS } from '@/constants/config';
 import { getOrCreateDeviceId } from '@/lib/deviceIdentity';
 import { logger } from '@/lib/logger';
 import { locationsCache$ } from '@/store/observable';
+import { enqueueSyncItem } from '@/database';
 
 export interface Farmer {
   id: string;
@@ -322,6 +324,37 @@ const getAccessToken = () =>
 const getRefreshToken = () =>
   SecureStore.getItemAsync(STORAGE_KEYS.REFRESH_TOKEN);
 
+const API_CACHE_PREFIX = 'api_cache_v1:';
+const API_CACHE_TTL_MS = 1000 * 60 * 60 * 24; // 24h
+
+function getCacheKey(path: string): string {
+  return `${API_CACHE_PREFIX}${path}`;
+}
+
+async function readCachedResponse<T>(path: string): Promise<T | null> {
+  try {
+    const raw = await AsyncStorage.getItem(getCacheKey(path));
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as { ts?: number; data?: T };
+    if (typeof parsed?.ts !== 'number' || parsed.data === undefined) return null;
+    if (Date.now() - parsed.ts > API_CACHE_TTL_MS) return null;
+    return parsed.data;
+  } catch {
+    return null;
+  }
+}
+
+async function writeCachedResponse<T>(path: string, data: T): Promise<void> {
+  try {
+    await AsyncStorage.setItem(
+      getCacheKey(path),
+      JSON.stringify({ ts: Date.now(), data })
+    );
+  } catch {
+    // Best-effort cache only.
+  }
+}
+
 const setTokens = async (access: string, refresh: string) => {
   await Promise.all([
     SecureStore.setItemAsync(STORAGE_KEYS.ACCESS_TOKEN, access),
@@ -472,6 +505,8 @@ async function request<T>(
   path: string,
   options: RequestInit = {}
 ): Promise<T> {
+  const method = (options.method ?? 'GET').toUpperCase();
+  const isGet = method === 'GET';
   let access = await getAccessToken();
   const execute = async (token?: string) => {
     const headers = new Headers(options.headers);
@@ -479,16 +514,46 @@ async function request<T>(
     if (token) headers.set('Authorization', `Bearer ${token}`);
     return fetch(`${API_BASE}${path}`, { ...options, headers });
   };
-  let res = await execute(access ?? undefined);
+  let res: Response;
+  try {
+    res = await execute(access ?? undefined);
+  } catch (error) {
+    if (isGet) {
+      const cached = await readCachedResponse<T>(path);
+      if (cached != null) {
+        logger.warn('API network failure, using cached GET response', { path });
+        return cached;
+      }
+    }
+    throw error;
+  }
   if (res.status === 401) {
     logger.debug(`Request ${path} returned 401, attempting token refresh`);
     const { access: newAccess, sessionError } = await refreshAccessToken();
     if (!newAccess) {
       throw new Error(sessionError || 'Session expired');
     }
-    res = await execute(newAccess);
+    try {
+      res = await execute(newAccess);
+    } catch (error) {
+      if (isGet) {
+        const cached = await readCachedResponse<T>(path);
+        if (cached != null) {
+          logger.warn('API refresh retry network failure, using cached GET response', { path });
+          return cached;
+        }
+      }
+      throw error;
+    }
   }
   if (!res.ok) {
+    if (isGet && res.status >= 500) {
+      const cached = await readCachedResponse<T>(path);
+      if (cached != null) {
+        logger.warn('API server error, using cached GET response', { path, status: res.status });
+        return cached;
+      }
+    }
     const error = await res.json().catch(() => ({}));
     const errMsg =
       (res.status === 400 ? formatDrfValidationErrors(error) : null) ||
@@ -497,7 +562,11 @@ async function request<T>(
     logger.warn('API request failed', { path, status: res.status, message: errMsg });
     throw new Error(errMsg);
   }
-  return res.json();
+  const data = await res.json();
+  if (isGet) {
+    await writeCachedResponse(path, data as T);
+  }
+  return data;
 }
 
 /** Build a readable validation error from visit create 400 response (serializer.errors style). */
@@ -769,10 +838,30 @@ export const api = {
   },
 
   async submitRouteReport(routeId: string, reportData: Record<string, unknown>) {
-    return request<RouteReport>(`/routes/${routeId}/report/`, {
-      method: 'PATCH',
-      body: JSON.stringify({ report_data: reportData }),
-    });
+    try {
+      return await request<RouteReport>(`/routes/${routeId}/report/`, {
+        method: 'PATCH',
+        body: JSON.stringify({ report_data: reportData }),
+      });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message.toLowerCase() : '';
+      const isNetworkLike = msg.includes('network') || msg.includes('failed to fetch') || msg.includes('timeout');
+      if (!isNetworkLike) throw e;
+      await enqueueSyncItem('route_report_submit', 'PATCH', {
+        route_id: routeId,
+        report_data: reportData,
+      });
+      const now = new Date().toISOString();
+      return {
+        id: `offline-route-report-${routeId}-${Date.now()}`,
+        route_id: routeId,
+        report_data: reportData,
+        submitted_at: null,
+        submitted_by: null,
+        created_at: now,
+        updated_at: now,
+      };
+    }
   },
 
   /** Fetches all schedules (all pages) so supervisor-assigned schedules are included. */
@@ -1041,7 +1130,21 @@ export const api = {
 
   async createMaintenanceIncident(payload: CreateMaintenanceIncidentPayload) {
     const access = await getAccessToken();
-    if (!access) throw new Error('Not authenticated');
+    if (!access) {
+      await enqueueSyncItem('maintenance_incident_create', 'CREATE', payload as unknown as Record<string, unknown>);
+      return {
+        id: `offline-maint-${Date.now()}`,
+        officer: '',
+        vehicle_type: payload.vehicle_type,
+        issue_description: payload.issue_description,
+        status: 'reported',
+        reported_at: new Date().toISOString(),
+        reported_latitude: payload.reported_latitude,
+        reported_longitude: payload.reported_longitude,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      } as MaintenanceIncident;
+    }
     const form = new FormData();
     form.append('vehicle_type', payload.vehicle_type);
     form.append('issue_description', payload.issue_description);
@@ -1054,11 +1157,28 @@ export const api = {
         name: p.name ?? 'breakdown.jpg',
       } as unknown as Blob);
     }
-    let res = await fetch(`${API_BASE}/maintenance-incidents/`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${access}` },
-      body: form,
-    });
+    let res: Response;
+    try {
+      res = await fetch(`${API_BASE}/maintenance-incidents/`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${access}` },
+        body: form,
+      });
+    } catch {
+      await enqueueSyncItem('maintenance_incident_create', 'CREATE', payload as unknown as Record<string, unknown>);
+      return {
+        id: `offline-maint-${Date.now()}`,
+        officer: '',
+        vehicle_type: payload.vehicle_type,
+        issue_description: payload.issue_description,
+        status: 'reported',
+        reported_at: new Date().toISOString(),
+        reported_latitude: payload.reported_latitude,
+        reported_longitude: payload.reported_longitude,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      } as MaintenanceIncident;
+    }
     if (res.status === 401) {
       const { access: newAccess } = await refreshAccessToken();
       if (newAccess) {
@@ -1077,10 +1197,30 @@ export const api = {
   },
 
   async updateMaintenanceIncident(id: string, payload: UpdateMaintenanceIncidentPayload) {
-    return request<MaintenanceIncident>(`/maintenance-incidents/${id}/`, {
-      method: 'PATCH',
-      body: JSON.stringify(payload),
-    });
+    try {
+      return await request<MaintenanceIncident>(`/maintenance-incidents/${id}/`, {
+        method: 'PATCH',
+        body: JSON.stringify(payload),
+      });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message.toLowerCase() : '';
+      const isNetworkLike = msg.includes('network') || msg.includes('failed to fetch') || msg.includes('timeout');
+      if (!isNetworkLike) throw e;
+      await enqueueSyncItem('maintenance_incident_update', 'PATCH', {
+        incident_id: id,
+        payload,
+      });
+      return {
+        id,
+        officer: '',
+        vehicle_type: 'other',
+        issue_description: '',
+        status: payload.status ?? 'reported',
+        reported_at: new Date().toISOString(),
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      } as MaintenanceIncident;
+    }
   },
 
   // Notifications (in-app + push token registration)

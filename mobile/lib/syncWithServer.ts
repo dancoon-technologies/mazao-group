@@ -225,6 +225,83 @@ async function pushQueue(accessToken: string): Promise<{ ok: boolean; error?: st
           continue
         }
         pushedIds.push(item.id)
+      } else if (item.entity === 'maintenance_incident_create') {
+        const form = new FormData()
+        form.append('vehicle_type', String(payload.vehicle_type ?? 'other'))
+        form.append('issue_description', String(payload.issue_description ?? ''))
+        form.append('reported_latitude', String(payload.reported_latitude ?? 0))
+        form.append('reported_longitude', String(payload.reported_longitude ?? 0))
+        const photos = Array.isArray(payload.photo) ? payload.photo : []
+        for (const p of photos) {
+          if (!p || typeof p !== 'object') continue
+          const one = p as { uri?: string; type?: string; name?: string }
+          if (!one.uri) continue
+          form.append('photo', {
+            uri: one.uri,
+            type: one.type ?? 'image/jpeg',
+            name: one.name ?? `breakdown_${Date.now()}.jpg`,
+          } as unknown as Blob)
+        }
+        const res = await fetch(`${API_BASE}/maintenance-incidents/`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${accessToken}` },
+          body: form,
+        })
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}))
+          logger.warn('pushQueue: maintenance_incident_create failed, removing from queue', item.id, ((err as { detail?: string }).detail || 'Maintenance create failed') as string)
+          await removeSyncItem(item.id)
+          continue
+        }
+        pushedIds.push(item.id)
+      } else if (item.entity === 'maintenance_incident_update') {
+        const incidentId = String(payload.incident_id ?? '')
+        const patchPayload = (payload.payload && typeof payload.payload === 'object'
+          ? payload.payload
+          : {}) as Record<string, unknown>
+        if (!incidentId) {
+          await removeSyncItem(item.id)
+          continue
+        }
+        const res = await fetch(`${API_BASE}/maintenance-incidents/${incidentId}/`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${accessToken}`,
+          },
+          body: JSON.stringify(patchPayload),
+        })
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}))
+          logger.warn('pushQueue: maintenance_incident_update failed, removing from queue', item.id, ((err as { detail?: string }).detail || 'Maintenance update failed') as string)
+          await removeSyncItem(item.id)
+          continue
+        }
+        pushedIds.push(item.id)
+      } else if (item.entity === 'route_report_submit') {
+        const routeId = String(payload.route_id ?? '')
+        const reportData = (payload.report_data && typeof payload.report_data === 'object'
+          ? payload.report_data
+          : {}) as Record<string, unknown>
+        if (!routeId) {
+          await removeSyncItem(item.id)
+          continue
+        }
+        const res = await fetch(`${API_BASE}/routes/${routeId}/report/`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${accessToken}`,
+          },
+          body: JSON.stringify({ report_data: reportData }),
+        })
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}))
+          logger.warn('pushQueue: route_report_submit failed, removing from queue', item.id, ((err as { detail?: string }).detail || 'Route report submit failed') as string)
+          await removeSyncItem(item.id)
+          continue
+        }
+        pushedIds.push(item.id)
       }
 
       // Don't mark synced here; caller marks only after pull succeeds
