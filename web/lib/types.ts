@@ -9,6 +9,8 @@ export interface Farmer {
   phone: string;
   /** When true this record represents a stockist rather than a traditional farmer. */
   is_stockist?: boolean;
+  /** When true this record represents a SACCO. */
+  is_sacco?: boolean;
   /** When true this record represents a farmers group. */
   is_group?: boolean;
   latitude: string;
@@ -249,6 +251,8 @@ export interface StaffUser {
   county_id: number | null;
   sub_county_id: number | null;
   is_active: boolean;
+  device_id?: string;
+  device_registered?: boolean;
 }
 
 /** Staff user with visit counts (from GET /api/staff/performance). */

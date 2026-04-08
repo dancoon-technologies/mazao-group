@@ -33,18 +33,19 @@ export default function AddFarmerScreen() {
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const theme = useTheme();
-  const params = useLocalSearchParams<{ returnTo?: string; asStockist?: string; asGroup?: string }>();
+  const params = useLocalSearchParams<{ returnTo?: string; asStockist?: string; asGroup?: string; asSacco?: string }>();
   const returnTo = params.returnTo;
-  const isStockist = params.asStockist === '1' || params.asStockist === 'true';
+  const isSacco = params.asSacco === '1' || params.asSacco === 'true';
+  const isStockist = !isSacco && (params.asStockist === '1' || params.asStockist === 'true');
   const isGroup = !isStockist && (params.asGroup === '1' || params.asGroup === 'true');
-  const usesSingleName = isStockist || isGroup;
-  const partnerKindLabel = isStockist ? 'SACCO' : isGroup ? 'Farmers group' : 'Farmer';
+  const usesSingleName = isStockist || isSacco || isGroup;
+  const partnerKindLabel = isSacco ? 'SACCO' : isStockist ? 'Stockist' : isGroup ? 'Farmers group' : 'Farmer';
   const labels = useSelector(() => getLabels(appMeta$.cachedOptions.get()));
-  const locationLabel = isStockist ? 'Outlet' : labels.location;
+  const locationLabel = (isStockist || isSacco) ? 'Outlet' : labels.location;
 
   useEffect(() => {
-    navigation.setOptions({ title: isStockist ? 'Add stockist' : isGroup ? 'Add farmers group' : 'Add farmer' });
-  }, [navigation, isGroup, isStockist]);
+    navigation.setOptions({ title: isSacco ? 'Add SACCO' : isStockist ? 'Add stockist' : isGroup ? 'Add farmers group' : 'Add farmer' });
+  }, [navigation, isGroup, isStockist, isSacco]);
   const [locations, setLocations] = useState<LocationState | null>(null);
   const [loadingLocations, setLoadingLocations] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -217,6 +218,7 @@ export default function AddFarmerScreen() {
             latitude: Number.isNaN(farmerLatNum) ? 0 : farmerLatNum,
             longitude: Number.isNaN(farmerLonNum) ? 0 : farmerLonNum,
             is_stockist: isStockist,
+            is_sacco: isSacco,
             is_group: isGroup,
           },
           farm: {
@@ -226,7 +228,7 @@ export default function AddFarmerScreen() {
             village: village.trim(),
             latitude: farmLatNum,
             longitude: farmLonNum,
-            plot_size: isStockist ? undefined : (plotSize.trim() || undefined),
+            plot_size: (isStockist || isSacco) ? undefined : (plotSize.trim() || undefined),
             device_latitude: deviceLat,
             device_longitude: deviceLon,
           },
@@ -256,6 +258,7 @@ export default function AddFarmerScreen() {
         latitude: isNaN(farmerLatNum) ? 0 : farmerLatNum,
         longitude: isNaN(farmerLonNum) ? 0 : farmerLonNum,
         is_stockist: isStockist,
+        is_sacco: isSacco,
         is_group: isGroup,
       });
 
@@ -273,7 +276,7 @@ export default function AddFarmerScreen() {
         village: village.trim(),
         latitude: farmLatNum,
         longitude: farmLonNum,
-        plot_size: isStockist ? undefined : (plotSize.trim() || undefined),
+        plot_size: (isStockist || isSacco) ? undefined : (plotSize.trim() || undefined),
         device_latitude: deviceLat,
         device_longitude: deviceLon,
       });
@@ -295,7 +298,7 @@ export default function AddFarmerScreen() {
       setDialogSuccess(true);
       setDialogVisible(true);
     } catch (e) {
-      setSubmitError(e instanceof Error ? e.message : (isStockist ? 'Failed to add stockist' : 'Failed to add farmer'));
+      setSubmitError(e instanceof Error ? e.message : (isSacco ? 'Failed to add SACCO' : isStockist ? 'Failed to add stockist' : 'Failed to add farmer'));
       setDialogSuccess(false);
       setDialogVisible(true);
     } finally {
@@ -322,6 +325,7 @@ export default function AddFarmerScreen() {
     returnTo,
     isOnline,
     isStockist,
+    isSacco,
     isGroup,
     usesSingleName,
     partnerKindLabel,
@@ -367,7 +371,7 @@ export default function AddFarmerScreen() {
         <Text variant="titleMedium" style={styles.sectionTitle}>
           {partnerKindLabel} details
         </Text>
-        {!isStockist && (
+        {!isStockist && !isSacco && (
           <SegmentedButtons
             value={isGroup ? 'group' : 'farmer'}
             onValueChange={(value) => {
@@ -529,7 +533,7 @@ export default function AddFarmerScreen() {
         <Text variant="bodySmall" style={styles.hint}>
           {`${locationLabel} coordinates are captured automatically from your device location.`}
         </Text>
-        {!isStockist && (
+        {!isStockist && !isSacco && (
           <TextInput
             label="Plot size"
             value={plotSize}
@@ -549,7 +553,7 @@ export default function AddFarmerScreen() {
             loading={submitting}
             disabled={submitting || !firstName.trim() || (!usesSingleName && !lastName.trim()) || !regionId || !countyId || !subCountyId || !village.trim()}
           >
-            {isStockist ? 'Add SACCO' : isGroup ? 'Add farmers group' : 'Add farmer'}
+            {isSacco ? 'Add SACCO' : isStockist ? 'Add stockist' : isGroup ? 'Add farmers group' : 'Add farmer'}
           </Button>
           <Button mode="text" onPress={() => router.back()}>
             Cancel
@@ -565,8 +569,8 @@ export default function AddFarmerScreen() {
           <Dialog.Content>
             <Text variant="bodyMedium">
               {dialogSuccess
-                ? `${isStockist ? 'Stockist' : isGroup ? 'Farmers group' : 'Farmer'} and ${locationLabel.toLowerCase()} added.`
-                : (submitError || (isStockist ? 'Failed to add stockist.' : isGroup ? 'Failed to add farmers group.' : 'Failed to add farmer.'))}
+                ? `${isSacco ? 'SACCO' : isStockist ? 'Stockist' : isGroup ? 'Farmers group' : 'Farmer'} and ${locationLabel.toLowerCase()} added.`
+                : (submitError || (isSacco ? 'Failed to add SACCO.' : isStockist ? 'Failed to add stockist.' : isGroup ? 'Failed to add farmers group.' : 'Failed to add farmer.'))}
             </Text>
           </Dialog.Content>
           <Dialog.Actions>

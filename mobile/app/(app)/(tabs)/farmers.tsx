@@ -112,9 +112,9 @@ export default function FarmersScreen() {
   const filteredFarmers = useMemo(() => {
     const byType = farmers.filter((f) => {
       if (activeType === PARTNER_TYPES.GROUP) return !!f.is_group && !f.is_stockist;
-      if (activeType === PARTNER_TYPES.INDIVIDUAL) return !f.is_group && !f.is_stockist;
-      // SACCO and Stockist are currently both stored as is_stockist=true.
-      return !!f.is_stockist;
+      if (activeType === PARTNER_TYPES.SACCO) return !!f.is_sacco;
+      if (activeType === PARTNER_TYPES.STOCKIST) return !!f.is_stockist && !f.is_sacco;
+      return !f.is_group && !f.is_stockist && !f.is_sacco;
     });
     if (!search.trim()) return byType;
     const q = search.trim().toLowerCase();
@@ -126,15 +126,23 @@ export default function FarmersScreen() {
   }, [farmers, search, activeType]);
 
   const openAddCustomer = useCallback(() => {
+    if (activeType === PARTNER_TYPES.INDIVIDUAL) {
+      router.push({ pathname: '/(app)/add-farmer' });
+      return;
+    }
     if (activeType === PARTNER_TYPES.GROUP) {
       router.push({ pathname: '/(app)/add-farmer', params: { asGroup: '1' } });
       return;
     }
-    if (activeType === PARTNER_TYPES.STOCKIST || activeType === PARTNER_TYPES.SACCO) {
+    if (activeType === PARTNER_TYPES.STOCKIST) {
       router.push({ pathname: '/(app)/add-farmer', params: { asStockist: '1' } });
       return;
     }
-    router.push('/(app)/add-farmer');
+    if (activeType === PARTNER_TYPES.SACCO) {
+      router.push({ pathname: '/(app)/add-farmer', params: { asSacco: '1' } });
+      return;
+    }
+    router.push({ pathname: '/(app)/add-farmer' });
   }, [router, activeType]);
   const openFarmer = useCallback((id: string) => router.push({ pathname: '/farmers/[id]', params: { id } }), [router]);
 
@@ -143,7 +151,7 @@ export default function FarmersScreen() {
       const farms = farmsByFarmer[farmer.id] ?? [];
       const farmCount = farms.length;
       const locations = formatFarmLocations(farms);
-      const partnerType = farmer.is_stockist ? (activeType === PARTNER_TYPES.SACCO ? 'SACCO' : 'Stockist') : farmer.is_group ? 'Farmers group' : 'Farmer';
+      const partnerType = farmer.is_sacco ? 'SACCO' : farmer.is_stockist ? 'Stockist' : farmer.is_group ? 'Farmers group' : 'Farmer';
       const subtitle = [
         partnerType,
         farmer.phone ? farmer.phone : null,

@@ -105,6 +105,7 @@ export function useRecordVisitScreen() {
   const selectedFarm = farms.find((f) => f.id === selectedFarmId);
 
   const partnerKindOf = useCallback((f: Farmer): PartnerType => {
+    if (f.is_sacco) return PARTNER_TYPES.SACCO;
     if (f.is_stockist) return PARTNER_TYPES.STOCKIST;
     if (f.is_group) return PARTNER_TYPES.GROUP;
     return PARTNER_TYPES.INDIVIDUAL;
@@ -114,7 +115,6 @@ export function useRecordVisitScreen() {
     () =>
       farmers.filter((f) => {
         const kind = partnerKindOf(f);
-        if (partnerType === PARTNER_TYPES.SACCO) return kind === PARTNER_TYPES.STOCKIST;
         return kind === partnerType;
       }),
     [farmers, partnerKindOf, partnerType]
@@ -127,7 +127,7 @@ export function useRecordVisitScreen() {
         if (!prev) return null;
         const f = farmers.find((x) => x.id === prev);
         const selectedKind = f ? partnerKindOf(f) : null;
-        const targetKind = t === PARTNER_TYPES.SACCO ? PARTNER_TYPES.STOCKIST : t;
+        const targetKind = t;
         if (!f || selectedKind !== targetKind) {
           return null;
         }

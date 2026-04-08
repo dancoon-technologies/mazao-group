@@ -56,7 +56,7 @@ const INITIAL_FORM = {
 
 export default function StockistsPage() {
   const { data: stockistsData, error, loading, refetch } = useAsyncData(
-    (signal) => api.getFarmers({ signal, is_stockist: true }),
+    (signal) => api.getFarmers({ signal, is_sacco: true }),
     []
   );
   const stockists = stockistsData ?? [];
@@ -91,7 +91,8 @@ export default function StockistsPage() {
           phone: form.phone.trim() || undefined,
           latitude: lat,
           longitude: lon,
-          is_stockist: true,
+          is_stockist: false,
+          is_sacco: true,
           is_group: false,
         });
         resetForm();

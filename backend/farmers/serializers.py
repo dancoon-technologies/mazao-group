@@ -18,6 +18,7 @@ class FarmerSerializer(serializers.ModelSerializer):
             "display_name",
             "phone",
             "is_stockist",
+            "is_sacco",
             "is_group",
             "latitude",
             "longitude",
@@ -30,12 +31,19 @@ class FarmerCreateSerializer(serializers.ModelSerializer):
         first_name = (attrs.get("first_name") or "").strip()
         last_name = (attrs.get("last_name") or "").strip()
         is_stockist = bool(attrs.get("is_stockist"))
+        is_sacco = bool(attrs.get("is_sacco"))
         is_group = bool(attrs.get("is_group"))
 
-        if is_stockist or is_group:
+        true_flags = [is_stockist, is_sacco, is_group]
+        if sum(1 for x in true_flags if x) > 1:
+            raise serializers.ValidationError(
+                {"detail": "Choose only one partner type (stockist, SACCO, or farmers group)."}
+            )
+
+        if is_stockist or is_sacco or is_group:
             if not first_name:
                 raise serializers.ValidationError(
-                    {"first_name": "Name is required for SACCO and farmers group."}
+                    {"first_name": "Name is required for stockist, SACCO, and farmers group."}
                 )
             attrs["first_name"] = first_name
             attrs["last_name"] = last_name
@@ -57,6 +65,7 @@ class FarmerCreateSerializer(serializers.ModelSerializer):
             "last_name",
             "phone",
             "is_stockist",
+            "is_sacco",
             "is_group",
             "latitude",
             "longitude",

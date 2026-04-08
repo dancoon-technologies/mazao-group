@@ -11,6 +11,8 @@ class Farmer(models.Model):
     phone = models.CharField(max_length=50, blank=True)
     # When true this record represents a stockist rather than a traditional farmer.
     is_stockist = models.BooleanField(default=False)
+    # When true this record represents a SACCO.
+    is_sacco = models.BooleanField(default=False)
     # When true this record represents a farmers group.
     is_group = models.BooleanField(default=False)
     latitude = models.DecimalField(max_digits=10, decimal_places=7)

@@ -7,6 +7,7 @@ class UserSerializer(serializers.ModelSerializer):
     display_name = serializers.ReadOnlyField()
     region = serializers.SerializerMethodField()
     department = serializers.SerializerMethodField()
+    device_registered = serializers.SerializerMethodField()
 
     class Meta:
         model = User
@@ -25,6 +26,8 @@ class UserSerializer(serializers.ModelSerializer):
             "county_id",
             "sub_county_id",
             "is_active",
+            "device_id",
+            "device_registered",
         )
 
     def get_region(self, obj):
@@ -36,6 +39,10 @@ class UserSerializer(serializers.ModelSerializer):
     def get_department(self, obj):
         """Department slug for API (backward compat)."""
         return obj.department.slug if obj.department else ""
+
+    def get_device_registered(self, obj):
+        """True when a mobile device is currently bound to this user."""
+        return bool((obj.device_id or "").strip())
 
 
 class StaffPatchSerializer(serializers.ModelSerializer):

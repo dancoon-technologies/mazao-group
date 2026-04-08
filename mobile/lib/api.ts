@@ -13,6 +13,8 @@ export interface Farmer {
   phone?: string;
   /** When true this record represents a stockist rather than a traditional farmer. */
   is_stockist?: boolean;
+  /** When true this record represents a SACCO. */
+  is_sacco?: boolean;
   /** When true this record represents a farmers group instead of an individual farmer. */
   is_group?: boolean;
   latitude?: string;
@@ -593,6 +595,7 @@ export const api = {
     latitude?: number;
     longitude?: number;
     is_stockist?: boolean;
+    is_sacco?: boolean;
     is_group?: boolean;
   }) {
     return request<Farmer>('/farmers/', {
@@ -1015,10 +1018,12 @@ export const api = {
     return request<OptionsResponse>('/options/');
   },
 
-  async getFarmers(params?: { search?: string; is_stockist?: boolean }) {
+  async getFarmers(params?: { search?: string; is_stockist?: boolean; is_sacco?: boolean; is_group?: boolean }) {
     const searchParams = new URLSearchParams();
     if (params?.search?.trim()) searchParams.set('search', params.search.trim());
     if (params?.is_stockist !== undefined) searchParams.set('is_stockist', String(params.is_stockist));
+    if (params?.is_sacco !== undefined) searchParams.set('is_sacco', String(params.is_sacco));
+    if (params?.is_group !== undefined) searchParams.set('is_group', String(params.is_group));
     const q = searchParams.toString() ? `?${searchParams.toString()}` : '';
     const data = await request<Farmer[] | { results: Farmer[] }>(`/farmers/${q}`);
     return ensureArray(data);

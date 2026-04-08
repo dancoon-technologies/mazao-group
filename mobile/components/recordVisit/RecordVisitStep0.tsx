@@ -14,7 +14,8 @@ export type RecordVisitLabels = { partner: string; location: string };
 
 function partnerKindSuffix(farmer: Farmer | undefined): string {
   if (!farmer) return '';
-  if (farmer.is_stockist) return ' · Stockist/SACCO';
+  if (farmer.is_sacco) return ' · SACCO';
+  if (farmer.is_stockist) return ' · Stockist';
   if (farmer.is_group) return ' · Farmers group';
   return ' · Farmer';
 }
@@ -145,17 +146,22 @@ export function RecordVisitStep0({
   const requiresPlanChoice = acceptedSchedules.length > 0 || todayRoutes.length > 0;
   const isStockistContext =
     (Boolean(selectedScheduleId) && Boolean(selectedFarmer?.is_stockist)) ||
-    (!selectedScheduleId && (partnerType === 'stockist' || partnerType === 'sacco'));
+    (!selectedScheduleId && partnerType === 'stockist');
+  const isSaccoContext =
+    (Boolean(selectedScheduleId) && Boolean(selectedFarmer?.is_sacco)) ||
+    (!selectedScheduleId && partnerType === 'sacco');
   const isGroupContext =
     (Boolean(selectedScheduleId) && Boolean(selectedFarmer?.is_group) && !Boolean(selectedFarmer?.is_stockist)) ||
     (!selectedScheduleId && partnerType === 'group');
   const partnerLabel =
-    isStockistContext
-      ? (partnerType === 'stockist' ? 'Stockist' : 'SACCO')
+    isSaccoContext
+      ? 'SACCO'
+      : isStockistContext
+        ? 'Stockist'
       : isGroupContext
         ? 'Farmers group'
         : 'Farmer';
-  const locationLabel = isStockistContext ? 'Outlet' : labels.location;
+  const locationLabel = (isStockistContext || isSaccoContext) ? 'Outlet' : labels.location;
   const showWeeklySection = effectiveVisitLinkMode === 'route' && todayRoutes.length > 0;
   const showScheduleSection = effectiveVisitLinkMode === 'schedule' && acceptedSchedules.length > 0;
 
@@ -364,8 +370,10 @@ export function RecordVisitStep0({
               <View style={styles.farmerCardBody}>
                 <Text variant="titleMedium" style={styles.farmerCardName}>{selectedFarmer.display_name ?? '—'}</Text>
                 <Text variant="bodySmall" style={styles.farmerCardMeta}>
-                  {selectedFarmer.is_stockist
-                    ? (partnerType === 'stockist' ? 'Selected stockist' : 'Selected SACCO')
+                  {selectedFarmer.is_sacco
+                    ? 'Selected SACCO'
+                    : selectedFarmer.is_stockist
+                      ? 'Selected stockist'
                     : selectedFarmer.is_group
                       ? 'Selected farmers group'
                       : 'Selected farmer'}
@@ -379,8 +387,10 @@ export function RecordVisitStep0({
               </View>
               <View style={styles.farmerCardTag}>
                 <Chip mode="flat" style={styles.activeChip} textStyle={styles.activeChipText} compact>
-                  {selectedFarmer.is_stockist
-                    ? (partnerType === 'stockist' ? 'Stockist' : 'SACCO')
+                  {selectedFarmer.is_sacco
+                    ? 'SACCO'
+                    : selectedFarmer.is_stockist
+                      ? 'Stockist'
                     : selectedFarmer.is_group
                       ? 'Farmers group'
                       : 'Farmer'}

@@ -160,6 +160,7 @@ async function pushQueue(accessToken: string): Promise<{ ok: boolean; error?: st
             latitude: farmerPayload.latitude,
             longitude: farmerPayload.longitude,
             is_stockist: farmerPayload.is_stockist ?? false,
+            is_sacco: farmerPayload.is_sacco ?? false,
             is_group: farmerPayload.is_group ?? false,
           }),
         })
@@ -393,6 +394,7 @@ export async function enqueueFarmerWithFarm(payload: {
     latitude: number
     longitude: number
     is_stockist?: boolean
+    is_sacco?: boolean
     is_group?: boolean
   }
   farm: {

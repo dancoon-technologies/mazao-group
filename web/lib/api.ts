@@ -85,9 +85,10 @@ export const api = {
     return res.json();
   },
 
-  async getFarmers(options?: { signal?: AbortSignal; is_stockist?: boolean; is_group?: boolean }): Promise<Farmer[]> {
+  async getFarmers(options?: { signal?: AbortSignal; is_stockist?: boolean; is_sacco?: boolean; is_group?: boolean }): Promise<Farmer[]> {
     const params = new URLSearchParams();
     if (options?.is_stockist !== undefined) params.set("is_stockist", String(options.is_stockist));
+    if (options?.is_sacco !== undefined) params.set("is_sacco", String(options.is_sacco));
     if (options?.is_group !== undefined) params.set("is_group", String(options.is_group));
     const qs = params.toString() ? `?${params.toString()}` : "";
     const res = await authFetch(`${API_BASE}/api/farmers${qs}`, { signal: options?.signal });
@@ -112,6 +113,7 @@ export const api = {
     latitude: number;
     longitude: number;
     is_stockist?: boolean;
+    is_sacco?: boolean;
     is_group?: boolean;
   }): Promise<Farmer> {
     const res = await authFetch(`${API_BASE}/api/farmers`, {
