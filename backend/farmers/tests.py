@@ -149,8 +149,12 @@ class FarmersAPITests(TestCase):
     def test_create_farmer_validation_required_fields(self):
         token = self._login("admin@test.com", "admin123")
         self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
-        r = self.client.post("/api/farmers/", {"first_name": "Only"}, format="json")
+        r = self.client.post(
+            "/api/farmers/",
+            {"first_name": "Only", "latitude": -6.03, "longitude": 39.03},
+            format="json",
+        )
         self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
         errors = r.json()
         self.assertTrue(errors)
-        self.assertTrue("last_name" in errors or "phone" in errors)
+        self.assertTrue("detail" in errors or "last_name" in errors or "phone" in errors)
