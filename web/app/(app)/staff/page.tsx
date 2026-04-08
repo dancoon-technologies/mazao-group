@@ -66,6 +66,19 @@ function buildStaffColumns(
       render: (u) => <Text size="sm" c="dimmed">{u.region || "—"}</Text>,
     },
     {
+      key: "device",
+      label: "Device",
+      render: (u) =>
+        u.device_registered ? (
+          <Stack gap={0}>
+            <Text size="sm" c="green">Registered</Text>
+            <Text size="xs" c="dimmed">{u.device_id || "—"}</Text>
+          </Stack>
+        ) : (
+          <Text size="sm" c="dimmed">Not registered</Text>
+        ),
+    },
+    {
       key: "is_active",
       label: "Status",
       render: (u) => (
@@ -348,7 +361,10 @@ export default function StaffPage() {
                 setResendingId(u.id);
                 try {
                   const out = await api.resetStaffDevice(u.id);
-                  setResendMessage(out.detail || "Device binding reset.");
+                  setResendMessage(
+                    out.detail ||
+                      "Device binding reset. User can now sign in on a new phone; the next login will bind that device."
+                  );
                 } catch (err) {
                   setResendError(err instanceof Error ? err.message : "Failed to reset device");
                 } finally {
@@ -610,6 +626,9 @@ export default function StaffPage() {
           {resendMessage}
         </Alert>
       )}
+      <Alert color="blue" variant="light" mt="md">
+        Resetting device clears the current phone binding and active tokens for that staff account. The next successful login registers the new device automatically.
+      </Alert>
       {resendError && (
         <Alert color="red" variant="light" mt="md" onClose={() => setResendError("")} withCloseButton>
           {resendError}

@@ -204,7 +204,10 @@ export default function StaffDetailPage() {
                 setResettingDevice(true);
                 try {
                   const out = await api.resetStaffDevice(staff.id);
-                  setResetMsg(out.detail || "Device binding reset.");
+                  setResetMsg(
+                    out.detail ||
+                      "Device binding reset. User can now sign in on a new phone; the next login will bind that device."
+                  );
                 } catch (e) {
                   setResetErr(e instanceof Error ? e.message : "Failed to reset device.");
                 } finally {
@@ -227,6 +230,11 @@ export default function StaffDetailPage() {
           <Text size="sm" c="red">{resetErr}</Text>
         </Paper>
       ) : null}
+      <Paper p="sm" withBorder mb="md">
+        <Text size="sm" c="dimmed">
+          Resetting device clears this user&apos;s current phone binding and active tokens. On next successful login, the new phone is registered automatically.
+        </Text>
+      </Paper>
 
       <Paper p="lg" radius="md" withBorder mb="xl">
         <Title order={3} size="h4" mb="md">
@@ -259,6 +267,13 @@ export default function StaffDetailPage() {
               <Badge color={staff.is_active !== false ? "green" : "red"} variant="light" size="sm">
                 {staff.is_active !== false ? "Active" : "Inactive"}
               </Badge>
+            </Box>
+            <Box>
+              <Text size="xs" c="dimmed" tt="uppercase" fw={600}>Device</Text>
+              <Badge color={staff.device_registered ? "green" : "gray"} variant="light" size="sm">
+                {staff.device_registered ? "Registered" : "Not registered"}
+              </Badge>
+              <Text size="xs" c="dimmed" mt={4}>{staff.device_id || "—"}</Text>
             </Box>
           </Group>
         </Stack>
