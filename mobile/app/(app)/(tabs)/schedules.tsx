@@ -319,7 +319,7 @@ export default function SchedulesScreen() {
     <View style={styles.pageWrap}>
       <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
         <View style={styles.titleRow}>
-          <Text variant="bodyLarge" style={styles.title}>Schedules</Text>
+          <Text variant="bodyLarge" style={styles.title}>Schedules & Visits</Text>
           {isOfficer && (
             <Menu
               visible={routesMenuOpen}

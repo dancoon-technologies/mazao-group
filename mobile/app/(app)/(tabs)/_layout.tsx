@@ -12,7 +12,6 @@ const TAB_ICONS: Record<string, keyof typeof MaterialCommunityIcons.glyphMap> = 
   schedules: 'calendar',
   record: 'plus-circle',
   farmers: 'account-group',
-  stockists: 'store-outline',
   menu: 'menu',
   maintenance: 'tools',
   tracking: 'map-marker-path',
@@ -104,6 +103,7 @@ export default function AppTabsLayout() {
         options={{
           headerShown: false,
           title: 'Visits',
+          href: null,
           tabBarIcon: ({ color, size }) => (
             <MaterialCommunityIcons name={TAB_ICONS.visits} size={size} color={color} />
           ),
@@ -113,7 +113,7 @@ export default function AppTabsLayout() {
         name="schedules"
         options={{
           headerShown: false,
-          title: 'Schedules',
+          title: 'Plans',
           tabBarIcon: ({ color, size }) => (
             <MaterialCommunityIcons name={TAB_ICONS.schedules} size={size} color={color} />
           ),
@@ -142,19 +142,9 @@ export default function AppTabsLayout() {
         name="farmers"
         options={{
           headerShown: false,
-          title: 'Farmers',
+          title: 'Customers',
           tabBarIcon: ({ color, size }) => (
             <MaterialCommunityIcons name={TAB_ICONS.farmers} size={size} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="stockists"
-        options={{
-          headerShown: false,
-          title: 'Stockists',
-          tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons name={TAB_ICONS.stockists} size={size} color={color} />
           ),
         }}
       />

@@ -14,7 +14,9 @@ export type RecordVisitLabels = { partner: string; location: string };
 
 function partnerKindSuffix(farmer: Farmer | undefined): string {
   if (!farmer) return '';
-  return farmer.is_stockist ? ' · Stockist' : ' · Farmer';
+  if (farmer.is_stockist) return ' · Stockist/SACCO';
+  if (farmer.is_group) return ' · Farmers group';
+  return ' · Farmer';
 }
 
 function locationKindSuffix(farm: Farm | undefined): string {
@@ -77,8 +79,8 @@ type Props = {
   visitLinkMode: 'schedule' | 'route' | null;
   effectiveVisitLinkMode: 'schedule' | 'route' | null;
   onSelectVisitLinkMode: (mode: 'schedule' | 'route') => void;
-  partnerType: 'individual' | 'group' | 'stockist';
-  onPartnerTypeChange: (t: 'individual' | 'group' | 'stockist') => void;
+  partnerType: 'individual' | 'group' | 'stockist' | 'sacco';
+  onPartnerTypeChange: (t: 'individual' | 'group' | 'stockist' | 'sacco') => void;
   /** Filtered by partnerType for the picker; full list still used for schedule chips. */
   farmersForModal: Farmer[];
 };
@@ -143,11 +145,16 @@ export function RecordVisitStep0({
   const requiresPlanChoice = acceptedSchedules.length > 0 || todayRoutes.length > 0;
   const isStockistContext =
     (Boolean(selectedScheduleId) && Boolean(selectedFarmer?.is_stockist)) ||
-    (!selectedScheduleId && partnerType === 'stockist');
+    (!selectedScheduleId && (partnerType === 'stockist' || partnerType === 'sacco'));
   const isGroupContext =
     (Boolean(selectedScheduleId) && Boolean(selectedFarmer?.is_group) && !Boolean(selectedFarmer?.is_stockist)) ||
     (!selectedScheduleId && partnerType === 'group');
-  const partnerLabel = isStockistContext ? 'SACCO' : isGroupContext ? 'Farm group' : labels.partner;
+  const partnerLabel =
+    isStockistContext
+      ? (partnerType === 'stockist' ? 'Stockist' : 'SACCO')
+      : isGroupContext
+        ? 'Farmers group'
+        : 'Farmer';
   const locationLabel = isStockistContext ? 'Outlet' : labels.location;
   const showWeeklySection = effectiveVisitLinkMode === 'route' && todayRoutes.length > 0;
   const showScheduleSection = effectiveVisitLinkMode === 'schedule' && acceptedSchedules.length > 0;
@@ -276,7 +283,7 @@ export function RecordVisitStep0({
                   ]}
                   labelStyle={styles.partnerTypeBtnLabel}
                 >
-                  Individual
+                  Farmer
                 </Button>
                 <Button
                   mode={partnerType === 'group' ? 'contained-tonal' : 'text'}
@@ -288,7 +295,7 @@ export function RecordVisitStep0({
                   ]}
                   labelStyle={styles.partnerTypeBtnLabel}
                 >
-                  Farm group
+                  Farmers group
                 </Button>
                 <Button
                   mode={partnerType === 'stockist' ? 'contained-tonal' : 'text'}
@@ -297,6 +304,18 @@ export function RecordVisitStep0({
                   style={[
                     styles.partnerTypeBtn,
                     partnerType === 'stockist' ? styles.partnerTypeBtnActive : styles.partnerTypeBtnInactive,
+                  ]}
+                  labelStyle={styles.partnerTypeBtnLabel}
+                >
+                  Stockist
+                </Button>
+                <Button
+                  mode={partnerType === 'sacco' ? 'contained-tonal' : 'text'}
+                  compact
+                  onPress={() => onPartnerTypeChange('sacco')}
+                  style={[
+                    styles.partnerTypeBtn,
+                    partnerType === 'sacco' ? styles.partnerTypeBtnActive : styles.partnerTypeBtnInactive,
                   ]}
                   labelStyle={styles.partnerTypeBtnLabel}
                 >
@@ -325,10 +344,12 @@ export function RecordVisitStep0({
             title={farmerModalTitle ?? `Select ${partnerLabel.toLowerCase()}`}
             noPartnerLabel={
               partnerType === 'stockist'
-                ? 'No SACCO'
+                ? 'No stockist'
+                : partnerType === 'sacco'
+                  ? 'No SACCO'
                 : partnerType === 'group'
-                  ? 'No farm group'
-                  : `No ${labels.partner.toLowerCase()}`
+                  ? 'No farmers group'
+                  : 'No farmer'
             }
             onCreateNew={onCreatePartnerRecord}
             createNewLabel={`Create new ${partnerLabel.toLowerCase()}`}
@@ -343,7 +364,11 @@ export function RecordVisitStep0({
               <View style={styles.farmerCardBody}>
                 <Text variant="titleMedium" style={styles.farmerCardName}>{selectedFarmer.display_name ?? '—'}</Text>
                 <Text variant="bodySmall" style={styles.farmerCardMeta}>
-                  {selectedFarmer.is_stockist ? 'Selected SACCO' : selectedFarmer.is_group ? 'Selected farm group' : 'Selected farmer'}
+                  {selectedFarmer.is_stockist
+                    ? (partnerType === 'stockist' ? 'Selected stockist' : 'Selected SACCO')
+                    : selectedFarmer.is_group
+                      ? 'Selected farmers group'
+                      : 'Selected farmer'}
                 </Text>
                 {selectedFarmer.phone ? (
                   <View style={styles.farmerCardPhone}>
@@ -354,7 +379,11 @@ export function RecordVisitStep0({
               </View>
               <View style={styles.farmerCardTag}>
                 <Chip mode="flat" style={styles.activeChip} textStyle={styles.activeChipText} compact>
-                  {selectedFarmer.is_stockist ? 'SACCO' : selectedFarmer.is_group ? 'Farm group' : 'Farmer'}
+                  {selectedFarmer.is_stockist
+                    ? (partnerType === 'stockist' ? 'Stockist' : 'SACCO')
+                    : selectedFarmer.is_group
+                      ? 'Farmers group'
+                      : 'Farmer'}
                 </Chip>
               </View>
             </View>

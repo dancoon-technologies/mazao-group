@@ -64,24 +64,14 @@ function AppDrawerContent(props: DrawerContentComponentProps) {
         onPress={() => go('/(app)/(tabs)')}
       />
       <DrawerItem
-        label="Visits"
-        icon={({ size, color }) => <MaterialCommunityIcons name="format-list-bulleted" size={size} color={color} />}
-        onPress={() => go('/(app)/(tabs)/visits')}
-      />
-      <DrawerItem
-        label="Schedules"
+        label="Schedules & Visits"
         icon={({ size, color }) => <MaterialCommunityIcons name="calendar" size={size} color={color} />}
         onPress={() => go('/(app)/(tabs)/schedules')}
       />
       <DrawerItem
-        label="Farmers"
+        label="Customers"
         icon={({ size, color }) => <MaterialCommunityIcons name="account-group" size={size} color={color} />}
         onPress={() => go('/(app)/(tabs)/farmers')}
-      />
-      <DrawerItem
-        label="Stockists"
-        icon={({ size, color }) => <MaterialCommunityIcons name="store-outline" size={size} color={color} />}
-        onPress={() => go('/(app)/(tabs)/stockists')}
       />
       <DrawerItem
         label="History"
@@ -346,7 +336,6 @@ function AppLayoutInner() {
       <Drawer.Screen name="(tabs)/visits" options={{ drawerItemStyle: { display: 'none' } }} />
       <Drawer.Screen name="(tabs)/schedules" options={{ drawerItemStyle: { display: 'none' } }} />
       <Drawer.Screen name="(tabs)/farmers" options={{ drawerItemStyle: { display: 'none' } }} />
-      <Drawer.Screen name="(tabs)/stockists" options={{ drawerItemStyle: { display: 'none' } }} />
       <Drawer.Screen name="(tabs)/history" options={{ drawerItemStyle: { display: 'none' } }} />
       <Drawer.Screen name="(tabs)/tracking" options={{ drawerItemStyle: { display: 'none' } }} />
       <Drawer.Screen name="(tabs)/profile" options={{ drawerItemStyle: { display: 'none' } }} />

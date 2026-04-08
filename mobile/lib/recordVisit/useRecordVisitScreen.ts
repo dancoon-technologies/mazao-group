@@ -18,6 +18,11 @@ import {
   type VisitSettings,
 } from '@/lib/api';
 import { ACTIVITY_TYPES, DEFAULT_ACTIVITY_TYPE } from '@/lib/constants/activityTypes';
+import {
+  PARTNER_TYPES,
+  STOCKIST_LIKE_PARTNER_TYPES,
+  type PartnerType,
+} from '@/lib/constants/partnerTypes';
 import { buildStep3Payload, type Step3Values } from '@/lib/constants/visitFormFields';
 import { validateRecordVisit } from '@/lib/validateRecordVisit';
 import { enqueueVisit, syncWithServer } from '@/lib/syncWithServer';
@@ -72,7 +77,7 @@ export function useRecordVisitScreen() {
   /** When both accepted schedules and today’s route exist, user must pick Planned visit vs Weekly route. */
   const [visitLinkMode, setVisitLinkMode] = useState<'schedule' | 'route' | null>(null);
   /** When choosing a partner without a fixed schedule, filter list by partner kind. */
-  const [partnerType, setPartnerType] = useState<'individual' | 'group' | 'stockist'>('individual');
+  const [partnerType, setPartnerType] = useState<PartnerType>(PARTNER_TYPES.INDIVIDUAL);
   const [activityTypesModalOpen, setActivityTypesModalOpen] = useState(false);
   const [locationLoading, setLocationLoading] = useState(false);
   const [notes, setNotes] = useState('');
@@ -99,24 +104,31 @@ export function useRecordVisitScreen() {
   const selectedFarmer = farmers.find((f) => f.id === selectedFarmerId);
   const selectedFarm = farms.find((f) => f.id === selectedFarmId);
 
-  const partnerKindOf = useCallback((f: Farmer): 'individual' | 'group' | 'stockist' => {
-    if (f.is_stockist) return 'stockist';
-    if (f.is_group) return 'group';
-    return 'individual';
+  const partnerKindOf = useCallback((f: Farmer): PartnerType => {
+    if (f.is_stockist) return PARTNER_TYPES.STOCKIST;
+    if (f.is_group) return PARTNER_TYPES.GROUP;
+    return PARTNER_TYPES.INDIVIDUAL;
   }, []);
 
   const farmersForModal = useMemo(
-    () => farmers.filter((f) => partnerKindOf(f) === partnerType),
+    () =>
+      farmers.filter((f) => {
+        const kind = partnerKindOf(f);
+        if (partnerType === PARTNER_TYPES.SACCO) return kind === PARTNER_TYPES.STOCKIST;
+        return kind === partnerType;
+      }),
     [farmers, partnerKindOf, partnerType]
   );
 
   const onPartnerTypeChange = useCallback(
-    (t: 'individual' | 'group' | 'stockist') => {
+    (t: PartnerType) => {
       setPartnerType(t);
       setSelectedFarmerId((prev) => {
         if (!prev) return null;
         const f = farmers.find((x) => x.id === prev);
-        if (!f || partnerKindOf(f) !== t) {
+        const selectedKind = f ? partnerKindOf(f) : null;
+        const targetKind = t === PARTNER_TYPES.SACCO ? PARTNER_TYPES.STOCKIST : t;
+        if (!f || selectedKind !== targetKind) {
           return null;
         }
         return prev;
@@ -768,7 +780,7 @@ export function useRecordVisitScreen() {
     setSelectedScheduleId(null);
     setSelectedFarmerId(null);
     setSelectedFarmId(null);
-    setPartnerType('individual');
+    setPartnerType(PARTNER_TYPES.INDIVIDUAL);
   }, []);
 
   const openFarmerPicker = useCallback(() => {
@@ -812,9 +824,11 @@ export function useRecordVisitScreen() {
       pathname: '/(app)/add-farmer',
       params: {
         returnTo: 'record-visit',
-        ...(partnerType === 'stockist'
+        ...(partnerType === PARTNER_TYPES.STOCKIST
           ? { asStockist: '1' }
-          : partnerType === 'group'
+          : partnerType === PARTNER_TYPES.SACCO
+          ? { asStockist: '1' }
+          : partnerType === PARTNER_TYPES.GROUP
             ? { asGroup: '1' }
             : {}),
       },
@@ -830,7 +844,7 @@ export function useRecordVisitScreen() {
       pathname: '/(app)/farmers/[id]/add-farm',
       params: {
         id: selectedFarmerId,
-        ...(partnerType === 'stockist' ? { asOutlet: '1' } : {}),
+        ...(STOCKIST_LIKE_PARTNER_TYPES.includes(partnerType) ? { asOutlet: '1' } : {}),
       },
     });
   }, [router, selectedFarmerId, partnerType, createPartnerFromPicker]);

@@ -3,6 +3,7 @@ import { getFarmers as getFarmersDb, getAllFarms } from '@/database';
 import { farmRowToFarm, farmerRowToFarmer } from '@/lib/offline-helpers';
 import { api, type Farm, type Farmer } from '@/lib/api';
 import { useAppRefresh } from '@/contexts/AppRefreshContext';
+import { PARTNER_TYPES, type PartnerType } from '@/lib/constants/partnerTypes';
 import { useFocusEffect, useRouter } from 'expo-router';
 import NetInfo from '@react-native-community/netinfo';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -13,6 +14,7 @@ import {
   Button,
   Card,
   FAB,
+  SegmentedButtons,
   Searchbar,
   Text,
 } from 'react-native-paper';
@@ -34,6 +36,7 @@ export default function FarmersScreen() {
   const prevRefreshTrigger = useRef(0);
   const [farmers, setFarmers] = useState<Farmer[]>([]);
   const [farmsByFarmer, setFarmsByFarmer] = useState<Record<string, Farm[]>>({});
+  const [activeType, setActiveType] = useState<PartnerType>(PARTNER_TYPES.INDIVIDUAL);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
@@ -41,7 +44,7 @@ export default function FarmersScreen() {
 
   const loadFromDb = useCallback(async () => {
     const [farmerRows, farmRows] = await Promise.all([
-      getFarmersDb({ is_stockist: false }),
+      getFarmersDb(),
       getAllFarms(),
     ]);
     const list = farmerRows.map(farmerRowToFarmer);
@@ -61,11 +64,7 @@ export default function FarmersScreen() {
     if (connected) {
       try {
         const [farmersData, farmsData] = await Promise.all([
-          api.getFarmers(
-            searchQuery?.trim()
-              ? { search: searchQuery.trim(), is_stockist: false }
-              : { is_stockist: false }
-          ),
+          api.getFarmers(searchQuery?.trim() ? { search: searchQuery.trim() } : undefined),
           api.getFarms(),
         ]);
         const list = Array.isArray(farmersData) ? farmersData : [];
@@ -111,16 +110,32 @@ export default function FarmersScreen() {
   }, [load, search]);
 
   const filteredFarmers = useMemo(() => {
-    if (!search.trim()) return farmers;
+    const byType = farmers.filter((f) => {
+      if (activeType === PARTNER_TYPES.GROUP) return !!f.is_group && !f.is_stockist;
+      if (activeType === PARTNER_TYPES.INDIVIDUAL) return !f.is_group && !f.is_stockist;
+      // SACCO and Stockist are currently both stored as is_stockist=true.
+      return !!f.is_stockist;
+    });
+    if (!search.trim()) return byType;
     const q = search.trim().toLowerCase();
-    return farmers.filter(
+    return byType.filter(
       (f) =>
         f.display_name.toLowerCase().includes(q) ||
         (f.phone ?? '').toLowerCase().includes(q)
     );
-  }, [farmers, search]);
+  }, [farmers, search, activeType]);
 
-  const openAddFarmer = useCallback(() => router.push('/(app)/add-farmer'), [router]);
+  const openAddCustomer = useCallback(() => {
+    if (activeType === PARTNER_TYPES.GROUP) {
+      router.push({ pathname: '/(app)/add-farmer', params: { asGroup: '1' } });
+      return;
+    }
+    if (activeType === PARTNER_TYPES.STOCKIST || activeType === PARTNER_TYPES.SACCO) {
+      router.push({ pathname: '/(app)/add-farmer', params: { asStockist: '1' } });
+      return;
+    }
+    router.push('/(app)/add-farmer');
+  }, [router, activeType]);
   const openFarmer = useCallback((id: string) => router.push({ pathname: '/farmers/[id]', params: { id } }), [router]);
 
   const renderFarmerItem = useCallback(
@@ -128,11 +143,11 @@ export default function FarmersScreen() {
       const farms = farmsByFarmer[farmer.id] ?? [];
       const farmCount = farms.length;
       const locations = formatFarmLocations(farms);
-      const partnerType = farmer.is_group ? 'Farmers Group' : 'Farmer';
+      const partnerType = farmer.is_stockist ? (activeType === PARTNER_TYPES.SACCO ? 'SACCO' : 'Stockist') : farmer.is_group ? 'Farmers group' : 'Farmer';
       const subtitle = [
         partnerType,
         farmer.phone ? farmer.phone : null,
-        farmCount === 1 ? '1 Farm' : `${farmCount} Farms`,
+        farmCount === 1 ? '1 location' : `${farmCount} locations`,
         locations ? locations : null,
       ]
         .filter(Boolean)
@@ -146,25 +161,34 @@ export default function FarmersScreen() {
         />
       );
     },
-    [farmsByFarmer, openFarmer]
+    [farmsByFarmer, openFarmer, activeType]
   );
+
+  const activeTypeLabel =
+    activeType === PARTNER_TYPES.INDIVIDUAL
+      ? 'farmer'
+      : activeType === PARTNER_TYPES.GROUP
+        ? 'farmers group'
+        : activeType === PARTNER_TYPES.SACCO
+          ? 'SACCO'
+          : 'stockist';
 
   const listEmptyComponent = useMemo(
     () => (
       <Card style={styles.card} elevation={0}>
         <Card.Content>
           <Text variant="bodyMedium">
-            {search.trim() ? 'No farmers match your search.' : 'No farmers'}
+            {search.trim() ? `No ${activeTypeLabel}s match your search.` : `No ${activeTypeLabel}s`}
           </Text>
           {!search.trim() && (
-            <Button mode="contained" onPress={openAddFarmer} style={styles.addBtn}>
-              Add farmer
+            <Button mode="contained" onPress={openAddCustomer} style={styles.addBtn}>
+              {`Add ${activeTypeLabel}`}
             </Button>
           )}
         </Card.Content>
       </Card>
     ),
-    [search.trim(), openAddFarmer]
+    [search.trim(), openAddCustomer, activeTypeLabel]
   );
 
   return (
@@ -172,12 +196,23 @@ export default function FarmersScreen() {
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
       <View style={styles.header}>
         <View style={styles.headerText}>
-          <Text variant="bodyLarge" style={styles.title}>Farmers</Text>
+          <Text variant="bodyLarge" style={styles.title}>Customers</Text>
           <Text variant="bodyMedium" style={styles.subtitle}>
-            Manage assigned farmers.
+            Farmers, farmers groups, stockists and SACCOs.
           </Text>
         </View>
       </View>
+      <SegmentedButtons
+        value={activeType}
+        onValueChange={(value) => setActiveType(value as PartnerType)}
+        style={styles.typeTabs}
+        buttons={[
+          { value: PARTNER_TYPES.INDIVIDUAL, label: 'Farmer' },
+          { value: PARTNER_TYPES.GROUP, label: 'Farmers group' },
+          { value: PARTNER_TYPES.STOCKIST, label: 'Stockist' },
+          { value: PARTNER_TYPES.SACCO, label: 'SACCO' },
+        ]}
+      />
 
       <Searchbar
         placeholder="Search by name or phone..."
@@ -225,7 +260,7 @@ export default function FarmersScreen() {
       >
         <FAB
           icon="account-plus"
-          onPress={openAddFarmer}
+          onPress={openAddCustomer}
           style={styles.fab}
           color="#fff"
         />
@@ -248,6 +283,10 @@ const styles = StyleSheet.create({
   headerText: { flex: 1 },
   title: { fontWeight: '700', fontSize: 20 },
   subtitle: { opacity: 0.7, marginTop: 2 },
+  typeTabs: {
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.sm,
+  },
   addButton: {
     flexDirection: 'row',
     alignItems: 'center',
