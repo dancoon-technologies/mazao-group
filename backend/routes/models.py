@@ -7,6 +7,11 @@ from mobile_sync.models import MobileSyncModel
 
 
 class Route(MobileSyncModel):
+    class Status(models.TextChoices):
+        PROPOSED = "proposed", "Proposed"
+        ACCEPTED = "accepted", "Accepted"
+        REJECTED = "rejected", "Rejected"
+
     """
     A route is one officer’s plan for a single calendar day (weekly plan: Mon–Sat).
     Multiple visits can reference the same route; customers are chosen when recording each visit.
@@ -32,6 +37,22 @@ class Route(MobileSyncModel):
         help_text="Default activity type slugs for visits on this route (can be overridden per visit).",
     )
     notes = models.TextField(blank=True)
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.PROPOSED,
+    )
+    approved_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="approved_routes",
+    )
+    rejection_reason = models.TextField(
+        blank=True,
+        default="",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

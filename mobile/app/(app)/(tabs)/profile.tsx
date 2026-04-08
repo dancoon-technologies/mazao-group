@@ -1,7 +1,6 @@
 import { colors, radius, spacing } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
 import { api } from '@/lib/api';
-import { Sentry } from '@/lib/sentry';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import NetInfo from '@react-native-community/netinfo';
 import { useFocusEffect, useRouter } from 'expo-router';
@@ -74,10 +73,6 @@ export default function ProfileScreen() {
   const handleLogout = async () => {
     await logout();
     router.replace('/login');
-  };
-
-  const handleSentryTest = () => {
-    Sentry.captureException(new Error('First error'));
   };
 
   const name = (displayName?.trim() || email || (role === 'supervisor' ? 'Supervisor' : 'Field officer')).trim();
@@ -193,9 +188,6 @@ export default function ProfileScreen() {
         </Card>
 
         <View style={styles.logoutWrap}>
-          <Button mode="contained" onPress={handleSentryTest} style={styles.testPushBtn}>
-            Try!
-          </Button>
           <Button mode="outlined" onPress={handleLogout} style={styles.logout} textColor={colors.error}>
             Sign out
           </Button>
@@ -257,12 +249,6 @@ const styles = StyleSheet.create({
   logout: { borderColor: colors.error, color: colors.error },
   pressed: { opacity: 0.7 },
   notifRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  pushTestRow: { paddingTop: spacing.md, gap: spacing.sm },
-  pushTestHint: { color: colors.gray700, marginBottom: spacing.xs },
-  testPushBtn: { alignSelf: 'flex-start' },
-  pushSuccess: { color: colors.primary, marginTop: spacing.xs },
-  pushError: { color: colors.error, marginTop: spacing.xs },
-  pushHint: { color: colors.gray700, marginTop: spacing.xs },
   badge: {
     backgroundColor: colors.primary,
     borderRadius: radius.full,

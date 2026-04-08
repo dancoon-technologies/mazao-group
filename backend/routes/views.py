@@ -10,6 +10,7 @@ from accounts.models import User
 
 from .models import Route, RouteReport
 from .serializers import (
+    RouteApproveSerializer,
     RouteCreateSerializer,
     RouteReportCreateUpdateSerializer,
     RouteReportSerializer,
@@ -84,6 +85,16 @@ class RouteListCreateView(generics.ListCreateAPIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
         route = serializer.save()
+        if user.role in (User.Role.ADMIN, User.Role.SUPERVISOR):
+            route.status = Route.Status.ACCEPTED
+            route.approved_by = user
+            route.rejection_reason = ""
+            route.save(update_fields=["status", "approved_by", "rejection_reason", "updated_at"])
+        else:
+            route.status = Route.Status.PROPOSED
+            route.approved_by = None
+            route.rejection_reason = ""
+            route.save(update_fields=["status", "approved_by", "rejection_reason", "updated_at"])
         route = Route.objects.select_related("officer").get(pk=route.pk)
         out = RouteSerializer(route)
         return Response(out.data, status=status.HTTP_201_CREATED)
@@ -98,9 +109,49 @@ class RouteRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
     def get_queryset(self):
         return _routes_queryset(self.request.user)
 
+    def get_serializer_class(self):
+        if self.request.method in ("PATCH", "PUT"):
+            return RouteUpdateSerializer
+        return RouteSerializer
+
     def perform_destroy(self, instance):
         instance.is_deleted = True
         instance.save(update_fields=["is_deleted", "updated_at"])
+
+
+class RouteApproveView(generics.GenericAPIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = RouteApproveSerializer
+
+    def post(self, request, pk):
+        user = request.user
+        if user.role not in (User.Role.ADMIN, User.Role.SUPERVISOR):
+            return Response({"detail": "Only supervisors/admin can approve routes."}, status=status.HTTP_403_FORBIDDEN)
+
+        qs = Route.objects.filter(pk=pk, is_deleted=False).select_related("officer", "officer__department")
+        route = qs.first()
+        if not route:
+            return Response({"detail": "Route not found."}, status=status.HTTP_404_NOT_FOUND)
+        if user.role == User.Role.SUPERVISOR:
+            if not user.department_id or route.officer.department_id != user.department_id:
+                return Response({"detail": "Route is not in your department."}, status=status.HTTP_403_FORBIDDEN)
+        if route.status != Route.Status.PROPOSED:
+            return Response({"detail": "Only proposed routes can be approved/rejected."}, status=status.HTTP_400_BAD_REQUEST)
+
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        action = serializer.validated_data["action"]
+        if action == "accept":
+            route.status = Route.Status.ACCEPTED
+            route.approved_by = user
+            route.rejection_reason = ""
+        else:
+            route.status = Route.Status.REJECTED
+            route.approved_by = user
+            route.rejection_reason = serializer.validated_data.get("rejection_reason", "").strip()
+        route.save(update_fields=["status", "approved_by", "rejection_reason", "updated_at"])
+        out = RouteSerializer(route)
+        return Response(out.data, status=status.HTTP_200_OK)
 
 
 class RouteReportDetailView(generics.RetrieveUpdateAPIView):

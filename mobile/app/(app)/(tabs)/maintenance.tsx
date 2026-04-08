@@ -1,4 +1,5 @@
 import { useAuth } from '@/contexts/AuthContext';
+import { API_BASE } from '@/constants/config';
 import {
   api,
   type MaintenanceIncident,
@@ -7,10 +8,12 @@ import {
 import NetInfo from '@react-native-community/netinfo';
 import { RecordVisitCameraModal } from '@/components/recordVisit/RecordVisitCameraModal';
 import { CameraView, useCameraPermissions } from 'expo-camera';
+import { Image } from 'expo-image';
 import * as Location from 'expo-location';
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useMemo, useRef, useState } from 'react';
-import { Platform, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
+import { Platform, Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import {
   ActivityIndicator,
   Button,
@@ -49,6 +52,12 @@ function formatWhen(iso: string | null | undefined): string {
   } catch {
     return iso;
   }
+}
+
+function getIncidentPhotoUrl(photo: string): string {
+  if (photo.startsWith('http://') || photo.startsWith('https://')) return photo;
+  const base = API_BASE.replace(/\/api\/?$/, '');
+  return `${base}${photo.startsWith('/') ? '' : '/'}${photo}`;
 }
 
 export default function MaintenanceScreen() {
@@ -332,12 +341,36 @@ export default function MaintenanceScreen() {
                 style={styles.input}
                 placeholder="e.g. puncture, engine overheating, brake failure"
               />
-              <View style={styles.photoRow}>
-                <Button mode="outlined" onPress={() => void openCameraModal()} disabled={submitting}>
-                  Take picture
-                </Button>
-                <Text variant="bodySmall">Photos attached: {photos.length}</Text>
-              </View>
+              <Text variant="labelMedium" style={styles.photoLabel}>Photos *</Text>
+              {photos.length > 0 ? (
+                <View style={styles.photosRow}>
+                  {photos.map((photo, index) => (
+                    <View key={`${photo.uri}-${index}`} style={styles.photoThumbWrap}>
+                      <Image source={{ uri: photo.uri }} style={styles.photoThumb} contentFit="cover" />
+                      <Button
+                        mode="text"
+                        compact
+                        icon="close"
+                        onPress={() => setPhotos((prev) => prev.filter((_, i) => i !== index))}
+                        style={styles.photoThumbRemove}
+                        accessibilityLabel="Remove photo"
+                      >
+                        {' '}
+                      </Button>
+                    </View>
+                  ))}
+                  <Pressable style={styles.photoAddBtn} onPress={() => void openCameraModal()}>
+                    <MaterialCommunityIcons name="camera-plus" size={40} color={colors.primary} />
+                    <Text variant="bodySmall" style={styles.photoAddLabel}>Add photo</Text>
+                  </Pressable>
+                </View>
+              ) : (
+                <Pressable style={styles.photoPlaceholder} onPress={() => void openCameraModal()}>
+                  <MaterialCommunityIcons name="camera" size={48} color={colors.gray500} />
+                  <Text variant="bodyLarge" style={styles.photoPlaceholderText}>Add photo</Text>
+                  <Text variant="bodySmall" style={styles.photoPlaceholderHint}>Minimum 1</Text>
+                </Pressable>
+              )}
               <Button
                 mode="contained"
                 onPress={() => void submitIncident()}
@@ -399,6 +432,15 @@ export default function MaintenanceScreen() {
                     <Text variant="bodyMedium" style={styles.desc}>
                       {item.issue_description || '—'}
                     </Text>
+                    {item.photos && item.photos.length > 0 ? (
+                      <View style={styles.readonlyPhotosRow}>
+                        {item.photos.map((uri, index) => (
+                          <View key={`${item.id}-${uri}-${index}`} style={styles.readonlyPhotoThumbWrap}>
+                            <Image source={{ uri: getIncidentPhotoUrl(uri) }} style={styles.readonlyPhotoThumb} contentFit="cover" />
+                          </View>
+                        ))}
+                      </View>
+                    ) : null}
                     <Text variant="bodySmall" style={styles.meta}>
                       Reported: {formatWhen(item.reported_at)}
                     </Text>
@@ -451,6 +493,15 @@ export default function MaintenanceScreen() {
                   <Text variant="bodyMedium" style={styles.desc}>
                     {item.issue_description || '—'}
                   </Text>
+                  {item.photos && item.photos.length > 0 ? (
+                    <View style={styles.readonlyPhotosRow}>
+                      {item.photos.map((uri, index) => (
+                        <View key={`${item.id}-${uri}-${index}`} style={styles.readonlyPhotoThumbWrap}>
+                          <Image source={{ uri: getIncidentPhotoUrl(uri) }} style={styles.readonlyPhotoThumb} contentFit="cover" />
+                        </View>
+                      ))}
+                    </View>
+                  ) : null}
                   <Text variant="bodySmall" style={styles.meta}>
                     Reported issue: {formatWhen(item.reported_at)}
                   </Text>
@@ -522,7 +573,40 @@ const styles = StyleSheet.create({
   stageTitle: { marginBottom: spacing.xs, marginTop: spacing.xs, fontWeight: '700' },
   segment: { marginBottom: spacing.md },
   input: { marginBottom: spacing.sm },
-  photoRow: { marginBottom: spacing.sm, gap: spacing.sm },
+  photoLabel: { marginBottom: spacing.xs, fontWeight: '600' },
+  photosRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginBottom: spacing.md, alignItems: 'flex-start' },
+  photoThumbWrap: { position: 'relative' },
+  photoThumb: { width: 80, height: 80, borderRadius: 8 },
+  photoThumbRemove: { position: 'absolute', top: -4, right: -4, minWidth: 28, margin: 0 },
+  photoAddBtn: {
+    width: 80,
+    height: 80,
+    borderRadius: 8,
+    borderWidth: 2,
+    borderStyle: 'dashed',
+    borderColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: `${colors.primaryLight}66`,
+  },
+  photoAddLabel: { marginTop: 4, color: colors.primary },
+  photoPlaceholder: {
+    borderWidth: 2,
+    borderStyle: 'dashed',
+    borderColor: '#D1D5DB',
+    borderRadius: 12,
+    paddingVertical: spacing.xl,
+    paddingHorizontal: spacing.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.md,
+    backgroundColor: '#F9FAFB',
+  },
+  photoPlaceholderText: { color: '#374151', marginTop: spacing.xs },
+  photoPlaceholderHint: { color: '#6B7280', marginTop: 2 },
+  readonlyPhotosRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginBottom: spacing.sm },
+  readonlyPhotoThumbWrap: { position: 'relative' },
+  readonlyPhotoThumb: { width: 80, height: 80, borderRadius: 8 },
   errorText: { color: colors.error },
   loader: { marginTop: spacing.xl },
   row: { flexDirection: 'row', justifyContent: 'space-between', gap: spacing.sm },

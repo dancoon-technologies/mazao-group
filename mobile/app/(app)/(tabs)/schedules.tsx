@@ -296,6 +296,24 @@ export default function SchedulesScreen() {
     [router]
   );
   const openRouteReport = useCallback(() => router.push('/(app)/route-report' as never), [router]);
+  const routeStatusColor = useCallback((status?: string) => {
+    if (status === 'accepted') return colors.primary;
+    if (status === 'rejected') return colors.error;
+    return colors.accent;
+  }, []);
+  const routeStatusLabel = useCallback((status?: string) => {
+    if (status === 'accepted') return 'Accepted';
+    if (status === 'rejected') return 'Rejected';
+    return 'Pending';
+  }, []);
+  const approveRoute = useCallback(async (routeId: string, action: 'accept' | 'reject') => {
+    try {
+      await api.approveRoute(routeId, { action });
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to update route approval.');
+    }
+  }, [load]);
 
   return (
     <View style={styles.pageWrap}>
@@ -461,8 +479,11 @@ export default function SchedulesScreen() {
                         const { route } = row;
                         const title = route.name?.trim() ? route.name : 'Day route';
                         const visitCount = visits.filter((v) => v.route === route.id).length;
+                        const isAcceptedRoute = route.status === 'accepted';
                         const rowPress = isOfficer
-                          ? () => openRecordWithRoute(route)
+                          ? isAcceptedRoute
+                            ? () => openRecordWithRoute(route)
+                            : () => openRouteFormForRoute(route)
                           : () => openRouteFormForRoute(route);
                         return (
                           <ListItemRow
@@ -477,9 +498,9 @@ export default function SchedulesScreen() {
                             onPress={rowPress}
                             right={
                               <View style={styles.upcomingRight}>
-                                <View style={[styles.badge, { backgroundColor: colors.gray200 }]}>
-                                  <Text variant="labelSmall" style={[styles.badgeText, { color: colors.gray700 }]}>
-                                    Route
+                                <View style={[styles.badge, { backgroundColor: `${routeStatusColor(route.status)}20` }]}>
+                                  <Text variant="labelSmall" style={[styles.badgeText, { color: routeStatusColor(route.status) }]}>
+                                    {routeStatusLabel(route.status)}
                                   </Text>
                                 </View>
                                 {isOfficer && (
@@ -497,9 +518,28 @@ export default function SchedulesScreen() {
                                       iconColor={colors.primary}
                                       onPress={() => openRecordWithRoute(route)}
                                       accessibilityLabel="Record visit"
+                                      disabled={!isAcceptedRoute}
                                     />
                                   </>
                                 )}
+                                {isSupervisor && route.status === 'proposed' ? (
+                                  <>
+                                    <IconButton
+                                      icon="check"
+                                      size={22}
+                                      iconColor={colors.primary}
+                                      onPress={() => void approveRoute(route.id, 'accept')}
+                                      accessibilityLabel="Approve route"
+                                    />
+                                    <IconButton
+                                      icon="close"
+                                      size={22}
+                                      iconColor={colors.error}
+                                      onPress={() => void approveRoute(route.id, 'reject')}
+                                      accessibilityLabel="Reject route"
+                                    />
+                                  </>
+                                ) : null}
                               </View>
                             }
                           />

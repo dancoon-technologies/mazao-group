@@ -11,6 +11,7 @@ class RouteSerializer(serializers.ModelSerializer):
     officer = serializers.UUIDField(source="officer_id", read_only=True)
     officer_email = serializers.EmailField(source="officer.email", read_only=True)
     officer_display_name = serializers.SerializerMethodField()
+    approved_by = serializers.UUIDField(source="approved_by_id", read_only=True, allow_null=True)
 
     class Meta:
         model = Route
@@ -23,6 +24,9 @@ class RouteSerializer(serializers.ModelSerializer):
             "name",
             "activity_types",
             "notes",
+            "status",
+            "approved_by",
+            "rejection_reason",
             "created_at",
             "updated_at",
         )
@@ -79,6 +83,11 @@ class RouteUpdateSerializer(serializers.ModelSerializer):
             setattr(instance, attr, value)
         instance.save()
         return instance
+
+
+class RouteApproveSerializer(serializers.Serializer):
+    action = serializers.ChoiceField(choices=("accept", "reject"))
+    rejection_reason = serializers.CharField(required=False, allow_blank=True)
 
 
 class RouteReportSerializer(serializers.ModelSerializer):

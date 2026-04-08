@@ -30,8 +30,16 @@ function formatDate(iso: string): string {
 export default function RouteFormScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const params = useLocalSearchParams<{ date: string; routeId?: string; officerId?: string }>();
-  const date = (params.date ?? '').trim();
+  const params = useLocalSearchParams<{ date: string | string[]; routeId?: string; officerId?: string }>();
+  const rawDate = Array.isArray(params.date) ? params.date[0] : params.date;
+  const date = useMemo(() => {
+    const v = (rawDate ?? '').trim();
+    if (!v) return '';
+    if (/^\d{4}-\d{2}-\d{2}$/.test(v)) return v;
+    const dt = new Date(v);
+    if (Number.isNaN(dt.getTime())) return '';
+    return dt.toISOString().slice(0, 10);
+  }, [rawDate]);
   const routeId = params.routeId;
   const officerIdParam = typeof params.officerId === 'string' ? params.officerId : undefined;
   const { userId, role } = useAuth();

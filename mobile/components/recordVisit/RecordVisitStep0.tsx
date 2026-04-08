@@ -361,7 +361,7 @@ export function RecordVisitStep0({
           )}
 
           <Text variant="labelMedium" style={styles.step2SectionTitle}>
-            {`${locationLabel.toUpperCase()} *`}
+            {`${locationLabel} *`}
           </Text>
           <Text variant="bodySmall" style={styles.hint}>
             Choose a saved {locationLabel.toLowerCase()}.

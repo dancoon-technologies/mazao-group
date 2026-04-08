@@ -315,11 +315,15 @@ export default function VisitsScreen() {
                       {formatDateHeader(date)}
                     </Text>
                     {items.map((s) => {
+                      const today = new Date().toISOString().slice(0, 10);
+                      const isTodayPlan = s.scheduled_date === today;
                       const proposedEditable = s.status === 'proposed' && isScheduleEditableByDate(s.scheduled_date);
                       const rowPress =
                         s.status === 'accepted'
                           ? isOfficer
-                            ? () => openRecordVisit(s)
+                            ? isTodayPlan
+                              ? () => openRecordVisit(s)
+                              : undefined
                             : () => openEditSchedule(s)
                           : () => openEditSchedule(s);
                       return (
@@ -345,7 +349,7 @@ export default function VisitsScreen() {
                                   accessibilityLabel={proposedEditable ? 'Edit schedule' : 'View schedule'}
                                 />
                               )}
-                              {s.status === 'accepted' && isOfficer && (
+                              {s.status === 'accepted' && isOfficer && isTodayPlan && (
                                 <IconButton
                                   icon="pencil"
                                   size={22}

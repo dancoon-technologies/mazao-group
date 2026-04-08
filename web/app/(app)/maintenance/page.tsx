@@ -1,12 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Alert, Badge, Box, Button, Card, Group, SegmentedControl, Stack, Tabs, Text, TextInput, Textarea, Title } from "@mantine/core";
+import { Alert, Badge, Box, Button, Card, Group, Modal, SegmentedControl, Stack, Tabs, Text, TextInput, Textarea, Title } from "@mantine/core";
 import { api } from "@/lib/api";
 import type { MaintenanceIncident, MaintenanceStatus } from "@/lib/types";
 import { useAuth } from "@/contexts/AuthContext";
 import { LocationMiniMap, type LocationMiniMapPoint } from "@/components/LocationMiniMap";
-import { formatDateTime } from "@/lib/format";
 
 const STATUS_LABEL: Record<MaintenanceStatus, string> = {
   reported: "Reported",
@@ -17,7 +16,6 @@ const STATUS_LABEL: Record<MaintenanceStatus, string> = {
 };
 
 const PIN_REPORTED = "#228be6";
-const PIN_VERIFIED = "#40c057";
 const PIN_GARAGE = "#6d28d9";
 
 function mapPointsFrom(
@@ -33,54 +31,36 @@ function mapPointsFrom(
   return [{ id, latitude: la, longitude: ln, color }];
 }
 
-function IncidentLocationMaps({ item }: { item: MaintenanceIncident }) {
+function IncidentLocationMaps({
+  item,
+  onOpenMap,
+}: {
+  item: MaintenanceIncident;
+  onOpenMap: (title: string, points: LocationMiniMapPoint[]) => void;
+}) {
   const reported = mapPointsFrom(`rep-${item.id}`, item.reported_latitude, item.reported_longitude, PIN_REPORTED);
-  const verified = mapPointsFrom(
-    `ver-${item.id}`,
-    item.breakdown_verified_latitude,
-    item.breakdown_verified_longitude,
-    PIN_VERIFIED
-  );
   const garage = mapPointsFrom(`gar-${item.id}`, item.garage_latitude, item.garage_longitude, PIN_GARAGE);
 
   return (
     <Stack gap="sm">
-      <Box>
-        <Text size="xs" c="dimmed">
-          Reported: {formatDateTime(item.reported_at)}
-        </Text>
-        {reported.length > 0 ? (
-          <LocationMiniMap points={reported} height={120} title="Reported location" />
-        ) : (
-          <Text size="xs" c="dimmed" mt={4}>
-            Reported location: —
-          </Text>
-        )}
-      </Box>
-      <Box>
-        <Text size="xs" c="dimmed">
-          Breakdown verified: {item.breakdown_verified_at ? formatDateTime(item.breakdown_verified_at) : "—"}
-        </Text>
-        {verified.length > 0 ? (
-          <LocationMiniMap points={verified} height={120} title="Verified breakdown" />
-        ) : (
-          <Text size="xs" c="dimmed" mt={4}>
-            Verified location: —
-          </Text>
-        )}
-      </Box>
-      <Box>
-        <Text size="xs" c="dimmed">
-          Garage recorded: {item.garage_recorded_at ? formatDateTime(item.garage_recorded_at) : "—"}
-        </Text>
-        {garage.length > 0 ? (
-          <LocationMiniMap points={garage} height={120} title="At garage" />
-        ) : (
-          <Text size="xs" c="dimmed" mt={4}>
-            Garage location: —
-          </Text>
-        )}
-      </Box>
+      <Group>
+        <Button
+          variant="light"
+          size="xs"
+          disabled={reported.length === 0}
+          onClick={() => onOpenMap("Incident location", reported)}
+        >
+          Incident location
+        </Button>
+        <Button
+          variant="light"
+          size="xs"
+          disabled={garage.length === 0}
+          onClick={() => onOpenMap("Garage location", garage)}
+        >
+          Garage location
+        </Button>
+      </Group>
     </Stack>
   );
 }
@@ -96,6 +76,7 @@ export default function MaintenancePage() {
   const [vehicleType, setVehicleType] = useState<"motorbike" | "car" | "other">("motorbike");
   const [issueDescription, setIssueDescription] = useState("");
   const [supervisorNotes, setSupervisorNotes] = useState<Record<string, string>>({});
+  const [mapModal, setMapModal] = useState<{ title: string; points: LocationMiniMapPoint[] } | null>(null);
 
   const [previewCoords, setPreviewCoords] = useState<{ latitude: number; longitude: number } | null>(null);
   const [locLoading, setLocLoading] = useState(false);
@@ -226,8 +207,22 @@ export default function MaintenancePage() {
     [items]
   );
 
+  const openLocationModal = useCallback((title: string, points: LocationMiniMapPoint[]) => {
+    if (points.length === 0) return;
+    setMapModal({ title, points });
+  }, []);
+
   return (
     <Stack>
+      <Modal
+        opened={mapModal != null}
+        onClose={() => setMapModal(null)}
+        title={mapModal?.title ?? "Location"}
+        centered
+        size="lg"
+      >
+        {mapModal ? <LocationMiniMap points={mapModal.points} height={340} title={mapModal.title} /> : null}
+      </Modal>
       <Group justify="space-between">
         <Title order={2}>Maintenance</Title>
         <Button variant="light" onClick={load} loading={loading}>
@@ -326,7 +321,7 @@ export default function MaintenancePage() {
                     <Badge>{STATUS_LABEL[item.status]}</Badge>
                   </Group>
                   <Text size="sm">{item.issue_description}</Text>
-                  <IncidentLocationMaps item={item} />
+                  <IncidentLocationMaps item={item} onOpenMap={openLocationModal} />
 
                   {isOfficer && item.status === "reported" ? (
                     <Group>
@@ -388,7 +383,7 @@ export default function MaintenancePage() {
                       Supervisor notes: {item.supervisor_notes}
                     </Text>
                   ) : null}
-                  <IncidentLocationMaps item={item} />
+                  <IncidentLocationMaps item={item} onOpenMap={openLocationModal} />
                 </Stack>
               </Card>
             ))}

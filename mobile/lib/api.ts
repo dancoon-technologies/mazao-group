@@ -68,6 +68,9 @@ export interface Route {
   name: string;
   activity_types: string[];
   notes: string;
+  status?: 'proposed' | 'accepted' | 'rejected';
+  approved_by?: string | null;
+  rejection_reason?: string | null;
   created_at?: string;
   updated_at?: string;
 }
@@ -749,6 +752,13 @@ export const api = {
 
   async deleteRoute(id: string) {
     await request(`/routes/${id}/`, { method: 'DELETE' });
+  },
+
+  async approveRoute(id: string, body: { action: 'accept' | 'reject'; rejection_reason?: string }) {
+    return request<Route>(`/routes/${id}/approve/`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    });
   },
 
   async getRouteReport(routeId: string) {

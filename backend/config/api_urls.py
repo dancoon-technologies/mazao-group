@@ -29,6 +29,7 @@ from notifications.views import (
     TestPushView,
 )
 from routes.views import (
+    RouteApproveView,
     RouteListCreateView,
     RouteReportDetailView,
     RouteRetrieveUpdateDestroyView,
@@ -82,6 +83,7 @@ urlpatterns = [
     path("schedules/<uuid:pk>/approve/", ScheduleApproveView.as_view(), name="schedule-approve"),
     path("routes/", RouteListCreateView.as_view(), name="route-list-create"),
     path("routes/<uuid:pk>/", RouteRetrieveUpdateDestroyView.as_view(), name="route-retrieve-update-destroy"),
+    path("routes/<uuid:pk>/approve/", RouteApproveView.as_view(), name="route-approve"),
     path("routes/<uuid:route_id>/report/", RouteReportDetailView.as_view(), name="route-report-detail"),
     path("staff/performance/", StaffPerformanceView.as_view(), name="staff-performance"),
     path("staff/<uuid:pk>/", StaffUpdateView.as_view(), name="staff-update"),

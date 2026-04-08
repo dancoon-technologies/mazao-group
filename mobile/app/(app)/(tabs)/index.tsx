@@ -215,7 +215,7 @@ function HomeScreenInner() {
   }
 
   return (
-    <SafeAreaView style={styles.safe} edges={['bottom']}>
+    <SafeAreaView style={styles.safe} >
       <StatusBar backgroundColor="#14532D" barStyle="light-content" />
       <View style={[styles.statusBarInset, { height: insets.top }]} />
       <ScrollView
@@ -293,9 +293,9 @@ function HomeScreenInner() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#14532D' },
+  safe: { flex: 1, backgroundColor: colors.white },
   statusBarInset: { backgroundColor: '#14532D' },
-  container: { flex: 1, backgroundColor: '#14532D' },
+  container: { flex: 1, backgroundColor: colors.white },
   scrollContent: {
     flexGrow: 1,
     paddingBottom: 0,
@@ -305,10 +305,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: spacing.xl,
+    backgroundColor: colors.white,
   },
   loadingCaption: {
     marginTop: spacing.lg,
-    color: 'rgba(255,255,255,0.92)',
+    color: colors.gray900,
     fontSize: 16,
     fontWeight: '600',
   },
