@@ -18,7 +18,6 @@ import { syncWithServer } from '@/lib/syncWithServer';
 import { appMeta$, farmers$, schedules$, visits$ } from '@/store/observable';
 import { observer, useSelector } from '@legendapp/state/react';
 import NetInfo from '@react-native-community/netinfo';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -98,6 +97,8 @@ function HomeScreenInner() {
   );
 
   const load = useCallback(async (forceSync?: boolean) => {
+    const cachedStats = appMeta$.cachedStats.get();
+    if (cachedStats) setStats(cachedStats);
     const connected = await NetInfo.fetch().then((s) => s.isConnected ?? false);
     if (connected && userId) {
       const lastSync = appMeta$.lastSyncAt.get();
@@ -197,15 +198,10 @@ function HomeScreenInner() {
   if (loading) {
     return (
       <SafeAreaView style={styles.safe}>
-        <LinearGradient
-          colors={['#14532D', '#1B8F3A']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.loadingGradient}
-        >
-          <ActivityIndicator size="large" color={colors.white} />
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={colors.primary} />
           <Text style={styles.loadingCaption}>Loading dashboard…</Text>
-        </LinearGradient>
+        </View>
       </SafeAreaView>
     );
   }
@@ -293,16 +289,15 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     paddingBottom: 0,
   },
-  loadingGradient: {
+  loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     padding: spacing.xl,
-    backgroundColor: colors.white,
   },
   loadingCaption: {
     marginTop: spacing.lg,
-    color: colors.gray900,
+    color: colors.gray700,
     fontSize: 16,
     fontWeight: '600',
   },

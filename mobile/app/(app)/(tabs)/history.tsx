@@ -59,6 +59,9 @@ export default function HistoryScreen() {
     else setRefreshing(true);
     setError(null);
     setForbidden(false);
+    if (userId || isSupervisor) {
+      await loadFromDb();
+    }
     const connected = await NetInfo.fetch().then((s) => s.isConnected ?? false);
     if (connected) {
       try {

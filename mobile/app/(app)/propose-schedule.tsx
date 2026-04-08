@@ -3,7 +3,7 @@ import { getFarmers as getFarmersDb, getFarms as getFarmsDb, getAllSchedulesForO
 import { farmerRowToFarmer, farmRowToFarm, scheduleRowToSchedule } from '@/lib/offline-helpers';
 import { enqueueSchedule } from '@/lib/syncWithServer';
 import { api, getLabels, type Farm, type Farmer, type Officer, type Route, type Schedule } from '@/lib/api';
-import { appMeta$ } from '@/store/observable';
+import { appMeta$, routesCache$ } from '@/store/observable';
 import { useSelector } from '@legendapp/state/react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useFocusEffect } from 'expo-router';
@@ -138,30 +138,70 @@ export default function ProposeScheduleScreen() {
       }
       if (isPullRefresh) setRoutesRefreshing(true);
       else setRoutesLoading(true);
+      const weekDaySet = new Set(localWeekMonToSat(weekStart));
+      const applyOfflineCache = () => {
+        let all = routesCache$.get() ?? [];
+        all = all.filter((r) => weekDaySet.has(r.scheduled_date));
+        if (assigner && selectedOfficerId) {
+          all = all.filter((r) => r.officer === selectedOfficerId);
+        }
+        setRoutesWeek(all);
+        setRoutesError(
+          all.length
+            ? 'Offline — showing last loaded routes for this week.'
+            : 'Offline — no cached routes for this week.'
+        );
+      };
       try {
         setRoutesError('');
+        const connected = await NetInfo.fetch().then((s) => s.isConnected ?? false);
+        if (!connected) {
+          applyOfflineCache();
+          return;
+        }
         const list = await api.getAllRoutes({
           week_start: weekStart,
           ...(assigner && selectedOfficerId ? { officer: selectedOfficerId } : {}),
         });
-        setRoutesWeek(Array.isArray(list) ? list : []);
+        const arr = Array.isArray(list) ? list : [];
+        setRoutesWeek(arr);
+        routesCache$.set((prev) => {
+          const m = new Map((prev ?? []).map((r) => [r.id, r]));
+          for (const r of arr) m.set(r.id, r);
+          return [...m.values()];
+        });
         logger.info('Weekly routes loaded', {
           plan_mode: planMode,
           week_start: weekStart,
           officer_id: selectedOfficerId,
-          routes_count: Array.isArray(list) ? list.length : 0,
+          routes_count: arr.length,
         });
       } catch (e) {
-        setRoutesWeek([]);
+        let fallback = routesCache$.get() ?? [];
+        fallback = fallback.filter((r) => weekDaySet.has(r.scheduled_date));
+        if (assigner && selectedOfficerId) {
+          fallback = fallback.filter((r) => r.officer === selectedOfficerId);
+        }
+        setRoutesWeek(fallback);
         const msg = e instanceof Error ? e.message : 'Failed to load weekly routes.';
-        setRoutesError(msg);
-        logger.warn('Weekly routes load failed', {
-          plan_mode: planMode,
-          week_start: weekStart,
-          officer_id: selectedOfficerId,
-          error: msg,
-        });
-        showSnackbar('error', msg);
+        if (fallback.length) {
+          setRoutesError('Showing last loaded routes for this week.');
+          logger.warn('Weekly routes load failed; using cache', {
+            plan_mode: planMode,
+            week_start: weekStart,
+            officer_id: selectedOfficerId,
+            error: msg,
+          });
+        } else {
+          setRoutesError(msg);
+          logger.warn('Weekly routes load failed', {
+            plan_mode: planMode,
+            week_start: weekStart,
+            officer_id: selectedOfficerId,
+            error: msg,
+          });
+          showSnackbar('error', msg);
+        }
       } finally {
         setRoutesLoading(false);
         setRoutesRefreshing(false);

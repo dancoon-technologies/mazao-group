@@ -49,6 +49,11 @@ export default function NotificationsScreen() {
       setRefreshing(false);
       return;
     }
+    const cached = notifications$.get() ?? [];
+    if (cached.length) {
+      setList(cached);
+      setError(null);
+    }
     try {
       const data = await api.getNotifications();
       const safeData = Array.isArray(data) ? data : [];

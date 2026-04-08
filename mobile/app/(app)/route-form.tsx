@@ -3,8 +3,9 @@ import { appbarHeight, colors, scrollPaddingKeyboard, spacing } from '@/constant
 import { useAuth } from '@/contexts/AuthContext';
 import { ACTIVITY_TYPES, DEFAULT_ACTIVITY_TYPE } from '@/lib/constants/activityTypes';
 import { api, type ActivityTypeOption } from '@/lib/api';
-import { appMeta$ } from '@/store/observable';
+import { appMeta$, routesCache$ } from '@/store/observable';
 import { useSelector } from '@legendapp/state/react';
+import NetInfo from '@react-native-community/netinfo';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
@@ -67,6 +68,14 @@ export default function RouteFormScreen() {
       .join(', ');
   }, [activityTypes, activityTypeOptions]);
 
+  const applyCachedRoute = useCallback((found: { name?: string; activity_types?: string[]; notes?: string }) => {
+    setName(found.name ?? '');
+    setActivityTypes(
+      found.activity_types?.length ? found.activity_types : [DEFAULT_ACTIVITY_TYPE]
+    );
+    setNotes(found.notes ?? '');
+  }, []);
+
   const loadRoute = useCallback(async () => {
     if (!routeId) {
       setName('');
@@ -75,20 +84,41 @@ export default function RouteFormScreen() {
       setLoading(false);
       return;
     }
+    setError('');
+    const cachedById = () => (routesCache$.get() ?? []).find((r) => r.id === routeId);
+    const connected = await NetInfo.fetch().then((s) => s.isConnected ?? false);
+    if (!connected) {
+      const cached = cachedById();
+      if (cached) {
+        applyCachedRoute(cached);
+        setError('Offline — showing saved route.');
+      } else {
+        setError('Route not available offline. Open schedules online once to cache route plans.');
+      }
+      setLoading(false);
+      return;
+    }
     try {
       const found = await api.getRoute(routeId);
-      setName(found.name ?? '');
-      setActivityTypes(
-        found.activity_types?.length ? found.activity_types : [DEFAULT_ACTIVITY_TYPE]
-      );
-      setNotes(found.notes ?? '');
+      applyCachedRoute(found);
+      routesCache$.set((prev) => {
+        const m = new Map((prev ?? []).map((r) => [r.id, r]));
+        m.set(found.id, found);
+        return [...m.values()];
+      });
     } catch {
-      setError('Failed to load route.');
-      logger.warn('Route load failed', { route_id: routeId, scheduled_date: date });
+      const cached = cachedById();
+      if (cached) {
+        applyCachedRoute(cached);
+        setError('Unavailable — showing last saved route.');
+      } else {
+        setError('Failed to load route.');
+        logger.warn('Route load failed', { route_id: routeId, scheduled_date: date });
+      }
     } finally {
       setLoading(false);
     }
-  }, [routeId, date]);
+  }, [routeId, date, applyCachedRoute]);
 
   useEffect(() => {
     loadRoute();

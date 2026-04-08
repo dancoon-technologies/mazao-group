@@ -2,7 +2,9 @@
  * Visit detail screen: show visit details, report record, and verification status (accepted/rejected by supervisor).
  */
 import { useAuth } from '@/contexts/AuthContext';
+import { getVisitById } from '@/database';
 import { api, getLabels, type Visit } from '@/lib/api';
+import { visitRowToVisit } from '@/lib/offline-helpers';
 import { appMeta$ } from '@/store/observable';
 import { useSelector } from '@legendapp/state/react';
 import { visitStatusColor, visitStatusLabel } from '@/lib/format';
@@ -58,6 +60,8 @@ export default function VisitDetailScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ id: string }>();
   const visitId = typeof params.id === 'string' ? params.id : Array.isArray(params.id) ? params.id[0] : undefined;
+  const { userId, role } = useAuth();
+  const canSeeAnyVisit = role === 'supervisor' || role === 'admin';
   const [visit, setVisit] = useState<Visit | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -71,16 +75,28 @@ export default function VisitDetailScreen() {
     }
     setLoading(true);
     setError('');
+    let localRow = await getVisitById(visitId);
+    const allowedLocal =
+      localRow != null &&
+      (canSeeAnyVisit || (userId != null && localRow.officer === userId));
+    if (allowedLocal && localRow) {
+      setVisit(visitRowToVisit(localRow));
+    }
     try {
       const v = await api.getVisit(visitId);
       setVisit(v);
+      setError('');
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load visit');
-      setVisit(null);
+      if (allowedLocal && localRow) {
+        setError('Offline or unavailable — showing saved visit.');
+      } else {
+        setError(e instanceof Error ? e.message : 'Failed to load visit');
+        setVisit(null);
+      }
     } finally {
       setLoading(false);
     }
-  }, [visitId]);
+  }, [visitId, userId, canSeeAnyVisit]);
 
   useEffect(() => {
     load();

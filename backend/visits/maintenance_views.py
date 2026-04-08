@@ -75,15 +75,19 @@ class MaintenanceIncidentUpdateView(generics.UpdateAPIView):
         if user.role == "officer":
             if incident.officer_id != user.id:
                 return Response({"detail": "You can only update your own incidents."}, status=status.HTTP_403_FORBIDDEN)
-            # Officer flow: report incident -> report repair/garage.
+            # Officer flow: after supervisor verifies breakdown -> report repair at garage (at_garage).
             if status_value and status_value != MaintenanceIncident.Status.AT_GARAGE:
                 return Response(
-                    {"status": ["Officers can only mark incidents as at_garage after repair starts."]},
+                    {"status": ["Officers can only mark incidents as at_garage when reporting repair at the garage."]},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
-            if incident.status != MaintenanceIncident.Status.REPORTED:
+            if incident.status != MaintenanceIncident.Status.VERIFIED_BREAKDOWN:
                 return Response(
-                    {"detail": "Only reported incidents can be updated by officers."},
+                    {
+                        "detail": (
+                            "Wait for your supervisor to verify the breakdown before you can report repair at the garage."
+                        )
+                    },
                     status=status.HTTP_400_BAD_REQUEST,
                 )
             incident.status = MaintenanceIncident.Status.AT_GARAGE
@@ -95,26 +99,53 @@ class MaintenanceIncidentUpdateView(generics.UpdateAPIView):
             if user.role == "supervisor":
                 if not user.department_id or incident.officer.department_id != user.department_id:
                     return Response({"detail": "Incident is not in your department."}, status=status.HTTP_403_FORBIDDEN)
-            # Supervisor/admin flow: acknowledge (released) or reject after officer reported repair.
-            if status_value not in (MaintenanceIncident.Status.RELEASED, MaintenanceIncident.Status.REJECTED):
+
+            if incident.status == MaintenanceIncident.Status.REPORTED:
+                if status_value not in (
+                    MaintenanceIncident.Status.VERIFIED_BREAKDOWN,
+                    MaintenanceIncident.Status.REJECTED,
+                ):
+                    return Response(
+                        {
+                            "status": [
+                                "From a reported incident, use verified_breakdown to accept it or rejected to decline."
+                            ]
+                        },
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+                if note is not None:
+                    incident.supervisor_notes = note
+                incident.supervisor = user
+                if status_value == MaintenanceIncident.Status.VERIFIED_BREAKDOWN:
+                    incident.status = MaintenanceIncident.Status.VERIFIED_BREAKDOWN
+                    incident.breakdown_verified_at = now
+                    incident.breakdown_verified_latitude = serializer.validated_data.get("breakdown_verified_latitude")
+                    incident.breakdown_verified_longitude = serializer.validated_data.get("breakdown_verified_longitude")
+                else:
+                    incident.status = MaintenanceIncident.Status.REJECTED
+                    incident.rejected_at = now
+
+            elif incident.status == MaintenanceIncident.Status.AT_GARAGE:
+                # Final acknowledge or reject after officer reported repair at garage.
+                if status_value not in (MaintenanceIncident.Status.RELEASED, MaintenanceIncident.Status.REJECTED):
+                    return Response(
+                        {"status": ["Use released (acknowledge) or rejected for supervisor/admin actions."]},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+                if note is not None:
+                    incident.supervisor_notes = note
+                incident.supervisor = user
+                incident.status = status_value
+                if status_value == MaintenanceIncident.Status.RELEASED:
+                    incident.released_at = now
+                    incident.approved_at = now
+                if status_value == MaintenanceIncident.Status.REJECTED:
+                    incident.rejected_at = now
+            else:
                 return Response(
-                    {"status": ["Use released (acknowledge) or rejected for supervisor/admin actions."]},
+                    {"detail": "No supervisor action is available for this incident in its current state."},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
-            if incident.status != MaintenanceIncident.Status.AT_GARAGE:
-                return Response(
-                    {"detail": "Only incidents reported as repaired/at_garage can be acknowledged or rejected."},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-            if note is not None:
-                incident.supervisor_notes = note
-            incident.supervisor = user
-            incident.status = status_value
-            if status_value == MaintenanceIncident.Status.RELEASED:
-                incident.released_at = now
-                incident.approved_at = now
-            if status_value == MaintenanceIncident.Status.REJECTED:
-                incident.rejected_at = now
         else:
             return Response({"detail": "You are not allowed to update incidents."}, status=status.HTTP_403_FORBIDDEN)
 

@@ -249,6 +249,11 @@ export default function MaintenanceScreen() {
           status: nextStatus,
           supervisor_notes: isSupervisor ? supervisorNote[incident.id]?.trim() || undefined : undefined,
         };
+        if (nextStatus === 'verified_breakdown') {
+          const coords = await getCurrentCoords();
+          payload.breakdown_verified_latitude = coords.latitude;
+          payload.breakdown_verified_longitude = coords.longitude;
+        }
         if (nextStatus === 'at_garage') {
           const coords = await getCurrentCoords();
           payload.garage_latitude = coords.latitude;
@@ -287,6 +292,10 @@ export default function MaintenanceScreen() {
     () => openItems.filter((x) => x.status === 'reported'),
     [openItems]
   );
+  const verifiedBreakdownItems = useMemo(
+    () => openItems.filter((x) => x.status === 'verified_breakdown'),
+    [openItems]
+  );
   const fixingItems = useMemo(
     () => openItems.filter((x) => x.status === 'at_garage'),
     [openItems]
@@ -310,7 +319,8 @@ export default function MaintenanceScreen() {
           Report incidence
         </Text>
         <Text variant="bodySmall" style={styles.subtitle}>
-          Flow: report issue with photo, then confirm fixed and photos taken, then supervisor acknowledges.
+          Flow: report issue with photo → supervisor verifies breakdown → you confirm repair at garage with photo →
+          supervisor acknowledges.
         </Text>
 
         {isOfficer && (
@@ -407,7 +417,7 @@ export default function MaintenanceScreen() {
           <>
             {reportedItems.length > 0 ? (
               <Text variant="titleSmall" style={styles.stageTitle}>
-                2) Awaiting fixing report
+                2) Awaiting supervisor verification
               </Text>
             ) : null}
             {reportedItems.map((item) => {
@@ -445,6 +455,86 @@ export default function MaintenanceScreen() {
                       Reported: {formatWhen(item.reported_at)}
                     </Text>
 
+                    {isOfficer ? (
+                      <Text variant="bodySmall" style={styles.helperText}>
+                        Wait for your supervisor to verify the breakdown before you can report repair at the garage.
+                      </Text>
+                    ) : null}
+
+                    {isSupervisor && (
+                      <>
+                        <TextInput
+                          mode="outlined"
+                          label="Supervisor note (optional)"
+                          value={supervisorNote[item.id] ?? ''}
+                          onChangeText={(text) =>
+                            setSupervisorNote((prev) => ({ ...prev, [item.id]: text }))
+                          }
+                          style={styles.input}
+                        />
+                        <View style={styles.rowActions}>
+                          <Button
+                            mode="contained"
+                            onPress={() => void updateStatus(item, 'verified_breakdown')}
+                            disabled={submitting}
+                          >
+                            Verify breakdown
+                          </Button>
+                          <Button
+                            mode="outlined"
+                            onPress={() => void updateStatus(item, 'rejected')}
+                            disabled={submitting}
+                          >
+                            Reject
+                          </Button>
+                        </View>
+                      </>
+                    )}
+                  </Card.Content>
+                </Card>
+              );
+            })}
+
+            {verifiedBreakdownItems.length > 0 ? (
+              <Text variant="titleSmall" style={styles.stageTitle}>
+                3) Report repair at garage
+              </Text>
+            ) : null}
+            {verifiedBreakdownItems.map((item) => {
+              const badgeColor = STATUS_COLOR[item.status] ?? colors.gray500;
+              return (
+                <Card key={item.id} style={styles.card} elevation={0}>
+                  <Card.Content>
+                    <View style={styles.row}>
+                      <Text variant="titleMedium">
+                        {(item.officer_display_name ||
+                          item.officer_email ||
+                          'Officer') + ` · ${item.vehicle_type}`}
+                      </Text>
+                      <Chip
+                        compact
+                        style={[styles.statusChip, { backgroundColor: `${badgeColor}20` }]}
+                        textStyle={{ color: badgeColor, fontWeight: '700' }}
+                      >
+                        {STATUS_LABEL[item.status] ?? item.status}
+                      </Chip>
+                    </View>
+                    <Text variant="bodyMedium" style={styles.desc}>
+                      {item.issue_description || '—'}
+                    </Text>
+                    {item.photos && item.photos.length > 0 ? (
+                      <View style={styles.readonlyPhotosRow}>
+                        {item.photos.map((uri, index) => (
+                          <View key={`${item.id}-${uri}-${index}`} style={styles.readonlyPhotoThumbWrap}>
+                            <Image source={{ uri: getIncidentPhotoUrl(uri) }} style={styles.readonlyPhotoThumb} contentFit="cover" />
+                          </View>
+                        ))}
+                      </View>
+                    ) : null}
+                    <Text variant="bodySmall" style={styles.meta}>
+                      Breakdown verified: {formatWhen(item.breakdown_verified_at)}
+                    </Text>
+
                     {isOfficer && (
                       <View style={styles.actions}>
                         {photos.length === 0 ? (
@@ -461,6 +551,11 @@ export default function MaintenanceScreen() {
                         </Button>
                       </View>
                     )}
+                    {isSupervisor ? (
+                      <Text variant="bodySmall" style={styles.helperText}>
+                        Waiting for the officer to report repair at the garage.
+                      </Text>
+                    ) : null}
                   </Card.Content>
                 </Card>
               );
@@ -468,7 +563,7 @@ export default function MaintenanceScreen() {
 
             {fixingItems.length > 0 ? (
               <Text variant="titleSmall" style={styles.stageTitle}>
-                3) Awaiting supervisor acknowledgement
+                4) Awaiting supervisor acknowledgement
               </Text>
             ) : null}
             {fixingItems.map((item) => {

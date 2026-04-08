@@ -68,10 +68,12 @@ export function visitRowToVisit(r: VisitRow): Visit {
     schedule: r.schedule_id ?? null,
     latitude: r.latitude,
     longitude: r.longitude,
+    photo: r.photo_uri ?? undefined,
     verification_status: r.verification_status ?? 'pending',
     activity_type: r.activity_type ?? 'farm_to_farm_visits',
     stockist_payment_amount: r.stockist_payment_amount ?? null,
     notes: r.notes ?? undefined,
     created_at: new Date(r.created_at).toISOString(),
+    updated_at: r.updated_at ? new Date(r.updated_at).toISOString() : undefined,
   };
 }

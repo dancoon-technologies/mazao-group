@@ -2,9 +2,10 @@
  * Farm detail screen: Farm info, Visits to this farm, and Products sold (from those visits).
  */
 import { colors, radius, spacing } from '@/constants/theme';
-import { getFarms as getFarmsDb } from '@/database';
+import { useAuth } from '@/contexts/AuthContext';
+import { getFarms as getFarmsDb, getVisitsForFarm } from '@/database';
 import { api, getLabels, type Farm, type Visit } from '@/lib/api';
-import { farmRowToFarm } from '@/lib/offline-helpers';
+import { farmRowToFarm, visitRowToVisit } from '@/lib/offline-helpers';
 import { appMeta$ } from '@/store/observable';
 import { useSelector } from '@legendapp/state/react';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -48,6 +49,8 @@ export default function FarmDetailScreen() {
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState<TabKey>('farm');
   const labels = useSelector(() => getLabels(appMeta$.cachedOptions.get()));
+  const { userId, role } = useAuth();
+  const isSupervisor = role === 'supervisor';
 
   const load = useCallback(async () => {
     if (!farmerId || !farmId) {
@@ -72,7 +75,11 @@ export default function FarmDetailScreen() {
         const farmsList = farmRows.map(farmRowToFarm);
         const found = farmsList.find((f) => f.id === farmId) ?? null;
         setFarm(found);
-        setVisits([]);
+        const visitRows = await getVisitsForFarm(farmId!, {
+          isSupervisor,
+          officerId: userId ?? undefined,
+        });
+        setVisits(visitRows.map(visitRowToVisit));
         setError(found ? '' : `${labels.location} not found`);
       }
     } else {
@@ -80,12 +87,16 @@ export default function FarmDetailScreen() {
       const farmsList = farmRows.map(farmRowToFarm);
       const found = farmsList.find((f) => f.id === farmId) ?? null;
       setFarm(found);
-      setVisits([]);
+      const visitRows = await getVisitsForFarm(farmId!, {
+        isSupervisor,
+        officerId: userId ?? undefined,
+      });
+      setVisits(visitRows.map(visitRowToVisit));
       setError(found ? '' : `${labels.location} not found`);
     }
     setLoading(false);
     setRefreshing(false);
-  }, [farmerId, farmId, labels.location]);
+  }, [farmerId, farmId, labels.location, isSupervisor, userId]);
 
   useEffect(() => {
     if (farmerId && farmId) {

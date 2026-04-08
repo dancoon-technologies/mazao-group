@@ -187,6 +187,11 @@ export default function MaintenancePage() {
           status,
           supervisor_notes: isSupervisor ? supervisorNotes[incident.id]?.trim() || undefined : undefined,
         };
+        if (status === "verified_breakdown") {
+          const coords = await getCoords();
+          payload.breakdown_verified_latitude = coords.latitude;
+          payload.breakdown_verified_longitude = coords.longitude;
+        }
         if (status === "at_garage") {
           const coords = await getCoords();
           payload.garage_latitude = coords.latitude;
@@ -360,6 +365,12 @@ export default function MaintenancePage() {
                   <IncidentLocationMaps item={item} onOpenMap={openLocationModal} />
 
                   {isOfficer && item.status === "reported" ? (
+                    <Text size="sm" c="dimmed">
+                      Wait for your supervisor to verify the breakdown before you can report repair at the garage.
+                    </Text>
+                  ) : null}
+
+                  {isOfficer && item.status === "verified_breakdown" ? (
                     <Group>
                       <Button variant="light" onClick={() => updateIncident(item, "at_garage")} loading={submitting}>
                         Report fixing / at garage
@@ -369,12 +380,24 @@ export default function MaintenancePage() {
 
                   {isSupervisor ? (
                     <Box>
-                      <TextInput
-                        label="Supervisor notes"
-                        value={supervisorNotes[item.id] ?? ""}
-                        onChange={(e) => setSupervisorNotes((prev) => ({ ...prev, [item.id]: e.currentTarget.value }))}
-                      />
+                      {item.status === "reported" || item.status === "at_garage" ? (
+                        <TextInput
+                          label="Supervisor notes"
+                          value={supervisorNotes[item.id] ?? ""}
+                          onChange={(e) => setSupervisorNotes((prev) => ({ ...prev, [item.id]: e.currentTarget.value }))}
+                        />
+                      ) : null}
                       <Group mt="sm">
+                        {item.status === "reported" ? (
+                          <>
+                            <Button onClick={() => updateIncident(item, "verified_breakdown")} loading={submitting}>
+                              Verify breakdown
+                            </Button>
+                            <Button color="red" variant="light" onClick={() => updateIncident(item, "rejected")} loading={submitting}>
+                              Reject
+                            </Button>
+                          </>
+                        ) : null}
                         {item.status === "at_garage" ? (
                           <>
                             <Button onClick={() => updateIncident(item, "released")} loading={submitting}>
@@ -386,6 +409,11 @@ export default function MaintenancePage() {
                           </>
                         ) : null}
                       </Group>
+                      {item.status === "verified_breakdown" ? (
+                        <Text size="sm" c="dimmed" mt="sm">
+                          Waiting for the officer to report repair at the garage.
+                        </Text>
+                      ) : null}
                     </Box>
                   ) : null}
                 </Stack>

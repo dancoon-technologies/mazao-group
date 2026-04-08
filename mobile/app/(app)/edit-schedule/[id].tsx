@@ -3,8 +3,12 @@
  * Officers can edit only their own proposed schedules (as long as the scheduled date is not in the past).
  */
 import { useAuth } from '@/contexts/AuthContext';
-import { getFarmers as getFarmersDb, getFarms as getFarmsDb } from '@/database';
-import { farmerRowToFarmer, farmRowToFarm } from '@/lib/offline-helpers';
+import {
+  getFarmers as getFarmersDb,
+  getFarms as getFarmsDb,
+  getScheduleById,
+} from '@/database';
+import { farmerRowToFarmer, farmRowToFarm, scheduleRowToSchedule } from '@/lib/offline-helpers';
 import { syncWithServer } from '@/lib/syncWithServer';
 import { api, getLabels, type Farm, type Farmer, type Schedule } from '@/lib/api';
 import { appMeta$ } from '@/store/observable';
@@ -92,8 +96,34 @@ export default function EditScheduleScreen() {
       setEditReason('');
       setError('');
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load schedule');
-      setSchedule(null);
+      const row = scheduleId ? await getScheduleById(scheduleId) : null;
+      if (row) {
+        const s = scheduleRowToSchedule(row);
+        const officerOwn = s.officer === userId;
+        const isAcceptedOfficerEdit = s.status === 'accepted' && !isSupervisor && officerOwn;
+        if (
+          (s.status === 'proposed' || isAcceptedOfficerEdit) &&
+          (isSupervisor || officerOwn) &&
+          (s.status !== 'proposed' || isScheduleEditableByDate(s.scheduled_date))
+        ) {
+          setEditingAccepted(isAcceptedOfficerEdit);
+          setSchedule(s);
+          const farmersList = await getFarmersDb().then((rows) => rows.map(farmerRowToFarmer));
+          setFarmers(farmersList);
+          setSelectedDate(s.scheduled_date.slice(0, 10));
+          setSelectedFarmerId(s.farmer ?? null);
+          setSelectedFarmId(s.farm ?? null);
+          setNotes(s.notes ?? '');
+          setEditReason('');
+          setError('Offline — showing saved schedule.');
+        } else {
+          setError(e instanceof Error ? e.message : 'Failed to load schedule');
+          setSchedule(null);
+        }
+      } else {
+        setError(e instanceof Error ? e.message : 'Failed to load schedule');
+        setSchedule(null);
+      }
     } finally {
       setLoading(false);
     }

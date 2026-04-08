@@ -99,6 +99,31 @@ export async function getAllVisits(): Promise<VisitRow[]> {
     .sort((a, b) => b.created_at - a.created_at);
 }
 
+export async function getVisitById(id: string): Promise<VisitRow | null> {
+  const list = visits$.get() ?? [];
+  const row = list.find((v) => v.id === id && v.is_deleted === 0);
+  return row ?? null;
+}
+
+export async function getScheduleById(id: string): Promise<ScheduleRow | null> {
+  const list = schedules$.get() ?? [];
+  const row = list.find((s) => s.id === id && s.is_deleted === 0);
+  return row ?? null;
+}
+
+/** Visits linked to a farm (officer: own rows only unless supervisor). */
+export async function getVisitsForFarm(
+  farmId: string,
+  opts: { officerId?: string; isSupervisor?: boolean }
+): Promise<VisitRow[]> {
+  let list = visits$.get() ?? [];
+  list = list.filter((v) => v.is_deleted === 0 && v.farm === farmId);
+  if (!opts.isSupervisor && opts.officerId) {
+    list = list.filter((v) => v.officer === opts.officerId);
+  }
+  return list.sort((a, b) => b.created_at - a.created_at);
+}
+
 export async function getScheduleIdsWithRecordedVisits(officerId: string): Promise<Set<string>> {
   const list = visits$.get() ?? [];
   const set = new Set<string>();

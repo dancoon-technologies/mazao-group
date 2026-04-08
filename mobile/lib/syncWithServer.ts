@@ -121,7 +121,7 @@ async function pushQueue(accessToken: string): Promise<{ ok: boolean; error?: st
           continue
         }
         pushedIds.push(item.id)
-      } else if (item.entity === 'schedule') {
+      } else if (item.entity === 'schedule' || item.entity === 'schedule_create') {
         const res = await fetch(`${API_BASE}/schedules/`, {
           method: 'POST',
           headers: {
@@ -139,6 +139,114 @@ async function pushQueue(accessToken: string): Promise<{ ok: boolean; error?: st
         if (!res.ok) {
           const err = await res.json().catch(() => ({}))
           logger.warn('pushQueue: schedule upload failed, removing from queue', item.id, (err.detail || 'Schedule upload failed') as string)
+          await removeSyncItem(item.id)
+          continue
+        }
+        pushedIds.push(item.id)
+      } else if (item.entity === 'schedule_update') {
+        const scheduleId = String(payload.schedule_id ?? '')
+        const patchPayload = (payload.payload && typeof payload.payload === 'object'
+          ? payload.payload
+          : {}) as Record<string, unknown>
+        if (!scheduleId) {
+          await removeSyncItem(item.id)
+          continue
+        }
+        const res = await fetch(`${API_BASE}/schedules/${scheduleId}/`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${accessToken}`,
+          },
+          body: JSON.stringify(patchPayload),
+        })
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}))
+          logger.warn('pushQueue: schedule_update failed, removing from queue', item.id, ((err as { detail?: string }).detail || 'Schedule update failed') as string)
+          await removeSyncItem(item.id)
+          continue
+        }
+        pushedIds.push(item.id)
+      } else if (item.entity === 'route_create') {
+        const res = await fetch(`${API_BASE}/routes/`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${accessToken}`,
+          },
+          body: JSON.stringify(payload),
+        })
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}))
+          logger.warn('pushQueue: route_create failed, removing from queue', item.id, ((err as { detail?: string }).detail || 'Route create failed') as string)
+          await removeSyncItem(item.id)
+          continue
+        }
+        pushedIds.push(item.id)
+      } else if (item.entity === 'route_update') {
+        const routeId = String(payload.route_id ?? '')
+        const patchPayload = (payload.payload && typeof payload.payload === 'object'
+          ? payload.payload
+          : {}) as Record<string, unknown>
+        if (!routeId) {
+          await removeSyncItem(item.id)
+          continue
+        }
+        const res = await fetch(`${API_BASE}/routes/${routeId}/`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${accessToken}`,
+          },
+          body: JSON.stringify(patchPayload),
+        })
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}))
+          logger.warn('pushQueue: route_update failed, removing from queue', item.id, ((err as { detail?: string }).detail || 'Route update failed') as string)
+          await removeSyncItem(item.id)
+          continue
+        }
+        pushedIds.push(item.id)
+      } else if (item.entity === 'route_delete') {
+        const routeId = String(payload.route_id ?? '')
+        if (!routeId) {
+          await removeSyncItem(item.id)
+          continue
+        }
+        const res = await fetch(`${API_BASE}/routes/${routeId}/`, {
+          method: 'DELETE',
+          headers: { Authorization: `Bearer ${accessToken}` },
+        })
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}))
+          logger.warn('pushQueue: route_delete failed, removing from queue', item.id, ((err as { detail?: string }).detail || 'Route delete failed') as string)
+          await removeSyncItem(item.id)
+          continue
+        }
+        pushedIds.push(item.id)
+      } else if (item.entity === 'route_approve') {
+        const routeId = String(payload.route_id ?? '')
+        if (!routeId) {
+          await removeSyncItem(item.id)
+          continue
+        }
+        const body: { action: string; rejection_reason?: string } = {
+          action: String(payload.action ?? 'accept'),
+        }
+        if (payload.rejection_reason != null && String(payload.rejection_reason).trim() !== '') {
+          body.rejection_reason = String(payload.rejection_reason).trim()
+        }
+        const res = await fetch(`${API_BASE}/routes/${routeId}/approve/`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${accessToken}`,
+          },
+          body: JSON.stringify(body),
+        })
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}))
+          logger.warn('pushQueue: route_approve failed, removing from queue', item.id, ((err as { detail?: string }).detail || 'Route approve failed') as string)
           await removeSyncItem(item.id)
           continue
         }

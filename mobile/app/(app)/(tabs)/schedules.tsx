@@ -7,7 +7,7 @@ import { farmerRowToFarmer, scheduleRowToSchedule, visitRowToVisit } from '@/lib
 import { useAppRefresh } from '@/contexts/AppRefreshContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { api, getLabels, type Route, type Schedule, type Visit } from '@/lib/api';
-import { appMeta$, farmers$, schedules$, visits$ } from '@/store/observable';
+import { appMeta$, farmers$, routesCache$, schedules$, visits$ } from '@/store/observable';
 import { useSelector } from '@legendapp/state/react';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
@@ -121,14 +121,27 @@ export default function SchedulesScreen() {
   );
   const load = useCallback(async () => {
     const connected = await NetInfo.fetch().then((s) => s.isConnected ?? false);
+    if (!connected && userId) {
+      setRoutes(routesCache$.get() ?? []);
+      setError('');
+      setLoading(false);
+      setRefreshing(false);
+      return;
+    }
     if (connected && userId) {
       try {
         await syncWithServer();
         try {
           const list = await api.getAllRoutes();
-          setRoutes(Array.isArray(list) ? list : []);
+          const arr = Array.isArray(list) ? list : [];
+          setRoutes(arr);
+          routesCache$.set((prev) => {
+            const m = new Map((prev ?? []).map((r) => [r.id, r]));
+            for (const r of arr) m.set(r.id, r);
+            return [...m.values()];
+          });
         } catch {
-          setRoutes([]);
+          setRoutes(routesCache$.get() ?? []);
         }
         setError('');
       } catch {
