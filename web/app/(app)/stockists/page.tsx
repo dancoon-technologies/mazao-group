@@ -48,9 +48,7 @@ const STOCKIST_COLUMNS: DataTableColumn<Farmer>[] = [
 ];
 
 const INITIAL_FORM = {
-  first_name: "",
-  middle_name: "",
-  last_name: "",
+  name: "",
   phone: "",
   latitude: "",
   longitude: "",
@@ -73,10 +71,9 @@ export default function StockistsPage() {
     async (e: React.FormEvent) => {
       e.preventDefault();
       setFormError("");
-      const first = form.first_name.trim();
-      const last = form.last_name.trim();
-      if (!first || !last) {
-        setFormError("Enter first and last name.");
+      const name = form.name.trim();
+      if (!name) {
+        setFormError("Enter SACCO name.");
         return;
       }
       const lat = parseFloat(form.latitude);
@@ -88,13 +85,14 @@ export default function StockistsPage() {
       setSubmitting(true);
       try {
         await api.createFarmer({
-          first_name: first,
-          middle_name: form.middle_name.trim() || undefined,
-          last_name: last,
+          first_name: name,
+          middle_name: undefined,
+          last_name: "",
           phone: form.phone.trim() || undefined,
           latitude: lat,
           longitude: lon,
           is_stockist: true,
+          is_group: false,
         });
         resetForm();
         setShowForm(false);
@@ -116,11 +114,11 @@ export default function StockistsPage() {
   return (
     <Box style={{ minWidth: PAGE_BOX_MIN_WIDTH }}>
       <PageHeader
-        title="Stockists"
-        subtitle={pluralize(stockists.length, "stockist") + " listed"}
+        title="SACCOs"
+        subtitle={pluralize(stockists.length, "SACCO") + " listed"}
         action={
           <Button color="yellow" variant="light" onClick={openAddStockist}>
-            Add stockist
+            Add SACCO
           </Button>
         }
       />
@@ -128,7 +126,7 @@ export default function StockistsPage() {
       {showForm && (
         <Paper mt="md" p="md" radius="md" shadow="sm" withBorder>
           <Text size="lg" fw={600} mb="md">
-            New stockist
+            New SACCO
           </Text>
           <form onSubmit={handleSubmit}>
             <Stack gap="md">
@@ -137,31 +135,12 @@ export default function StockistsPage() {
                   {formError}
                 </Alert>
               )}
-              <Grid>
-                <Grid.Col span={{ base: 12, sm: 6, lg: 3 }}>
-                  <TextInput
-                    label="First name"
-                    required
-                    value={form.first_name}
-                    onChange={(e) => updateField("first_name", e.target.value)}
-                  />
-                </Grid.Col>
-                <Grid.Col span={{ base: 12, sm: 6, lg: 3 }}>
-                  <TextInput
-                    label="Middle name"
-                    value={form.middle_name}
-                    onChange={(e) => updateField("middle_name", e.target.value)}
-                  />
-                </Grid.Col>
-                <Grid.Col span={{ base: 12, sm: 6, lg: 3 }}>
-                  <TextInput
-                    label="Last name"
-                    required
-                    value={form.last_name}
-                    onChange={(e) => updateField("last_name", e.target.value)}
-                  />
-                </Grid.Col>
-              </Grid>
+              <TextInput
+                label="SACCO name"
+                required
+                value={form.name}
+                onChange={(e) => updateField("name", e.target.value)}
+              />
               <TextInput
                 label="Phone"
                 value={form.phone}
@@ -186,7 +165,7 @@ export default function StockistsPage() {
               </Box>
               <Group>
                 <Button type="submit" color="yellow" loading={submitting}>
-                  {submitting ? "Saving…" : "Add stockist"}
+                  {submitting ? "Saving…" : "Add SACCO"}
                 </Button>
                 <Button
                   type="button"
@@ -206,7 +185,7 @@ export default function StockistsPage() {
         rowKey="id"
         columns={STOCKIST_COLUMNS}
         minWidth={400}
-        emptyMessage="No stockists yet"
+        emptyMessage="No SACCOs yet"
         pageSize={15}
       />
     </Box>

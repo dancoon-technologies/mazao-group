@@ -219,6 +219,11 @@ export interface TrackingConfig {
   interval_minutes?: number;
 }
 
+export interface StartTrackingOptions {
+  /** When false, do not trigger OS permission prompts; only start if already granted. */
+  requestPermissions?: boolean;
+}
+
 let isTrackingStarted = false;
 /** Interval that starts/stops location updates at working-hour boundaries. */
 let workingHoursCheckIntervalId: ReturnType<typeof setInterval> | null = null;
@@ -269,7 +274,10 @@ async function applyWorkingHoursState(): Promise<void> {
  * working_hour_end; they start again at working_hour_start. Request background
  * permission first. Call stopTracking() when user logs out.
  */
-export async function startTracking(config?: TrackingConfig): Promise<void> {
+export async function startTracking(
+  config?: TrackingConfig,
+  options?: StartTrackingOptions
+): Promise<void> {
   if (config?.working_hour_start != null) {
     workingHourStart = Math.max(0, Math.min(23, config.working_hour_start));
   } else {
@@ -286,8 +294,10 @@ export async function startTracking(config?: TrackingConfig): Promise<void> {
     trackingIntervalMs = DEFAULT_INTERVAL_MINUTES * 60 * 1000;
   }
 
+  // Default to silent permission behavior so sign-in and app startup never force prompts.
+  const shouldRequestPermissions = options?.requestPermissions ?? false;
   let { status: foregroundStatus } = await Location.getForegroundPermissionsAsync();
-  if (foregroundStatus !== 'granted') {
+  if (foregroundStatus !== 'granted' && shouldRequestPermissions) {
     try {
       const requested = await Location.requestForegroundPermissionsAsync();
       foregroundStatus = requested.status;
@@ -304,13 +314,15 @@ export async function startTracking(config?: TrackingConfig): Promise<void> {
     return;
   }
 
-  try {
-    const { status: backgroundStatus } = await Location.getBackgroundPermissionsAsync();
-    if (backgroundStatus !== 'granted') {
-      await Location.requestBackgroundPermissionsAsync();
+  if (shouldRequestPermissions) {
+    try {
+      const { status: backgroundStatus } = await Location.getBackgroundPermissionsAsync();
+      if (backgroundStatus !== 'granted') {
+        await Location.requestBackgroundPermissionsAsync();
+      }
+    } catch (e) {
+      logger.warn('Tracking: background permission request failed', e instanceof Error ? e.message : e);
     }
-  } catch (e) {
-    logger.warn('Tracking: background permission request failed', e instanceof Error ? e.message : e);
   }
 
   lastEnqueuedLat = null;

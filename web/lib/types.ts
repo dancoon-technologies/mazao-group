@@ -7,8 +7,10 @@ export interface Farmer {
   last_name: string;
   display_name: string;
   phone: string;
-   /** When true this record represents a stockist rather than a traditional farmer. */
+  /** When true this record represents a stockist rather than a traditional farmer. */
   is_stockist?: boolean;
+  /** When true this record represents a farmers group. */
+  is_group?: boolean;
   latitude: string;
   longitude: string;
   created_at: string;

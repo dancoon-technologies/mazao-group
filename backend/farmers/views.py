@@ -47,6 +47,12 @@ class FarmerListCreateView(generics.ListCreateAPIView):
                 qs = qs.filter(is_stockist=True)
             elif is_stockist.lower() in ("false", "0", "no"):
                 qs = qs.filter(is_stockist=False)
+        is_group = self.request.query_params.get("is_group")
+        if is_group is not None:
+            if is_group.lower() in ("true", "1", "yes"):
+                qs = qs.filter(is_group=True)
+            elif is_group.lower() in ("false", "0", "no"):
+                qs = qs.filter(is_group=False)
         return qs
 
     def create(self, request, *args, **kwargs):

@@ -221,7 +221,7 @@ function AppLayoutInner() {
     return () => clearInterval(id);
   }, [isAuthenticated, triggerRefresh]);
 
-  // Location tracking during working hours (config from admin; use cache when offline)
+  // Location tracking during working hours (silent startup to avoid permission prompt at sign-in)
   useEffect(() => {
     if (!isAuthenticated) {
       clearTrackingSessionStart().catch(() => {});
@@ -233,8 +233,8 @@ function AppLayoutInner() {
     api.getOptions().then((o) => {
       if (!cancelled) {
         appMeta$.cachedOptions.set(o);
-        if (o?.tracking_settings) startTracking(o.tracking_settings);
-        else startTracking();
+        if (o?.tracking_settings) startTracking(o.tracking_settings, { requestPermissions: false });
+        else startTracking(undefined, { requestPermissions: false });
         api.getAccessToken().then((t) => {
           if (t) refreshDeviceClockOffset(t);
         });
@@ -242,8 +242,8 @@ function AppLayoutInner() {
     }).catch(() => {
       if (!cancelled) {
         const cached = appMeta$.cachedOptions.get();
-        if (cached?.tracking_settings) startTracking(cached.tracking_settings);
-        else startTracking();
+        if (cached?.tracking_settings) startTracking(cached.tracking_settings, { requestPermissions: false });
+        else startTracking(undefined, { requestPermissions: false });
         api.getAccessToken().then((t) => {
           if (t) refreshDeviceClockOffset(t);
         });

@@ -25,7 +25,6 @@ import {
   RefreshControl,
   ScrollView,
   StyleSheet,
-  StatusBar,
   Text,
   View,
 } from 'react-native';
@@ -35,7 +34,7 @@ import {
   Chip,
   Surface,
 } from 'react-native-paper';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 const STAT_ICONS = {
   today: 'clipboard-text-outline',
@@ -45,7 +44,6 @@ const STAT_ICONS = {
 } as const;
 
 function HomeScreenInner() {
-  const insets = useSafeAreaInsets();
   const routerInstance = useRouter();
   const { email, department, userId, displayName, role } = useAuth();
   const isOfficer = role === 'officer';
@@ -198,9 +196,7 @@ function HomeScreenInner() {
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.safe} edges={['bottom']}>
-        <StatusBar backgroundColor="#14532D" barStyle="light-content" />
-        <View style={[styles.statusBarInset, { height: insets.top }]} />
+      <SafeAreaView style={styles.safe}>
         <LinearGradient
           colors={['#14532D', '#1B8F3A']}
           start={{ x: 0, y: 0 }}
@@ -216,8 +212,6 @@ function HomeScreenInner() {
 
   return (
     <SafeAreaView style={styles.safe} >
-      <StatusBar backgroundColor="#14532D" barStyle="light-content" />
-      <View style={[styles.statusBarInset, { height: insets.top }]} />
       <ScrollView
         style={styles.container}
         contentContainerStyle={styles.scrollContent}
@@ -294,7 +288,6 @@ function HomeScreenInner() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.white },
-  statusBarInset: { backgroundColor: '#14532D' },
   container: { flex: 1, backgroundColor: colors.white },
   scrollContent: {
     flexGrow: 1,

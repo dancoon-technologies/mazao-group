@@ -7,10 +7,12 @@ class Farmer(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     first_name = models.CharField(max_length=100)
     middle_name = models.CharField(max_length=100, blank=True)
-    last_name = models.CharField(max_length=100)
+    last_name = models.CharField(max_length=100, blank=True)
     phone = models.CharField(max_length=50, blank=True)
     # When true this record represents a stockist rather than a traditional farmer.
     is_stockist = models.BooleanField(default=False)
+    # When true this record represents a farmers group.
+    is_group = models.BooleanField(default=False)
     latitude = models.DecimalField(max_digits=10, decimal_places=7)
     longitude = models.DecimalField(max_digits=10, decimal_places=7)
     created_at = models.DateTimeField(auto_now_add=True)

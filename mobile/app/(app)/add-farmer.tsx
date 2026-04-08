@@ -37,6 +37,8 @@ export default function AddFarmerScreen() {
   const returnTo = params.returnTo;
   const isStockist = params.asStockist === '1' || params.asStockist === 'true';
   const isGroup = !isStockist && (params.asGroup === '1' || params.asGroup === 'true');
+  const usesSingleName = isStockist || isGroup;
+  const partnerKindLabel = isStockist ? 'SACCO' : isGroup ? 'Farmers group' : 'Farmer';
   const labels = useSelector(() => getLabels(appMeta$.cachedOptions.get()));
   const locationLabel = isStockist ? 'Outlet' : labels.location;
 
@@ -154,7 +156,11 @@ export default function AddFarmerScreen() {
   }, []);
 
   const submit = useCallback(async () => {
-    if (!firstName.trim() || !lastName.trim()) {
+    if (usesSingleName && !firstName.trim()) {
+      setError(`${partnerKindLabel} name is required.`);
+      return;
+    }
+    if (!usesSingleName && (!firstName.trim() || !lastName.trim())) {
       setError('First name and last name are required.');
       return;
     }
@@ -205,8 +211,8 @@ export default function AddFarmerScreen() {
         await enqueueFarmerWithFarm({
           farmer: {
             first_name: firstName.trim(),
-            middle_name: middleName.trim() || undefined,
-            last_name: lastName.trim(),
+            middle_name: usesSingleName ? undefined : (middleName.trim() || undefined),
+            last_name: usesSingleName ? '' : lastName.trim(),
             phone: phone.trim() || undefined,
             latitude: Number.isNaN(farmerLatNum) ? 0 : farmerLatNum,
             longitude: Number.isNaN(farmerLonNum) ? 0 : farmerLonNum,
@@ -244,8 +250,8 @@ export default function AddFarmerScreen() {
       const farmerLonNum = lon ? parseFloat(lon) : 0;
       const farmer = await api.createFarmer({
         first_name: firstName.trim(),
-        middle_name: middleName.trim() || undefined,
-        last_name: lastName.trim(),
+        middle_name: usesSingleName ? undefined : (middleName.trim() || undefined),
+        last_name: usesSingleName ? '' : lastName.trim(),
         phone: phone.trim() || undefined,
         latitude: isNaN(farmerLatNum) ? 0 : farmerLatNum,
         longitude: isNaN(farmerLonNum) ? 0 : farmerLonNum,
@@ -317,6 +323,8 @@ export default function AddFarmerScreen() {
     isOnline,
     isStockist,
     isGroup,
+    usesSingleName,
+    partnerKindLabel,
   ]);
 
   const counties = locations
@@ -357,7 +365,7 @@ export default function AddFarmerScreen() {
           </Banner>
         )}
         <Text variant="titleMedium" style={styles.sectionTitle}>
-          {isStockist ? 'Stockist' : isGroup ? 'Farmers group' : 'Farmer'} details
+          {partnerKindLabel} details
         </Text>
         {!isStockist && (
           <SegmentedButtons
@@ -377,26 +385,30 @@ export default function AddFarmerScreen() {
           />
         )}
         <TextInput
-          label="First name *"
+          label={usesSingleName ? 'Name *' : 'First name *'}
           value={firstName}
           onChangeText={setFirstName}
           mode="outlined"
           style={styles.input}
         />
-        <TextInput
-          label="Middle name"
-          value={middleName}
-          onChangeText={setMiddleName}
-          mode="outlined"
-          style={styles.input}
-        />
-        <TextInput
-          label="Last name *"
-          value={lastName}
-          onChangeText={setLastName}
-          mode="outlined"
-          style={styles.input}
-        />
+        {!usesSingleName ? (
+          <>
+            <TextInput
+              label="Middle name"
+              value={middleName}
+              onChangeText={setMiddleName}
+              mode="outlined"
+              style={styles.input}
+            />
+            <TextInput
+              label="Last name *"
+              value={lastName}
+              onChangeText={setLastName}
+              mode="outlined"
+              style={styles.input}
+            />
+          </>
+        ) : null}
         <TextInput
           label="Phone"
           value={phone}
@@ -514,24 +526,9 @@ export default function AddFarmerScreen() {
           mode="outlined"
           style={styles.input}
         />
-        <View style={styles.row}>
-          <TextInput
-            label={`${locationLabel} latitude *`}
-            value={farmLat}
-            onChangeText={setFarmLat}
-            keyboardType="decimal-pad"
-            mode="outlined"
-            style={[styles.input, styles.flex]}
-          />
-          <TextInput
-            label={`${locationLabel} longitude *`}
-            value={farmLon}
-            onChangeText={setFarmLon}
-            keyboardType="decimal-pad"
-            mode="outlined"
-            style={[styles.input, styles.flex]}
-          />
-        </View>
+        <Text variant="bodySmall" style={styles.hint}>
+          {`${locationLabel} coordinates are captured automatically from your device location.`}
+        </Text>
         {!isStockist && (
           <TextInput
             label="Plot size"
@@ -550,9 +547,9 @@ export default function AddFarmerScreen() {
             mode="contained"
             onPress={submit}
             loading={submitting}
-            disabled={submitting || !firstName.trim() || !lastName.trim() || !regionId || !countyId || !subCountyId || !village.trim()}
+            disabled={submitting || !firstName.trim() || (!usesSingleName && !lastName.trim()) || !regionId || !countyId || !subCountyId || !village.trim()}
           >
-            {isStockist ? 'Add stockist' : isGroup ? 'Add farmers group' : 'Add farmer'}
+            {isStockist ? 'Add SACCO' : isGroup ? 'Add farmers group' : 'Add farmer'}
           </Button>
           <Button mode="text" onPress={() => router.back()}>
             Cancel

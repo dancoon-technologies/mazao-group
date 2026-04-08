@@ -7,6 +7,7 @@ import {
   Grid,
   Group,
   Paper,
+  SegmentedControl,
   Stack,
   Text,
   TextInput,
@@ -41,6 +42,15 @@ const FARMER_COLUMNS: DataTableColumn<Farmer>[] = [
     ),
   },
   {
+    key: "type",
+    label: "Type",
+    render: (f) => (
+      <Text size="sm" c="dimmed">
+        {f.is_group ? "Farmers group" : "Individual"}
+      </Text>
+    ),
+  },
+  {
     key: "phone",
     label: "Phone",
     render: (f) => <Text size="sm" c="dimmed">{f.phone || "—"}</Text>,
@@ -48,6 +58,7 @@ const FARMER_COLUMNS: DataTableColumn<Farmer>[] = [
 ];
 
 const INITIAL_FARMER_FORM = {
+  mode: "individual",
   first_name: "",
   middle_name: "",
   last_name: "",
@@ -73,10 +84,15 @@ export default function FarmersPage() {
     async (e: React.FormEvent) => {
       e.preventDefault();
       setFormError("");
+      const isGroup = form.mode === "group";
       const first = form.first_name.trim();
       const last = form.last_name.trim();
-      if (!first || !last) {
-        setFormError("Enter first and last name.");
+      if (!first) {
+        setFormError(isGroup ? "Enter farmers group name." : "Enter first name.");
+        return;
+      }
+      if (!isGroup && !last) {
+        setFormError("Enter last name.");
         return;
       }
       const lat = parseFloat(form.latitude);
@@ -89,12 +105,13 @@ export default function FarmersPage() {
       try {
         await api.createFarmer({
           first_name: first,
-          middle_name: form.middle_name.trim() || undefined,
-          last_name: last,
+          middle_name: isGroup ? undefined : form.middle_name.trim() || undefined,
+          last_name: isGroup ? "" : last,
           phone: form.phone.trim() || undefined,
           latitude: lat,
           longitude: lon,
           is_stockist: false,
+          is_group: isGroup,
         });
         resetForm();
         setShowForm(false);
@@ -137,30 +154,42 @@ export default function FarmersPage() {
                   {formError}
                 </Alert>
               )}
+              <SegmentedControl
+                value={form.mode}
+                onChange={(value) => updateField("mode", value as "individual" | "group")}
+                data={[
+                  { label: "Individual", value: "individual" },
+                  { label: "Farmers group", value: "group" },
+                ]}
+              />
               <Grid>
                 <Grid.Col span={{ base: 12, sm: 6, lg: 3 }}>
                   <TextInput
-                    label="First name"
+                    label={form.mode === "group" ? "Group name" : "First name"}
                     required
                     value={form.first_name}
                     onChange={(e) => updateField("first_name", e.target.value)}
                   />
                 </Grid.Col>
-                <Grid.Col span={{ base: 12, sm: 6, lg: 3 }}>
-                  <TextInput
-                    label="Middle name"
-                    value={form.middle_name}
-                    onChange={(e) => updateField("middle_name", e.target.value)}
-                  />
-                </Grid.Col>
-                <Grid.Col span={{ base: 12, sm: 6, lg: 3 }}>
-                  <TextInput
-                    label="Last name"
-                    required
-                    value={form.last_name}
-                    onChange={(e) => updateField("last_name", e.target.value)}
-                  />
-                </Grid.Col>
+                {form.mode === "individual" ? (
+                  <>
+                    <Grid.Col span={{ base: 12, sm: 6, lg: 3 }}>
+                      <TextInput
+                        label="Middle name"
+                        value={form.middle_name}
+                        onChange={(e) => updateField("middle_name", e.target.value)}
+                      />
+                    </Grid.Col>
+                    <Grid.Col span={{ base: 12, sm: 6, lg: 3 }}>
+                      <TextInput
+                        label="Last name"
+                        required
+                        value={form.last_name}
+                        onChange={(e) => updateField("last_name", e.target.value)}
+                      />
+                    </Grid.Col>
+                  </>
+                ) : null}
               </Grid>
               <TextInput
                 label="Phone"

@@ -18,6 +18,7 @@ class FarmerSerializer(serializers.ModelSerializer):
             "display_name",
             "phone",
             "is_stockist",
+            "is_group",
             "latitude",
             "longitude",
             "created_at",
@@ -25,6 +26,29 @@ class FarmerSerializer(serializers.ModelSerializer):
 
 
 class FarmerCreateSerializer(serializers.ModelSerializer):
+    def validate(self, attrs):
+        first_name = (attrs.get("first_name") or "").strip()
+        last_name = (attrs.get("last_name") or "").strip()
+        is_stockist = bool(attrs.get("is_stockist"))
+        is_group = bool(attrs.get("is_group"))
+
+        if is_stockist or is_group:
+            if not first_name:
+                raise serializers.ValidationError(
+                    {"first_name": "Name is required for SACCO and farmers group."}
+                )
+            attrs["first_name"] = first_name
+            attrs["last_name"] = last_name
+        else:
+            if not first_name or not last_name:
+                raise serializers.ValidationError(
+                    {"detail": "First name and last name are required for individual farmers."}
+                )
+            attrs["first_name"] = first_name
+            attrs["last_name"] = last_name
+        attrs["middle_name"] = (attrs.get("middle_name") or "").strip()
+        return attrs
+
     class Meta:
         model = Farmer
         fields = (
@@ -33,6 +57,7 @@ class FarmerCreateSerializer(serializers.ModelSerializer):
             "last_name",
             "phone",
             "is_stockist",
+            "is_group",
             "latitude",
             "longitude",
         )
