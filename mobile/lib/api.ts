@@ -799,7 +799,24 @@ export const api = {
     if (body.officer != null && body.officer !== '') {
       payload.officer = body.officer;
     }
-    return request<Route>('/routes/', { method: 'POST', body: JSON.stringify(payload) });
+    try {
+      return await request<Route>('/routes/', { method: 'POST', body: JSON.stringify(payload) });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message.toLowerCase() : '';
+      const isNetworkLike = msg.includes('network') || msg.includes('failed to fetch') || msg.includes('timeout');
+      if (!isNetworkLike) throw e;
+      await enqueueSyncItem('route_create', 'POST', payload);
+      return {
+        id: `offline-route-${Date.now()}`,
+        officer: String(payload.officer ?? ''),
+        scheduled_date: String(payload.scheduled_date ?? ''),
+        name: String(payload.name ?? ''),
+        activity_types: Array.isArray(payload.activity_types) ? (payload.activity_types as string[]) : [],
+        notes: String(payload.notes ?? ''),
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      } as Route;
+    }
   },
 
   async updateRoute(
@@ -816,21 +833,62 @@ export const api = {
     if (body.name !== undefined) payload.name = body.name?.trim() ?? '';
     if (body.activity_types !== undefined) payload.activity_types = body.activity_types;
     if (body.notes !== undefined) payload.notes = body.notes?.trim() ?? '';
-    return request<Route>(`/routes/${id}/`, {
-      method: 'PATCH',
-      body: JSON.stringify(payload),
-    });
+    try {
+      return await request<Route>(`/routes/${id}/`, {
+        method: 'PATCH',
+        body: JSON.stringify(payload),
+      });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message.toLowerCase() : '';
+      const isNetworkLike = msg.includes('network') || msg.includes('failed to fetch') || msg.includes('timeout');
+      if (!isNetworkLike) throw e;
+      await enqueueSyncItem('route_update', 'PATCH', { route_id: id, payload });
+      return {
+        id,
+        officer: '',
+        scheduled_date: String(payload.scheduled_date ?? ''),
+        name: String(payload.name ?? ''),
+        activity_types: Array.isArray(payload.activity_types) ? (payload.activity_types as string[]) : [],
+        notes: String(payload.notes ?? ''),
+        updated_at: new Date().toISOString(),
+      } as Route;
+    }
   },
 
   async deleteRoute(id: string) {
-    await request(`/routes/${id}/`, { method: 'DELETE' });
+    try {
+      await request(`/routes/${id}/`, { method: 'DELETE' });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message.toLowerCase() : '';
+      const isNetworkLike = msg.includes('network') || msg.includes('failed to fetch') || msg.includes('timeout');
+      if (!isNetworkLike) throw e;
+      await enqueueSyncItem('route_delete', 'DELETE', { route_id: id });
+    }
   },
 
   async approveRoute(id: string, body: { action: 'accept' | 'reject'; rejection_reason?: string }) {
-    return request<Route>(`/routes/${id}/approve/`, {
-      method: 'POST',
-      body: JSON.stringify(body),
-    });
+    try {
+      return await request<Route>(`/routes/${id}/approve/`, {
+        method: 'POST',
+        body: JSON.stringify(body),
+      });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message.toLowerCase() : '';
+      const isNetworkLike = msg.includes('network') || msg.includes('failed to fetch') || msg.includes('timeout');
+      if (!isNetworkLike) throw e;
+      await enqueueSyncItem('route_approve', 'POST', { route_id: id, ...body });
+      return {
+        id,
+        officer: '',
+        scheduled_date: '',
+        name: '',
+        activity_types: [],
+        notes: '',
+        status: body.action === 'accept' ? 'accepted' : 'rejected',
+        rejection_reason: body.rejection_reason ?? null,
+        updated_at: new Date().toISOString(),
+      } as Route;
+    }
   },
 
   async getRouteReport(routeId: string) {
@@ -899,10 +957,32 @@ export const api = {
       farm: body.farm ?? null,
     };
     if (body.officer != null && body.officer !== '') payload.officer = body.officer;
-    return request<Schedule>('/schedules/', {
-      method: 'POST',
-      body: JSON.stringify(payload),
-    });
+    try {
+      return await request<Schedule>('/schedules/', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message.toLowerCase() : '';
+      const isNetworkLike = msg.includes('network') || msg.includes('failed to fetch') || msg.includes('timeout');
+      if (!isNetworkLike) throw e;
+      await enqueueSyncItem('schedule_create', 'POST', payload);
+      return {
+        id: `offline-schedule-${Date.now()}`,
+        created_by: '',
+        officer: String(payload.officer ?? ''),
+        officer_email: '',
+        farmer: (payload.farmer as string | null) ?? null,
+        farmer_display_name: null,
+        farm: (payload.farm as string | null) ?? null,
+        farm_display_name: null,
+        scheduled_date: String(payload.scheduled_date ?? ''),
+        notes: String(payload.notes ?? ''),
+        status: 'proposed',
+        approved_by: null,
+        created_at: new Date().toISOString(),
+      };
+    }
   },
 
   /** PATCH proposed schedule (allowed only if scheduled date is not in the past). Officers can edit own proposed only. */
@@ -916,10 +996,33 @@ export const api = {
     if (body.farm !== undefined) payload.farm = body.farm;
     if (body.notes !== undefined) payload.notes = body.notes?.trim() ?? '';
     if (body.edit_reason !== undefined) payload.edit_reason = String(body.edit_reason).trim();
-    return request<Schedule>(`/schedules/${id}/`, {
-      method: 'PATCH',
-      body: JSON.stringify(payload),
-    });
+    try {
+      return await request<Schedule>(`/schedules/${id}/`, {
+        method: 'PATCH',
+        body: JSON.stringify(payload),
+      });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message.toLowerCase() : '';
+      const isNetworkLike = msg.includes('network') || msg.includes('failed to fetch') || msg.includes('timeout');
+      if (!isNetworkLike) throw e;
+      await enqueueSyncItem('schedule_update', 'PATCH', { schedule_id: id, payload });
+      return {
+        id,
+        created_by: '',
+        officer: '',
+        officer_email: '',
+        farmer: (payload.farmer as string | null) ?? null,
+        farmer_display_name: null,
+        farm: (payload.farm as string | null) ?? null,
+        farm_display_name: null,
+        scheduled_date: String(payload.scheduled_date ?? ''),
+        notes: String(payload.notes ?? ''),
+        status: 'proposed',
+        approved_by: null,
+        edit_reason: (payload.edit_reason as string | null) ?? null,
+        created_at: new Date().toISOString(),
+      };
+    }
   },
 
   getVisits: async (params?: { officer?: string; date?: string; date_from?: string; date_to?: string; farm?: string; route?: string }) => {
@@ -1234,15 +1337,44 @@ export const api = {
   },
 
   async markNotificationRead(id: string) {
-    return request<Notification>(`/notifications/${id}/read/`, { method: 'PATCH' });
+    try {
+      return await request<Notification>(`/notifications/${id}/read/`, { method: 'PATCH' });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message.toLowerCase() : '';
+      const isNetworkLike = msg.includes('network') || msg.includes('failed to fetch') || msg.includes('timeout');
+      if (!isNetworkLike) throw e;
+      await enqueueSyncItem('notification_mark_read', 'PATCH', { id });
+      return {
+        id,
+        title: '',
+        message: '',
+        created_at: new Date().toISOString(),
+        read_at: new Date().toISOString(),
+      };
+    }
   },
 
   async markAllNotificationsRead() {
-    return request<{ marked_count: number }>('/notifications/mark-all-read/', { method: 'POST' });
+    try {
+      return await request<{ marked_count: number }>('/notifications/mark-all-read/', { method: 'POST' });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message.toLowerCase() : '';
+      const isNetworkLike = msg.includes('network') || msg.includes('failed to fetch') || msg.includes('timeout');
+      if (!isNetworkLike) throw e;
+      await enqueueSyncItem('notification_mark_all_read', 'POST', {});
+      return { marked_count: 0 };
+    }
   },
 
   async archiveNotification(id: string) {
-    await request(`/notifications/${id}/archive/`, { method: 'POST' });
+    try {
+      await request(`/notifications/${id}/archive/`, { method: 'POST' });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message.toLowerCase() : '';
+      const isNetworkLike = msg.includes('network') || msg.includes('failed to fetch') || msg.includes('timeout');
+      if (!isNetworkLike) throw e;
+      await enqueueSyncItem('notification_archive', 'POST', { id });
+    }
   },
 
   async registerPushToken(expo_push_token: string, device_id?: string) {

@@ -302,6 +302,52 @@ async function pushQueue(accessToken: string): Promise<{ ok: boolean; error?: st
           continue
         }
         pushedIds.push(item.id)
+      } else if (item.entity === 'notification_mark_read') {
+        const id = String(payload.id ?? '')
+        if (!id) {
+          await removeSyncItem(item.id)
+          continue
+        }
+        const res = await fetch(`${API_BASE}/notifications/${id}/read/`, {
+          method: 'PATCH',
+          headers: { Authorization: `Bearer ${accessToken}` },
+        })
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}))
+          logger.warn('pushQueue: notification_mark_read failed, removing from queue', item.id, ((err as { detail?: string }).detail || 'Notification mark read failed') as string)
+          await removeSyncItem(item.id)
+          continue
+        }
+        pushedIds.push(item.id)
+      } else if (item.entity === 'notification_mark_all_read') {
+        const res = await fetch(`${API_BASE}/notifications/mark-all-read/`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${accessToken}` },
+        })
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}))
+          logger.warn('pushQueue: notification_mark_all_read failed, removing from queue', item.id, ((err as { detail?: string }).detail || 'Notification mark all read failed') as string)
+          await removeSyncItem(item.id)
+          continue
+        }
+        pushedIds.push(item.id)
+      } else if (item.entity === 'notification_archive') {
+        const id = String(payload.id ?? '')
+        if (!id) {
+          await removeSyncItem(item.id)
+          continue
+        }
+        const res = await fetch(`${API_BASE}/notifications/${id}/archive/`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${accessToken}` },
+        })
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}))
+          logger.warn('pushQueue: notification_archive failed, removing from queue', item.id, ((err as { detail?: string }).detail || 'Notification archive failed') as string)
+          await removeSyncItem(item.id)
+          continue
+        }
+        pushedIds.push(item.id)
       }
 
       // Don't mark synced here; caller marks only after pull succeeds
