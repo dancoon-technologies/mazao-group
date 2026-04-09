@@ -24,6 +24,7 @@ import type {
 import { parseApiError } from "./api-utils";
 
 const API_BASE = "";
+const WEB_DEVICE_ID_KEY = "mazao_web_device_id";
 
 const defaultCredentials: RequestCredentials = "include";
 
@@ -54,6 +55,22 @@ async function authFetch(
   return res;
 }
 
+function getWebDeviceId(): string {
+  if (typeof window === "undefined") return "web-server";
+  try {
+    const existing = window.localStorage.getItem(WEB_DEVICE_ID_KEY);
+    if (existing && existing.trim()) return existing.trim();
+    const generated =
+      typeof window.crypto !== "undefined" && "randomUUID" in window.crypto
+        ? window.crypto.randomUUID()
+        : `web-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+    window.localStorage.setItem(WEB_DEVICE_ID_KEY, generated);
+    return generated;
+  } catch {
+    return `web-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+  }
+}
+
 export interface AuthUser {
   email: string;
   role: UserRole;
@@ -62,10 +79,11 @@ export interface AuthUser {
 
 export const api = {
   async login(email: string, password: string): Promise<{ user: AuthUser }> {
+    const device_id = getWebDeviceId();
     const res = await authFetch(`${API_BASE}/api/auth/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({ email, password, device_id }),
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
