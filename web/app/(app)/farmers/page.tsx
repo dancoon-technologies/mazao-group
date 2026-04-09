@@ -9,6 +9,7 @@ import {
   Paper,
   SegmentedControl,
   Stack,
+  Tabs,
   Text,
   TextInput,
 } from "@mantine/core";
@@ -76,12 +77,33 @@ const INITIAL_FARMER_FORM = {
 export default function FarmersPage() {
   const { data: farmersData, error, loading, refetch } = useAsyncData((signal) => api.getFarmers({ signal }), []);
   const farmers = farmersData ?? [];
+  const [activeTab, setActiveTab] = useState<"all" | "individual" | "group" | "stockist" | "sacco">("all");
   const [showForm, setShowForm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState("");
   const [form, updateField, resetForm] = useFormFields(INITIAL_FARMER_FORM);
 
-  const openAddFarmer = useCallback(() => setShowForm(true), []);
+  const filteredCustomers = useCallback(
+    (list: Farmer[]) => {
+      if (activeTab === "all") return list;
+      if (activeTab === "individual") {
+        return list.filter((f) => !f.is_group && !f.is_stockist && !f.is_sacco);
+      }
+      if (activeTab === "group") return list.filter((f) => Boolean(f.is_group));
+      if (activeTab === "stockist") return list.filter((f) => Boolean(f.is_stockist));
+      return list.filter((f) => Boolean(f.is_sacco));
+    },
+    [activeTab]
+  );
+
+  const visibleCustomers = filteredCustomers(farmers);
+
+  const openAddFarmer = useCallback(() => {
+    if (activeTab === "group" || activeTab === "stockist" || activeTab === "sacco" || activeTab === "individual") {
+      updateField("mode", activeTab);
+    }
+    setShowForm(true);
+  }, [activeTab, updateField]);
 
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {
@@ -148,13 +170,23 @@ export default function FarmersPage() {
     <Box style={{ minWidth: PAGE_BOX_MIN_WIDTH }}>
       <PageHeader
         title="Customers"
-        subtitle={pluralize(farmers.length, "customer") + " listed"}
+        subtitle={pluralize(visibleCustomers.length, "customer") + " listed"}
         action={
           <Button color="green" variant="light" onClick={openAddFarmer}>
             Add customer
           </Button>
         }
       />
+
+      <Tabs value={activeTab} onChange={(v) => setActiveTab((v as "all" | "individual" | "group" | "stockist" | "sacco") ?? "all")} mt="md">
+        <Tabs.List>
+          <Tabs.Tab value="all">All</Tabs.Tab>
+          <Tabs.Tab value="individual">Individual</Tabs.Tab>
+          <Tabs.Tab value="group">Farmer groups</Tabs.Tab>
+          <Tabs.Tab value="stockist">Stockists</Tabs.Tab>
+          <Tabs.Tab value="sacco">SACCOs</Tabs.Tab>
+        </Tabs.List>
+      </Tabs>
 
       {showForm && (
         <Paper mt="md" p="md" radius="md" shadow="sm" withBorder>
@@ -255,7 +287,7 @@ export default function FarmersPage() {
       )}
 
       <DataTable
-        data={farmers}
+        data={visibleCustomers}
         rowKey="id"
         columns={FARMER_COLUMNS}
         minWidth={400}
