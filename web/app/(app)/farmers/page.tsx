@@ -97,6 +97,16 @@ export default function FarmersPage() {
   );
 
   const visibleCustomers = filteredCustomers(farmers);
+  const tabCounts = useCallback(
+    (tab: "all" | "individual" | "group" | "stockist" | "sacco") => {
+      if (tab === "all") return farmers.length;
+      if (tab === "individual") return farmers.filter((f) => !f.is_group && !f.is_stockist && !f.is_sacco).length;
+      if (tab === "group") return farmers.filter((f) => Boolean(f.is_group)).length;
+      if (tab === "stockist") return farmers.filter((f) => Boolean(f.is_stockist)).length;
+      return farmers.filter((f) => Boolean(f.is_sacco)).length;
+    },
+    [farmers]
+  );
 
   const openAddFarmer = useCallback(() => {
     if (activeTab === "group" || activeTab === "stockist" || activeTab === "sacco" || activeTab === "individual") {
@@ -180,11 +190,11 @@ export default function FarmersPage() {
 
       <Tabs value={activeTab} onChange={(v) => setActiveTab((v as "all" | "individual" | "group" | "stockist" | "sacco") ?? "all")} mt="md">
         <Tabs.List>
-          <Tabs.Tab value="all">All</Tabs.Tab>
-          <Tabs.Tab value="individual">Individual</Tabs.Tab>
-          <Tabs.Tab value="group">Farmer groups</Tabs.Tab>
-          <Tabs.Tab value="stockist">Stockists</Tabs.Tab>
-          <Tabs.Tab value="sacco">SACCOs</Tabs.Tab>
+          <Tabs.Tab value="all">{`All (${tabCounts("all")})`}</Tabs.Tab>
+          <Tabs.Tab value="individual">{`Individual (${tabCounts("individual")})`}</Tabs.Tab>
+          <Tabs.Tab value="group">{`Farmer groups (${tabCounts("group")})`}</Tabs.Tab>
+          <Tabs.Tab value="stockist">{`Stockists (${tabCounts("stockist")})`}</Tabs.Tab>
+          <Tabs.Tab value="sacco">{`SACCOs (${tabCounts("sacco")})`}</Tabs.Tab>
         </Tabs.List>
       </Tabs>
 
