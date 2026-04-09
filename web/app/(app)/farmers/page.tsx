@@ -46,7 +46,13 @@ const FARMER_COLUMNS: DataTableColumn<Farmer>[] = [
     label: "Type",
     render: (f) => (
       <Text size="sm" c="dimmed">
-        {f.is_group ? "Farmers group" : "Individual"}
+        {f.is_sacco
+          ? "SACCO"
+          : f.is_stockist
+            ? "Stockist"
+            : f.is_group
+              ? "Farmers group"
+              : "Individual farmer"}
       </Text>
     ),
   },
@@ -58,7 +64,7 @@ const FARMER_COLUMNS: DataTableColumn<Farmer>[] = [
 ];
 
 const INITIAL_FARMER_FORM = {
-  mode: "individual",
+  mode: "individual" as "individual" | "group" | "stockist" | "sacco",
   first_name: "",
   middle_name: "",
   last_name: "",
@@ -68,10 +74,7 @@ const INITIAL_FARMER_FORM = {
 };
 
 export default function FarmersPage() {
-  const { data: farmersData, error, loading, refetch } = useAsyncData(
-    (signal) => api.getFarmers({ signal, is_stockist: false }),
-    []
-  );
+  const { data: farmersData, error, loading, refetch } = useAsyncData((signal) => api.getFarmers({ signal }), []);
   const farmers = farmersData ?? [];
   const [showForm, setShowForm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -85,13 +88,23 @@ export default function FarmersPage() {
       e.preventDefault();
       setFormError("");
       const isGroup = form.mode === "group";
+      const isStockist = form.mode === "stockist";
+      const isSacco = form.mode === "sacco";
       const first = form.first_name.trim();
       const last = form.last_name.trim();
       if (!first) {
-        setFormError(isGroup ? "Enter farmers group name." : "Enter first name.");
+        setFormError(
+          isGroup
+            ? "Enter farmers group name."
+            : isSacco
+              ? "Enter SACCO name."
+              : isStockist
+                ? "Enter stockist name."
+                : "Enter first name."
+        );
         return;
       }
-      if (!isGroup && !last) {
+      if (!isGroup && !isStockist && !isSacco && !last) {
         setFormError("Enter last name.");
         return;
       }
@@ -105,12 +118,13 @@ export default function FarmersPage() {
       try {
         await api.createFarmer({
           first_name: first,
-          middle_name: isGroup ? undefined : form.middle_name.trim() || undefined,
-          last_name: isGroup ? "" : last,
+          middle_name: isGroup || isStockist || isSacco ? undefined : form.middle_name.trim() || undefined,
+          last_name: isGroup || isStockist || isSacco ? "" : last,
           phone: form.phone.trim() || undefined,
           latitude: lat,
           longitude: lon,
-          is_stockist: false,
+          is_stockist: isStockist,
+          is_sacco: isSacco,
           is_group: isGroup,
         });
         resetForm();
@@ -118,7 +132,7 @@ export default function FarmersPage() {
         await refetch();
       } catch (err) {
         setFormError(
-          err instanceof Error ? err.message : "Failed to create farmer"
+          err instanceof Error ? err.message : "Failed to create customer"
         );
       } finally {
         setSubmitting(false);
@@ -127,17 +141,17 @@ export default function FarmersPage() {
     [form, resetForm, refetch]
   );
 
-  if (loading) return <PageLoading message="Loading farmers…" />;
+  if (loading) return <PageLoading message="Loading customers…" />;
   if (error) return <PageError message={error} />;
 
   return (
     <Box style={{ minWidth: PAGE_BOX_MIN_WIDTH }}>
       <PageHeader
-        title="Farmers"
-        subtitle={pluralize(farmers.length, "farmer") + " listed"}
+        title="Customers"
+        subtitle={pluralize(farmers.length, "customer") + " listed"}
         action={
           <Button color="green" variant="light" onClick={openAddFarmer}>
-            Add farmer
+            Add customer
           </Button>
         }
       />
@@ -145,7 +159,7 @@ export default function FarmersPage() {
       {showForm && (
         <Paper mt="md" p="md" radius="md" shadow="sm" withBorder>
           <Text size="lg" fw={600} mb="md">
-            New farmer
+            New customer
           </Text>
           <form onSubmit={handleSubmit}>
             <Stack gap="md">
@@ -156,16 +170,26 @@ export default function FarmersPage() {
               )}
               <SegmentedControl
                 value={form.mode}
-                onChange={(value) => updateField("mode", value as "individual" | "group")}
+                onChange={(value) => updateField("mode", value as "individual" | "group" | "stockist" | "sacco")}
                 data={[
                   { label: "Individual", value: "individual" },
                   { label: "Farmers group", value: "group" },
+                  { label: "Stockist", value: "stockist" },
+                  { label: "SACCO", value: "sacco" },
                 ]}
               />
               <Grid>
                 <Grid.Col span={{ base: 12, sm: 6, lg: 3 }}>
                   <TextInput
-                    label={form.mode === "group" ? "Group name" : "First name"}
+                    label={
+                      form.mode === "group"
+                        ? "Group name"
+                        : form.mode === "sacco"
+                          ? "SACCO name"
+                          : form.mode === "stockist"
+                            ? "Stockist name"
+                            : "First name"
+                    }
                     required
                     value={form.first_name}
                     onChange={(e) => updateField("first_name", e.target.value)}
@@ -215,7 +239,7 @@ export default function FarmersPage() {
               </Box>
               <Group>
                 <Button type="submit" color="green" loading={submitting}>
-                  {submitting ? "Saving…" : "Add farmer"}
+                  {submitting ? "Saving…" : "Add customer"}
                 </Button>
                 <Button
                   type="button"
@@ -235,7 +259,7 @@ export default function FarmersPage() {
         rowKey="id"
         columns={FARMER_COLUMNS}
         minWidth={400}
-        emptyMessage="No farmers yet"
+        emptyMessage="No customers yet"
         pageSize={15}
       />
     </Box>

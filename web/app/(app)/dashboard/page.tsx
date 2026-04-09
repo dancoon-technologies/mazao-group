@@ -157,7 +157,7 @@ export default function DashboardPage() {
       });
     }
     if (isAdmin && stats.total_farmers != null) {
-      base.push({ label: "Total farmers", value: stats.total_farmers, href: ROUTES.FARMERS, linkLabel: "View farmers" });
+      base.push({ label: "Total customers", value: stats.total_farmers, href: ROUTES.FARMERS, linkLabel: "View customers" });
     }
     if (isAdmin && stats.total_farms != null) {
       base.push({ label: "Total farms", value: stats.total_farms, href: ROUTES.FARMS, linkLabel: "View farms" });

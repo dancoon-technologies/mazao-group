@@ -17,8 +17,7 @@ export interface NavItem {
 
 export const APP_NAV: NavItem[] = [
   { href: ROUTES.DASHBOARD, label: "Dashboard", icon: IconHome },
-  { href: ROUTES.FARMERS, label: "Farmers", icon: IconUser },
-  { href: ROUTES.STOCKISTS, label: "Stockists", icon: IconBuildingStore },
+  { href: ROUTES.FARMERS, label: "Customers", icon: IconUser },
   { href: ROUTES.FARMS, label: "Farms", icon: IconBuilding },
   { href: ROUTES.OUTLETS, label: "Outlets", icon: IconBuildingStore },
   { href: ROUTES.VISITS, label: "Visits", icon: IconClipboardList, roles: ROLES_CAN_LIST_VISITS },

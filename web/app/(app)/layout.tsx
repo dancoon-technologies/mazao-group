@@ -13,7 +13,6 @@ import { useAuth } from "@/contexts/AuthContext";
 import { api } from "@/lib/api";
 import { APP_NAV, filterNavByRole } from "@/config/navigation";
 import { ROUTES } from "@/lib/constants";
-import { getLabelsFromOptions, pluralPartner } from "@/lib/options";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { WebLocationTracker } from "@/components/WebLocationTracker";
 import { LoadingScreen } from "@/components/ui";
@@ -39,18 +38,10 @@ export default function AppLayout({
     (signal) => (isAuthenticated ? api.getOptions({ signal }) : Promise.resolve(null)),
     [isAuthenticated]
   );
-  const labels = useMemo(() => getLabelsFromOptions(optionsData), [optionsData]);
   const trackingSettings = optionsData?.tracking_settings;
-  const navWithLabels = useMemo(() => {
-    const partnerPlural = pluralPartner(labels.partner);
-    return APP_NAV.map((item) => {
-      if (item.href === ROUTES.FARMERS) return { ...item, label: partnerPlural };
-      return item;
-    });
-  }, [labels.partner]);
   const filteredNav = useMemo(
-    () => filterNavByRole(navWithLabels, role ?? null, canAccessDashboard),
-    [navWithLabels, role, canAccessDashboard]
+    () => filterNavByRole(APP_NAV, role ?? null, canAccessDashboard),
+    [role, canAccessDashboard]
   );
 
   useEffect(() => {
