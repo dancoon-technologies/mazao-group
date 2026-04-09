@@ -136,19 +136,7 @@ export default function AppLayout({
 
       <AppShell.Navbar p="md">
         <AppShell.Section grow>
-          <Link
-            href={filteredNav[0]?.href ?? ROUTES.FARMERS}
-            style={{ textDecoration: "none", display: "inline-flex", alignItems: "center", marginBottom: "var(--mantine-spacing-md)" }}
-          >
-            <Image
-              src="/favicon.png"
-              alt="Mazao logo"
-              width={36}
-              height={36}
-              style={{ display: "block" }}
-            />
-          </Link>
-          <Box mt="xs">
+          <Box>
             {filteredNav.map((item) => {
               const Icon = item.icon;
               const active = pathname === item.href;
