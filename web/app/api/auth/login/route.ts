@@ -26,6 +26,9 @@ export async function POST(request: Request) {
   const body = await request.json().catch(() => ({}));
   const email = typeof body.email === "string" ? body.email : "";
   const password = typeof body.password === "string" ? body.password : "";
+  const deviceIdRaw = body.device_id;
+  const device_id =
+    typeof deviceIdRaw === "string" ? deviceIdRaw.trim().slice(0, 128) : "";
 
   if (!email || !password) {
     return Response.json(
@@ -38,7 +41,11 @@ export async function POST(request: Request) {
   const res = await fetch(loginUrl, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email, password }),
+    body: JSON.stringify({
+      email,
+      password,
+      ...(device_id ? { device_id } : {}),
+    }),
     redirect: "manual",
   });
 
