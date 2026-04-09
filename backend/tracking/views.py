@@ -130,7 +130,10 @@ class LocationReportListCreateView(APIView):
             )
             if request.user.role == "supervisor":
                 if request.user.department_id:
-                    qs = qs.filter(user__department=request.user.department)
+                    qs = qs.filter(
+                        user__department=request.user.department,
+                        user__role="officer",
+                    )
                 else:
                     qs = qs.none()
             user_id = request.query_params.get("user_id")
