@@ -142,13 +142,16 @@ export default function MaintenancePage() {
     ];
   }, [previewCoords]);
 
+  /** Browser GPS — used for officer report / at-garage only; supervisors do not capture location on accept. */
   const getCoords = useCallback(async (): Promise<{ latitude: number; longitude: number }> => {
-    if (!navigator.geolocation) throw new Error("Geolocation is not available in this browser.");
+    if (typeof navigator === "undefined" || !navigator.geolocation) {
+      throw new Error("Geolocation is not available in this browser.");
+    }
     return new Promise((resolve, reject) => {
       navigator.geolocation.getCurrentPosition(
         (pos) => resolve({ latitude: pos.coords.latitude, longitude: pos.coords.longitude }),
-        () => reject(new Error("Could not get location.")),
-        { enableHighAccuracy: true, timeout: 10000 }
+        () => reject(new Error("Could not get location. Allow access in the browser and use HTTPS.")),
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
       );
     });
   }, []);
@@ -187,11 +190,6 @@ export default function MaintenancePage() {
           status,
           supervisor_notes: isSupervisor ? supervisorNotes[incident.id]?.trim() || undefined : undefined,
         };
-        if (status === "verified_breakdown") {
-          const coords = await getCoords();
-          payload.breakdown_verified_latitude = coords.latitude;
-          payload.breakdown_verified_longitude = coords.longitude;
-        }
         if (status === "at_garage") {
           const coords = await getCoords();
           payload.garage_latitude = coords.latitude;
