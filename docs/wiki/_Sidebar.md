@@ -1,4 +1,5 @@
 - [Home](Home)
+- [User Manual (PDF-friendly)](../USER_MANUAL.md)
 - [System Architecture](System-Architecture)
 - [Data Model](Data-Model)
 - [Backend API](Backend-API)

@@ -6,6 +6,7 @@ Use this wiki as the single onboarding and runbook source for engineers, supervi
 
 ## Start Here
 
+- [**User Manual (overview)**](../USER_MANUAL.md) — roles, web vs mobile, links to detailed guides
 - [System Architecture](System-Architecture)
 - [Data Model](Data-Model)
 - [Backend API](Backend-API)
