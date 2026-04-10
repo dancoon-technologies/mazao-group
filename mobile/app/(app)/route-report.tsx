@@ -1,6 +1,6 @@
 import { colors, spacing } from '@/constants/theme';
 import { localWeekStartYmd } from '@/lib/dateLocal';
-import { api, type Route, type RouteReport, type Visit } from '@/lib/api';
+import { api, type Route, type Visit } from '@/lib/api';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
@@ -29,37 +29,20 @@ function formatDate(iso: string): string {
   });
 }
 
-/** Build prefill summary from visits linked to this route (additional fields from step 3). */
-function buildPrefillFromVisits(visits: Visit[]): Record<string, unknown> {
-  if (visits.length === 0) return {};
-  const summary: Record<string, unknown> = {
-    visits_count: visits.length,
-    prefilled_from_visits: true,
-  };
+/** Prefill remarks from visit step-3 fields when there is no saved report yet. */
+function buildPrefillRemarksFromVisits(visits: Visit[]): string {
+  if (visits.length === 0) return '';
+  const lines: string[] = [];
   const cropStages = visits.map((v) => v.crop_stage).filter(Boolean);
   const feedbacks = visits.map((v) => v.farmers_feedback).filter(Boolean);
-  if (cropStages.length) summary.crop_stages_summary = cropStages.join('; ');
-  if (feedbacks.length) summary.farmers_feedback_summary = feedbacks.join('; ');
-  return summary;
+  if (cropStages.length) {
+    lines.push(`Crop stages (from visits): ${cropStages.join('; ')}`);
+  }
+  if (feedbacks.length) {
+    lines.push(`Farmer feedback (from visits): ${feedbacks.join('; ')}`);
+  }
+  return lines.join('\n\n');
 }
-
-type RouteReportForm = {
-  summary: string;
-  challenges: string;
-  next_actions: string;
-  farmer_feedback: string;
-  notes: string;
-  visits_count: string;
-};
-
-const EMPTY_FORM: RouteReportForm = {
-  summary: '',
-  challenges: '',
-  next_actions: '',
-  farmer_feedback: '',
-  notes: '',
-  visits_count: '',
-};
 
 function toText(value: unknown): string {
   if (value == null) return '';
@@ -68,27 +51,38 @@ function toText(value: unknown): string {
   return '';
 }
 
-function reportDataToForm(data?: Record<string, unknown> | null): RouteReportForm {
-  if (!data || typeof data !== 'object') return { ...EMPTY_FORM };
-  return {
-    summary: toText(data.summary),
-    challenges: toText(data.challenges ?? data.issues),
-    next_actions: toText(data.next_actions ?? data.next_steps),
-    farmer_feedback: toText(data.farmer_feedback ?? data.farmers_feedback_summary),
-    notes: toText(data.notes),
-    visits_count: toText(data.visits_count),
+function reportDataToRemarks(data?: Record<string, unknown> | null): string {
+  if (!data || typeof data !== 'object') return '';
+  const d = data as Record<string, unknown>;
+  const direct = toText(d.remarks).trim();
+  if (direct) return toText(d.remarks);
+
+  const parts: string[] = [];
+  const push = (title: string, ...keys: string[]) => {
+    for (const key of keys) {
+      const v = toText(d[key]).trim();
+      if (v) {
+        parts.push(`${title}\n${v}`);
+        return;
+      }
+    }
   };
+  push('Summary', 'summary');
+  push('Challenges', 'challenges', 'issues');
+  push('Next actions', 'next_actions', 'next_steps');
+  push('Farmer feedback', 'farmer_feedback', 'farmers_feedback_summary');
+  push('Notes', 'notes');
+  const crop = toText(d.crop_stages_summary).trim();
+  if (crop) parts.push(`Crop stages (from visits)\n${crop}`);
+  const fb = toText(d.farmers_feedback_summary).trim();
+  if (fb) parts.push(`Farmer feedback (from visits)\n${fb}`);
+  return parts.join('\n\n');
 }
 
-function formToReportData(form: RouteReportForm): Record<string, unknown> {
+function formToReportData(remarks: string, visitsCount: number): Record<string, unknown> {
   const out: Record<string, unknown> = {};
-  if (form.summary.trim()) out.summary = form.summary.trim();
-  if (form.challenges.trim()) out.challenges = form.challenges.trim();
-  if (form.next_actions.trim()) out.next_actions = form.next_actions.trim();
-  if (form.farmer_feedback.trim()) out.farmer_feedback = form.farmer_feedback.trim();
-  if (form.notes.trim()) out.notes = form.notes.trim();
-  const count = Number.parseInt(form.visits_count.trim(), 10);
-  if (!Number.isNaN(count) && count >= 0) out.visits_count = count;
+  if (remarks.trim()) out.remarks = remarks.trim();
+  if (visitsCount >= 0) out.visits_count = visitsCount;
   return out;
 }
 
@@ -99,8 +93,7 @@ export default function RouteReportScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedRoute, setSelectedRoute] = useState<Route | null>(null);
-  const [report, setReport] = useState<RouteReport | null>(null);
-  const [form, setForm] = useState<RouteReportForm>({ ...EMPTY_FORM });
+  const [remarks, setRemarks] = useState('');
   const [visits, setVisits] = useState<Visit[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -143,42 +136,38 @@ export default function RouteReportScreen() {
         // Visits for this route only (avoid created_at date mismatch vs scheduled_date).
         api.getAllVisits({ route: route.id }),
       ]);
-      setReport(reportRes);
       setVisits(Array.isArray(visitsRes) ? visitsRes : []);
       const existing = reportRes.report_data;
+      const visitList = Array.isArray(visitsRes) ? visitsRes : [];
       if (existing && typeof existing === 'object' && Object.keys(existing).length > 0) {
-        setForm(reportDataToForm(existing as Record<string, unknown>));
+        setRemarks(reportDataToRemarks(existing as Record<string, unknown>));
       } else {
-        const prefill = buildPrefillFromVisits(Array.isArray(visitsRes) ? visitsRes : []);
-        setForm(reportDataToForm(prefill));
+        setRemarks(buildPrefillRemarksFromVisits(visitList));
       }
     } catch {
       setError('Failed to load report.');
-      setReport(null);
       setVisits([]);
-      setForm({ ...EMPTY_FORM });
+      setRemarks('');
     }
   }, []);
 
   const submitReport = useCallback(async () => {
     if (!selectedRoute) return;
-    const data = formToReportData(form);
+    const data = formToReportData(remarks, visits.length);
     setSaving(true);
     setError('');
     try {
       await api.submitRouteReport(selectedRoute.id, data);
-      setReport((prev) => (prev ? { ...prev, report_data: data, submitted_at: new Date().toISOString() } : null));
       setSaving(false);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to submit.');
       setSaving(false);
     }
-  }, [selectedRoute, form]);
+  }, [selectedRoute, remarks, visits.length]);
 
   const clearSelection = useCallback(() => {
     setSelectedRoute(null);
-    setReport(null);
-    setForm({ ...EMPTY_FORM });
+    setRemarks('');
     setVisits([]);
     setError('');
   }, []);
@@ -197,7 +186,7 @@ export default function RouteReportScreen() {
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); loadRoutes(); }} />}
         >
           <Text variant="bodyMedium" style={styles.hint}>
-            Only routes with at least one recorded visit appear here. After 6 PM you can fill the end-of-day report; if visits include extra details, fields below are prefilled.
+            Only routes with at least one recorded visit appear here. After 6 PM you can fill the end-of-day report; visit notes may be prefilled in remarks.
           </Text>
           {loading ? (
             <ActivityIndicator size="large" style={styles.loader} />
@@ -225,66 +214,17 @@ export default function RouteReportScreen() {
           {error ? <Text style={styles.errorText}>{error}</Text> : null}
           {visits.length > 0 && (
             <Text variant="bodySmall" style={styles.prefillHint}>
-              {visits.length} visit(s) recorded for this route. Some fields are prefilled below.
+              {visits.length} visit(s) recorded for this route — count is saved with the report. Edit remarks as needed.
             </Text>
           )}
-          <Text variant="labelMedium" style={styles.fieldLabel}>Route summary</Text>
+          <Text variant="labelMedium" style={styles.fieldLabel}>Remarks</Text>
           <TextInput
-            value={form.summary}
-            onChangeText={(value) => setForm((prev) => ({ ...prev, summary: value }))}
+            value={remarks}
+            onChangeText={setRemarks}
             mode="outlined"
             multiline
-            numberOfLines={4}
-            placeholder="What happened on this route today?"
-            style={styles.input}
-          />
-          <Text variant="labelMedium" style={styles.fieldLabel}>Challenges</Text>
-          <TextInput
-            value={form.challenges}
-            onChangeText={(value) => setForm((prev) => ({ ...prev, challenges: value }))}
-            mode="outlined"
-            multiline
-            numberOfLines={3}
-            placeholder="Any blockers, missed visits, stock issues, etc."
-            style={styles.input}
-          />
-          <Text variant="labelMedium" style={styles.fieldLabel}>Farmer feedback</Text>
-          <TextInput
-            value={form.farmer_feedback}
-            onChangeText={(value) => setForm((prev) => ({ ...prev, farmer_feedback: value }))}
-            mode="outlined"
-            multiline
-            numberOfLines={3}
-            placeholder="Key feedback collected from farmers/stockists"
-            style={styles.input}
-          />
-          <Text variant="labelMedium" style={styles.fieldLabel}>Next actions</Text>
-          <TextInput
-            value={form.next_actions}
-            onChangeText={(value) => setForm((prev) => ({ ...prev, next_actions: value }))}
-            mode="outlined"
-            multiline
-            numberOfLines={3}
-            placeholder="Follow-ups for tomorrow or this week"
-            style={styles.input}
-          />
-          <Text variant="labelMedium" style={styles.fieldLabel}>Visits count</Text>
-          <TextInput
-            value={form.visits_count}
-            onChangeText={(value) => setForm((prev) => ({ ...prev, visits_count: value.replace(/[^\d]/g, '') }))}
-            mode="outlined"
-            keyboardType="numeric"
-            placeholder="e.g. 8"
-            style={styles.input}
-          />
-          <Text variant="labelMedium" style={styles.fieldLabel}>Additional notes</Text>
-          <TextInput
-            value={form.notes}
-            onChangeText={(value) => setForm((prev) => ({ ...prev, notes: value }))}
-            mode="outlined"
-            multiline
-            numberOfLines={3}
-            placeholder="Anything else to include"
+            numberOfLines={12}
+            placeholder="Summarize the day: coverage, challenges, farmer feedback, follow-ups, etc."
             style={styles.input}
           />
           <View style={styles.actions}>
