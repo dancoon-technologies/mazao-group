@@ -101,8 +101,14 @@ export default function FarmersPage() {
     (tab: "all" | "individual" | "group" | "stockist" | "sacco") => {
       if (tab === "all") return farmers.length;
       if (tab === "individual") return farmers.filter((f) => !f.is_group && !f.is_stockist && !f.is_sacco).length;
-      if (tab === "group") return farmers.filter((f) => Boolean(f.is_group)).length;
-      if (tab === "stockist") return farmers.filter((f) => Boolean(f.is_stockist)).length;
+      if (tab === "group") {
+        return farmers.filter(
+          (f) => Boolean(f.is_group) && !Boolean(f.is_stockist) && !Boolean(f.is_sacco)
+        ).length;
+      }
+      if (tab === "stockist") {
+        return farmers.filter((f) => Boolean(f.is_stockist) && !Boolean(f.is_sacco)).length;
+      }
       return farmers.filter((f) => Boolean(f.is_sacco)).length;
     },
     [farmers]

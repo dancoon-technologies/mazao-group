@@ -11,6 +11,7 @@ export const ROUTES = {
   DASHBOARD: "/dashboard",
   FARMERS: "/farmers",
   STOCKISTS: "/stockists",
+  SACCOS: "/saccos",
   FARMS: "/farms",
   OUTLETS: "/outlets",
   VISITS: "/visits",

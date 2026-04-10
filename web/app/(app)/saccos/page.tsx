@@ -26,14 +26,14 @@ const MapPicker = dynamic(
   { ssr: false }
 );
 
-const STOCKIST_COLUMNS: DataTableColumn<Farmer>[] = [
+const SACCO_COLUMNS: DataTableColumn<Farmer>[] = [
   {
     key: "name",
     label: "Name",
     render: (f) => (
       <Link
         href={`/farmers/${f.id}`}
-        style={{ color: "var(--mantine-color-yellow-7)", fontWeight: 500, textDecoration: "none", wordBreak: "break-word" }}
+        style={{ color: "var(--mantine-color-blue-7)", fontWeight: 500, textDecoration: "none", wordBreak: "break-word" }}
       >
         {f.display_name}
       </Link>
@@ -53,18 +53,18 @@ const INITIAL_FORM = {
   longitude: "",
 };
 
-export default function StockistsPage() {
-  const { data: stockistsData, error, loading, refetch } = useAsyncData(
-    (signal) => api.getFarmers({ signal, is_stockist: true }),
+export default function SaccosPage() {
+  const { data: saccosData, error, loading, refetch } = useAsyncData(
+    (signal) => api.getFarmers({ signal, is_sacco: true }),
     []
   );
-  const stockists = stockistsData ?? [];
+  const saccos = saccosData ?? [];
   const [showForm, setShowForm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState("");
   const [form, updateField, resetForm] = useFormFields(INITIAL_FORM);
 
-  const openAddStockist = useCallback(() => setShowForm(true), []);
+  const openAddSacco = useCallback(() => setShowForm(true), []);
 
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {
@@ -72,7 +72,7 @@ export default function StockistsPage() {
       setFormError("");
       const name = form.name.trim();
       if (!name) {
-        setFormError("Enter stockist name.");
+        setFormError("Enter SACCO name.");
         return;
       }
       const lat = parseFloat(form.latitude);
@@ -90,8 +90,8 @@ export default function StockistsPage() {
           phone: form.phone.trim() || undefined,
           latitude: lat,
           longitude: lon,
-          is_stockist: true,
-          is_sacco: false,
+          is_stockist: false,
+          is_sacco: true,
           is_group: false,
         });
         resetForm();
@@ -99,7 +99,7 @@ export default function StockistsPage() {
         await refetch();
       } catch (err) {
         setFormError(
-          err instanceof Error ? err.message : "Failed to create stockist"
+          err instanceof Error ? err.message : "Failed to create SACCO"
         );
       } finally {
         setSubmitting(false);
@@ -108,17 +108,17 @@ export default function StockistsPage() {
     [form, resetForm, refetch]
   );
 
-  if (loading) return <PageLoading message="Loading stockists…" />;
+  if (loading) return <PageLoading message="Loading SACCOs…" />;
   if (error) return <PageError message={error} />;
 
   return (
     <Box style={{ minWidth: PAGE_BOX_MIN_WIDTH }}>
       <PageHeader
-        title="Stockists"
-        subtitle={pluralize(stockists.length, "stockist") + " listed"}
+        title="SACCOs"
+        subtitle={pluralize(saccos.length, "SACCO") + " listed"}
         action={
-          <Button color="yellow" variant="light" onClick={openAddStockist}>
-            Add stockist
+          <Button color="blue" variant="light" onClick={openAddSacco}>
+            Add SACCO
           </Button>
         }
       />
@@ -126,7 +126,7 @@ export default function StockistsPage() {
       {showForm && (
         <Paper mt="md" p="md" radius="md" shadow="sm" withBorder>
           <Text size="lg" fw={600} mb="md">
-            New stockist
+            New SACCO
           </Text>
           <form onSubmit={handleSubmit}>
             <Stack gap="md">
@@ -136,7 +136,7 @@ export default function StockistsPage() {
                 </Alert>
               )}
               <TextInput
-                label="Stockist name"
+                label="SACCO name"
                 required
                 value={form.name}
                 onChange={(e) => updateField("name", e.target.value)}
@@ -164,8 +164,8 @@ export default function StockistsPage() {
                 />
               </Box>
               <Group>
-                <Button type="submit" color="yellow" loading={submitting}>
-                  {submitting ? "Saving…" : "Add stockist"}
+                <Button type="submit" color="blue" loading={submitting}>
+                  {submitting ? "Saving…" : "Add SACCO"}
                 </Button>
                 <Button
                   type="button"
@@ -181,11 +181,11 @@ export default function StockistsPage() {
       )}
 
       <DataTable
-        data={stockists}
+        data={saccos}
         rowKey="id"
-        columns={STOCKIST_COLUMNS}
+        columns={SACCO_COLUMNS}
         minWidth={400}
-        emptyMessage="No stockists yet"
+        emptyMessage="No SACCOs yet"
         pageSize={15}
       />
     </Box>

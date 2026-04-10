@@ -19,6 +19,7 @@ describe("ROUTES", () => {
     expect(ROUTES.DASHBOARD).toBe("/dashboard");
     expect(ROUTES.FARMERS).toBe("/farmers");
     expect(ROUTES.STOCKISTS).toBe("/stockists");
+    expect(ROUTES.SACCOS).toBe("/saccos");
     expect(ROUTES.OUTLETS).toBe("/outlets");
     expect(ROUTES.VISITS).toBe("/visits");
     expect(ROUTES.SALES).toBe("/sales");
