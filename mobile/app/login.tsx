@@ -1,6 +1,6 @@
 import { colors, cardShadow, cardStyle, loginBackground, radius, scrollPaddingKeyboardShort, spacing } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
@@ -65,14 +65,15 @@ export default function LoginScreen() {
         >
           <View style={styles.card}>
             <View style={styles.logoWrap}>
-              <MaterialCommunityIcons
-                name="check"
-                size={40}
-                color={colors.white}
+              <Image
+                source={require('../assets/images/icon.png')}
+                style={styles.logoImage}
+                contentFit="contain"
+                accessibilityLabel="Mazao Group"
               />
             </View>
             <Text variant="headlineSmall" style={styles.brand}>
-              Mazao Monitor
+              Mazao Group
             </Text>
             <Text variant="bodyMedium" style={styles.portalTitle}>
               Field Officer Portal
@@ -166,15 +167,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   logoWrap: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: colors.primary,
-    borderWidth: 3,
-    borderColor: colors.white,
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: colors.white,
+    borderWidth: 2,
+    borderColor: colors.gray200,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: spacing.lg,
+    overflow: 'hidden',
+  },
+  logoImage: {
+    width: 64,
+    height: 64,
   },
   brand: {
     fontWeight: '700',
