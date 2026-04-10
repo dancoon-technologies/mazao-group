@@ -11,6 +11,6 @@ requests
 psycopg[binary]
 dj-database-url
 
-# S3 storage (optional; use for production or when AWS is configured)
+# Object storage (DigitalOcean Spaces via django-storages + boto3; optional for local dev)
 django-storages
 boto3

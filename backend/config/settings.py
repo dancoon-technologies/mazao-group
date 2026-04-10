@@ -22,6 +22,13 @@ SECRET_KEY = config("SECRET_KEY", default="django-insecure-dev-key-change-me")
 DEBUG = config("DEBUG", default=True, cast=bool)
 ALLOWED_HOSTS = config("ALLOWED_HOSTS", default="localhost,127.0.0.1").split(",")
 
+# DigitalOcean Spaces (S3-compatible API). django-storages/boto3 still use AWS_* setting names.
+_DO_SPACES_BUCKET = (
+    config("DO_SPACES_BUCKET_NAME", default="").strip()
+    or config("AWS_STORAGE_BUCKET_NAME", default="").strip()
+)
+USE_DO_SPACES = _DO_SPACES_BUCKET != ""
+
 INSTALLED_APPS = [
     "django.contrib.admin",
     "django.contrib.auth",
@@ -42,6 +49,8 @@ INSTALLED_APPS = [
     "tracking",
     "site_config",
 ]
+if USE_DO_SPACES:
+    INSTALLED_APPS.append("storages")
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
@@ -101,22 +110,69 @@ USE_TZ = True
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 
-# Media / uploads: S3 if bucket set, else local
-USE_S3 = config("AWS_STORAGE_BUCKET_NAME", default="").strip() != ""
-if USE_S3:
-    AWS_ACCESS_KEY_ID = config("AWS_ACCESS_KEY_ID", default="")
-    AWS_SECRET_ACCESS_KEY = config("AWS_SECRET_ACCESS_KEY", default="")
-    AWS_STORAGE_BUCKET_NAME = config("AWS_STORAGE_BUCKET_NAME")
-    AWS_S3_REGION_NAME = config("AWS_S3_REGION_NAME", default="us-east-1")
+# Media / uploads: DigitalOcean Spaces when bucket is configured, else local filesystem (dev).
+if USE_DO_SPACES:
+    AWS_ACCESS_KEY_ID = (
+        config("DO_SPACES_ACCESS_KEY_ID", default="").strip()
+        or config("AWS_ACCESS_KEY_ID", default="")
+    )
+    AWS_SECRET_ACCESS_KEY = (
+        config("DO_SPACES_SECRET_ACCESS_KEY", default="").strip()
+        or config("AWS_SECRET_ACCESS_KEY", default="")
+    )
+    AWS_STORAGE_BUCKET_NAME = _DO_SPACES_BUCKET
+    # Spaces datacenter slug in hostname (e.g. fra1).
+    AWS_S3_REGION_NAME = (
+        config("DO_SPACES_REGION", default="").strip()
+        or config("AWS_S3_REGION_NAME", default="fra1")
+    )
     AWS_S3_OBJECT_PARAMETERS = {"CacheControl": "max-age=86400"}
-    # S3-compatible endpoints (e.g. DigitalOcean Spaces: https://nyc3.digitaloceanspaces.com)
-    _s3_endpoint = config("AWS_S3_ENDPOINT_URL", default="").strip()
-    if _s3_endpoint:
-        AWS_S3_ENDPOINT_URL = _s3_endpoint
-    DEFAULT_FILE_STORAGE = "storages.backends.s3boto3.S3Boto3Storage"
+    # Object key prefix inside the bucket (e.g. all uploads under media/…)
+    _media_prefix = (
+        config("DO_SPACES_MEDIA_PREFIX", default="").strip().strip("/")
+        or config("AWS_S3_LOCATION", default="media").strip().strip("/")
+        or "media"
+    )
+    AWS_LOCATION = _media_prefix
+    # Recommended with modern buckets (ACLs disabled / bucket-owner enforced)
+    AWS_DEFAULT_ACL = None
+    _spaces_endpoint = (
+        config("DO_SPACES_ENDPOINT_URL", default="").strip()
+        or config("AWS_S3_ENDPOINT_URL", default="").strip()
+    )
+    AWS_S3_ENDPOINT_URL = _spaces_endpoint or (
+        f"https://{AWS_S3_REGION_NAME}.digitaloceanspaces.com"
+    )
+    # Optional: CDN hostname without scheme (e.g. bucket.fra1.cdn.digitaloceanspaces.com)
+    _spaces_cdn = (
+        config("DO_SPACES_CDN_DOMAIN", default="").strip()
+        or config("AWS_S3_CUSTOM_DOMAIN", default="").strip()
+    )
+    if _spaces_cdn:
+        AWS_S3_CUSTOM_DOMAIN = _spaces_cdn
+        MEDIA_URL = f"https://{_spaces_cdn}/{AWS_LOCATION}/"
+    else:
+        # Origin-style URL; keys are still prefixed with AWS_LOCATION by the storage backend.
+        MEDIA_URL = (
+            f"https://{AWS_STORAGE_BUCKET_NAME}.{AWS_S3_REGION_NAME}.digitaloceanspaces.com/{AWS_LOCATION}/"
+        )
+    STORAGES = {
+        "default": {"BACKEND": "storages.backends.s3boto3.S3Boto3Storage"},
+        "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"},
+    }
 else:
     MEDIA_URL = "media/"
     MEDIA_ROOT = BASE_DIR / "media"
+    STORAGES = {
+        "default": {
+            "BACKEND": "django.core.files.storage.FileSystemStorage",
+            "OPTIONS": {
+                "location": str(BASE_DIR / "media"),
+                "base_url": "/media/",
+            },
+        },
+        "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"},
+    }
 
 # DRF
 REST_FRAMEWORK = {

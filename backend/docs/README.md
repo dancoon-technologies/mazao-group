@@ -1,6 +1,6 @@
 # Mazao Backend — Developer Docs
 
-Backend for the **Mazao Extension Visit Verification System**. Django + DRF + PostgreSQL + S3.
+Backend for the **Mazao Extension Visit Verification System**. Django + DRF + PostgreSQL + DigitalOcean Spaces for uploads in production.
 
 ---
 
@@ -46,14 +46,16 @@ See `.env.example`. Main ones:
 | `SECRET_KEY` | Django secret (use a long random string in production) |
 | `DEBUG` | `True` in dev, `False` in production |
 | `DATABASE_URL` | PostgreSQL URL, e.g. `postgres://user:pass@localhost:5432/mazao` |
-| `AWS_ACCESS_KEY_ID` | For S3 uploads (visits photos) |
-| `AWS_SECRET_ACCESS_KEY` | For S3 |
-| `AWS_STORAGE_BUCKET_NAME` | S3 bucket name |
-| `AWS_S3_REGION_NAME` | e.g. `us-east-1` |
+| `DO_SPACES_ACCESS_KEY_ID` | Spaces access key (visit photos when bucket is set) |
+| `DO_SPACES_SECRET_ACCESS_KEY` | Spaces secret key |
+| `DO_SPACES_BUCKET_NAME` | Spaces bucket name |
+| `DO_SPACES_REGION` | Datacenter slug, e.g. `fra1` |
+| `DO_SPACES_MEDIA_PREFIX` | Optional; object prefix (default `media`) |
+| `DO_SPACES_CDN_DOMAIN` | Optional; CDN hostname for public file URLs |
 | `WEB_MAIL_API_URL` | Optional. Full URL of the Next.js mail endpoint, e.g. `https://your-app.com/api/internal/mail`. When set (with `WEB_MAIL_INTERNAL_SECRET`), transactional email is sent by the web app (Nodemailer) before falling back to Django SMTP. |
 | `WEB_MAIL_INTERNAL_SECRET` | Shared secret; must match the web app `INTERNAL_MAIL_SECRET`. |
 
-For **local dev without S3**, you can leave AWS vars unset; the app can store files locally (see settings).
+For **local dev without Spaces**, leave `DO_SPACES_BUCKET_NAME` empty; files are stored under `backend/media/` (see settings).
 
 For **email via the web app**, set `WEB_MAIL_API_URL` and `WEB_MAIL_INTERNAL_SECRET`, configure SMTP on the Next.js side (`SMTP_*`, `INTERNAL_MAIL_SECRET`), and keep Django `EMAIL_*` as fallback.
 

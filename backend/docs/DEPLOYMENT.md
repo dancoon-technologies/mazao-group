@@ -81,7 +81,7 @@ sudo nginx -t && sudo systemctl reload nginx
 It includes:
 - **HTTP** on port 80 (and an optional **HTTPS** block in comments).
 - `location /static/` → `backend/staticfiles/` (after `collectstatic`).
-- `location /media/` → `backend/media/` (uploaded files).
+- `location /media/` → `backend/media/` (only when the API uses **local** media storage; with **DigitalOcean Spaces**, public URLs point at Spaces/CDN, so this block can be omitted or left for legacy disk paths).
 - `location /` → proxy to `http://127.0.0.1:8000` with correct headers.
 - `client_max_body_size 5M` for the 5 MB photo limit.
 
@@ -130,7 +130,7 @@ Point Nginx `location /static/` to the same path as `STATIC_ROOT`.
 
 - [ ] SECRET_KEY changed, DEBUG=False, ALLOWED_HOSTS set
 - [ ] PostgreSQL configured and migrated
-- [ ] S3 bucket created; IAM user with read/write; env vars set
+- [ ] Spaces bucket created; Spaces keys with read/write; `DO_SPACES_*` env vars set
 - [ ] Gunicorn + systemd running
 - [ ] Nginx proxying and serving static files
 - [ ] SSL in place and redirect HTTP → HTTPS
