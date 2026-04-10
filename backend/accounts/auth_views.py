@@ -7,6 +7,8 @@ from rest_framework.response import Response
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer, TokenRefreshSerializer
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
+from .app_client_meta import save_app_client_meta_from_request_data
+
 logger = logging.getLogger(__name__)
 User = get_user_model()
 
@@ -78,6 +80,7 @@ class EmailTokenObtainPairSerializer(TokenObtainPairSerializer):
                     User.objects.filter(pk=self.user.pk).update(current_refresh_jti=jti)
         except Exception:
             pass
+        save_app_client_meta_from_request_data(self.user, self.initial_data)
         return data
 
 
@@ -125,6 +128,7 @@ class SingleDeviceTokenRefreshSerializer(TokenRefreshSerializer):
                 user.save(update_fields=["current_refresh_jti", "current_access_jti"])
             else:
                 user.save(update_fields=["current_refresh_jti"])
+        save_app_client_meta_from_request_data(user, getattr(self, "initial_data", None) or None)
         return {
             "access": str(new_refresh.access_token),
             "refresh": str(new_refresh),

@@ -1,6 +1,7 @@
 import * as SecureStore from 'expo-secure-store';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_BASE, STORAGE_KEYS } from '@/constants/config';
+import { getAppClientMetaForApi } from '@/lib/appClientMeta';
 import { getOrCreateDeviceId } from '@/lib/deviceIdentity';
 import { logger } from '@/lib/logger';
 import { locationsCache$ } from '@/store/observable';
@@ -382,7 +383,7 @@ async function refreshAccessToken(): Promise<{ access: string | null; sessionErr
   const res = await fetch(`${API_BASE}/auth/refresh/`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ refresh }),
+    body: JSON.stringify({ refresh, ...getAppClientMetaForApi() }),
   });
   if (!res.ok) {
     const errBody = await res.json().catch(() => ({}));
@@ -616,10 +617,11 @@ export const api = {
     const normalizedEmail = (email ?? '').trim().toLowerCase();
     try {
       const device_id = await getOrCreateDeviceId();
+      const { getAppClientMetaForApi } = await import('@/lib/appClientMeta');
       const res = await fetch(`${API_BASE}/auth/login/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: normalizedEmail, password, device_id }),
+        body: JSON.stringify({ email: normalizedEmail, password, device_id, ...getAppClientMetaForApi() }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {

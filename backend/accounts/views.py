@@ -6,7 +6,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .models import Department, User
+from .models import Department, User, field_staff_user_queryset
 
 logger = logging.getLogger(__name__)
 from .serializers import StaffCreateSerializer, StaffPatchSerializer, UserSerializer
@@ -132,11 +132,9 @@ class OfficersListView(generics.ListAPIView):
         user = self.request.user
         if user.role not in ("admin", "supervisor"):
             return User.objects.none()
-        qs = (
+        qs = field_staff_user_queryset(
             User.objects.filter(role=User.Role.OFFICER)
-            .select_related("department", "region_id", "county_id", "sub_county_id")
-            .order_by("email")
-        )
+        ).select_related("department", "region_id", "county_id", "sub_county_id").order_by("email")
         if user.role == "supervisor":
             # Supervisors see only officers in their department.
             if user.department_id:
@@ -161,11 +159,9 @@ class StaffListCreateView(generics.ListCreateAPIView):
     def get_queryset(self):
         if self.request.user.role != "admin":
             return User.objects.none()
-        return (
+        return field_staff_user_queryset(
             User.objects.filter(role__in=(User.Role.SUPERVISOR, User.Role.OFFICER))
-            .select_related("department", "region_id", "county_id", "sub_county_id")
-            .order_by("role", "email")
-        )
+        ).select_related("department", "region_id", "county_id", "sub_county_id").order_by("role", "email")
 
     def list(self, request, *args, **kwargs):
         if request.user.role != "admin":
@@ -217,6 +213,11 @@ class StaffUpdateView(generics.GenericAPIView):
                 {"detail": "User is not staff."},
                 status=status.HTTP_404_NOT_FOUND,
             )
+        if user.is_staff or user.is_superuser:
+            return Response(
+                {"detail": "Staff member not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
         return Response(UserSerializer(user).data)
 
     def patch(self, request, pk):
@@ -239,6 +240,12 @@ class StaffUpdateView(generics.GenericAPIView):
             return Response(
                 {"detail": "User is not staff (supervisor or officer)."},
                 status=status.HTTP_400_BAD_REQUEST,
+            )
+        if user.is_staff or user.is_superuser:
+            logger.warning("PATCH /api/staff/%s hidden django portal user", pk)
+            return Response(
+                {"detail": "Staff member not found."},
+                status=status.HTTP_404_NOT_FOUND,
             )
         serializer = StaffPatchSerializer(user, data=request.data, partial=True)
         if not serializer.is_valid():
@@ -263,16 +270,13 @@ class StaffPerformanceView(APIView):
             )
         today = timezone.now().date()
         start_of_month = today.replace(day=1)
-        qs = (
+        qs = field_staff_user_queryset(
             User.objects.filter(role__in=(User.Role.SUPERVISOR, User.Role.OFFICER))
-            .select_related("department", "region_id", "county_id", "sub_county_id")
-            .annotate(
-                visits_today=Count("visits", filter=Q(visits__created_at__date=today)),
-                visits_this_month=Count("visits", filter=Q(visits__created_at__date__gte=start_of_month)),
-                visits_total=Count("visits"),
-            )
-            .order_by("role", "email")
-        )
+        ).select_related("department", "region_id", "county_id", "sub_county_id").annotate(
+            visits_today=Count("visits", filter=Q(visits__created_at__date=today)),
+            visits_this_month=Count("visits", filter=Q(visits__created_at__date__gte=start_of_month)),
+            visits_total=Count("visits"),
+        ).order_by("role", "email")
         out = []
         for user in qs:
             data = UserSerializer(user).data
@@ -361,6 +365,11 @@ class StaffResendCredentialsView(generics.GenericAPIView):
                 {"detail": "User is not staff (supervisor or officer)."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+        if user.is_staff or user.is_superuser:
+            return Response(
+                {"detail": "Staff member not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
         try:
             resend_staff_credentials(user)
         except Exception as e:
@@ -409,6 +418,11 @@ class StaffResetDeviceView(generics.GenericAPIView):
             return Response(
                 {"detail": "User is not staff (supervisor or officer)."},
                 status=status.HTTP_400_BAD_REQUEST,
+            )
+        if user.is_staff or user.is_superuser:
+            return Response(
+                {"detail": "Staff member not found."},
+                status=status.HTTP_404_NOT_FOUND,
             )
         if request.user.role == User.Role.SUPERVISOR:
             if not request.user.department_id or user.department_id != request.user.department_id:

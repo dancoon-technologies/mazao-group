@@ -80,6 +80,12 @@ class User(AbstractUser):
         db_column="sub_county_id",
     )
     device_id = models.CharField(max_length=128, blank=True)
+    # Last-reported mobile app metadata (Expo app.json version, native build, EAS Update channel/id).
+    app_client_version = models.CharField(max_length=32, blank=True)
+    app_native_build = models.CharField(max_length=32, blank=True)
+    app_update_id = models.CharField(max_length=80, blank=True)
+    app_update_channel = models.CharField(max_length=64, blank=True)
+    app_client_reported_at = models.DateTimeField(null=True, blank=True)
     must_change_password = models.BooleanField(default=False)
     # Single device: only the refresh token with this jti is valid (enforces one login at a time).
     current_refresh_jti = models.CharField(max_length=255, blank=True, editable=False)
@@ -120,3 +126,11 @@ class User(AbstractUser):
         return self.department.name if self.department else ""
 
     get_department_display.short_description = "Department"
+
+
+def field_staff_user_queryset(queryset):
+    """
+    Users who should appear in field-staff web lists and officer pickers.
+    Excludes Django ``is_staff`` / ``is_superuser`` accounts (portal admins).
+    """
+    return queryset.filter(is_staff=False, is_superuser=False)

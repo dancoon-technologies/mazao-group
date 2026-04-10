@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from accounts.models import User
+from accounts.models import User, field_staff_user_queryset
 from farmers.models import Farm, Farmer
 
 from .models import Schedule
@@ -54,7 +54,7 @@ class ScheduleCreateSerializer(serializers.ModelSerializer):
     """Admin/supervisor: pass officer, farmer, farm, date, notes. Officer: pass farmer, farm, date, notes (officer=self)."""
 
     officer = serializers.PrimaryKeyRelatedField(
-        queryset=User.objects.filter(role=User.Role.OFFICER),
+        queryset=field_staff_user_queryset(User.objects.filter(role=User.Role.OFFICER)),
         required=False,
         allow_null=True,
     )
@@ -94,7 +94,7 @@ class ScheduleUpdateSerializer(serializers.ModelSerializer):
         help_text="Required when an officer edits their own schedule (including accepted).",
     )
     officer = serializers.PrimaryKeyRelatedField(
-        queryset=User.objects.filter(role=User.Role.OFFICER),
+        queryset=field_staff_user_queryset(User.objects.filter(role=User.Role.OFFICER)),
         required=False,
         allow_null=True,
     )

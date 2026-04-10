@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from accounts.models import User
+from accounts.models import User, field_staff_user_queryset
 
 from .models import Route, RouteReport
 
@@ -39,7 +39,7 @@ class RouteCreateSerializer(serializers.ModelSerializer):
     """Create a route (weekly plan day). Officer creates for self. Visits link to the route when recording."""
 
     officer = serializers.PrimaryKeyRelatedField(
-        queryset=User.objects.filter(role=User.Role.OFFICER),
+        queryset=field_staff_user_queryset(User.objects.filter(role=User.Role.OFFICER)),
         required=False,
         allow_null=True,
     )

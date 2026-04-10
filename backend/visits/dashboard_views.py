@@ -7,7 +7,7 @@ from django.utils import timezone
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from accounts.models import Department
+from accounts.models import Department, User, field_staff_user_queryset
 from .models import Visit, VisitProduct
 
 logger = logging.getLogger(__name__)
@@ -42,7 +42,12 @@ class DashboardStatsView(APIView):
             visits_verified=Count("id", filter=Q(verification_status=Visit.VerificationStatus.VERIFIED)),
             visits_rejected=Count("id", filter=Q(verification_status=Visit.VerificationStatus.REJECTED)),
         )
-        active_officers = base_qs.values("officer").distinct().count()
+        active_officers = (
+            base_qs.filter(officer__is_staff=False, officer__is_superuser=False)
+            .values("officer")
+            .distinct()
+            .count()
+        )
         total_visits = (stats["visits_verified"] or 0) + (stats["visits_rejected"] or 0)
         verification_rate = (
             round(100 * (stats["visits_verified"] or 0) / total_visits, 1) if total_visits else None
@@ -104,7 +109,9 @@ class DashboardStatsByDepartmentView(APIView):
         today = timezone.now().date()
         start_of_month = today.replace(day=1)
         for dept in departments:
-            dept_qs = base_qs.filter(officer__department=dept)
+            dept_qs = base_qs.filter(officer__department=dept).filter(
+                officer__is_staff=False, officer__is_superuser=False
+            )
             stats = dept_qs.aggregate(
                 visits_today=Count("id", filter=Q(created_at__date=today)),
                 visits_this_month=Count("id", filter=Q(created_at__date__gte=start_of_month)),
@@ -149,13 +156,13 @@ class DashboardTopOfficersView(APIView):
         start_of_month = today.replace(day=1)
         qs = (
             base_qs.filter(created_at__date__gte=start_of_month)
+            .filter(officer__is_staff=False, officer__is_superuser=False)
             .values("officer")
             .annotate(visits_count=Count("id"))
             .order_by("-visits_count")[:limit]
         )
-        from accounts.models import User
         officer_ids = [item["officer"] for item in qs]
-        officers = {u.id: u for u in User.objects.filter(id__in=officer_ids)}
+        officers = {u.id: u for u in field_staff_user_queryset(User.objects.filter(id__in=officer_ids))}
         result = []
         for item in qs:
             u = officers.get(item["officer"])
@@ -261,6 +268,9 @@ class DashboardStaffRankingView(APIView):
         start_dt = timezone.make_aware(datetime.combine(start_date, time.min))
         end_dt = timezone.make_aware(datetime.combine(end_date, time.max))
         visits_in_range = base_qs.filter(
+            officer__is_staff=False,
+            officer__is_superuser=False,
+        ).filter(
             # Prefer device timestamp (photo_taken_at) so offline visits
             # are ranked in the correct reporting window.
             Q(photo_taken_at__gte=start_dt, photo_taken_at__lte=end_dt)
@@ -268,14 +278,14 @@ class DashboardStaffRankingView(APIView):
         )
         visit_ids = list(visits_in_range.values_list("id", flat=True))
 
-        from accounts.models import User
-
         # Ensure we only rank each officer once.
         # Note: some DBs/backends can still return duplicates depending on DISTINCT behavior,
         # so we defensively deduplicate in Python as well.
         raw_officer_ids = list(visits_in_range.values_list("officer", flat=True).distinct())
         officer_ids = list(dict.fromkeys(raw_officer_ids))
-        officers = {str(u.id): u for u in User.objects.filter(id__in=officer_ids)}
+        officers = {
+            str(u.id): u for u in field_staff_user_queryset(User.objects.filter(id__in=officer_ids))
+        }
 
         sales_qs = (
             VisitProduct.objects.filter(visit_id__in=visit_ids)

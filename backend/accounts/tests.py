@@ -31,6 +31,49 @@ class AuthTests(TestCase):
         self.assertTrue(len(data["access"]) > 0)
         self.assertTrue(len(data["refresh"]) > 0)
 
+    def test_login_saves_app_client_meta(self):
+        r = self.client.post(
+            "/api/auth/login/",
+            {
+                "email": "user@test.com",
+                "password": "pass123",
+                "device_id": "device-a",
+                "app_version": "2.1.0",
+                "app_native_build": "99",
+                "app_update_id": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+                "app_update_channel": "preview",
+            },
+            format="json",
+        )
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.app_client_version, "2.1.0")
+        self.assertEqual(self.user.app_native_build, "99")
+        self.assertEqual(self.user.app_update_id, "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee")
+        self.assertEqual(self.user.app_update_channel, "preview")
+        self.assertIsNotNone(self.user.app_client_reported_at)
+
+    def test_refresh_saves_app_client_meta(self):
+        r = self.client.post(
+            "/api/auth/login/",
+            {"email": "user@test.com", "password": "pass123", "device_id": "device-a"},
+            format="json",
+        )
+        refresh = r.json()["refresh"]
+        r2 = self.client.post(
+            "/api/auth/refresh/",
+            {
+                "refresh": refresh,
+                "app_version": "3.0.0",
+                "app_update_id": "new-ota-id",
+            },
+            format="json",
+        )
+        self.assertEqual(r2.status_code, status.HTTP_200_OK)
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.app_client_version, "3.0.0")
+        self.assertEqual(self.user.app_update_id, "new-ota-id")
+
     def test_login_wrong_password_401(self):
         r = self.client.post(
             "/api/auth/login/",
@@ -228,6 +271,65 @@ class OptionsAPITests(TestCase):
         self.assertEqual(products[0]["id"], str(product.pk))
         self.assertEqual(products[0]["code"], "TP01")
         self.assertEqual(products[0]["unit"], "kg")
+
+
+class StaffPortalExcludesDjangoAdminUsersTests(TestCase):
+    """Field-staff APIs must not list or mutate users with Django admin flags (is_staff / is_superuser)."""
+
+    def setUp(self):
+        self.client = APIClient()
+        self.dept = Department.objects.create(slug="staff-filter-dept", name="Staff Filter Dept")
+        self.admin = User.objects.create_user(
+            email="portal-admin@test.com",
+            password="pass123",
+            role=User.Role.ADMIN,
+        )
+        self.officer = User.objects.create_user(
+            email="field-officer@test.com",
+            password="pass123",
+            role=User.Role.OFFICER,
+            department=self.dept,
+        )
+        self.supervisor_portal = User.objects.create_user(
+            email="supervisor-portal@test.com",
+            password="pass123",
+            role=User.Role.SUPERVISOR,
+            department=self.dept,
+        )
+        self.supervisor_django = User.objects.create_user(
+            email="supervisor-django@test.com",
+            password="pass123",
+            role=User.Role.SUPERVISOR,
+            department=self.dept,
+            is_staff=True,
+        )
+
+    def _admin_token(self):
+        r = self.client.post(
+            "/api/auth/login/",
+            {"email": "portal-admin@test.com", "password": "pass123", "device_id": "admin-device"},
+            format="json",
+        )
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        return r.json()["access"]
+
+    def test_staff_list_excludes_is_staff_supervisor(self):
+        token = self._admin_token()
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
+        r = self.client.get("/api/staff/")
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        data = r.json()
+        rows = data["results"] if isinstance(data, dict) and "results" in data else data
+        emails = [row["email"] for row in rows]
+        self.assertIn("field-officer@test.com", emails)
+        self.assertIn("supervisor-portal@test.com", emails)
+        self.assertNotIn("supervisor-django@test.com", emails)
+
+    def test_staff_get_detail_returns_404_for_is_staff_user(self):
+        token = self._admin_token()
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
+        r = self.client.get(f"/api/staff/{self.supervisor_django.id}/")
+        self.assertEqual(r.status_code, status.HTTP_404_NOT_FOUND)
 
 
 class StaffResetDeviceTests(TestCase):

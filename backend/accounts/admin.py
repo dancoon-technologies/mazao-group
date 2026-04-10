@@ -22,12 +22,21 @@ class UserAdmin(BaseUserAdmin):
         "department",
         "get_region_display",
         "device_status",
+        "app_client_summary",
         "is_active",
     )
     list_filter = ("role", "department", "is_active")
     search_fields = ("email", "first_name", "last_name")
     ordering = ("email",)
-    readonly_fields = ("current_refresh_jti", "current_access_jti")
+    readonly_fields = (
+        "current_refresh_jti",
+        "current_access_jti",
+        "app_client_version",
+        "app_native_build",
+        "app_update_id",
+        "app_update_channel",
+        "app_client_reported_at",
+    )
     actions = ("reset_device_bindings",)
     fieldsets = (
         (None, {"fields": ("email", "password")}),
@@ -45,6 +54,11 @@ class UserAdmin(BaseUserAdmin):
                     "county_id",
                     "sub_county_id",
                     "device_id",
+                    "app_client_version",
+                    "app_native_build",
+                    "app_update_id",
+                    "app_update_channel",
+                    "app_client_reported_at",
                     "must_change_password",
                     "current_refresh_jti",
                     "current_access_jti",
@@ -77,6 +91,25 @@ class UserAdmin(BaseUserAdmin):
     @admin.display(description="Device")
     def device_status(self, obj: User):
         return "Registered" if (obj.device_id or "").strip() else "Not registered"
+
+    @admin.display(description="Mobile app")
+    def app_client_summary(self, obj: User):
+        v = (obj.app_client_version or "").strip()
+        oid = (obj.app_update_id or "").strip()
+        if not v and not oid:
+            return "—"
+        parts: list[str] = []
+        if v:
+            parts.append(v)
+        nb = (obj.app_native_build or "").strip()
+        if nb:
+            parts.append(f"build {nb}")
+        ch = (obj.app_update_channel or "").strip()
+        if ch:
+            parts.append(f"ch {ch}")
+        if oid:
+            parts.append(f"OTA {oid[:10]}…" if len(oid) > 10 else f"OTA {oid}")
+        return " · ".join(parts)
 
     @admin.action(description="Reset selected device bindings")
     def reset_device_bindings(self, request, queryset):
