@@ -243,7 +243,7 @@ export default function StaffPage() {
       setResendingId(id);
       try {
         await api.resendStaffCredentials(id);
-        setResendMessage("Credentials email sent. The staff member can use the new temporary password to sign in.");
+        setResendMessage("Credentials email sent. The staff member can use their email and the new temporary password to access Mazao.");
         refetch();
       } catch (err) {
         setResendError(err instanceof Error ? err.message : "Failed to resend credentials");
