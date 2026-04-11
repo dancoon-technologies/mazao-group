@@ -3,6 +3,37 @@ import { NextResponse } from 'next/server';
 import nodemailer from 'nodemailer';
 
 export const runtime = 'nodejs';
+/** Read SMTP env at request time (not module load); avoids stale/empty values with some hosts. */
+export const dynamic = 'force-dynamic';
+
+function firstNonEmpty(...values: (string | undefined)[]): string {
+  for (const v of values) {
+    const t = v?.trim();
+    if (t) return t;
+  }
+  return '';
+}
+
+/** Host / user / pass with names people often copy from Django or mail providers. */
+function resolveSmtpEnv(): { host: string; user: string; pass: string } {
+  return {
+    host: firstNonEmpty(
+      process.env.SMTP_HOST,
+      process.env.EMAIL_HOST,
+      process.env.SMTP_SERVER
+    ),
+    user: firstNonEmpty(
+      process.env.SMTP_USER,
+      process.env.EMAIL_HOST_USER,
+      process.env.SMTP_USERNAME
+    ),
+    pass: firstNonEmpty(
+      process.env.SMTP_PASS,
+      process.env.SMTP_PASSWORD,
+      process.env.EMAIL_HOST_PASSWORD
+    ),
+  };
+}
 
 type MailBody = {
   to: string | string[];
@@ -59,14 +90,31 @@ export async function POST(request: Request) {
     );
   }
 
-  const host = process.env.SMTP_HOST?.trim();
-  const user = process.env.SMTP_USER?.trim();
-  const pass = process.env.SMTP_PASS?.trim();
+  const { host, user, pass } = resolveSmtpEnv();
   if (!host || !user || !pass) {
+    const missing: string[] = [];
+    if (!host) {
+      missing.push(
+        'SMTP_HOST (or EMAIL_HOST / SMTP_SERVER)'
+      );
+    }
+    if (!user) {
+      missing.push(
+        'SMTP_USER (or EMAIL_HOST_USER / SMTP_USERNAME)'
+      );
+    }
+    if (!pass) {
+      missing.push(
+        'SMTP_PASS (or SMTP_PASSWORD / EMAIL_HOST_PASSWORD)'
+      );
+    }
     return NextResponse.json(
       {
         error:
-          'SMTP is not configured (SMTP_HOST, SMTP_USER, SMTP_PASS). These must be set on the Next.js server environment — Nodemailer sends from the server, not the client.',
+          'SMTP is not configured for this Next.js server process. Set the variables below in the same deployment that serves this URL (then redeploy if you use Docker/build-time env).',
+        missing,
+        hint:
+          'If Django uses WEB_MAIL_API_URL, it must point at this app. Preview vs Production on Vercel use separate env — set vars for the environment that receives the request.',
       },
       { status: 503 }
     );
