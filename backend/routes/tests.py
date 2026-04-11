@@ -82,3 +82,34 @@ class RouteReportAPITests(TestCase):
         self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
         r = self.client.get(f"/api/routes/{self.route.pk}/report/")
         self.assertEqual(r.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_supervisor_same_department_can_get_route_report_read_only(self):
+        supervisor = User.objects.create_user(
+            email="supervisor-routes@test.com",
+            password="super123",
+            role=User.Role.SUPERVISOR,
+            region_id=self.officer.region_id,
+            department=self.officer.department,
+        )
+        token = self._login("supervisor-routes@test.com", "super123")
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
+        r = self.client.get(f"/api/routes/{self.route.pk}/report/")
+        self.assertEqual(r.status_code, status.HTTP_200_OK, msg=r.json())
+        self.assertEqual(r.json()["route_id"], str(self.route.pk))
+
+    def test_supervisor_cannot_patch_route_report_for_officer(self):
+        supervisor = User.objects.create_user(
+            email="supervisor-patch@test.com",
+            password="super123",
+            role=User.Role.SUPERVISOR,
+            region_id=self.officer.region_id,
+            department=self.officer.department,
+        )
+        token = self._login("supervisor-patch@test.com", "super123")
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
+        r = self.client.patch(
+            f"/api/routes/{self.route.pk}/report/",
+            {"report_data": {"remarks": "Should not save"}},
+            format="json",
+        )
+        self.assertEqual(r.status_code, status.HTTP_404_NOT_FOUND)

@@ -174,6 +174,34 @@ export interface Schedule {
   created_at: string;
 }
 
+/** Officer day plan; visits link to a route. */
+export interface Route {
+  id: string;
+  officer: string;
+  officer_email?: string;
+  officer_display_name?: string;
+  scheduled_date: string;
+  name: string;
+  activity_types: string[];
+  notes: string;
+  status?: "proposed" | "accepted" | "rejected";
+  approved_by?: string | null;
+  rejection_reason?: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
+/** End-of-day report for a route (mobile submit). */
+export interface RouteReport {
+  id: string;
+  route_id: string;
+  report_data: Record<string, unknown>;
+  submitted_at: string | null;
+  submitted_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface LocationRegion {
   id: number;
   name: string;

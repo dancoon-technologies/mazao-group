@@ -168,11 +168,15 @@ class RouteReportDetailView(generics.RetrieveUpdateAPIView):
         from rest_framework.exceptions import NotFound
 
         route_id = self.kwargs.get("route_id")
-        route = Route.objects.filter(
-            pk=route_id,
-            is_deleted=False,
-            officer=self.request.user,
-        ).first()
+        user = self.request.user
+        if self.request.method in ("PUT", "PATCH"):
+            route = Route.objects.filter(
+                pk=route_id,
+                is_deleted=False,
+                officer=user,
+            ).first()
+        else:
+            route = _routes_queryset(user).filter(pk=route_id).first()
         if not route:
             raise NotFound("Route not found.")
         report, _ = RouteReport.objects.get_or_create(

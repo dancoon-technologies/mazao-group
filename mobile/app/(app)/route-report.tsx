@@ -11,7 +11,15 @@ import {
   Text,
   TextInput,
 } from 'react-native-paper';
-import { RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
+import {
+  KeyboardAvoidingView,
+  Platform,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  useWindowDimensions,
+  View,
+} from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 function formatDate(iso: string): string {
@@ -172,18 +180,27 @@ export default function RouteReportScreen() {
     setError('');
   }, []);
 
+  const scrollContentStyle = [
+    styles.content,
+    { paddingHorizontal: horizontalPad, paddingBottom: insets.bottom + 24 },
+  ];
+
   return (
     <SafeAreaView style={styles.safe} edges={['bottom']}>
       <Appbar.Header style={styles.appbar}>
         <Appbar.BackAction onPress={() => (selectedRoute ? clearSelection() : router.back())} />
-        <Appbar.Content title={selectedRoute ? `Report: ${formatDate(selectedRoute.scheduled_date)}` : 'Route reports'} />
+        <Appbar.Content
+          title={selectedRoute ? `Report: ${formatDate(selectedRoute.scheduled_date)}` : 'Route reports'}
+          titleStyle={styles.appbarTitle}
+        />
       </Appbar.Header>
 
       {!selectedRoute ? (
         <ScrollView
           style={styles.container}
-          contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 24 }]}
+          contentContainerStyle={[...scrollContentStyle, styles.scrollGrow]}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); loadRoutes(); }} />}
+          keyboardShouldPersistTaps="handled"
         >
           <Text variant="bodyMedium" style={styles.hint}>
             Only routes with at least one recorded visit appear here. After 6 PM you can fill the end-of-day report; visit notes may be prefilled in remarks.
@@ -198,44 +215,57 @@ export default function RouteReportScreen() {
             routes.map((r) => (
               <Card key={r.id} style={styles.card} onPress={() => loadReportAndVisits(r)}>
                 <Card.Content>
-                  <Text variant="titleMedium">{formatDate(r.scheduled_date)}</Text>
-                  <Text variant="bodySmall" style={styles.cardSub}>{r.name || 'Day route'}</Text>
+                  <Text variant="titleMedium" numberOfLines={2} style={styles.cardTitle}>
+                    {formatDate(r.scheduled_date)}
+                  </Text>
+                  <Text variant="bodySmall" style={styles.cardSub} numberOfLines={2}>
+                    {r.name || 'Day route'}
+                  </Text>
                 </Card.Content>
               </Card>
             ))
           )}
         </ScrollView>
       ) : (
-        <ScrollView
+        <KeyboardAvoidingView
           style={styles.container}
-          contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 24 }]}
-          keyboardShouldPersistTaps="handled"
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 8 : 0}
         >
-          {error ? <Text style={styles.errorText}>{error}</Text> : null}
-          {visits.length > 0 && (
-            <Text variant="bodySmall" style={styles.prefillHint}>
-              {visits.length} visit(s) recorded for this route — count is saved with the report. Edit remarks as needed.
-            </Text>
-          )}
-          <Text variant="labelMedium" style={styles.fieldLabel}>Remarks</Text>
-          <TextInput
-            value={remarks}
-            onChangeText={setRemarks}
-            mode="outlined"
-            multiline
-            numberOfLines={12}
-            placeholder="Summarize the day: coverage, challenges, farmer feedback, follow-ups, etc."
-            style={styles.input}
-          />
-          <View style={styles.actions}>
-            <Button mode="contained" onPress={submitReport} loading={saving} disabled={saving}>
-              Submit report
-            </Button>
-            <Button mode="outlined" onPress={clearSelection} disabled={saving}>
-              Back to list
-            </Button>
-          </View>
-        </ScrollView>
+          <ScrollView
+            style={styles.flex}
+            contentContainerStyle={[...scrollContentStyle, styles.scrollGrow]}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
+          >
+            {error ? <Text style={styles.errorText}>{error}</Text> : null}
+            {visits.length > 0 && (
+              <Text variant="bodySmall" style={styles.prefillHint}>
+                {visits.length} visit(s) recorded for this route — count is saved with the report. Edit remarks as needed.
+              </Text>
+            )}
+            <Text variant="labelMedium" style={styles.fieldLabel}>Remarks</Text>
+            <TextInput
+              value={remarks}
+              onChangeText={setRemarks}
+              mode="outlined"
+              multiline
+              numberOfLines={8}
+              placeholder="Summarize the day: coverage, challenges, farmer feedback, follow-ups, etc."
+              style={styles.input}
+              contentStyle={styles.inputContent}
+              textAlignVertical={Platform.OS === 'android' ? 'top' : undefined}
+            />
+            <View style={styles.actions}>
+              <Button mode="contained" onPress={submitReport} loading={saving} disabled={saving} style={styles.actionBtn}>
+                Submit report
+              </Button>
+              <Button mode="outlined" onPress={clearSelection} disabled={saving} style={styles.actionBtn}>
+                Back to list
+              </Button>
+            </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
       )}
     </SafeAreaView>
   );
@@ -244,16 +274,22 @@ export default function RouteReportScreen() {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
   appbar: { backgroundColor: colors.background },
+  appbarTitle: { flexWrap: 'wrap', marginRight: spacing.sm },
   container: { flex: 1 },
-  content: { paddingHorizontal: spacing.lg, paddingTop: spacing.md },
-  hint: { color: colors.gray700, marginBottom: spacing.lg },
+  flex: { flex: 1 },
+  content: { paddingTop: spacing.md },
+  scrollGrow: { flexGrow: 1 },
+  hint: { color: colors.gray700, marginBottom: spacing.lg, flexShrink: 1 },
   loader: { marginVertical: spacing.xl },
-  empty: { color: colors.gray700 },
+  empty: { color: colors.gray700, flexShrink: 1 },
   card: { marginBottom: spacing.md },
-  cardSub: { color: colors.gray700, marginTop: 4 },
-  prefillHint: { color: colors.gray700, marginBottom: spacing.sm },
+  cardTitle: { flexShrink: 1 },
+  cardSub: { color: colors.gray700, marginTop: 4, flexShrink: 1 },
+  prefillHint: { color: colors.gray700, marginBottom: spacing.sm, flexShrink: 1 },
   fieldLabel: { marginBottom: spacing.xs, color: colors.gray700 },
-  input: { marginBottom: spacing.md },
-  actions: { gap: spacing.md },
-  errorText: { color: colors.error, marginBottom: spacing.sm },
+  input: { marginBottom: spacing.md, minHeight: 160 },
+  inputContent: { minHeight: 140, paddingTop: 12 },
+  actions: { gap: spacing.md, marginTop: spacing.sm, paddingBottom: spacing.md },
+  actionBtn: { alignSelf: 'stretch' },
+  errorText: { color: colors.error, marginBottom: spacing.sm, flexShrink: 1 },
 });

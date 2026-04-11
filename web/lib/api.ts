@@ -12,6 +12,8 @@ import type {
   DashboardStaffRankingItem,
   UserRole,
   Schedule,
+  Route,
+  RouteReport,
   StaffUser,
   StaffPerformanceUser,
   Notification,
@@ -702,6 +704,38 @@ export const api = {
       );
     }
     return data as { detail: string };
+  },
+
+  async getRoutes(
+    params?: { week_start?: string; officer?: string; signal?: AbortSignal }
+  ): Promise<Route[]> {
+    const search = new URLSearchParams();
+    if (params?.week_start) search.set("week_start", params.week_start);
+    if (params?.officer) search.set("officer", params.officer);
+    const qs = search.toString();
+    const url = qs ? `${API_BASE}/api/routes/?${qs}` : `${API_BASE}/api/routes/`;
+    const res = await authFetch(url, { signal: params?.signal });
+    if (!res.ok) {
+      if (res.status === 403)
+        throw new Error("You do not have permission to list routes.");
+      throw new Error("Failed to fetch routes");
+    }
+    return unwrapList(await res.json());
+  },
+
+  async getRouteReport(
+    routeId: string,
+    options?: { signal?: AbortSignal }
+  ): Promise<RouteReport> {
+    const res = await authFetch(
+      `${API_BASE}/api/routes/${encodeURIComponent(routeId)}/report/`,
+      { signal: options?.signal }
+    );
+    if (!res.ok) {
+      if (res.status === 404) throw new Error("Route report not found.");
+      throw new Error("Failed to fetch route report");
+    }
+    return res.json();
   },
 
   async changePassword(data: {
