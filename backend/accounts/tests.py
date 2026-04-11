@@ -397,3 +397,25 @@ class StaffResetDeviceTests(TestCase):
         self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
         r = self.client.post(f"/api/staff/{self.officer_b.id}/reset-device/")
         self.assertEqual(r.status_code, status.HTTP_403_FORBIDDEN)
+
+
+class GenerateTemporaryPasswordTests(TestCase):
+    """Staff credential emails use generate_temporary_password — keep it simple and unambiguous."""
+
+    def test_default_length_and_charset(self):
+        from .services import _TEMP_PASSWORD_ALPHABET, generate_temporary_password
+
+        pw = generate_temporary_password()
+        self.assertEqual(len(pw), 8)
+        self.assertTrue(all(c in _TEMP_PASSWORD_ALPHABET for c in pw))
+        self.assertFalse(any(c in "01OILoil" for c in pw))
+
+    def test_respects_length(self):
+        from .services import generate_temporary_password
+
+        self.assertEqual(len(generate_temporary_password(10)), 10)
+
+    def test_minimum_length_six(self):
+        from .services import generate_temporary_password
+
+        self.assertEqual(len(generate_temporary_password(4)), 6)

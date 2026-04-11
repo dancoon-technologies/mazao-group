@@ -224,8 +224,6 @@ EMAIL_TIMEOUT = config("EMAIL_TIMEOUT", default=30, cast=int)  # Connection time
 DEFAULT_FROM_EMAIL = config("NOTIFICATION_PROVIDER_FROM", default="no_reply@dancoon.tech")
 SERVER_EMAIL = config("SERVER_EMAIL", default=DEFAULT_FROM_EMAIL)
 
-FRONTEND_LOGIN_URL = config("FRONTEND_LOGIN_URL", default="http://localhost:3000/login")
-
 # Outbound email: optional Next.js internal API (Nodemailer). If WEB_MAIL_API_URL is set,
 # Django POSTs there first; on failure or if unset, Django uses EMAIL_* / SMTP below.
 WEB_MAIL_API_URL = config(

@@ -7,9 +7,15 @@ from django.conf import settings
 from config.mail_outbound import send_email
 
 
+# Uppercase + digits only; omit 0/O, 1/I/L to reduce typos when staff type from email.
+_TEMP_PASSWORD_ALPHABET = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ"
+
+
 def generate_temporary_password(length: int = 8) -> str:
-    """Generate a URL-safe temporary password."""
-    return secrets.token_urlsafe(length)[:length]
+    """Generate a random temporary password (short, easy to read; staff should change after login)."""
+    if length < 6:
+        length = 6
+    return "".join(secrets.choice(_TEMP_PASSWORD_ALPHABET) for _ in range(length))
 
 
 def send_staff_credentials_email(
@@ -18,11 +24,6 @@ def send_staff_credentials_email(
     name: str = "",
 ) -> None:
     """Send login credentials to a newly registered staff member."""
-    login_url = getattr(
-        settings,
-        "FRONTEND_LOGIN_URL",
-        "http://localhost:3000/login",
-    ).rstrip("/")
     subject = "Your Mazao Portal login credentials"
     role_hint = "You have been registered as staff on the Mazao portal."
     body = f"""Hello{f" {name}" if name else ""},
@@ -33,8 +34,6 @@ Your temporary login credentials:
 
   Email: {email}
   Temporary password: {temporary_password}
-
-Sign in here: {login_url}
 
 Do not share this email. If you did not expect this, please contact your administrator.
 """
