@@ -66,7 +66,7 @@ def send_email(
             )
             logger.info(
                 "Falling back to Django send_mail. If you intend to send via the web app, "
-                "set SMTP_HOST, SMTP_USER, and SMTP_PASS on the Next.js server environment "
+                "set SMTP_HOST, SMTP_USER, and SMTP_PASSWORD on the Next.js server environment "
                 "(Nodemailer runs in /api/internal/mail, not in the browser)."
             )
         except Exception as e:

@@ -57,7 +57,7 @@ See `.env.example`. Main ones:
 
 For **local dev without Spaces**, leave `DO_SPACES_BUCKET_NAME` empty; files are stored under `backend/media/` (see settings).
 
-For **email via the web app**, set `WEB_MAIL_API_URL` and `WEB_MAIL_INTERNAL_SECRET`, configure SMTP on the Next.js side (`SMTP_*`, `INTERNAL_MAIL_SECRET`), and keep Django `EMAIL_*` as fallback.
+For **email via the web app**, set `WEB_MAIL_API_URL` and `WEB_MAIL_INTERNAL_SECRET`, and on the Next.js deployment set `INTERNAL_MAIL_SECRET` (same value), `SMTP_HOST`, `SMTP_USER`, `SMTP_PASSWORD`, plus optional `SMTP_PORT`, `SMTP_SECURE`, `SMTP_FROM`. Keep Django `SMTP_*` / `EMAIL_*` as fallback when web mail fails.
 
 ---
 
