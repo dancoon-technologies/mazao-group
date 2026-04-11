@@ -22,6 +22,8 @@ The visit record has **7 optional fields** used in the “Additional” step whe
 
 The seed script `seed_activity_form_fields` sets `ActivityTypeConfig.form_fields` so that for each activity type the app shows only the most relevant of the 7 keys, with **activity-specific labels** (e.g. “Total order value” for Order collection, “Amount collected” for Debt collections). That keeps step 3 focused and avoids showing every field for every activity.
 
+**`product_lines`** (products sold per line item) is appended to every activity’s `form_fields` by migration `0030_add_product_lines_to_all_activity_configs` and by the seed helper `_with_product_lines`, so officers can record product quantities where the department has products configured.
+
 - **order_value** is reused for any monetary value: total order, amount collected, revenue, sales at event, bulk potential, credit needs, etc.
 - **farmers_feedback** is reused for any free text: reasons, feedback, recommendations, topics, outcomes, competitor notes, etc.
 - **crop_stage** is used for crop/technology stage or type where relevant.

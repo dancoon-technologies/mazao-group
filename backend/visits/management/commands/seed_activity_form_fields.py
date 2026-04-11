@@ -14,7 +14,18 @@ See backend/docs/FIELD_ACTIVITY_FORM_FIELDS.md for full mapping and fields not y
 from django.core.management.base import BaseCommand
 
 # Activity value -> list of {key, label, required}. Keys must be Visit step-3 keys only.
-ACTIVITY_FORM_FIELDS = {
+# product_lines is included for every activity (see migration 0030); keep in sync when editing.
+PRODUCT_LINES = {"key": "product_lines", "label": "Products", "required": False}
+
+
+def _with_product_lines(fields: list) -> list:
+    keys = {f.get("key") for f in fields if isinstance(f, dict)}
+    if "product_lines" in keys:
+        return fields
+    return [*fields, dict(PRODUCT_LINES)]
+
+
+ACTIVITY_FORM_FIELDS_RAW = {
     "order_collection": [
         {"key": "order_value", "label": "Total order value", "required": False},
         {"key": "farmers_feedback", "label": "Notes (payment, delivery date, competitor products)", "required": False},
@@ -114,6 +125,10 @@ ACTIVITY_FORM_FIELDS = {
         {"key": "merchandising", "label": "Merchandising", "required": False},
         {"key": "counter_training", "label": "Counter training", "required": False},
     ],
+}
+
+ACTIVITY_FORM_FIELDS = {
+    k: _with_product_lines(list(v)) for k, v in ACTIVITY_FORM_FIELDS_RAW.items()
 }
 
 
