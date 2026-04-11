@@ -27,7 +27,7 @@ _DO_SPACES_BUCKET = (
     config("DO_SPACES_BUCKET_NAME", default="").strip()
     or config("AWS_STORAGE_BUCKET_NAME", default="").strip()
 )
-USE_DO_SPACES = True
+USE_DO_SPACES = _DO_SPACES_BUCKET != ""
 
 INSTALLED_APPS = [
     "django.contrib.admin",
