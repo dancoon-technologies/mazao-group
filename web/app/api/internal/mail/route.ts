@@ -64,7 +64,10 @@ export async function POST(request: Request) {
   const pass = process.env.SMTP_PASS?.trim();
   if (!host || !user || !pass) {
     return NextResponse.json(
-      { error: 'SMTP is not configured (SMTP_HOST, SMTP_USER, SMTP_PASS).' },
+      {
+        error:
+          'SMTP is not configured (SMTP_HOST, SMTP_USER, SMTP_PASS). These must be set on the Next.js server environment — Nodemailer sends from the server, not the client.',
+      },
       { status: 503 }
     );
   }

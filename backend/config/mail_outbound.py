@@ -64,8 +64,16 @@ def send_email(
                 resp.status_code,
                 (resp.text or "")[:500],
             )
+            logger.info(
+                "Falling back to Django send_mail. If you intend to send via the web app, "
+                "set SMTP_HOST, SMTP_USER, and SMTP_PASS on the Next.js server environment "
+                "(Nodemailer runs in /api/internal/mail, not in the browser)."
+            )
         except Exception as e:
             logger.warning("Web mail API request failed: %s", e)
+            logger.info(
+                "Falling back to Django send_mail after web mail transport error."
+            )
 
     django_send_mail(
         subject=subject,

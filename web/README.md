@@ -1,5 +1,12 @@
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
+## Environment variables
+
+See **`.env.example`**. Notable for production:
+
+- **`INTERNAL_MAIL_SECRET`** — required for `POST /api/internal/mail` (called by the Django API when `WEB_MAIL_API_URL` / `WEB_MAIL_INTERNAL_SECRET` are set). Must match the backend secret.
+- **`SMTP_HOST`**, **`SMTP_USER`**, **`SMTP_PASS`** — required for that route to actually send mail. Nodemailer runs on the **Next.js server**, not in the user’s browser; the frontend “sends” email only in the sense that this app’s API performs SMTP. If these are missing, the route returns 503 and Django falls back to its own SMTP settings.
+
 ## Getting Started
 
 First, run the development server:
