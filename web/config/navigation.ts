@@ -12,7 +12,7 @@ import { IconHome, IconUser, IconBuilding, IconBuildingStore, IconClipboardList,
 export interface NavItem {
   href: string;
   label: string;
-  icon: typeof IconHome | typeof IconUser | typeof IconBuilding | typeof IconBuildingStore | typeof IconClipboardList | typeof IconCalendar | typeof IconUsers | typeof IconMapPin | typeof IconShoppingCart | typeof IconTool;
+  icon: typeof IconHome | typeof IconUser | typeof IconBuilding | typeof IconBuildingStore | typeof IconClipboardList | typeof IconCalendar | typeof IconUsers | typeof IconMapPin | typeof IconShoppingCart | typeof IconTool | typeof IconNotes;
   roles?: readonly UserRole[];
 }
 

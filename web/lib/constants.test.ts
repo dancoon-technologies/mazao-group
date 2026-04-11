@@ -22,6 +22,7 @@ describe("ROUTES", () => {
     expect(ROUTES.VISITS).toBe("/visits");
     expect(ROUTES.SALES).toBe("/sales");
     expect(ROUTES.TRACKING).toBe("/tracking");
+    expect(ROUTES.ROUTE_REPORTS).toBe("/route-reports");
     expect(ROUTES.CHANGE_PASSWORD).toBe("/change-password");
   });
 });
