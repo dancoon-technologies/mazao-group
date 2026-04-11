@@ -84,8 +84,8 @@ function haversineMeters(
   const a =
     Math.sin(dLat / 2) ** 2 +
     Math.cos((lat1 * Math.PI) / 180) *
-      Math.cos((lat2 * Math.PI) / 180) *
-      Math.sin(dLon / 2) ** 2;
+    Math.cos((lat2 * Math.PI) / 180) *
+    Math.sin(dLon / 2) ** 2;
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   return R * c;
 }
@@ -245,8 +245,8 @@ async function applyWorkingHoursState(): Promise<void> {
         timeInterval: trackingIntervalMs,
         distanceInterval: 0,
         foregroundService: {
-          notificationTitle: 'Enable location',
-          notificationBody: 'To improve your field experience, location is used while you work.',
+          notificationTitle: 'Mazao Monitor',
+          notificationBody: 'Have a great time while you work.',
         },
       });
       startSensorSubscription();
@@ -258,7 +258,7 @@ async function applyWorkingHoursState(): Promise<void> {
   } else if (!within && isTrackingStarted) {
     stopSensorSubscription();
     try {
-  await Location.stopLocationUpdatesAsync(LOCATION_TRACKING_TASK);
+      await Location.stopLocationUpdatesAsync(LOCATION_TRACKING_TASK);
       isTrackingStarted = false;
       logger.info('Tracking: stopped (outside working hours)', { workingHourStart, workingHourEnd });
     } catch (e) {
