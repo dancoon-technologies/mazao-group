@@ -127,6 +127,15 @@ if USE_DO_SPACES:
         or config("AWS_S3_REGION_NAME", default="fra1")
     )
     AWS_S3_OBJECT_PARAMETERS = {"CacheControl": "max-age=86400"}
+    # django-storages defaults to presigned URLs when no custom_domain is set. Those expire
+    # (AWS_QUERYSTRING_EXPIRE, default 3600s) while mobile/web cache API payloads → broken images.
+    # False = stable object URLs; Space/bucket (or CDN in front) must allow anonymous GET for media keys.
+    # Set AWS_QUERYSTRING_AUTH=true only if objects are private and you refresh URLs on every read.
+    AWS_QUERYSTRING_AUTH = config(
+        "AWS_QUERYSTRING_AUTH",
+        default="false",
+        cast=lambda v: str(v).strip().lower() in ("1", "true", "yes", "on"),
+    )
     # Object key prefix inside the bucket (e.g. all uploads under media/…)
     _media_prefix = (
         config("DO_SPACES_MEDIA_PREFIX", default="").strip().strip("/")
